@@ -1,0 +1,167 @@
+import numpy as np
+
+class gldbg2013:
+
+    def __init__(self, nx=151, ny=151):
+        self.x = np.linspace(0,150e3, num=nx)
+        self.y = np.linspace(0,150e3, num=ny)
+
+        self.init_bed(self.x,self.y)
+        self.init_surf(self.x,self.y)
+        self.thick = self.surf - self.bed;
+
+        self.init_bdrag(self.x,self.y)
+        self.init_bmelt(self.x,self.y)
+
+    def Rx(self,x):
+        '''Return x component of bedrock topography function
+        Input:
+        x -- x coordinates in metres as a numpy array
+        '''
+        #metres -> km
+        x = x/1000.0;
+
+        #Eq 10, x dimension of topography
+        rx = 1.0 + (5.0/6.0) * (150.0 - x) / 150.0
+
+        return rx
+
+    def Ry(self,y):
+        '''Return y component of bedrock topography function
+        Input:
+        y -- y coordinates in metres as a numpy array
+        '''
+        #metres -> km
+        y = y/1000.0;
+
+        #Partition into three parts: p1, p2, p3
+        p1 = np.logical_and(50 <= y, y < 100)
+
+        p2a = np.logical_and(25 <= y, y< 50)
+        p2b = np.logical_and(100 <= y, y< 125)
+        p2 = np.logical_or(p2a,p2b)
+
+        p3a = np.logical_or(p1,p2)
+        p3 = np.logical_not(p3a)
+
+        #Initiatalize empty array
+        ry = np.empty(y.shape)
+        ry[:] = np.nan
+
+        #Bedrock height in metres
+        ry[p1] = -100.0 - 600.0*np.sin( np.pi*(y[p1]-50)/50.0 )
+        ry[p2] = -100.0 - 100.0*np.sin( np.pi*(y[p2]-50)/50.0 )
+        ry[p3] = 0
+
+        return ry
+
+    def init_bed(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        #Create bed topography in metres
+        rx = self.Rx(x)
+        ry = self.Ry(y)
+        self.bed = np.array([ry]).T * rx
+
+
+
+    def init_surf(self,x,y):
+
+        self.surf = self.bed + 2000.0*np.ones([y.size, x.size])
+        self.surf[:,-1] = self.bed[:,-1];
+
+
+    def init_bdrag(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        x = x/1000.0
+        y = y/1000.0
+
+        #Determine area of enhanced basal drag
+        yy = np.meshgrid(x,y)[1]
+        p1 = np.logical_and(50 <= yy, yy <= 100)
+
+        #Assign basal drag
+        self.bdrag = 9*np.sqrt(30)*np.ones(yy.shape)
+        self.bdrag[p1] = np.sqrt(30)
+        self.bdrag = self.bdrag**2
+
+
+    def init_bmelt(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        yy = np.meshgrid(x,y)[1]
+
+        self.bmelt = 1.0*np.ones(yy.shape)
+
+
+class grnld_margin:
+
+    def __init__(self, nx=151, ny=151):
+        self.x = np.linspace(0,150e3, num=nx)
+        self.y = np.linspace(0,150e3, num=ny)
+
+        self.init_bed(self.x,self.y)
+        self.init_surf(self.x,self.y)
+        self.thick = self.surf - self.bed;
+
+        self.init_bdrag(self.x,self.y)
+        self.init_bmelt(self.x,self.y)
+
+
+    def init_bed(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        #Create bed topography in metres
+        self.bed = np.zeros([y.size,x.size])
+
+
+    def init_surf(self,x,y):
+        H0 = 2000.0
+        xx = np.meshgrid(x, y)[0]
+        self.surf = H0*np.sqrt(1.0-xx/max(x))
+        self.surf[:,-1] = self.bed[:,-1];
+
+
+    def init_bdrag(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        x = x/1000.0
+        y = y/1000.0
+
+        #Determine area of enhanced basal drag
+        yy = np.meshgrid(x,y)[1]
+        p1 = np.logical_and(50 <= yy, yy <= 100)
+
+        #Assign basal drag
+        #self.bdrag = 9*np.sqrt(30)*np.ones(yy.shape)
+        #self.bdrag[p1] = np.sqrt(30)
+        self.bdrag = 8.0e10*np.ones(yy.shape)
+        self.bdrag[p1] = 1.0e10
+
+
+
+    def init_bmelt(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        yy = np.meshgrid(x,y)[1]
+
+        self.bmelt = 1.0*np.ones(yy.shape)
