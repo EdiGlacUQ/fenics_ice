@@ -130,9 +130,11 @@ class grnld_margin:
 
     def init_surf(self,x,y):
         H0 = 2000.0
+        li = -4
         xx = np.meshgrid(x, y)[0]
-        self.surf = H0*np.sqrt(1.0-xx/max(x))
-        self.surf[:,-1] = self.bed[:,-1];
+        self.surf = np.zeros(xx.shape)
+        self.surf[:,0:li] = H0*np.sqrt(1.0-(xx[:,0:li])/max(x[0:li]))
+
 
 
     def init_bdrag(self,x,y):

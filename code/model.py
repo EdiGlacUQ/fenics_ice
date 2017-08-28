@@ -10,6 +10,7 @@ class model:
         self.mesh = Mesh(mesh_in)
         self.V = VectorFunctionSpace(self.mesh,'Lagrange',2)
         self.Q = FunctionSpace(self.mesh,'Lagrange',2)
+        self.M = FunctionSpace(self.mesh,'DG',0)
 
         self.U = Function(self.V)
         self.Phi = TestFunction(self.V)
@@ -23,15 +24,15 @@ class model:
         self.solve_param = {'newton_solver' :
                 {
                 'linear_solver'            : 'cg',
-                'preconditioner'           : 'hypre_amg',
-                'relative_tolerance'       : 1e-10,
+                'preconditioner'           : 'jacobi',
+                'relative_tolerance'       : 1e-12,
                 'relaxation_parameter'     : 1.0,
                 'absolute_tolerance'       : 1.0,
                 'maximum_iterations'       : 20,
                 'error_on_nonconvergence'  : True,
                 'krylov_solver'            :
                 {
-                'monitor_convergence'   : True,
+                'monitor_convergence'   : False,
                 }}}
 
 
@@ -45,10 +46,9 @@ class model:
 
         self.g = 9.81
         self.n = 3.0
-        self.eps_rp = 10.0e-5
+        self.eps_rp = 1e-20
 
         self.A = 7.0e-25
-
 
     def init_surf(self,surf):
         self.surf = project(surf,self.Q)
@@ -76,8 +76,7 @@ class model:
 
     def gen_ice_mask(self):
         tol = 1e-6
-        self.mask = Function(self.Q)
-        self.mask.vector()[:] = np.abs(self.surf.vector()[:] - self.bed.vector()[:]) > tol
+        self.mask = project(conditional(gt(self.thick,tol),1,0), self.M)
 
     def gen_boundaries(self):
 
@@ -153,14 +152,20 @@ class model:
                     n2_mask = self.mask(n2_x,n2_y)
                     n2_bool = near(n2_mask,1)
 
+
                     #Identify if terminus cell
                     if n1_bool + n2_bool == 1: #XOR
+                        print 'XOR'
                         #Grounded or Floating
                         bed_xy = self.bed(x_m, y_m)
                         if bed_xy >= 0:
                             self.ff[f] = GAMMA_GND
                         else:
                             self.ff[f] = GAMMA_FLT
+
+                        #Set unit vector to point outwards
+                        #n = f.normal()
+                        #print n.str(True)
 
         self.set_measures()
 

@@ -42,7 +42,7 @@ class ssa_solver:
 
         #Viscous Dissipation
         epsdot = self.effective_strain_rate(model.U)
-        Vd = (2*n)/(n+1) * A**(-1/n) * (epsdot + eps_rp)**((n+1)/(2*n))
+        Vd = (2.0*n)/(n+1.0) * A**(-1.0/n) * (epsdot + eps_rp)**((n+1.0)/(2.0*n))
 
         #Driving Stress
         gradS = grad(surf)
@@ -53,7 +53,7 @@ class ssa_solver:
         Sl = 0.5 * B2 * dot(model.U,model.U)
 
         # action :
-        Action = height*(Vd - Ds)*dIce + height*Sl*dIce_gnd #+ Wp*dLat_flt
+        Action = height*(Vd + Ds)*dIce + height*Sl*dIce_gnd #+ Wp*dLat_flt
 
 
         # the first variation of the action in the direction of a
@@ -64,27 +64,8 @@ class ssa_solver:
         # a trial function ; the Jacobian :
         self.mom_Jac = derivative(self.mom_F, model.U,model.dU)
 
-
-        solve_param = {'newton_solver' :
-                {
-                'linear_solver'            : 'cg',
-                'preconditioner'           : 'hypre_amg',
-                'relative_tolerance'       : 1e-12,
-                'relaxation_parameter'     : 1.0,
-                'absolute_tolerance'       : 1.0,
-                'maximum_iterations'       : 20,
-                'error_on_nonconvergence'  : True,
-                'krylov_solver'            :
-                {
-                'monitor_convergence'   : True,
-                }}}
-
-
-
-
-
         bc_dmn = [DirichletBC(model.V, (0.0, 0.0), model.ff, model.GAMMA_DMN)]
-        solve(self.mom_F == 0, model.U, J = self.mom_Jac, bcs = bc_dmn,solver_parameters = solve_param)
+        solve(self.mom_F == 0, model.U, J = self.mom_Jac, bcs = bc_dmn,solver_parameters = model.solve_param)
 
     def epsilon(self, U):
         """
@@ -98,6 +79,6 @@ class ssa_solver:
         return the effective strain rate squared.
         """
         # Second invariant of the strain rate tensor squared
-        eps_2 = 0.5 * tr(dot(self.epsilon(U), self.epsilon(U)))
+        eps_2 = 0.5*tr(dot(self.epsilon(U), self.epsilon(U)))
 
         return eps_2
