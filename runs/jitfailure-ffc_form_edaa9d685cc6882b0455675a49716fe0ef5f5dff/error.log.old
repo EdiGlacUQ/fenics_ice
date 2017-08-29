@@ -1,0 +1,44 @@
+/tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.cpp: In member function ‘virtual void ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff_cell_integral_main_otherwise::tabulate_tensor(double*, const double* const*, const double*, int) const’:
+/tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.cpp:110:42: error: no matching function for call to ‘min(double&, int)’
+         sv6[0] = sp[3] * std::min(w0, 100);
+                                          ^
+In file included from /usr/include/c++/5/algorithm:61:0,
+                 from /tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.h:26,
+                 from /tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.cpp:24:
+/usr/include/c++/5/bits/stl_algobase.h:195:5: note: candidate: template<class _Tp> const _Tp& std::min(const _Tp&, const _Tp&)
+     min(const _Tp& __a, const _Tp& __b)
+     ^
+/usr/include/c++/5/bits/stl_algobase.h:195:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.cpp:110:42: note:   deduced conflicting types for parameter ‘const _Tp’ (‘double’ and ‘int’)
+         sv6[0] = sp[3] * std::min(w0, 100);
+                                          ^
+In file included from /usr/include/c++/5/algorithm:61:0,
+                 from /tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.h:26,
+                 from /tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.cpp:24:
+/usr/include/c++/5/bits/stl_algobase.h:243:5: note: candidate: template<class _Tp, class _Compare> const _Tp& std::min(const _Tp&, const _Tp&, _Compare)
+     min(const _Tp& __a, const _Tp& __b, _Compare __comp)
+     ^
+/usr/include/c++/5/bits/stl_algobase.h:243:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.cpp:110:42: note:   deduced conflicting types for parameter ‘const _Tp’ (‘double’ and ‘int’)
+         sv6[0] = sp[3] * std::min(w0, 100);
+                                          ^
+In file included from /usr/include/c++/5/algorithm:62:0,
+                 from /tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.h:26,
+                 from /tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.cpp:24:
+/usr/include/c++/5/bits/stl_algo.h:3445:5: note: candidate: template<class _Tp> _Tp std::min(std::initializer_list<_Tp>)
+     min(initializer_list<_Tp> __l)
+     ^
+/usr/include/c++/5/bits/stl_algo.h:3445:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.cpp:110:42: note:   mismatched types ‘std::initializer_list<_Tp>’ and ‘double’
+         sv6[0] = sp[3] * std::min(w0, 100);
+                                          ^
+In file included from /usr/include/c++/5/algorithm:62:0,
+                 from /tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.h:26,
+                 from /tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.cpp:24:
+/usr/include/c++/5/bits/stl_algo.h:3451:5: note: candidate: template<class _Tp, class _Compare> _Tp std::min(std::initializer_list<_Tp>, _Compare)
+     min(initializer_list<_Tp> __l, _Compare __comp)
+     ^
+/usr/include/c++/5/bits/stl_algo.h:3451:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_5W5X0/ffc_form_edaa9d685cc6882b0455675a49716fe0ef5f5dff.cpp:110:42: note:   mismatched types ‘std::initializer_list<_Tp>’ and ‘double’
+         sv6[0] = sp[3] * std::min(w0, 100);
+                                          ^

@@ -8,8 +8,8 @@ class model:
 
     def __init__(self, mesh_in, outdir='./output/'):
         self.mesh = Mesh(mesh_in)
-        self.V = VectorFunctionSpace(self.mesh,'Lagrange',2)
-        self.Q = FunctionSpace(self.mesh,'Lagrange',2)
+        self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
+        self.Q = FunctionSpace(self.mesh,'Lagrange',1)
         self.M = FunctionSpace(self.mesh,'DG',0)
 
         self.U = Function(self.V)
@@ -24,31 +24,28 @@ class model:
         self.solve_param = {'newton_solver' :
                 {
                 'linear_solver'            : 'cg',
-                'preconditioner'           : 'jacobi',
-                'relative_tolerance'       : 1e-12,
-                'relaxation_parameter'     : 1.0,
+                'preconditioner'           : 'hypre_amg',
+                'relative_tolerance'       : 1e-15,
+                'relaxation_parameter'     : 0.70,
                 'absolute_tolerance'       : 1.0,
-                'maximum_iterations'       : 20,
-                'error_on_nonconvergence'  : True,
-                'krylov_solver'            :
-                {
-                'monitor_convergence'   : False,
-                }}}
+                'maximum_iterations'       : 50,
+                'error_on_nonconvergence'  : False,
+                }}
 
 
     def init_constants(self):
 
         self.td = 24*60*60.0
-        self.ty = 365*24*60*60.0
+        self.ty = 31556926.0
 
-        self.rhoi =  917.0
+        self.rhoi =  910.0
         self.rhow =  1000.0
 
         self.g = 9.81
         self.n = 3.0
-        self.eps_rp = 1e-20
+        self.eps_rp = 1e-5
 
-        self.A = 7.0e-25
+        self.A = 10**(-16)
 
     def init_surf(self,surf):
         self.surf = project(surf,self.Q)
@@ -66,13 +63,14 @@ class model:
         rhoi = self.rhoi
         rhow = self.rhow
 
-        self.thick = Function(self.Q)
+        h_diff = self.surf-self.bed
+        h_hyd = self.surf*1.0/(1-rhoi/rhow)
+        self.thick = project(Min(h_diff,h_hyd),self.Q)
 
-        h = self.surf.vector()[:] - self.bed.vector()[:]
-        h_hyd = self.surf.vector()[:]*1.0/(1-rhoi/rhow)
+        #h = self.surf.vector()[:] - self.bed.vector()[:]
+        #h_hyd = self.surf.vector()[:]*1.0/(1-rhoi/rhow)
 
-        self.thick.vector()[:] = np.minimum(h,h_hyd)
-
+        #self.thick.vector()[:] = np.minimum(h,h_hyd)
 
     def gen_ice_mask(self):
         tol = 1e-6
@@ -140,15 +138,15 @@ class model:
 
                     #Properties of neighbor 1
                     n1 = Cell(self.mesh,n1_num)
-                    n1_x = c.midpoint().x()
-                    n1_y = c.midpoint().y()
+                    n1_x = n1.midpoint().x()
+                    n1_y = n1.midpoint().y()
                     n1_mask = self.mask(n1_x,n1_y)
                     n1_bool = near(n1_mask,1)
 
                     #Properties of neighbor 2
                     n2 = Cell(self.mesh,n2_num)
-                    n2_x = c.midpoint().x()
-                    n2_y = c.midpoint().y()
+                    n2_x = n2.midpoint().x()
+                    n2_y = n2.midpoint().y()
                     n2_mask = self.mask(n2_x,n2_y)
                     n2_bool = near(n2_mask,1)
 
@@ -156,12 +154,13 @@ class model:
                     #Identify if terminus cell
                     if n1_bool + n2_bool == 1: #XOR
                         print 'XOR'
+
                         #Grounded or Floating
                         bed_xy = self.bed(x_m, y_m)
                         if bed_xy >= 0:
-                            self.ff[f] = GAMMA_GND
+                            self.ff[f] = self.GAMMA_GND
                         else:
-                            self.ff[f] = GAMMA_FLT
+                            self.ff[f] = self.GAMMA_FLT
 
                         #Set unit vector to point outwards
                         #n = f.normal()

@@ -25,7 +25,7 @@ class ssa_solver:
         rhow = model.rhow
         g = model.g
         n = model.n
-        eps_rp = model.eps_rp
+        self.eps_rp = model.eps_rp
         A = model.A
 
         #Measures
@@ -37,24 +37,22 @@ class ssa_solver:
         dLat_flt  = model.dLat_flt
         dLat_dmn  = model.dLat_dmn
 
-
         #Equations
-
-        #Viscous Dissipation
-        epsdot = self.effective_strain_rate(model.U)
-        Vd = (2.0*n)/(n+1.0) * A**(-1.0/n) * (epsdot + eps_rp)**((n+1.0)/(2.0*n))
 
         #Driving Stress
         gradS = grad(surf)
         tau_drv = project(rhoi*g*height*gradS, model.V)
         Ds = dot(tau_drv, model.U)
 
+        #Viscous Dissipation
+        epsdot = self.effective_strain_rate(model.U)
+        Vd = (2.0*n)/(n+1.0) * A**(-1.0/n) * (epsdot)**((n+1.0)/(2.0*n))
+
         #Sliding law
         Sl = 0.5 * B2 * dot(model.U,model.U)
 
         # action :
-        Action = height*(Vd + Ds)*dIce + height*Sl*dIce_gnd #+ Wp*dLat_flt
-
+        Action = (height*Vd + Ds)*dIce + Sl*dIce_gnd #+ Wp*dLat_flt
 
         # the first variation of the action in the direction of a
         # test function ; the extremum :
@@ -65,6 +63,7 @@ class ssa_solver:
         self.mom_Jac = derivative(self.mom_F, model.U,model.dU)
 
         bc_dmn = [DirichletBC(model.V, (0.0, 0.0), model.ff, model.GAMMA_DMN)]
+
         solve(self.mom_F == 0, model.U, J = self.mom_Jac, bcs = bc_dmn,solver_parameters = model.solve_param)
 
     def epsilon(self, U):
@@ -79,6 +78,6 @@ class ssa_solver:
         return the effective strain rate squared.
         """
         # Second invariant of the strain rate tensor squared
-        eps_2 = 0.5*tr(dot(self.epsilon(U), self.epsilon(U)))
+        eps_2 = 0.5*tr(dot(self.epsilon(U), self.epsilon(U))) + self.eps_rp**2
 
         return eps_2
