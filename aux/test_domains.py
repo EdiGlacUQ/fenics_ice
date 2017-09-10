@@ -220,3 +220,57 @@ class ismipC:
         yy = np.meshgrid(x,y)[1]
 
         self.bmelt = 1.0*np.ones(yy.shape)
+
+
+
+class analytical:
+
+    def __init__(self, L, nx=151, ny=151):
+        self.L = L
+        self.x = np.linspace(0, L, num=nx)
+        self.y = np.linspace(0, L, num=ny)
+
+        self.init_surf(self.x,self.y)
+        self.init_bed(self.x,self.y)
+        self.thick = self.surf - self.bed;
+
+        self.init_bdrag(self.x,self.y)
+        self.init_bmelt(self.x,self.y)
+
+
+    def init_bed(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        #Create bed topography in metres
+        self.bed = self.surf - 1000.0
+
+
+
+    def init_surf(self,x,y):
+        xx = np.meshgrid(x, y)[0]
+        self.surf = 1e4 -xx*np.tan(0.1*np.pi/180.0)
+
+    def init_bdrag(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        w = 2.0*np.pi/self.L
+        xx,yy = np.meshgrid(x,y)
+        self.bdrag = 1500.0*(np.ones([y.size, x.size]))
+
+
+
+    def init_bmelt(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        yy = np.meshgrid(x,y)[1]
+
+        self.bmelt = 1.0*np.ones(yy.shape)

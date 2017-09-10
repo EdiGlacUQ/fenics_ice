@@ -60,11 +60,19 @@ class ssa_solver:
 
         # the first variation of the extremum in the direction
         # a trial function ; the Jacobian :
-        self.mom_Jac = derivative(self.mom_F, model.U,model.dU)
+        self.mom_Jac = derivative(self.mom_F, model.U, model.dU)
 
-        bc_dmn = [DirichletBC(model.V, (0.0, 0.0), model.ff, model.GAMMA_DMN)]
+        self.bc_dmn = [DirichletBC(model.V, (0.0, 0.0), model.ff, model.GAMMA_DMN)]
 
-        solve(self.mom_F == 0, model.U, J = self.mom_Jac, bcs = bc_dmn,solver_parameters = model.solve_param)
+
+
+
+        solve(self.mom_F == 0, model.U, J = self.mom_Jac, bcs = self.bc_dmn,solver_parameters = model.solve_param)
+
+    def calc_hess(self,param):
+        self.mom_H1 = derivative(self.mom_F, param)
+        self.mom_Hess = derivative(self.mom_H1, param)
+
 
     def epsilon(self, U):
         """
@@ -77,7 +85,13 @@ class ssa_solver:
         """
         return the effective strain rate squared.
         """
+
+        eps = self.epsilon(U)
+        exx = eps[0,0]
+        eyy = eps[1,1]
+        exy = eps[0,1]
+
         # Second invariant of the strain rate tensor squared
-        eps_2 = 0.5*tr(dot(self.epsilon(U), self.epsilon(U))) + self.eps_rp**2
+        eps_2 = (exx**2 + eyy**2 + exx*eyy + (exy)**2 + self.eps_rp**2)
 
         return eps_2

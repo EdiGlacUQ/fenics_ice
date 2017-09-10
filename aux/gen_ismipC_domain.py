@@ -7,13 +7,13 @@ import fenics_util as fu
 
 
 #Number of cells in grid
-nx = 150;
-ny = 150;
+nx = 361;
+ny = 361;
 
 #Fenics mesh
 L = 120e3
 mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
-V = FunctionSpace(mesh, 'Lagrange',1)
+V = FunctionSpace(mesh, 'DG',1)
 v = Function(V)
 n = V.dim()
 d = mesh.geometry().dim()

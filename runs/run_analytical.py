@@ -8,18 +8,18 @@ from IPython import embed
 
 #Load Data
 
-dd = '../input/ismipC/'
-data_mesh = Mesh(''.join([dd,'ismipC_mesh.xml']))
+dd = '../input/analytical/'
+data_mesh = Mesh(''.join([dd,'analytical_mesh.xml']))
 Q = FunctionSpace(data_mesh, 'Lagrange', 1)
-bed = Function(Q,''.join([dd,'ismipC_mesh_bed.xml']))
-surf = Function(Q,''.join([dd,'ismipC_mesh_surf.xml']))
-bmelt = Function(Q,''.join([dd,'ismipC_mesh_bmelt.xml']))
-bdrag = Function(Q,''.join([dd,'ismipC_mesh_bdrag.xml']))
+bed = Function(Q,''.join([dd,'analytical_mesh_bed.xml']))
+surf = Function(Q,''.join([dd,'analytical_mesh_surf.xml']))
+bmelt = Function(Q,''.join([dd,'analytical_mesh_bmelt.xml']))
+bdrag = Function(Q,''.join([dd,'analytical_mesh_bdrag.xml']))
 
 #Generate model mesh
-nx = 120
-ny = 120
-L = 120e3
+nx = 481
+ny = 481
+L = 240e3
 mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
 
 

@@ -8,7 +8,7 @@ from IPython import embed
 
 #Load Data
 
-dd = '../input/grnld_tst/'
+dd = '../input/grnld/'
 data_mesh = Mesh(''.join([dd,'grnld_mesh.xml']))
 Q = FunctionSpace(data_mesh, 'Lagrange', 1)
 bed = Function(Q,''.join([dd,'grnld_mesh_bed.xml']))
@@ -17,8 +17,8 @@ bmelt = Function(Q,''.join([dd,'grnld_mesh_bmelt.xml']))
 bdrag = Function(Q,''.join([dd,'grnld_mesh_bdrag.xml']))
 
 #Generate model mesh
-nx = 150
-ny = 150
+nx = 151
+ny = 151
 mesh = RectangleMesh(Point(0,0), Point(150e3, 150e3), nx, ny)
 
 
@@ -35,10 +35,10 @@ mdl.gen_ice_mask()
 mdl.gen_boundaries()
 
 #Solve
-slvr = solver.ssa_solver(mdl)
+#slvr = solver.ssa_solver(mdl)
 
 vtkfile = File('U.pvd')
-U = project(mdl.U*365*24*3600,mdl.V)
+U = project(mdl.U,mdl.V)
 vtkfile << U
 
 vtkfile = File('bed.pvd')
@@ -52,3 +52,5 @@ vtkfile << mdl.thick
 
 vtkfile = File('mask.pvd')
 vtkfile << mdl.mask
+
+embed()

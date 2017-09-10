@@ -21,7 +21,18 @@ class model:
 
 
     def default_solver_params(self):
-        self.solve_param = {'newton_solver' :
+        self.solve_param = {'nonlinear_solver'      : 'snes',
+                            'snes_solver':
+                            {
+                            'linear_solver'         : 'cg',
+                            'preconditioner'        : 'hypre_amg',
+                            'line_search'           : 'bt',
+                            'relative_tolerance'    : 1e-25,
+                            'absolute_tolerance'    : 1e-15,
+                            'solution_tolerance'    : 1e-20
+                            }}
+
+        self.solve_param2 = {'newton_solver' :
                 {
                 'linear_solver'            : 'cg',
                 'preconditioner'           : 'hypre_amg',
@@ -34,8 +45,6 @@ class model:
 
 
     def init_constants(self):
-
-        self.td = 24*60*60.0
         self.ty = 31556926.0
 
         self.rhoi =  910.0
@@ -43,9 +52,11 @@ class model:
 
         self.g = 9.81
         self.n = 3.0
-        self.eps_rp = 1e-5
+        self.eps_rp = 1e-3
 
         self.A = 10**(-16)
+
+        self.tol = 1e-6
 
     def init_surf(self,surf):
         self.surf = project(surf,self.Q)
@@ -67,14 +78,8 @@ class model:
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
         self.thick = project(Min(h_diff,h_hyd),self.Q)
 
-        #h = self.surf.vector()[:] - self.bed.vector()[:]
-        #h_hyd = self.surf.vector()[:]*1.0/(1-rhoi/rhow)
-
-        #self.thick.vector()[:] = np.minimum(h,h_hyd)
-
     def gen_ice_mask(self):
-        tol = 1e-6
-        self.mask = project(conditional(gt(self.thick,tol),1,0), self.M)
+        self.mask = project(conditional(gt(self.thick,self.tol),1,0), self.M)
 
     def gen_boundaries(self):
 
@@ -114,7 +119,7 @@ class model:
             bed_xy = self.bed(x_m,y_m)
 
             #Determine whether the cell is floating, grounded, or not of interest
-            if near(mask_xy, 1):
+            if near(mask_xy, 1, self.tol):
                 if h_xy >= rhow*(0-bed_xy)/rhoi:
                     self.cf[c] = self.OMEGA_GND
                 else:
@@ -122,14 +127,18 @@ class model:
 
 
         #Label facets
+        cntr = 0
+        cntr_ext = 0
         for f in facets(self.mesh):
             x_m      = f.midpoint().x()
             y_m      = f.midpoint().y()
             mask_xy = self.mask(x_m, y_m)
+            height_xy = self.thick(x_m, y_m)
 
-            if near(mask_xy,1):
+            if near(mask_xy,1,self.tol):
 
                 if f.exterior():
+                    cntr_ext += 1
                     self.ff[f] = self.GAMMA_DMN
 
                 else:
@@ -141,19 +150,22 @@ class model:
                     n1_x = n1.midpoint().x()
                     n1_y = n1.midpoint().y()
                     n1_mask = self.mask(n1_x,n1_y)
-                    n1_bool = near(n1_mask,1)
+                    n1_bool = near(n1_mask,1, self.tol)
 
                     #Properties of neighbor 2
                     n2 = Cell(self.mesh,n2_num)
                     n2_x = n2.midpoint().x()
                     n2_y = n2.midpoint().y()
                     n2_mask = self.mask(n2_x,n2_y)
-                    n2_bool = near(n2_mask,1)
+                    n2_bool = near(n2_mask,1, self.tol)
 
 
                     #Identify if terminus cell
                     if n1_bool + n2_bool == 1: #XOR
-                        print 'XOR'
+                        cntr += 1
+
+                        print 'x/y: %s %s' % (x_m, y_m)
+                        print 'h: %s' % (height_xy)
 
                         #Grounded or Floating
                         bed_xy = self.bed(x_m, y_m)
@@ -167,6 +179,8 @@ class model:
                         #print n.str(True)
 
         self.set_measures()
+        print cntr
+        print cntr_ext
 
     def set_measures(self):
 

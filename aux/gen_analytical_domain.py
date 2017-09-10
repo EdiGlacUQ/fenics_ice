@@ -7,11 +7,12 @@ import fenics_util as fu
 
 
 #Number of cells in grid
-nx = 150;
-ny = 150;
+nx = 481;
+ny = 481;
 
 #Fenics mesh
-mesh = RectangleMesh(Point(0,0), Point(150e3, 150e3), nx, ny)
+L = 240e3
+mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
 V = FunctionSpace(mesh, 'Lagrange',1)
 v = Function(V)
 n = V.dim()
@@ -23,7 +24,7 @@ dof_x = dof_coordinates[:, 0]
 dof_y = dof_coordinates[:, 1]
 
 #Sampling Mesh, identical to Fenics mesh
-domain = test_domains.grnld_margin(nx=nx+1,ny=ny+1)
+domain = test_domains.analytical(L,nx=nx+1,ny=ny+1)
 xcoord = domain.x
 ycoord = domain.y
 
@@ -41,16 +42,18 @@ bmelt = bmelt_interp.ev(dof_x, dof_y)
 bdrag = bdrag_interp.ev(dof_x, dof_y)
 
 #Save mesh and data points at coordinates
-File('grnld_mesh.xml') << mesh
+dd = '../input/analytical/'
+
+File(''.join([dd,'analytical_mesh.xml'])) << mesh
 
 v.vector()[:] = bed.flatten()
-File('grnld_mesh_bed.xml') <<  v
+File(''.join([dd,'analytical_mesh_bed.xml'])) <<  v
 
 v.vector()[:] = surf.flatten()
-File('grnld_mesh_surf.xml') <<  v
+File(''.join([dd,'analytical_mesh_surf.xml'])) <<  v
 
 v.vector()[:] = bmelt.flatten()
-File('grnld_mesh_bmelt.xml') <<  v
+File(''.join([dd,'analytical_mesh_bmelt.xml'])) <<  v
 
 v.vector()[:] = bdrag.flatten()
-File('grnld_mesh_bdrag.xml') <<  v
+File(''.join([dd,'analytical_mesh_bdrag.xml'])) <<  v
