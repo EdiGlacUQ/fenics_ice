@@ -24,7 +24,9 @@ mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
 
 
 #Initialize Model
-mdl = model.model(mesh)
+#eq_def=1 SSA from Action Principle (Default)
+#eq_def=2 SSA directly in weak form
+mdl = model.model(mesh,eq_def=1)
 mdl.init_surf(surf)
 mdl.init_bed(bed)
 mdl.init_thick()
@@ -37,6 +39,8 @@ mdl.gen_boundaries()
 
 #Solve
 slvr = solver.ssa_solver(mdl)
+slvr.def_mom_eq()
+slvr.solve_mom_eq()
 
 vtkfile = File('U.pvd')
 U = project(mdl.U,mdl.V)

@@ -9,8 +9,8 @@ from IPython import embed
 
 
 #Number of cells in grid
-nx = 151;
-ny = 151;
+nx = 150;
+ny = 150;
 
 #Fenics mesh
 mesh = RectangleMesh(Point(0,0), Point(150e3, 150e3), nx, ny)
@@ -62,5 +62,3 @@ File(''.join([dd,'grnld_mesh_bmelt.xml'])) <<  v
 
 v.vector()[:] = bdrag.flatten()
 File(''.join([dd,'grnld_mesh_bdrag.xml'])) <<  v
-
-embed()

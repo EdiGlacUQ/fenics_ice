@@ -9,69 +9,161 @@ class ssa_solver:
     def __init__(self, model):
         self.model = model
 
-        #Finite Elements
-
-
         #Fields
-        surf = model.surf
-        bed = model.bed
-        height = model.thick
-        mask = model.mask
-        B2 = model.bdrag
-        bmelt = model.bmelt
+        self.surf = model.surf
+        self.bed = model.bed
+        self.height = model.thick
+        self.mask = model.mask
+        self.B2 = model.bdrag
+        self.bmelt = model.bmelt
 
         #Constants
-        rhoi = model.rhoi
-        rhow = model.rhow
-        g = model.g
-        n = model.n
+        self.rhoi = model.rhoi
+        self.rhow = model.rhow
+        self.g = model.g
+        self.n = model.n
         self.eps_rp = model.eps_rp
-        A = model.A
+        self.A = model.A
+
+        #parameters
+        self.eq_def = model.eq_def
+        self.solve_param = model.solve_param
+
+        #Function Spaces
+        self.V = model.V
+        self.Q = model.Q
+        self.M = model.M
+
+        #Functions
+        self.U = model.U
+        self.dU = model.dU
+        self.Phi = model.Phi
 
         #Measures
-        dIce_gnd    = model.dIce_gnd
-        dIce_flt    = model.dIce_flt
-        dIce        = model.dIce
+        self.dIce_gnd    = model.dIce_gnd
+        self.dIce_flt    = model.dIce_flt
+        self.dIce        = model.dIce
 
-        dLat_gnd  = model.dLat_gnd
-        dLat_flt  = model.dLat_flt
-        dLat_dmn  = model.dLat_dmn
+        self.dLat_gnd  = model.dLat_gnd
+        self.dLat_flt  = model.dLat_flt
+        self.dLat_mgn  = model.dLat_mgn
+        self.dLat_dmn  = model.dLat_dmn
 
-        #Equations
+        #Facets
+        self.ff = model.ff
+        self.GAMMA_DMN = model.GAMMA_DMN
 
-        #Driving Stress
-        gradS = grad(surf)
-        tau_drv = project(rhoi*g*height*gradS, model.V)
-        Ds = dot(tau_drv, model.U)
-
-        #Viscous Dissipation
-        epsdot = self.effective_strain_rate(model.U)
-        Vd = (2.0*n)/(n+1.0) * A**(-1.0/n) * (epsdot)**((n+1.0)/(2.0*n))
-
-        #Sliding law
-        Sl = 0.5 * B2 * dot(model.U,model.U)
-
-        # action :
-        Action = (height*Vd + Ds)*dIce + Sl*dIce_gnd #+ Wp*dLat_flt
-
-        # the first variation of the action in the direction of a
-        # test function ; the extremum :
-        self.mom_F = derivative(Action, model.U, model.Phi)
-
-        # the first variation of the extremum in the direction
-        # a trial function ; the Jacobian :
-        self.mom_Jac = derivative(self.mom_F, model.U, model.dU)
-
-        self.bc_dmn = [DirichletBC(model.V, (0.0, 0.0), model.ff, model.GAMMA_DMN)]
+    def def_mom_eq(self):
+        surf = self.surf
+        bed = self.bed
+        height = self.height
+        mask = self.mask
+        B2 = self.B2
+        rhoi = self.rhoi
+        rhow = self.rhow
+        g = self.g
+        n = self.n
+        A = self.A
+        dIce = self.dIce
 
 
+        #Equations from Action Principle [Dukowicz et al., 2010, JGlac, Eq 94]
+        if self.eq_def == 1:
+
+            #Driving Stress: Simple
+            #Simple version
+            #gradS = grad(surf)
+            #tau_drv = project(rhoi*g*height*gradS, model.V)
+            #Ds = dot(tau_drv, model.U)
+
+            #Driving Stress
+            delta = 1 - rhoi/rhow
+            height_s = -rhow/rhoi * bed
+
+            F = conditional(gt(height,height_s),0.5*rhoi*g*height**2,
+                0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2))
+
+            W = conditional(gt(height,height_s), rhoi*g*height, rhoi*g*height_s)
+
+            Ds = dot(self.U, grad(F) + W*grad(bed))
+
+            #Terminating margin boundary condition
+            draft = Max(0,-bed)
+            #mgn_bc = dot(model.U, nm) * (0.5*rhoi*g*height**2 - 0.5*rhow*g*draft**2)
+
+            #Viscous Dissipation
+            epsdot = self.effective_strain_rate(self.U)
+            Vd = (2.0*n)/(n+1.0) * (A**(-1.0/n)) * (epsdot**((n+1.0)/(2.0*n)))
+
+            #Sliding law
+            fl_ex = conditional(height <= height_s, 1.0, 0.0)
+            Sl = 0.5 * (1.0 -fl_ex) * B2 * dot(self.U,self.U)
+
+            # action :
+            Action = (height*Vd + Ds + Sl)*dIce  #+ mgn_bc*dLat_mgn
+
+            # the first variation of the action in the direction of a
+            # test function ; the extremum :
+            self.mom_F = derivative(Action, self.U)
+
+            # the first variation of the extremum in the direction
+            # a trial function ; the Jacobian :
+            self.mom_Jac = derivative(self.mom_F, self.U)
 
 
-        solve(self.mom_F == 0, model.U, J = self.mom_Jac, bcs = self.bc_dmn,solver_parameters = model.solve_param)
 
-    def calc_hess(self,param):
-        self.mom_H1 = derivative(self.mom_F, param)
-        self.mom_Hess = derivative(self.mom_H1, param)
+        #Equations in weak form
+        else:
+            #Vector components of trial function
+            u, v = split(self.U)
+
+            #Vector components of test function
+            Phi = self.Phi
+            Phi_x, Phi_y = split(Phi)
+
+            #Derivatives
+            u_x, u_y = u.dx(0), u.dx(1)
+            v_x, v_y = v.dx(0), v.dx(1)
+
+            #Viscosity
+            nu = self.viscosity(self.U)
+
+            #Switch parameters
+            height_s = -rhow/rhoi * bed
+            fl_ex = conditional(height <= height_s, 1.0, 0.0)
+
+            #Bottom of ice sheet, either bed or draft
+            R_f = ((1.0 - fl_ex) * bed
+               + (fl_ex) * (-rhoi / rhow) * height)
+
+            draft = Min(R_f,0)
+
+            #Ice Sheet Surface
+            s = R_f + height
+
+
+            #Terminating margin boundary condition
+            sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
+
+            self.mom_F = (- inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * dIce
+                    - inner(grad(Phi_y), height * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * dIce
+                    - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * dIce
+                    + inner(Phi, rhoi * g * height * grad(s)) * dIce)
+
+                    #- inner(jump(model.Phi * rho * g * h), avg(s) * nm("+")) * dS
+                    #- inner(model.Phi * rho * g * h, s * nm) * ds
+
+                    #+ inner(test_U, sigma_n * nm) * ds)
+
+            self.mom_Jac = derivative(self.mom_F, self.U)
+
+
+    def solve_mom_eq(self):
+
+        #Dirichlet Boundary Conditons at lateral domain margins
+        self.bc_dmn = [DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_DMN)]
+
+        solve(self.mom_F == 0, self.U, J = self.mom_Jac, bcs = self.bc_dmn,solver_parameters = self.solve_param)
 
 
     def epsilon(self, U):
@@ -95,3 +187,12 @@ class ssa_solver:
         eps_2 = (exx**2 + eyy**2 + exx*eyy + (exy)**2 + self.eps_rp**2)
 
         return eps_2
+
+    def viscosity(self,U):
+        A = self.A
+        n = self.n
+
+        eps_2 = self.effective_strain_rate(U)
+        nu = 0.5 * A**(-1.0/n) * eps_2**((1.0-n)/(2.0*n))
+
+        return nu

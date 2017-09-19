@@ -153,8 +153,8 @@ class grnld_margin:
         #Assign basal drag
         #self.bdrag = 9*np.sqrt(30)*np.ones(yy.shape)
         #self.bdrag[p1] = np.sqrt(30)
-        self.bdrag = 8.0e10*np.ones(yy.shape)
-        self.bdrag[p1] = 1.0e10
+        self.bdrag = (1000)*np.ones(yy.shape)
+        self.bdrag[p1] = (500)
 
 
 

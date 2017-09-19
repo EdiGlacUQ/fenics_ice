@@ -17,13 +17,15 @@ bmelt = Function(Q,''.join([dd,'grnld_mesh_bmelt.xml']))
 bdrag = Function(Q,''.join([dd,'grnld_mesh_bdrag.xml']))
 
 #Generate model mesh
-nx = 151
-ny = 151
+nx = 150
+ny = 150
 mesh = RectangleMesh(Point(0,0), Point(150e3, 150e3), nx, ny)
 
 
 #Initialize Model
-mdl = model.model(mesh)
+#eq_def=1 SSA from Action Principle (Default)
+#eq_def=2 SSA directly in weak form
+mdl = model.model(mesh,eq_def=1)
 mdl.init_surf(surf)
 mdl.init_bed(bed)
 mdl.init_thick()
@@ -35,7 +37,9 @@ mdl.gen_ice_mask()
 mdl.gen_boundaries()
 
 #Solve
-#slvr = solver.ssa_solver(mdl)
+slvr = solver.ssa_solver(mdl)
+slvr.def_mom_eq()
+slvr.solve_mom_eq()
 
 vtkfile = File('U.pvd')
 U = project(mdl.U,mdl.V)
@@ -52,5 +56,3 @@ vtkfile << mdl.thick
 
 vtkfile = File('mask.pvd')
 vtkfile << mdl.mask
-
-embed()
