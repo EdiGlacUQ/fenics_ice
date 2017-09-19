@@ -34,7 +34,7 @@ mdl.init_bdrag(bdrag)
 mdl.default_solver_params()
 
 mdl.gen_ice_mask()
-mdl.gen_boundaries()
+mdl.gen_domain()
 
 #Solve
 slvr = solver.ssa_solver(mdl)

@@ -16,6 +16,7 @@ class ssa_solver:
         self.mask = model.mask
         self.B2 = model.bdrag
         self.bmelt = model.bmelt
+        self.nm = model.nm
 
         #Constants
         self.rhoi = model.rhoi
@@ -39,19 +40,19 @@ class ssa_solver:
         self.dU = model.dU
         self.Phi = model.Phi
 
-        #Measures
-        self.dIce_gnd    = model.dIce_gnd
-        self.dIce_flt    = model.dIce_flt
-        self.dIce        = model.dIce
-
-        self.dLat_gnd  = model.dLat_gnd
-        self.dLat_flt  = model.dLat_flt
-        self.dLat_mgn  = model.dLat_mgn
-        self.dLat_dmn  = model.dLat_dmn
+        #Cells
+        self.cf = model.cf
+        self.OMEGA_X = model.OMEGA_X
+        self.OMEGA_ICE = model.OMEGA_ICE
 
         #Facets
         self.ff = model.ff
-        self.GAMMA_DMN = model.GAMMA_DMN
+        self.GAMMA_DEF = model.GAMMA_DEF
+        self.GAMMA_LAT = model.GAMMA_LAT
+
+        #Measures
+        self.dx = Measure('dx', domain=model.mesh, subdomain_data=self.cf)
+        self.dIce = self.dx(self.OMEGA_ICE)
 
     def def_mom_eq(self):
         surf = self.surf
@@ -65,6 +66,8 @@ class ssa_solver:
         n = self.n
         A = self.A
         dIce = self.dIce
+
+
 
 
         #Equations from Action Principle [Dukowicz et al., 2010, JGlac, Eq 94]
@@ -144,13 +147,13 @@ class ssa_solver:
 
             #Terminating margin boundary condition
             sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
-
-            self.mom_F = (- inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * dIce
+            self.mom_F = ( -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * dIce
                     - inner(grad(Phi_y), height * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * dIce
                     - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * dIce
-                    + inner(Phi, rhoi * g * height * grad(s)) * dIce)
+                    + inner(Phi, rhoi * g * height * grad(s)) * dIce
+                    + inner(avg(Phi*sigma_n)*jump(mask),self.nm("+")) * dS)
 
-                    #- inner(jump(model.Phi * rho * g * h), avg(s) * nm("+")) * dS
+                    #- inner(jump(Phi * rhoi * g * height), sigma_n * self.nm("+")) * dS(domain=self.model.mesh) )
                     #- inner(model.Phi * rho * g * h, s * nm) * ds
 
                     #+ inner(test_U, sigma_n * nm) * ds)
@@ -161,7 +164,7 @@ class ssa_solver:
     def solve_mom_eq(self):
 
         #Dirichlet Boundary Conditons at lateral domain margins
-        self.bc_dmn = [DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_DMN)]
+        self.bc_dmn = [DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_LAT)]
 
         solve(self.mom_F == 0, self.U, J = self.mom_Jac, bcs = self.bc_dmn,solver_parameters = self.solve_param)
 

@@ -26,7 +26,7 @@ mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
 #Initialize Model
 #eq_def=1 SSA from Action Principle (Default)
 #eq_def=2 SSA directly in weak form
-mdl = model.model(mesh,eq_def=1)
+mdl = model.model(mesh,eq_def=2)
 mdl.init_surf(surf)
 mdl.init_bed(bed)
 mdl.init_thick()
@@ -35,7 +35,7 @@ mdl.init_bdrag(bdrag)
 mdl.default_solver_params()
 
 mdl.gen_ice_mask()
-mdl.gen_boundaries()
+mdl.gen_domain()
 
 #Solve
 slvr = solver.ssa_solver(mdl)

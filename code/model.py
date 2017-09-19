@@ -8,6 +8,7 @@ class model:
 
     def __init__(self, mesh_in, outdir='./output/',eq_def=1):
         self.mesh = Mesh(mesh_in)
+        self.nm = FacetNormal(self.mesh)
         self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
         self.M = FunctionSpace(self.mesh,'DG',0)
@@ -27,11 +28,11 @@ class model:
 
 
         #Use PETSC. Advantage is the backtracking line search
-        self.solve_param = {'nonlinear_solver'      : 'snes',
+        self.solve_param2 = {'nonlinear_solver'      : 'snes',
                             'snes_solver':
                             {
                             'linear_solver'         : 'cg',
-                            'preconditioner'        : 'hypre_amg',
+                            'preconditioner'        : 'jacobi',
                             'line_search'           : 'bt',
                             'relative_tolerance'    : 1e-15,
                             'absolute_tolerance'    : 1e-15,
@@ -39,10 +40,10 @@ class model:
                             }}
 
         #Default fenics solver. No line search.
-        self.solve_param2 = {'newton_solver' :
+        self.solve_param = {'newton_solver' :
                 {
                 'linear_solver'            : 'cg',
-                'preconditioner'           : 'hypre_amg',
+                'preconditioner'           : 'jacobi',
                 'relative_tolerance'       : 1e-15,
                 'relaxation_parameter'     : 0.70,
                 'absolute_tolerance'       : 1.0,
@@ -94,11 +95,17 @@ class model:
         self.OMEGA_X    = 0     #exterior to ice sheet
         self.OMEGA_ICE   = 1    #Ice Sheet
 
+        #Facet labels
+        self.GAMMA_DEF = 0      #default value
+        self.GAMMA_LAT = 1      #Value at lateral domain boundaries
+
         #Cell and Facet markers
         self.cf      = CellFunction('size_t',  self.mesh)
+        self.ff      = FacetFunction('size_t', self.mesh)
 
         #Initialize Values
         self.cf.set_all(self.OMEGA_X)
+        self.ff.set_all(self.GAMMA_DEF)
 
         #Label ice sheet cells
         for c in cells(self.mesh):
@@ -107,23 +114,22 @@ class model:
             h_xy = self.thick(x_m, y_m)
 
             #Determine whether cell is ice covered
-            if h_xy >= self.tol:
+            if h_xy > self.tol:
                 self.cf[c] = self.OMEGA_ICE
+
+        for f in facets(self.mesh):
+            x_m      = f.midpoint().x()
+            y_m      = f.midpoint().y()
+            h_xy = self.thick(x_m, y_m)
+
+            if f.exterior() and h_xy > self.tol:
+                self.ff[f] = self.GAMMA_LAT
 
 
         self.set_measures()
 
     def set_measures(self):
-
         # create new measures of integration :
-        self.dx      = Measure('dx', mesh=self.mesh, subdomain_data=self.cf)
-        self.ds      = Measure('ds', mesh=self.mesh, subdomain_data=self.ff)
+        self.dx = Measure('dx', domain=self.mesh, subdomain_data=self.cf)
 
         self.dIce   =     self.dx(self.OMEGA_ICE)   #grounded ice
-        self.dIce_flt   = self.dx(self.OMEGA_FLT)   #floating ice
-        self.dIce       = self.dIce_gnd + self.dIce_flt #ice covered cells
-
-        self.dLat_gnd   = self.ds(self.GAMMA_GND)    #ice margin grounded
-        self.dLat_flt   = self.ds(self.GAMMA_FLT)    #ice margin floating
-        self.dLat_mgn   = self.dLat_gnd + self.dLat_flt #ice margin
-        self.dLat_dmn   = self.ds(self.GAMMA_DMN)    #dirichlet bc
