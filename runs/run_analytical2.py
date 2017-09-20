@@ -8,26 +8,30 @@ from IPython import embed
 
 #Load Data
 
-dd = '../input/ismipC/'
-data_mesh = Mesh(''.join([dd,'ismipC_mesh.xml']))
+dd = '../input/analytical2/'
+data_mesh = Mesh(''.join([dd,'analytical2_mesh.xml']))
 Q = FunctionSpace(data_mesh, 'Lagrange', 1)
-bed = Function(Q,''.join([dd,'ismipC_mesh_bed.xml']))
-surf = Function(Q,''.join([dd,'ismipC_mesh_surf.xml']))
-bmelt = Function(Q,''.join([dd,'ismipC_mesh_bmelt.xml']))
-bdrag = Function(Q,''.join([dd,'ismipC_mesh_bdrag.xml']))
+bed = Function(Q,''.join([dd,'analytical2_mesh_bed.xml']))
+surf = Function(Q,''.join([dd,'analytical2_mesh_surf.xml']))
+bmelt = Function(Q,''.join([dd,'analytical2_mesh_bmelt.xml']))
+bdrag = Function(Q,''.join([dd,'analytical2_mesh_bdrag.xml']))
 
-#Generate model mesh
-nx = 120
-ny = 120
-L = 120e3
-mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
+#Number of cells in grid
+nx = 50;
+ny = 400;
+
+#Fenics mesh
+Lx = 50e3
+Ly = 400e3
+
+mesh = RectangleMesh(Point(0,0), Point(Lx, Ly), nx, ny)
 
 
 #Initialize Model
 #eq_def=1 SSA from Action Principle (Default)
 #eq_def=2 SSA directly in weak form
-output_dir='./output2/'
-mdl = model.model(mesh,outdir=output_dir,eq_def=1)
+output_dir='./output_analytical2/'
+mdl = model.model(mesh,outdir=output_dir,eq_def=2)
 mdl.init_surf(surf)
 mdl.init_bed(bed)
 mdl.init_thick()

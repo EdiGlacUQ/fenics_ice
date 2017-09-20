@@ -1,4 +1,5 @@
 import numpy as np
+from IPython import embed
 
 class gldbg2013:
 
@@ -153,8 +154,8 @@ class grnld_margin:
         #Assign basal drag
         #self.bdrag = 9*np.sqrt(30)*np.ones(yy.shape)
         #self.bdrag[p1] = np.sqrt(30)
-        self.bdrag = (1000)*np.ones(yy.shape)
-        self.bdrag[p1] = (500)
+        self.bdrag = (2000)*np.ones(yy.shape)
+        self.bdrag[p1] = (1500)
 
 
 
@@ -223,7 +224,7 @@ class ismipC:
 
 
 
-class analytical:
+class analytical1:
 
     def __init__(self, L, nx=151, ny=151):
         self.L = L
@@ -274,3 +275,56 @@ class analytical:
         yy = np.meshgrid(x,y)[1]
 
         self.bmelt = 1.0*np.ones(yy.shape)
+
+
+
+class analytical2:
+
+    def __init__(self, Lx, Ly, nx=151, ny=151):
+
+        self.x = np.linspace(0, Lx, num=nx)
+        self.y = np.linspace(0, Ly, num=ny)
+
+        self.init_bed(self.x,self.y)
+        self.init_thick(self.x,self.y)
+        self.init_surf(self.x,self.y)
+
+        self.init_bdrag(self.x,self.y)
+        self.init_bmelt(self.x,self.y)
+
+
+    def init_bed(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        #Create bed topography in metres
+        self.bed = -1000.0*(np.ones([x.size, y.size]))
+
+    def init_thick(self,x,y):
+        self.thick = 1000.0*(np.ones([x.size, y.size]))
+        self.thick[-5:,] = 0.0
+
+    def init_surf(self,x,y):
+        rhoi = 917.0
+        rhow = 1000.0
+        self.surf = (1-rhoi/rhow) * self.thick
+
+    def init_bdrag(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        self.bdrag = 0.0*(np.ones([x.size, y.size]))
+
+    def init_bmelt(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        yy = np.meshgrid(x,y)[1]
+
+        self.bmelt = 0.0*(np.ones([x.size, y.size]))

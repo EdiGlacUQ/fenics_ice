@@ -92,7 +92,7 @@ class ssa_solver:
 
             #Terminating margin boundary condition
             draft = Max(0,-bed)
-            #mgn_bc = dot(model.U, nm) * (0.5*rhoi*g*height**2 - 0.5*rhow*g*draft**2)
+            mgn_bc = dot(avg(self.U * (0.5*rhoi*g*height**2 - 0.5*rhow*g*draft**2)), self.nm("+")) * abs(jump(mask))
 
             #Viscous Dissipation
             epsdot = self.effective_strain_rate(self.U)
@@ -103,7 +103,7 @@ class ssa_solver:
             Sl = 0.5 * (1.0 -fl_ex) * B2 * dot(self.U,self.U)
 
             # action :
-            Action = (height*Vd + Ds + Sl)*dIce  #+ mgn_bc*dLat_mgn
+            Action = (height*Vd + Ds + Sl)*dIce + mgn_bc*dS
 
             # the first variation of the action in the direction of a
             # test function ; the extremum :
@@ -151,12 +151,7 @@ class ssa_solver:
                     - inner(grad(Phi_y), height * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * dIce
                     - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * dIce
                     + inner(Phi, rhoi * g * height * grad(s)) * dIce
-                    + inner(avg(Phi*sigma_n)*jump(mask),self.nm("+")) * dS)
-
-                    #- inner(jump(Phi * rhoi * g * height), sigma_n * self.nm("+")) * dS(domain=self.model.mesh) )
-                    #- inner(model.Phi * rho * g * h, s * nm) * ds
-
-                    #+ inner(test_U, sigma_n * nm) * ds)
+                    + inner(avg(Phi*sigma_n)*abs(jump(mask)),self.nm("+")) * dS)
 
             self.mom_Jac = derivative(self.mom_F, self.U)
 

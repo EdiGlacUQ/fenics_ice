@@ -25,7 +25,8 @@ mesh = RectangleMesh(Point(0,0), Point(150e3, 150e3), nx, ny)
 #Initialize Model
 #eq_def=1 SSA from Action Principle (Default)
 #eq_def=2 SSA directly in weak form
-mdl = model.model(mesh,eq_def=1)
+output_dir='./output2/'
+mdl = model.model(mesh,outdir=output_dir,eq_def=2)
 mdl.init_surf(surf)
 mdl.init_bed(bed)
 mdl.init_thick()
@@ -41,18 +42,18 @@ slvr = solver.ssa_solver(mdl)
 slvr.def_mom_eq()
 slvr.solve_mom_eq()
 
-vtkfile = File('U.pvd')
+vtkfile = File(''.join([mdl.outdir,'U.pvd']))
 U = project(mdl.U,mdl.V)
 vtkfile << U
 
-vtkfile = File('bed.pvd')
+vtkfile = File(''.join([mdl.outdir,'bed.pvd']))
 vtkfile << mdl.bed
 
-vtkfile = File('surf.pvd')
+vtkfile = File(''.join([mdl.outdir,'surf.pvd']))
 vtkfile << mdl.surf
 
-vtkfile = File('thick.pvd')
+vtkfile = File(''.join([mdl.outdir,'thick.pvd']))
 vtkfile << mdl.thick
 
-vtkfile = File('mask.pvd')
+vtkfile = File(''.join([mdl.outdir,'mask.pvd']))
 vtkfile << mdl.mask

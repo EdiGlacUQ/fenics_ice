@@ -24,7 +24,7 @@ dof_x = dof_coordinates[:, 0]
 dof_y = dof_coordinates[:, 1]
 
 #Sampling Mesh, identical to Fenics mesh
-domain = test_domains.analytical(L,nx=nx+1,ny=ny+1)
+domain = test_domains.analytical1(L,nx=nx+1,ny=ny+1)
 xcoord = domain.x
 ycoord = domain.y
 
@@ -42,18 +42,18 @@ bmelt = bmelt_interp.ev(dof_x, dof_y)
 bdrag = bdrag_interp.ev(dof_x, dof_y)
 
 #Save mesh and data points at coordinates
-dd = '../input/analytical/'
+dd = '../input/analytical1/'
 
-File(''.join([dd,'analytical_mesh.xml'])) << mesh
+File(''.join([dd,'analytical1_mesh.xml'])) << mesh
 
 v.vector()[:] = bed.flatten()
-File(''.join([dd,'analytical_mesh_bed.xml'])) <<  v
+File(''.join([dd,'analytical1_mesh_bed.xml'])) <<  v
 
 v.vector()[:] = surf.flatten()
-File(''.join([dd,'analytical_mesh_surf.xml'])) <<  v
+File(''.join([dd,'analytical1_mesh_surf.xml'])) <<  v
 
 v.vector()[:] = bmelt.flatten()
-File(''.join([dd,'analytical_mesh_bmelt.xml'])) <<  v
+File(''.join([dd,'analytical1_mesh_bmelt.xml'])) <<  v
 
 v.vector()[:] = bdrag.flatten()
-File(''.join([dd,'analytical_mesh_bdrag.xml'])) <<  v
+File(''.join([dd,'analytical1_mesh_bdrag.xml'])) <<  v

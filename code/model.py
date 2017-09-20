@@ -25,10 +25,9 @@ class model:
 
     def default_solver_params(self):
 
-
-
         #Use PETSC. Advantage is the backtracking line search
-        self.solve_param2 = {'nonlinear_solver'      : 'snes',
+        PETScOptions().set("snes_linesearch_alpha",1e-4)
+        self.solve_param = {'nonlinear_solver'      : 'snes',
                             'snes_solver':
                             {
                             'linear_solver'         : 'cg',
@@ -40,13 +39,13 @@ class model:
                             }}
 
         #Default fenics solver. No line search.
-        self.solve_param = {'newton_solver' :
+        self.solve_param2 = {'newton_solver' :
                 {
                 'linear_solver'            : 'cg',
                 'preconditioner'           : 'jacobi',
                 'relative_tolerance'       : 1e-15,
                 'relaxation_parameter'     : 0.70,
-                'absolute_tolerance'       : 1.0,
+                'absolute_tolerance'       : 10.0,
                 'maximum_iterations'       : 50,
                 'error_on_nonconvergence'  : False,
                 }}
