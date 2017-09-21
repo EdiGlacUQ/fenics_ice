@@ -88,7 +88,7 @@ class model:
         self.thick = project(Min(h_diff,h_hyd),self.Q)
 
     def gen_ice_mask(self):
-        self.mask = project(conditional(gt(self.thick,self.tol),1,0), self.M)
+        self.mask = project(conditional(gt(self.thick,self.tol),1,0), self.Q)
 
     def gen_domain(self):
 
