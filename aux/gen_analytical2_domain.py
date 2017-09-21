@@ -32,8 +32,6 @@ xcoord = domain.x
 ycoord = domain.y
 xycoord = (xcoord, ycoord)
 
-embed()
-
 #Data is not stored in an ordered manner on the fencis mesh.
 #Using interpolation function to get correct grid ordering
 bed_interp = interp.RegularGridInterpolator(xycoord, domain.bed)

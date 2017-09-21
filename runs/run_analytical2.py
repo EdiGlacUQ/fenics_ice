@@ -5,6 +5,7 @@ import model
 import solver
 import matplotlib.pyplot as plt
 from IPython import embed
+import numpy as np
 
 #Load Data
 
@@ -46,6 +47,17 @@ mdl.gen_domain()
 slvr = solver.ssa_solver(mdl)
 slvr.def_mom_eq()
 slvr.solve_mom_eq()
+
+
+#Plot
+x = np.linspace(0,Lx,nx+1)
+points = [(x_,Ly/2) for x_ in x]
+mod_line = np.array([slvr.U(point)[0] for point in points])
+ex_line = x * (mdl.rhoi*mdl.g*mdl.delta*1000.0/4.0)**3 * mdl.A
+plt.figure()
+plt.plot(ex_line)
+plt.plot(mod_line)
+plt.savefig('tmp.png')
 
 vtkfile = File(''.join([mdl.outdir,'U.pvd']))
 U = project(mdl.U,mdl.V)

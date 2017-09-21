@@ -2,6 +2,7 @@ from dolfin import *
 import numpy as np
 import timeit
 from IPython import embed
+import matplotlib.pyplot as plt
 
 
 class model:
@@ -26,8 +27,8 @@ class model:
     def default_solver_params(self):
 
         #Use PETSC. Advantage is the backtracking line search
-        PETScOptions().set("snes_linesearch_alpha",1e-4)
-        self.solve_param = {'nonlinear_solver'      : 'snes',
+        PETScOptions().set("snes_linesearch_alpha",1e-6)
+        self.solve_param1 = {'nonlinear_solver'      : 'snes',
                             'snes_solver':
                             {
                             'linear_solver'         : 'cg',
@@ -39,7 +40,7 @@ class model:
                             }}
 
         #Default fenics solver. No line search.
-        self.solve_param2 = {'newton_solver' :
+        self.solve_param = {'newton_solver' :
                 {
                 'linear_solver'            : 'cg',
                 'preconditioner'           : 'jacobi',
@@ -54,8 +55,9 @@ class model:
     def init_constants(self):
         self.ty = 31556926.0
 
-        self.rhoi =  910.0
+        self.rhoi =  917.0
         self.rhow =  1000.0
+        self.delta = 1.0 - self.rhoi/self.rhow
 
         self.g = 9.81
         self.n = 3.0

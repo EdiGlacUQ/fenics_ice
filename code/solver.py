@@ -2,6 +2,7 @@ from dolfin import *
 import numpy as np
 import timeit
 from IPython import embed
+import matplotlib.pyplot as plt
 
 
 class ssa_solver:
@@ -21,6 +22,7 @@ class ssa_solver:
         #Constants
         self.rhoi = model.rhoi
         self.rhow = model.rhow
+        self.delta = model.delta
         self.g = model.g
         self.n = model.n
         self.eps_rp = model.eps_rp
@@ -62,6 +64,7 @@ class ssa_solver:
         B2 = self.B2
         rhoi = self.rhoi
         rhow = self.rhow
+        delta = self.delta
         g = self.g
         n = self.n
         A = self.A
@@ -80,7 +83,6 @@ class ssa_solver:
             #Ds = dot(tau_drv, model.U)
 
             #Driving Stress
-            delta = 1 - rhoi/rhow
             height_s = -rhow/rhoi * bed
 
             F = conditional(gt(height,height_s),0.5*rhoi*g*height**2,
@@ -91,8 +93,16 @@ class ssa_solver:
             Ds = dot(self.U, grad(F) + W*grad(bed))
 
             #Terminating margin boundary condition
-            draft = Max(0,-bed)
-            mgn_bc = dot(avg(self.U * (0.5*rhoi*g*height**2 - 0.5*rhow*g*draft**2)), self.nm("+")) * abs(jump(mask))
+            fl_ex = conditional(height <= height_s, 1.0, 0.0)
+
+            #Bottom of ice sheet, either bed or draft
+            R_f = ((1.0 - fl_ex) * bed
+               + (fl_ex) * (-rhoi / rhow) * height)
+
+            draft = Min(R_f,0)
+
+            sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
+            mgn_bc = inner(self.U("+") * sigma_n("+"), self.nm("+")) * abs(jump(mask))
 
             #Viscous Dissipation
             epsdot = self.effective_strain_rate(self.U)
@@ -144,14 +154,13 @@ class ssa_solver:
             #Ice Sheet Surface
             s = R_f + height
 
-
             #Terminating margin boundary condition
             sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
             self.mom_F = ( -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * dIce
                     - inner(grad(Phi_y), height * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * dIce
                     - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * dIce
-                    + inner(Phi, rhoi * g * height * grad(s)) * dIce
-                    + inner(avg(Phi*sigma_n)*abs(jump(mask)),self.nm("+")) * dS)
+                    - inner(Phi, rhoi * g * height * grad(s)) * dIce
+                    + inner(Phi("+")*sigma_n,self.nm("+"))*np.abs(jump(mask)) * dS)
 
             self.mom_Jac = derivative(self.mom_F, self.U)
 
