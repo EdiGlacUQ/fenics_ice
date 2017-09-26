@@ -14,7 +14,8 @@ Q = FunctionSpace(data_mesh, 'Lagrange', 1)
 bed = Function(Q,''.join([dd,'ismipC_mesh_bed.xml']))
 surf = Function(Q,''.join([dd,'ismipC_mesh_surf.xml']))
 bmelt = Function(Q,''.join([dd,'ismipC_mesh_bmelt.xml']))
-bdrag = Function(Q,''.join([dd,'ismipC_mesh_bdrag.xml']))
+B2 = Function(Q,''.join([dd,'ismipC_mesh_B2.xml']))
+alpha = ln(B2)
 
 #Generate model mesh
 nx = 120
@@ -32,7 +33,7 @@ mdl.init_surf(surf)
 mdl.init_bed(bed)
 mdl.init_thick()
 mdl.init_bmelt(bmelt)
-mdl.init_bdrag(bdrag)
+mdl.init_alpha(alpha)
 mdl.default_solver_params()
 
 mdl.gen_ice_mask()

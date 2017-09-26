@@ -36,7 +36,7 @@ xycoord = (xcoord, ycoord)
 bed_interp = interp.RegularGridInterpolator(xycoord, domain.bed)
 surf_interp = interp.RegularGridInterpolator(xycoord, domain.surf)
 bmelt_interp = interp.RegularGridInterpolator(xycoord, domain.bmelt)
-bdrag_interp = interp.RegularGridInterpolator(xycoord, domain.bdrag)
+B2_interp = interp.RegularGridInterpolator(xycoord, domain.B2)
 
 
 #Coordinates of DOFS of fenics mesh in order data is stored
@@ -44,7 +44,7 @@ dof_xy = (dof_x, dof_y)
 bed = bed_interp(dof_xy)
 surf = surf_interp(dof_xy)
 bmelt = bmelt_interp(dof_xy)
-bdrag = bdrag_interp(dof_xy)
+B2 = B2_interp(dof_xy)
 
 #Save mesh and data points at coordinates
 dd = '../input/grnld/'
@@ -60,5 +60,5 @@ File(''.join([dd,'grnld_mesh_surf.xml'])) <<  v
 v.vector()[:] = bmelt.flatten()
 File(''.join([dd,'grnld_mesh_bmelt.xml'])) <<  v
 
-v.vector()[:] = bdrag.flatten()
-File(''.join([dd,'grnld_mesh_bdrag.xml'])) <<  v
+v.vector()[:] = B2.flatten()
+File(''.join([dd,'grnld_mesh_B2.xml'])) <<  v

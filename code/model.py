@@ -7,28 +7,48 @@ import matplotlib.pyplot as plt
 
 class model:
 
-    def __init__(self, mesh_in, outdir='./output/',eq_def=1):
+    def __init__(self, mesh_in, param_in):
+
+        #Default Mesh/Function Spaces
         self.mesh = Mesh(mesh_in)
         self.nm = FacetNormal(self.mesh)
         self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
         self.M = FunctionSpace(self.mesh,'DG',0)
 
+        #Initiate Functions
         self.U = Function(self.V)
         self.dU = TrialFunction(self.V)
         self.Phi = TestFunction(self.V)
 
-        self.outdir = outdir
-        self.eq_def = eq_def
+        #Initiate parameters
+        self.init_param(param_in)
 
-        self.init_constants()
+    def init_param(self, param_in):
 
+        #Constants for ice sheet modelling
+        param = {}
+        param['ty'] = 365*24*60*60  #seconds in year
+        param['rhoi'] =  917.0      #density ice
+        param['rhow'] =   1000.0     #density water
+        param['g'] =  9.81           #acceleration due to gravity
+        param['n'] =  3.0            #glen's flow law exponent
+        param['eps_rp'] =  1e-5      #effective strain regularization
+        param['A'] =  10**(-16)      #Creep paramater
+        param['tol'] =  1e-6         #Tolerance for tests
+        param['gamma'] =  1          #Cost function scaling parameter
 
-    def default_solver_params(self):
+        #Output
+        param['outdir'] = './output/'
 
-        #Use PETSC. Advantage is the backtracking line search
-        PETScOptions().set("snes_linesearch_alpha",1e-6)
-        self.solve_param1 = {'nonlinear_solver'      : 'snes',
+        #Equation and solver
+        param['eq_def'] = 'action'
+        param['solver'] = 'default'
+        param['solver_param'] = {}
+
+        #Solver options
+        param['snes_linesearch_alpha'] = 1e-6
+        param['solver_petsc'] = {'nonlinear_solver'      : 'snes',
                             'snes_solver':
                             {
                             'linear_solver'         : 'cg',
@@ -40,7 +60,7 @@ class model:
                             }}
 
         #Default fenics solver. No line search.
-        self.solve_param = {'newton_solver' :
+        param['solver_default']= {'newton_solver' :
                 {
                 'linear_solver'            : 'cg',
                 'preconditioner'           : 'jacobi',
@@ -51,21 +71,27 @@ class model:
                 'error_on_nonconvergence'  : False,
                 }}
 
+        
+        param['inv_options'] = {'disp': True, 'maxiter': 15, 'ftol' : 0.05}
 
-    def init_constants(self):
-        self.ty = 31556926.0
+        #Update default values based on input
+        param.update(param_in)
 
-        self.rhoi =  917.0
-        self.rhow =  1000.0
-        self.delta = 1.0 - self.rhoi/self.rhow
+        #Set solver parameters
+        if param['solver'] == 'petsc':
+            print('Using Petsc to solve forward model')
+            param['solver_param'] = param['solver_petsc']
+        elif param['solver'] == 'default':
+            print('Using default solver for forward model')
+            param['solver_param'] = param['solver_default']
+        elif param['solver'] == 'custom':
+            print('Using custom solver for forward model')
+            param['solver_param'] = param['solver_custom']
+        else:
+            print('Unrecognized forward solver, using default')
+            param['solver_param'] = param['solver_default']
 
-        self.g = 9.81
-        self.n = 3.0
-        self.eps_rp = 1e-5
-
-        self.A = 10**(-16)
-
-        self.tol = 1e-6
+        self.param = param
 
     def init_surf(self,surf):
         self.surf = project(surf,self.Q)
@@ -73,22 +99,26 @@ class model:
     def init_bed(self,bed):
         self.bed = project(bed,self.Q)
 
-    def init_bdrag(self,bdrag):
-        self.bdrag = project(bdrag,self.Q)
+    def init_alpha(self,alpha):
+        self.alpha = project(alpha,self.Q)
 
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.Q)
 
     def init_thick(self):
-        rhoi = self.rhoi
-        rhow = self.rhow
+        rhoi = self.param['rhoi']
+        rhow = self.param['rhow']
 
         h_diff = self.surf-self.bed
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
         self.thick = project(Min(h_diff,h_hyd),self.Q)
 
+    def init_vel_obs(self, u, v):
+        self.u_obs = project(u,self.Q)
+        self.v_obs = project(v,self.Q)
+
     def gen_ice_mask(self):
-        self.mask = project(conditional(gt(self.thick,self.tol),1,0), self.Q)
+        self.mask = project(conditional(gt(self.thick,self.param['tol']),1,0), self.Q)
 
     def gen_domain(self):
 
@@ -115,7 +145,7 @@ class model:
             h_xy = self.thick(x_m, y_m)
 
             #Determine whether cell is ice covered
-            if h_xy > self.tol:
+            if h_xy > self.param['tol']:
                 self.cf[c] = self.OMEGA_ICE
 
         for f in facets(self.mesh):
@@ -123,7 +153,7 @@ class model:
             y_m      = f.midpoint().y()
             h_xy = self.thick(x_m, y_m)
 
-            if f.exterior() and h_xy > self.tol:
+            if f.exterior() and h_xy > self.param['tol']:
                 self.ff[f] = self.GAMMA_LAT
 
 

@@ -11,7 +11,8 @@ Q = FunctionSpace(data_mesh, 'Lagrange', 1)
 bed = Function(Q,'gldbg2013_mesh_bed.xml')
 surf = Function(Q,'gldbg2013_mesh_surf.xml')
 bmelt = Function(Q,'gldbg2013_mesh_bmelt.xml')
-bdrag = Function(Q,'gldbg2013_mesh_bdrag.xml')
+B2 = Function(Q,'gldbg2013_mesh_B2.xml')
+alpha = ln(B2)
 
 #Generate model mesh
 nx = 150
@@ -22,15 +23,18 @@ mesh = RectangleMesh(Point(0,0), Point(150e3, 150e3), nx, ny)
 
 
 #Initialize Model
-mdl = model.model(mesh)
+
+param = {'eq_def' : 'action',
+        'outdir' :'./output_gldbg2013/'}
+mdl = model.model(mesh,param)
 mdl.init_surf(surf)
 mdl.init_bed(bed)
 mdl.init_thick()
 mdl.init_bmelt(bmelt)
-mdl.init_bdrag(bdrag)
+mdl.init_alpha(alpha)
 
 mdl.gen_ice_mask()
-mdl.gen_boundaries()
+mdl.gen_domain()
 
 #Solve
 slvr = solver.ssa_solver(mdl)

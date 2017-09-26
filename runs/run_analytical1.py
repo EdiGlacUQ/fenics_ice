@@ -14,7 +14,8 @@ Q = FunctionSpace(data_mesh, 'Lagrange', 1)
 bed = Function(Q,''.join([dd,'analytical1_mesh_bed.xml']))
 surf = Function(Q,''.join([dd,'analytical1_mesh_surf.xml']))
 bmelt = Function(Q,''.join([dd,'analytical1_mesh_bmelt.xml']))
-bdrag = Function(Q,''.join([dd,'analytical1_mesh_bdrag.xml']))
+B2 = Function(Q,''.join([dd,'analytical1_mesh_B2.xml']))
+alpha = ln(B2)
 
 #Generate model mesh
 nx = 481
@@ -24,16 +25,14 @@ mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
 
 
 #Initialize Model
-#eq_def=1 SSA from Action Principle (Default)
-#eq_def=2 SSA directly in weak form
-output_dir='./output_analytical1/'
-mdl = model.model(mesh,outdir=output_dir,eq_def=1)
+param = {'eq_def' : 'action',
+        'outdir' :'./output_analytical1/'}
+mdl = model.model(mesh,param)
 mdl.init_surf(surf)
 mdl.init_bed(bed)
 mdl.init_thick()
 mdl.init_bmelt(bmelt)
-mdl.init_bdrag(bdrag)
-mdl.default_solver_params()
+mdl.init_alpha(alpha)
 
 mdl.gen_ice_mask()
 mdl.gen_domain()

@@ -11,7 +11,7 @@ class gldbg2013:
         self.init_surf(self.x,self.y)
         self.thick = self.surf - self.bed;
 
-        self.init_bdrag(self.x,self.y)
+        self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
 
     def Rx(self,x):
@@ -75,7 +75,7 @@ class gldbg2013:
         self.surf[:,-1] = self.bed[:,-1];
 
 
-    def init_bdrag(self,x,y):
+    def init_B2(self,x,y):
         '''Return bedrock topography in metres
         Input:
         x -- x coordinates in metres as a numpy array
@@ -89,9 +89,9 @@ class gldbg2013:
         p1 = np.logical_and(50 <= yy, yy <= 100)
 
         #Assign basal drag
-        self.bdrag = 9*np.sqrt(30)*np.ones(yy.shape)
-        self.bdrag[p1] = np.sqrt(30)
-        self.bdrag = self.bdrag**2
+        self.B = 9*np.sqrt(30)*np.ones(yy.shape)
+        self.B[p1] = np.sqrt(30)
+        self.B2 = self.B**2
 
 
     def init_bmelt(self,x,y):
@@ -115,7 +115,7 @@ class grnld_margin:
         self.init_surf(self.x,self.y)
         self.thick = self.surf - self.bed;
 
-        self.init_bdrag(self.x,self.y)
+        self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
 
 
@@ -138,7 +138,7 @@ class grnld_margin:
 
 
 
-    def init_bdrag(self,x,y):
+    def init_B2(self,x,y):
         '''Return bedrock topography in metres
         Input:
         x -- x coordinates in metres as a numpy array
@@ -152,10 +152,10 @@ class grnld_margin:
         p1 = np.logical_and(50 <= yy, yy <= 100)
 
         #Assign basal drag
-        #self.bdrag = 9*np.sqrt(30)*np.ones(yy.shape)
-        #self.bdrag[p1] = np.sqrt(30)
-        self.bdrag = (2000)*np.ones(yy.shape)
-        self.bdrag[p1] = (1500)
+        #self.B2 = 9*np.sqrt(30)*np.ones(yy.shape)
+        #self.B2[p1] = np.sqrt(30)
+        self.B2 = (2000)*np.ones(yy.shape)
+        self.B2[p1] = (1500)
 
 
 
@@ -181,7 +181,7 @@ class ismipC:
         self.init_bed(self.x,self.y)
         self.thick = self.surf - self.bed;
 
-        self.init_bdrag(self.x,self.y)
+        self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
 
 
@@ -200,7 +200,7 @@ class ismipC:
         xx = np.meshgrid(x, y)[0]
         self.surf = 1e4 -xx*np.tan(0.1*np.pi/180.0)
 
-    def init_bdrag(self,x,y):
+    def init_B2(self,x,y):
         '''Return bedrock topography in metres
         Input:
         x -- x coordinates in metres as a numpy array
@@ -208,7 +208,7 @@ class ismipC:
         '''
         w = 2.0*np.pi/self.L
         xx,yy = np.meshgrid(x,y)
-        self.bdrag = (1000.0 + 1000.0*np.sin(3.0*w*xx)*np.sin(3.0*w*yy))
+        self.B2 = (1000.0 + 1000.0*np.sin(3.0*w*xx)*np.sin(3.0*w*yy))
 
 
 
@@ -235,7 +235,7 @@ class analytical1:
         self.init_bed(self.x,self.y)
         self.thick = self.surf - self.bed;
 
-        self.init_bdrag(self.x,self.y)
+        self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
 
 
@@ -254,7 +254,7 @@ class analytical1:
         xx = np.meshgrid(x, y)[0]
         self.surf = 1e4 -xx*np.tan(0.1*np.pi/180.0)
 
-    def init_bdrag(self,x,y):
+    def init_B2(self,x,y):
         '''Return bedrock topography in metres
         Input:
         x -- x coordinates in metres as a numpy array
@@ -262,7 +262,7 @@ class analytical1:
         '''
         w = 2.0*np.pi/self.L
         xx,yy = np.meshgrid(x,y)
-        self.bdrag = 1500.0*(np.ones([y.size, x.size]))
+        self.B2 = 1500.0*(np.ones([y.size, x.size]))
 
 
 
@@ -289,7 +289,7 @@ class analytical2:
         self.init_thick(self.x,self.y)
         self.init_surf(self.x,self.y)
 
-        self.init_bdrag(self.x,self.y)
+        self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
 
 
@@ -311,13 +311,13 @@ class analytical2:
         rhow = 1000.0
         self.surf = (1-rhoi/rhow) * self.thick
 
-    def init_bdrag(self,x,y):
+    def init_B2(self,x,y):
         '''Return bedrock topography in metres
         Input:
         x -- x coordinates in metres as a numpy array
         y -- y coordinates in metres as a numpy array
         '''
-        self.bdrag = 0.0*(np.ones([x.size, y.size]))
+        self.B2 = 0.0*(np.ones([x.size, y.size]))
 
     def init_bmelt(self,x,y):
         '''Return bedrock topography in metres

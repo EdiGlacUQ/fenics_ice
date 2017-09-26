@@ -1,11 +1,12 @@
 import sys
-from fenics import *
 sys.path.insert(0,'../code/')
+from fenics import *
 import model
 import solver
 import matplotlib.pyplot as plt
+import numpy as np
+import fenics_util as fu
 from IPython import embed
-
 #Load Data
 
 dd = '../input/grnld/'
@@ -20,13 +21,14 @@ alpha = ln(B2)
 #Generate model mesh
 nx = 150
 ny = 150
+
 mesh = RectangleMesh(Point(0,0), Point(150e3, 150e3), nx, ny)
 
 
-#Initialize Model
 
+#Initialize Model
 param = {'eq_def' : 'action',
-        'outdir' :'./output_grnld/'}
+        'outdir' :'./output_grnld_inv/'}
 mdl = model.model(mesh,param)
 mdl.init_surf(surf)
 mdl.init_bed(bed)
@@ -42,18 +44,18 @@ slvr = solver.ssa_solver(mdl)
 slvr.def_mom_eq()
 slvr.solve_mom_eq()
 
-vtkfile = File(''.join([mdl.outdir,'U.pvd']))
-U = project(mdl.U,mdl.V)
-vtkfile << U
+#Inversions
+set_log_level(40)
+u,v = split(slvr.U)
+mdl.init_vel_obs(u,v)
+mdl.init_alpha(Constant(ln(1500)))
+slvr = solver.ssa_solver(mdl)
+slvr.inversion()
 
-vtkfile = File(''.join([mdl.outdir,'bed.pvd']))
-vtkfile << mdl.bed
 
-vtkfile = File(''.join([mdl.outdir,'surf.pvd']))
-vtkfile << mdl.surf
+#Plot
+alpha_inv = project(exp(slvr.alpha_inv),mdl.Q)
+F_vals = [x for x in slvr.F_vals if x > 0]
 
-vtkfile = File(''.join([mdl.outdir,'thick.pvd']))
-vtkfile << mdl.thick
-
-vtkfile = File(''.join([mdl.outdir,'mask.pvd']))
-vtkfile << mdl.mask
+fu.plot_variable(alpha_inv, 'alpha_inverted', mdl.param['outdir'])
+fu.plot_inv_conv(F_vals, 'convergence', mdl.param['outdir'])

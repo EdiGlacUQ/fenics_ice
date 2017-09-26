@@ -1,38 +1,43 @@
 from dolfin import *
+from dolfin_adjoint import *
+
+import matplotlib.pyplot as plt
 import numpy as np
+
 import timeit
 from IPython import embed
-import matplotlib.pyplot as plt
+
 
 
 class ssa_solver:
 
     def __init__(self, model):
+        # Enable aggressive compiler options
+        parameters["form_compiler"]["cpp_optimize"] = True
+        parameters["form_compiler"]["cpp_optimize_flags"] = "-O2 -ffast-math -march=native"
+
+
         self.model = model
+        self.param = model.param
 
         #Fields
         self.surf = model.surf
         self.bed = model.bed
         self.height = model.thick
         self.mask = model.mask
-        self.B2 = model.bdrag
+        self.alpha = model.alpha
         self.bmelt = model.bmelt
         self.nm = model.nm
 
-        #Constants
-        self.rhoi = model.rhoi
-        self.rhow = model.rhow
-        self.delta = model.delta
-        self.g = model.g
-        self.n = model.n
-        self.eps_rp = model.eps_rp
-        self.A = model.A
+        #Save observations for inversions
+        try:
+            self.u_obs = model.u_obs
+            self.v_obs = model.v_obs
+        except:
+            pass
 
-        #parameters
-        self.eq_def = model.eq_def
-        self.solve_param = model.solve_param
-
-        #Function Spaces
+        #Mesh/Function Spaces
+        self.mesh = model.mesh
         self.V = model.V
         self.Q = model.Q
         self.M = model.M
@@ -53,34 +58,29 @@ class ssa_solver:
         self.GAMMA_LAT = model.GAMMA_LAT
 
         #Measures
-        self.dx = Measure('dx', domain=model.mesh, subdomain_data=self.cf)
+        self.dx = Measure('dx', domain=self.mesh, subdomain_data=self.cf)
         self.dIce = self.dx(self.OMEGA_ICE)
 
     def def_mom_eq(self):
+
+        #Simplify accessing fields and parameters
         surf = self.surf
         bed = self.bed
         height = self.height
         mask = self.mask
-        B2 = self.B2
-        rhoi = self.rhoi
-        rhow = self.rhow
-        delta = self.delta
-        g = self.g
-        n = self.n
-        A = self.A
+        alpha = self.alpha
         dIce = self.dIce
 
-
+        rhoi = self.param['rhoi']
+        rhow = self.param['rhow']
+        delta = 1.0 - rhoi/rhow
+        g = self.param['g']
+        n = self.param['n']
+        A = self.param['A']
 
 
         #Equations from Action Principle [Dukowicz et al., 2010, JGlac, Eq 94]
-        if self.eq_def == 1:
-
-            #Driving Stress: Simple
-            #Simple version
-            #gradS = grad(surf)
-            #tau_drv = project(rhoi*g*height*gradS, model.V)
-            #Ds = dot(tau_drv, model.U)
+        if self.param['eq_def'] == 'action':
 
             #Driving Stress
             height_s = -rhow/rhoi * bed
@@ -95,7 +95,7 @@ class ssa_solver:
             #Terminating margin boundary condition
             fl_ex = conditional(height <= height_s, 1.0, 0.0)
 
-            #Bottom of ice sheet, either bed or draft
+            #bottom of ice sheet, either bed or draft
             R_f = ((1.0 - fl_ex) * bed
                + (fl_ex) * (-rhoi / rhow) * height)
 
@@ -109,6 +109,7 @@ class ssa_solver:
             Vd = (2.0*n)/(n+1.0) * (A**(-1.0/n)) * (epsdot**((n+1.0)/(2.0*n)))
 
             #Sliding law
+            B2 = exp(alpha)
             fl_ex = conditional(height <= height_s, 1.0, 0.0)
             Sl = 0.5 * (1.0 -fl_ex) * B2 * dot(self.U,self.U)
 
@@ -123,10 +124,12 @@ class ssa_solver:
             # a trial function ; the Jacobian :
             self.mom_Jac = derivative(self.mom_F, self.U)
 
-
-
         #Equations in weak form
         else:
+
+            if self.param['eq_def'] != 'weak':
+                print 'Unrecognized eq_def, resorting to weak form'
+
             #Vector components of trial function
             u, v = split(self.U)
 
@@ -154,6 +157,9 @@ class ssa_solver:
             #Ice Sheet Surface
             s = R_f + height
 
+            #Sliding law
+            B2 = exp(alpha)
+
             #Terminating margin boundary condition
             sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
             self.mom_F = ( -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * dIce
@@ -165,13 +171,44 @@ class ssa_solver:
             self.mom_Jac = derivative(self.mom_F, self.U)
 
 
+
     def solve_mom_eq(self):
 
         #Dirichlet Boundary Conditons at lateral domain margins
         self.bc_dmn = [DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_LAT)]
+        solve(self.mom_F == 0, self.U, J = self.mom_Jac, bcs = self.bc_dmn,solver_parameters = self.param['solver_param'])
 
-        solve(self.mom_F == 0, self.U, J = self.mom_Jac, bcs = self.bc_dmn,solver_parameters = self.solve_param)
+    def inversion(self):
 
+        #Record value of functional during minimization
+        self.F_iter = 0
+        self.F_vals = np.zeros(2*self.param['inv_options']['maxiter']);
+
+        def derivative_cb(j, dj, m):
+            self.F_vals[self.F_iter] = j
+            self.F_iter += 1
+            print "j = %f" % (j)
+
+        #Initial equation definition and solve
+        self.def_mom_eq()
+        self.solve_mom_eq()
+
+        #Inversion Code
+        u, v = split(self.U)
+
+        u_obs = self.u_obs
+        v_obs = self.v_obs
+
+        alpha = self.alpha
+        gamma = self.param['gamma']
+
+        #Define functional and control variable
+        J = Functional( ( 0.5*(u-u_obs)**2 + 0.5*(v-v_obs)**2)*self.dIce )
+        control = Control(alpha)
+        rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
+
+        #Optimization routine
+        self.alpha_inv = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
 
     def epsilon(self, U):
         """
@@ -184,6 +221,7 @@ class ssa_solver:
         """
         return the effective strain rate squared.
         """
+        eps_rp = self.param['eps_rp']
 
         eps = self.epsilon(U)
         exx = eps[0,0]
@@ -191,13 +229,13 @@ class ssa_solver:
         exy = eps[0,1]
 
         # Second invariant of the strain rate tensor squared
-        eps_2 = (exx**2 + eyy**2 + exx*eyy + (exy)**2 + self.eps_rp**2)
+        eps_2 = (exx**2 + eyy**2 + exx*eyy + (exy)**2 + eps_rp**2)
 
         return eps_2
 
     def viscosity(self,U):
-        A = self.A
-        n = self.n
+        A = self.param['A']
+        n = self.param['n']
 
         eps_2 = self.effective_strain_rate(U)
         nu = 0.5 * A**(-1.0/n) * eps_2**((1.0-n)/(2.0*n))

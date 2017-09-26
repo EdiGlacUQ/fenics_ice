@@ -33,13 +33,13 @@ ycoord = domain.y
 bed_interp = interp.RectBivariateSpline(xcoord,ycoord, domain.bed)
 surf_interp = interp.RectBivariateSpline(xcoord,ycoord, domain.surf)
 bmelt_interp = interp.RectBivariateSpline(xcoord,ycoord, domain.bmelt)
-bdrag_interp = interp.RectBivariateSpline(xcoord,ycoord, domain.bdrag)
+B2_interp = interp.RectBivariateSpline(xcoord,ycoord, domain.B2)
 
 #Coordinates of DOFS of fenics mesh in order data is stored
 bed = bed_interp.ev(dof_x, dof_y)
 surf = surf_interp.ev(dof_x, dof_y)
 bmelt = bmelt_interp.ev(dof_x, dof_y)
-bdrag = bdrag_interp.ev(dof_x, dof_y)
+B2 = B2_interp.ev(dof_x, dof_y)
 
 #Save mesh and data points at coordinates
 dd = '../input/analytical1/'
@@ -55,5 +55,5 @@ File(''.join([dd,'analytical1_mesh_surf.xml'])) <<  v
 v.vector()[:] = bmelt.flatten()
 File(''.join([dd,'analytical1_mesh_bmelt.xml'])) <<  v
 
-v.vector()[:] = bdrag.flatten()
-File(''.join([dd,'analytical1_mesh_bdrag.xml'])) <<  v
+v.vector()[:] = B2.flatten()
+File(''.join([dd,'analytical1_mesh_B2.xml'])) <<  v
