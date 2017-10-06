@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import timeit
+import time
 from IPython import embed
 
 
@@ -21,7 +22,6 @@ class ssa_solver:
         self.param = model.param
 
         #Fields
-        self.surf = model.surf
         self.bed = model.bed
         self.height = model.thick
         self.mask = model.mask
@@ -56,15 +56,18 @@ class ssa_solver:
         self.ff = model.ff
         self.GAMMA_DEF = model.GAMMA_DEF
         self.GAMMA_LAT = model.GAMMA_LAT
+        self.GAMMA_TMN = model.GAMMA_TMN      #Value at ice terminus
+        self.GAMMA_NF = model.GAMMA_NF
 
         #Measures
         self.dx = Measure('dx', domain=self.mesh, subdomain_data=self.cf)
+        self.dS = Measure('dS', domain=self.mesh, subdomain_data=self.ff)
         self.dIce = self.dx(self.OMEGA_ICE)
+        self.dTmn = self.dS(self.GAMMA_TMN)
 
     def def_mom_eq(self):
 
         #Simplify accessing fields and parameters
-        surf = self.surf
         bed = self.bed
         height = self.height
         mask = self.mask
@@ -95,6 +98,9 @@ class ssa_solver:
             #Terminating margin boundary condition
             fl_ex = conditional(height <= height_s, 1.0, 0.0)
 
+            aa = conditional(height > 0, 2.0, 0.0)
+            aa = conditional(eq(jump(mask),0.5),1,0)
+
             #bottom of ice sheet, either bed or draft
             R_f = ((1.0 - fl_ex) * bed
                + (fl_ex) * (-rhoi / rhow) * height)
@@ -102,7 +108,8 @@ class ssa_solver:
             draft = Min(R_f,0)
 
             sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
-            mgn_bc = inner(self.U("+") * sigma_n("+"), self.nm("+")) * abs(jump(mask))
+            #mgn_bc = inner(self.U("+") * sigma_n("+"), self.nm("+"))*conditional(eq(jump(mask),0.5),1,0)
+            mgn_bc = inner(self.U("+") * sigma_n("+"), self.nm("+"))*jump(aa)
 
             #Viscous Dissipation
             epsdot = self.effective_strain_rate(self.U)
@@ -114,7 +121,8 @@ class ssa_solver:
             Sl = 0.5 * (1.0 -fl_ex) * B2 * dot(self.U,self.U)
 
             # action :
-            Action = (height*Vd + Ds + Sl)*dIce + mgn_bc*dS
+            #Action = (height*Vd + Ds + Sl)*dIce - mgn_bc*self.dS
+            Action = (height*Vd + Ds + Sl)*dIce - mgn_bc*self.dS
 
             # the first variation of the action in the direction of a
             # test function ; the extremum :
@@ -166,18 +174,22 @@ class ssa_solver:
                     - inner(grad(Phi_y), height * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * dIce
                     - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * dIce
                     - inner(Phi, rhoi * g * height * grad(s)) * dIce
-                    + inner(Phi("+")*sigma_n,self.nm("+"))*np.abs(jump(mask)) * dS)
-
+            #        + inner(Phi("+")*sigma_n,self.nm("+"))*jump(mask)*dS)
+                    + inner(Phi("+")*sigma_n,self.nm("+"))*conditional(eq(jump(mask),0.5),1,0)*dS )
             self.mom_Jac = derivative(self.mom_F, self.U)
 
 
 
     def solve_mom_eq(self):
-
-        #Dirichlet Boundary Conditons at lateral domain margins
-        self.bc_dmn = [DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_LAT)]
-        solve(self.mom_F == 0, self.U, J = self.mom_Jac, bcs = self.bc_dmn,solver_parameters = self.param['solver_param'])
-
+        #Dirichlet Boundary Conditons: Lateral, No Flow
+        bc0 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_LAT)
+        #self.bcs = dchl_lat
+        bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF)
+        self.bcs = [bc0, bc1]
+        t0 = time.time()
+        solve(self.mom_F == 0, self.U, J = self.mom_Jac, bcs = self.bcs, solver_parameters = self.param['solver_param'])
+        t1 = time.time()
+        print "Time for solve: ", t1-t0
     def inversion(self):
 
         #Record value of functional during minimization
@@ -203,7 +215,8 @@ class ssa_solver:
         gamma = self.param['gamma']
 
         #Define functional and control variable
-        J = Functional( ( 0.5*(u-u_obs)**2 + 0.5*(v-v_obs)**2)*self.dIce )
+        embed()
+        J = Functional( (0.5*(u-u_obs)**2 + 0.5*(v-v_obs)**2)*self.dIce )
         control = Control(alpha)
         rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 

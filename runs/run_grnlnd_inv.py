@@ -32,7 +32,7 @@ param = {'eq_def' : 'action',
 mdl = model.model(mesh,param)
 mdl.init_surf(surf)
 mdl.init_bed(bed)
-mdl.init_thick()
+mdl.gen_thick()
 mdl.init_bmelt(bmelt)
 mdl.init_alpha(alpha)
 

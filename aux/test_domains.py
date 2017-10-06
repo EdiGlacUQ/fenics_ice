@@ -107,9 +107,10 @@ class gldbg2013:
 
 class grnld_margin:
 
-    def __init__(self, nx=151, ny=151):
+    def __init__(self, nx=151, ny=151, li = -4):
         self.x = np.linspace(0,150e3, num=nx)
         self.y = np.linspace(0,150e3, num=ny)
+        self.li = li
 
         self.init_bed(self.x,self.y)
         self.init_surf(self.x,self.y)
@@ -131,12 +132,10 @@ class grnld_margin:
 
     def init_surf(self,x,y):
         H0 = 2000.0
-        li = -4
+        li = self.li
         xx = np.meshgrid(x, y)[0]
         self.surf = np.zeros(xx.shape)
         self.surf[:,0:li] = H0*np.sqrt(1.0-(xx[:,0:li])/max(x[0:li]))
-
-
 
     def init_B2(self,x,y):
         '''Return bedrock topography in metres
@@ -158,7 +157,6 @@ class grnld_margin:
         self.B2[p1] = (1500)
 
 
-
     def init_bmelt(self,x,y):
         '''Return bedrock topography in metres
         Input:
@@ -168,7 +166,6 @@ class grnld_margin:
         yy = np.meshgrid(x,y)[1]
 
         self.bmelt = 1.0*np.ones(yy.shape)
-
 
 class ismipC:
 
@@ -280,14 +277,16 @@ class analytical1:
 
 class analytical2:
 
-    def __init__(self, Lx, Ly, nx=151, ny=151):
+    def __init__(self, Lx, Ly, nx=151, ny=151, li = -4):
 
         self.x = np.linspace(0, Lx, num=nx)
         self.y = np.linspace(0, Ly, num=ny)
+        self.li = li
 
         self.init_bed(self.x,self.y)
         self.init_thick(self.x,self.y)
         self.init_surf(self.x,self.y)
+        self.init_mask(self.x,self.y)
 
         self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
@@ -303,13 +302,27 @@ class analytical2:
         self.bed = -1000.0*(np.ones([x.size, y.size]))
 
     def init_thick(self,x,y):
+        li = self.li
         self.thick = 1000.0*(np.ones([x.size, y.size]))
-        self.thick[-5:,] = 0.0
+        self.thick[li:,] = 0.0
 
     def init_surf(self,x,y):
         rhoi = 917.0
         rhow = 1000.0
         self.surf = (1-rhoi/rhow) * self.thick
+
+
+    def init_mask(self,x,y):
+        '''Return ice mask
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        yy = np.meshgrid(x,y)[1]
+
+        li = self.li
+        self.mask = 1.0*(np.ones([x.size, y.size]))
+        self.mask[li:,] = 0.0
 
     def init_B2(self,x,y):
         '''Return bedrock topography in metres

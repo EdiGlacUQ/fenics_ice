@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 import os
 from matplotlib import colors
 from pylab import plt
@@ -96,3 +97,11 @@ def plot_inv_conv(fvals, name, direc):
     plt.ylabel('Cost Function')
     plt.savefig(direc + name + '.png', dpi=300)
     plt.close()
+
+
+def binread(fn):
+  fid = open(fn,"rb")
+  file_contents = np.fromfile(fn, dtype='float64')
+  if sys.byteorder == 'little': file_contents.byteswap(True)
+  fid.close()
+  return file_contents

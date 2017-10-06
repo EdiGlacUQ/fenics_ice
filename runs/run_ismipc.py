@@ -31,7 +31,7 @@ output_dir='./output2/'
 mdl = model.model(mesh,outdir=output_dir,eq_def=1)
 mdl.init_surf(surf)
 mdl.init_bed(bed)
-mdl.init_thick()
+mdl.gen_thick()
 mdl.init_bmelt(bmelt)
 mdl.init_alpha(alpha)
 mdl.default_solver_params()

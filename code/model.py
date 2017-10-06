@@ -2,6 +2,7 @@ from dolfin import *
 import numpy as np
 import timeit
 from IPython import embed
+from numpy.random import rand
 import matplotlib.pyplot as plt
 
 
@@ -65,13 +66,13 @@ class model:
                 'linear_solver'            : 'cg',
                 'preconditioner'           : 'jacobi',
                 'relative_tolerance'       : 1e-15,
-                'relaxation_parameter'     : 0.70,
+                'relaxation_parameter'     : 0.7,
                 'absolute_tolerance'       : 10.0,
                 'maximum_iterations'       : 50,
                 'error_on_nonconvergence'  : False,
                 }}
 
-        
+
         param['inv_options'] = {'disp': True, 'maxiter': 15, 'ftol' : 0.05}
 
         #Update default values based on input
@@ -99,13 +100,23 @@ class model:
     def init_bed(self,bed):
         self.bed = project(bed,self.Q)
 
+    def init_thick(self,thick):
+        self.thick = project(thick,self.Q)
+
     def init_alpha(self,alpha):
         self.alpha = project(alpha,self.Q)
 
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.Q)
 
-    def init_thick(self):
+    def init_vel_obs(self, u, v):
+        self.u_obs = project(u,self.Q)
+        self.v_obs = project(v,self.Q)
+
+    def init_mask(self,mask):
+        self.mask = project(mask,self.M)
+
+    def gen_thick(self):
         rhoi = self.param['rhoi']
         rhow = self.param['rhow']
 
@@ -113,22 +124,30 @@ class model:
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
         self.thick = project(Min(h_diff,h_hyd),self.Q)
 
-    def init_vel_obs(self, u, v):
-        self.u_obs = project(u,self.Q)
-        self.v_obs = project(v,self.Q)
-
     def gen_ice_mask(self):
-        self.mask = project(conditional(gt(self.thick,self.param['tol']),1,0), self.Q)
+        self.mask = project(conditional(gt(self.thick,self.param['tol']),1,0), self.M)
 
     def gen_domain(self):
+        tol = self.param['tol']
+
+        #Mask labels
+        self.MASK_ICE = 1   #Ice
+        self.MASK_LO = 0    #Land/Ocean
+        self.MASK_XD = -10  #Out of domain
 
         #Cell labels
-        self.OMEGA_X    = 0     #exterior to ice sheet
-        self.OMEGA_ICE   = 1    #Ice Sheet
+        self.OMEGA_X     = 0     #exterior to ice sheet
+        self.OMEGA_ICE   = 1
+        #self.OMEGA_GND   = 2
+        #self.OMEGA_U_GND = 2
+        #self.OMEGA_FLT   = 2
+        #self.OMEGA_U_FLT = 2
 
         #Facet labels
         self.GAMMA_DEF = 0      #default value
         self.GAMMA_LAT = 1      #Value at lateral domain boundaries
+        self.GAMMA_TMN = 2      #Value at ice terminus
+        self.GAMMA_NF = 3       #No flow dirichlet bc
 
         #Cell and Facet markers
         self.cf      = CellFunction('size_t',  self.mesh)
@@ -138,29 +157,49 @@ class model:
         self.cf.set_all(self.OMEGA_X)
         self.ff.set_all(self.GAMMA_DEF)
 
+        # Build connectivity between facets and cells
+        D = self.mesh.topology().dim()
+        self.mesh.init(D-1,D)
+
         #Label ice sheet cells
         for c in cells(self.mesh):
             x_m       = c.midpoint().x()
             y_m       = c.midpoint().y()
-            h_xy = self.thick(x_m, y_m)
+            m_xy = self.mask(x_m, y_m)
 
-            #Determine whether cell is ice covered
-            if h_xy > self.param['tol']:
+            #Determine whether cell is in the domain
+            if near(m_xy,1, tol):
                 self.cf[c] = self.OMEGA_ICE
 
         for f in facets(self.mesh):
             x_m      = f.midpoint().x()
             y_m      = f.midpoint().y()
-            h_xy = self.thick(x_m, y_m)
+            m_xy = self.mask(x_m, y_m)
 
-            if f.exterior() and h_xy > self.param['tol']:
-                self.ff[f] = self.GAMMA_LAT
+            if f.exterior():
+                if near(m_xy,1,tol):
+                    self.ff[f] = self.GAMMA_LAT
 
+            else:
+                #Identify the 2 neighboring cells
+                [n1_num,n2_num] = f.entities(D)
 
-        self.set_measures()
+                #Mask value of neighbor 1
+                n1 = Cell(self.mesh,n1_num)
+                n1_x = n1.midpoint().x()
+                n1_y = n1.midpoint().y()
+                n1_mask = self.mask(n1_x,n1_y)
 
-    def set_measures(self):
-        # create new measures of integration :
-        self.dx = Measure('dx', domain=self.mesh, subdomain_data=self.cf)
+                #Mask value of neighbor 2
+                n2 = Cell(self.mesh,n2_num)
+                n2_x = n2.midpoint().x()
+                n2_y = n2.midpoint().y()
+                n2_mask = self.mask(n2_x,n2_y)
 
-        self.dIce   =     self.dx(self.OMEGA_ICE)   #grounded ice
+                #Identify facets which to apply terminating boundary condition
+                if near(n1_mask + n2_mask,self.MASK_ICE + self.MASK_LO,tol):
+                    self.ff[f] = self.GAMMA_TMN
+
+                #Identify facets which to apply no flow boundary condition
+                if near(n1_mask+n2_mask,self.MASK_ICE +self.MASK_XD,tol):
+                    self.ff[f] = self.GAMMA_NF
