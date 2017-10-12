@@ -21,7 +21,7 @@ thick = Function(Q,''.join([dd,'smith450m_mesh_thick.xml']))
 mask = Function(Q,''.join([dd,'smith450m_mesh_mask.xml']))
 u_obs = Function(Q,''.join([dd,'smith450m_mesh_u_obs.xml']))
 v_obs = Function(Q,''.join([dd,'smith450m_mesh_v_obs.xml']))
-
+mask_vel = Function(Q,''.join([dd,'smith450m_mesh_mask_vel.xml']))
 
 #Generate model mesh
 gf = 'grid_data.npz'
@@ -34,24 +34,26 @@ ylim = npzfile['ylim']
 mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 
 #Initialize Model
-param = {'eq_def' : 'action',
+param = {'eq_def' : 'weak',
         'solver': 'default',
-        'outdir' :'./output_smith_inv/'}
+        'outdir' :'./output_smith_inv/',
+        'gamma': 1}
 mdl = model.model(mesh,param)
 mdl.init_bed(bed)
 mdl.init_thick(thick)
 mdl.init_mask(mask)
-mdl.init_vel_obs(u_obs,v_obs)
 #mdl.gen_ice_mask()
+mdl.init_vel_obs(u_obs,v_obs, mask_vel)
 mdl.init_bmelt(Constant(0.0))
+#mdl.gen_alpha()
 mdl.init_alpha(Constant(ln(2000)))
 mdl.gen_domain()
+
 
 #Solve
 slvr = solver.ssa_solver(mdl)
 slvr.def_mom_eq()
 slvr.solve_mom_eq()
-
 
 embed()
 
@@ -59,13 +61,11 @@ embed()
 slvr = solver.ssa_solver(mdl)
 slvr.inversion()
 
-embed()
-
 #Plot
-alpha_inv = project(exp(slvr.alpha_inv),mdl.Q)
+B2 = project(exp(slvr.alpha_inv),mdl.M)
 F_vals = [x for x in slvr.F_vals if x > 0]
 
-fu.plot_variable(alpha_inv, 'alpha_inverted', mdl.param['outdir'])
+fu.plot_variable(B2, 'B2', mdl.param['outdir'])
 fu.plot_inv_conv(F_vals, 'convergence', mdl.param['outdir'])
 
 
@@ -74,6 +74,9 @@ outdir = mdl.param['outdir']
 vtkfile = File(''.join([outdir,'U.pvd']))
 U = project(mdl.U,mdl.V)
 vtkfile << U
+
+vtkfile = File(''.join([outdir,'alpha.pvd']))
+vtkfile << slvr.alpha_inv
 
 vtkfile = File(''.join([outdir,'bed.pvd']))
 vtkfile << mdl.bed
@@ -89,3 +92,5 @@ vtkfile << mdl.u_obs
 
 vtkfile = File(''.join([outdir,'vvel.pvd']))
 vtkfile << mdl.v_obs
+
+embed()

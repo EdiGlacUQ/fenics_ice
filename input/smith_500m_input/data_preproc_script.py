@@ -63,7 +63,7 @@ bed = bed_[:,xm]
 
 thick_ = bm_thick[ym,:];
 thick = thick_[:,xm]
-thick_vls = thick
+thick_vls = np.copy(thick)
 thick[thick<1] = 0
 
 shelves_ = bm_shelves[ym,:];
@@ -72,7 +72,8 @@ shelves = shelves_[:,xm]
 mask = np.empty(thick.shape)
 mask[thick_vls >= 1] = 1
 mask[thick_vls < 1] = -10
-mask[thick_vls == -9999] = 0
+mask[thick_vls == -9999.0] = 0
+
 
 ###############
 #Measures data
@@ -106,11 +107,14 @@ uvel = uvel_[:,xm2]
 vvel_ = mes_vvel[ym2,:]
 vvel = vvel_[:,xm2]
 
+mask_vel = ~(np.isclose(uvel,0) & np.isclose(vvel,0))
+
 outfile = 'grid_data'
 np.savez(outfile,nx=nx,ny=ny,xlim=xlim,ylim=ylim, Lx=Lx, Ly=Ly,
             xcoord_bm=xcoord_bm,ycoord_bm=ycoord_bm,
             xcoord_ms=xcoord_ms,ycoord_ms=ycoord_ms,
-            bed=bed, thick=thick, mask=mask, uvel=uvel, vvel=vvel)
+            bed=bed, thick=thick, mask=mask,
+            uvel=uvel, vvel=vvel, mask_vel=mask_vel)
 
 
 plt.figure()
@@ -144,3 +148,8 @@ plt.figure()
 plt.imshow((uvel**2.0 + vvel**2.0)**(1.0/2.0))
 plt.title('Velocities')
 plt.savefig('vel.png')
+
+plt.figure()
+plt.imshow(mask_vel)
+plt.title('Velocities Mask')
+plt.savefig('mask_vel.png')

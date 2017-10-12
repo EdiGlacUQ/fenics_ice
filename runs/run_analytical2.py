@@ -39,6 +39,7 @@ mdl.init_surf(surf)
 mdl.init_bed(bed)
 mdl.gen_thick()
 mdl.init_mask(mask)
+mdl.gen_vel_mask()
 mdl.init_bmelt(bmelt)
 mdl.init_alpha(alpha)
 

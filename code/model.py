@@ -37,7 +37,7 @@ class model:
         param['eps_rp'] =  1e-5      #effective strain regularization
         param['A'] =  10**(-16)      #Creep paramater
         param['tol'] =  1e-6         #Tolerance for tests
-        param['gamma'] =  1          #Cost function scaling parameter
+        param['gamma'] =  1.0          #Cost function scaling parameter
 
         #Output
         param['outdir'] = './output/'
@@ -73,7 +73,7 @@ class model:
                 }}
 
 
-        param['inv_options'] = {'disp': True, 'maxiter': 15, 'ftol' : 0.05}
+        param['inv_options'] = {'disp': True, 'maxiter': 15, 'factr': 0.0}
 
         #Update default values based on input
         param.update(param_in)
@@ -109,9 +109,10 @@ class model:
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.Q)
 
-    def init_vel_obs(self, u, v):
+    def init_vel_obs(self, u, v, mv):
         self.u_obs = project(u,self.Q)
         self.v_obs = project(v,self.Q)
+        self.mask_vel = project(mv,self.M)
 
     def init_mask(self,mask):
         self.mask = project(mask,self.M)
@@ -127,6 +128,46 @@ class model:
     def gen_ice_mask(self):
         self.mask = project(conditional(gt(self.thick,self.param['tol']),1,0), self.M)
 
+    def gen_vel_mask(self):
+        self.mask_vel = project(Constant(1.0), self.M)
+
+
+    def gen_alpha(self, a_bgd=2000.0, a_lb = 1.0, a_ub = 1.0e4):
+
+        bed = self.bed
+        height = self.thick
+        g = self.param['g']
+        rhoi = self.param['rhoi']
+        rhow = self.param['rhow']
+        u_obs = self.u_obs
+        v_obs = self.v_obs
+        U = Max((u_obs**2 + v_obs**2)**(1/2.0),2.0)
+
+        #Flotation Criterion
+        height_s = -rhow/rhoi * bed
+        fl_ex = conditional(height <= height_s, 1.0, 0.0)
+
+        #Thickness Criterion
+        m_d = conditional(height > 0,1.0,0.0)
+
+        #Surface gradient (including where there is no ice surface...)
+        R_f = ((1.0 - fl_ex) * bed
+               + (fl_ex) * (-rhoi / rhow) * height)
+        s = height + R_f
+        grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
+
+        #Calculate alpha, apply bound
+        self.alpha_ = ( (1.0 - fl_ex) *rhoi*g*height*grads/U
+           + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
+
+
+        self.alpha__ = Max(self.alpha_, a_lb)
+        self.alpha = Min(self.alpha__, a_ub)
+        self.alpha = ln(self.alpha)
+
+        #self.U = interpolate(Expression(('50','50'),degree=1),self.V)
+
+
     def gen_domain(self):
         tol = self.param['tol']
 
@@ -138,10 +179,8 @@ class model:
         #Cell labels
         self.OMEGA_X     = 0     #exterior to ice sheet
         self.OMEGA_ICE   = 1
-        #self.OMEGA_GND   = 2
-        #self.OMEGA_U_GND = 2
-        #self.OMEGA_FLT   = 2
-        #self.OMEGA_U_FLT = 2
+        self.OMEGA_ICE_OBS = 2
+
 
         #Facet labels
         self.GAMMA_DEF = 0      #default value
@@ -166,9 +205,13 @@ class model:
             x_m       = c.midpoint().x()
             y_m       = c.midpoint().y()
             m_xy = self.mask(x_m, y_m)
+            mv_xy = self.mask_vel(x_m, y_m)
 
             #Determine whether cell is in the domain
-            if near(m_xy,1, tol):
+            if near(m_xy,1, tol) & near(mv_xy,1, tol):
+                self.cf[c] = self.OMEGA_ICE_OBS
+
+            elif near(m_xy,1, tol):
                 self.cf[c] = self.OMEGA_ICE
 
         for f in facets(self.mesh):
@@ -199,6 +242,7 @@ class model:
                 #Identify facets which to apply terminating boundary condition
                 if near(n1_mask + n2_mask,self.MASK_ICE + self.MASK_LO,tol):
                     self.ff[f] = self.GAMMA_TMN
+
 
                 #Identify facets which to apply no flow boundary condition
                 if near(n1_mask+n2_mask,self.MASK_ICE +self.MASK_XD,tol):

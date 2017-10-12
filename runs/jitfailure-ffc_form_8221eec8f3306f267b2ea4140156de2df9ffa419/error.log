@@ -1,0 +1,88 @@
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp: In member function ‘virtual void ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419_cell_integral_main_1::tabulate_tensor(double*, const double* const*, const double*, int) const’:
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:254:58: error: no matching function for call to ‘max(double&, int)’
+         sv16[35] = std::log(std::min(std::max(sv16[34], 1), 10000.0));
+                                                          ^
+In file included from /usr/include/c++/5/algorithm:61:0,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.h:26,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:24:
+/usr/include/c++/5/bits/stl_algobase.h:219:5: note: candidate: template<class _Tp> const _Tp& std::max(const _Tp&, const _Tp&)
+     max(const _Tp& __a, const _Tp& __b)
+     ^
+/usr/include/c++/5/bits/stl_algobase.h:219:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:254:58: note:   deduced conflicting types for parameter ‘const _Tp’ (‘double’ and ‘int’)
+         sv16[35] = std::log(std::min(std::max(sv16[34], 1), 10000.0));
+                                                          ^
+In file included from /usr/include/c++/5/algorithm:61:0,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.h:26,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:24:
+/usr/include/c++/5/bits/stl_algobase.h:265:5: note: candidate: template<class _Tp, class _Compare> const _Tp& std::max(const _Tp&, const _Tp&, _Compare)
+     max(const _Tp& __a, const _Tp& __b, _Compare __comp)
+     ^
+/usr/include/c++/5/bits/stl_algobase.h:265:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:254:58: note:   deduced conflicting types for parameter ‘const _Tp’ (‘double’ and ‘int’)
+         sv16[35] = std::log(std::min(std::max(sv16[34], 1), 10000.0));
+                                                          ^
+In file included from /usr/include/c++/5/algorithm:62:0,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.h:26,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:24:
+/usr/include/c++/5/bits/stl_algo.h:3457:5: note: candidate: template<class _Tp> _Tp std::max(std::initializer_list<_Tp>)
+     max(initializer_list<_Tp> __l)
+     ^
+/usr/include/c++/5/bits/stl_algo.h:3457:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:254:58: note:   mismatched types ‘std::initializer_list<_Tp>’ and ‘double’
+         sv16[35] = std::log(std::min(std::max(sv16[34], 1), 10000.0));
+                                                          ^
+In file included from /usr/include/c++/5/algorithm:62:0,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.h:26,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:24:
+/usr/include/c++/5/bits/stl_algo.h:3463:5: note: candidate: template<class _Tp, class _Compare> _Tp std::max(std::initializer_list<_Tp>, _Compare)
+     max(initializer_list<_Tp> __l, _Compare __comp)
+     ^
+/usr/include/c++/5/bits/stl_algo.h:3463:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:254:58: note:   mismatched types ‘std::initializer_list<_Tp>’ and ‘double’
+         sv16[35] = std::log(std::min(std::max(sv16[34], 1), 10000.0));
+                                                          ^
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp: In member function ‘virtual void ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419_cell_integral_main_2::tabulate_tensor(double*, const double* const*, const double*, int) const’:
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:526:58: error: no matching function for call to ‘max(double&, int)’
+         sv16[35] = std::log(std::min(std::max(sv16[34], 1), 10000.0));
+                                                          ^
+In file included from /usr/include/c++/5/algorithm:61:0,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.h:26,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:24:
+/usr/include/c++/5/bits/stl_algobase.h:219:5: note: candidate: template<class _Tp> const _Tp& std::max(const _Tp&, const _Tp&)
+     max(const _Tp& __a, const _Tp& __b)
+     ^
+/usr/include/c++/5/bits/stl_algobase.h:219:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:526:58: note:   deduced conflicting types for parameter ‘const _Tp’ (‘double’ and ‘int’)
+         sv16[35] = std::log(std::min(std::max(sv16[34], 1), 10000.0));
+                                                          ^
+In file included from /usr/include/c++/5/algorithm:61:0,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.h:26,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:24:
+/usr/include/c++/5/bits/stl_algobase.h:265:5: note: candidate: template<class _Tp, class _Compare> const _Tp& std::max(const _Tp&, const _Tp&, _Compare)
+     max(const _Tp& __a, const _Tp& __b, _Compare __comp)
+     ^
+/usr/include/c++/5/bits/stl_algobase.h:265:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:526:58: note:   deduced conflicting types for parameter ‘const _Tp’ (‘double’ and ‘int’)
+         sv16[35] = std::log(std::min(std::max(sv16[34], 1), 10000.0));
+                                                          ^
+In file included from /usr/include/c++/5/algorithm:62:0,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.h:26,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:24:
+/usr/include/c++/5/bits/stl_algo.h:3457:5: note: candidate: template<class _Tp> _Tp std::max(std::initializer_list<_Tp>)
+     max(initializer_list<_Tp> __l)
+     ^
+/usr/include/c++/5/bits/stl_algo.h:3457:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:526:58: note:   mismatched types ‘std::initializer_list<_Tp>’ and ‘double’
+         sv16[35] = std::log(std::min(std::max(sv16[34], 1), 10000.0));
+                                                          ^
+In file included from /usr/include/c++/5/algorithm:62:0,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.h:26,
+                 from /tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:24:
+/usr/include/c++/5/bits/stl_algo.h:3463:5: note: candidate: template<class _Tp, class _Compare> _Tp std::max(std::initializer_list<_Tp>, _Compare)
+     max(initializer_list<_Tp> __l, _Compare __comp)
+     ^
+/usr/include/c++/5/bits/stl_algo.h:3463:5: note:   template argument deduction/substitution failed:
+/tmp/tmp_PkgLN/ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp:526:58: note:   mismatched types ‘std::initializer_list<_Tp>’ and ‘double’
+         sv16[35] = std::log(std::min(std::max(sv16[34], 1), 10000.0));
+                                                          ^

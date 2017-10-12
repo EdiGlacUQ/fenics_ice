@@ -27,6 +27,7 @@ thick = npzfile['thick']
 mask = npzfile['mask']
 uvel = npzfile['uvel']
 vvel = npzfile['vvel']
+mask_vel = npzfile['mask_vel']
 
 #Fenics mesh
 mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
@@ -53,6 +54,7 @@ mask_interp = interp.RegularGridInterpolator(xycoord_bm, zip(*mask[::-1]), metho
 
 uvel_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*uvel[::-1]))
 vvel_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*vvel[::-1]))
+mask_vel_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*mask_vel[::-1]), method='nearest')
 
 
 #Coordinates of DOFS of fenics mesh in order data is stored
@@ -62,6 +64,7 @@ thick = thick_interp(dof_xy)
 mask = mask_interp(dof_xy)
 u_obs = uvel_interp(dof_xy)
 v_obs = vvel_interp(dof_xy)
+mask_vel = mask_vel_interp(dof_xy)
 
 #Save mesh and data points at coordinates
 dd = './'
@@ -82,3 +85,6 @@ File(''.join([dd,'smith450m_mesh_u_obs.xml'])) <<  v
 
 v.vector()[:] = v_obs.flatten()
 File(''.join([dd,'smith450m_mesh_v_obs.xml'])) <<  v
+
+v.vector()[:] = mask_vel.flatten()
+File(''.join([dd,'smith450m_mesh_mask_vel.xml'])) <<  v
