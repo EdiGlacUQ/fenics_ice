@@ -15,6 +15,7 @@ class model:
         self.nm = FacetNormal(self.mesh)
         self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
+        self.L = FunctionSpace(self.mesh,'DG',1)
         self.M = FunctionSpace(self.mesh,'DG',0)
 
         #Initiate Functions
@@ -29,13 +30,13 @@ class model:
 
         #Constants for ice sheet modelling
         param = {}
-        param['ty'] = 365*24*60*60  #seconds in year
+        param['ty'] = 365*24*60*60.0  #seconds in year
         param['rhoi'] =  917.0      #density ice
         param['rhow'] =   1000.0     #density water
         param['g'] =  9.81           #acceleration due to gravity
         param['n'] =  3.0            #glen's flow law exponent
         param['eps_rp'] =  1e-5      #effective strain regularization
-        param['A'] =  10**(-16)      #Creep paramater
+        param['A'] =  3.5e-25 * param['ty']     #Creep paramater
         param['tol'] =  1e-6         #Tolerance for tests
         param['gamma'] =  1.0          #Cost function scaling parameter
 
@@ -66,18 +67,17 @@ class model:
                 'linear_solver'            : 'cg',
                 'preconditioner'           : 'jacobi',
                 'relative_tolerance'       : 1e-15,
+                'absolute_tolerance'       : 1.0,
                 'relaxation_parameter'     : 0.7,
-                'absolute_tolerance'       : 10.0,
                 'maximum_iterations'       : 50,
                 'error_on_nonconvergence'  : False,
+                #'krylov_solver': {'monitor_convergence': True}
                 }}
-
 
         param['inv_options'] = {'disp': True, 'maxiter': 15, 'factr': 0.0}
 
         #Update default values based on input
         param.update(param_in)
-
         #Set solver parameters
         if param['solver'] == 'petsc':
             print('Using Petsc to solve forward model')
@@ -95,24 +95,27 @@ class model:
         self.param = param
 
     def init_surf(self,surf):
-        self.surf = project(surf,self.Q)
+        self.surf = project(surf,self.M)
 
     def init_bed(self,bed):
-        self.bed = project(bed,self.Q)
+        self.bed = project(bed,self.M)
 
     def init_thick(self,thick):
-        self.thick = project(thick,self.Q)
+        self.thick = project(thick,self.L)
 
     def init_alpha(self,alpha):
         self.alpha = project(alpha,self.Q)
 
     def init_bmelt(self,bmelt):
-        self.bmelt = project(bmelt,self.Q)
+        self.bmelt = project(bmelt,self.M)
 
-    def init_vel_obs(self, u, v, mv):
-        self.u_obs = project(u,self.Q)
-        self.v_obs = project(v,self.Q)
+    def init_vel_obs(self, u, v, mv, ustd=1, vstd=1):
+        self.u_obs = project(u,self.M)
+        self.v_obs = project(v,self.M)
         self.mask_vel = project(mv,self.M)
+        self.u_std = project(ustd,self.M)
+        self.v_std = project(vstd,self.M)
+
 
     def init_mask(self,mask):
         self.mask = project(mask,self.M)
@@ -123,7 +126,7 @@ class model:
 
         h_diff = self.surf-self.bed
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
-        self.thick = project(Min(h_diff,h_hyd),self.Q)
+        self.thick = project(Min(h_diff,h_hyd),self.L)
 
     def gen_ice_mask(self):
         self.mask = project(conditional(gt(self.thick,self.param['tol']),1,0), self.M)
@@ -132,7 +135,7 @@ class model:
         self.mask_vel = project(Constant(1.0), self.M)
 
 
-    def gen_alpha(self, a_bgd=2000.0, a_lb = 1.0, a_ub = 1.0e4):
+    def gen_alpha(self, a_bgd=2000.0, a_lb = 1e2, a_ub = 2.0e4):
 
         bed = self.bed
         height = self.thick
@@ -141,7 +144,7 @@ class model:
         rhow = self.param['rhow']
         u_obs = self.u_obs
         v_obs = self.v_obs
-        U = Max((u_obs**2 + v_obs**2)**(1/2.0),2.0)
+        U = Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
         #Flotation Criterion
         height_s = -rhow/rhoi * bed
@@ -150,22 +153,23 @@ class model:
         #Thickness Criterion
         m_d = conditional(height > 0,1.0,0.0)
 
-        #Surface gradient (including where there is no ice surface...)
+        #Calculate surface gradient
         R_f = ((1.0 - fl_ex) * bed
                + (fl_ex) * (-rhoi / rhow) * height)
-        s = height + R_f
+
+        s_ = Max(height + R_f,0)
+        s = project(s_,self.Q)
         grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
 
         #Calculate alpha, apply bound
-        self.alpha_ = ( (1.0 - fl_ex) *rhoi*g*height*grads/U
+        alpha_ = ( (1.0 - fl_ex) *rhoi*g*height*grads/U
            + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
 
 
-        self.alpha__ = Max(self.alpha_, a_lb)
-        self.alpha = Min(self.alpha__, a_ub)
-        self.alpha = ln(self.alpha)
-
-        #self.U = interpolate(Expression(('50','50'),degree=1),self.V)
+        alpha__ = Max(alpha_, a_lb)
+        alpha = Min(alpha__, a_ub)
+        alpha = ln(alpha)
+        self.alpha = project(alpha,self.Q)
 
 
     def gen_domain(self):

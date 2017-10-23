@@ -13,12 +13,12 @@ dd = '../input/analytical2/'
 data_mesh = Mesh(''.join([dd,'analytical2_mesh.xml']))
 Q = FunctionSpace(data_mesh, 'Lagrange', 1)
 M = FunctionSpace(data_mesh, 'DG', 0)
-bed = Function(Q,''.join([dd,'analytical2_mesh_bed.xml']))
-surf = Function(Q,''.join([dd,'analytical2_mesh_surf.xml']))
-bmelt = Function(Q,''.join([dd,'analytical2_mesh_bmelt.xml']))
-mask = Function(Q,''.join([dd,'analytical2_mesh_mask.xml']))
+bed = Function(M,''.join([dd,'analytical2_mesh_bed.xml']))
+surf = Function(M,''.join([dd,'analytical2_mesh_surf.xml']))
+bmelt = Function(M,''.join([dd,'analytical2_mesh_bmelt.xml']))
+mask = Function(M,''.join([dd,'analytical2_mesh_mask.xml']))
 mask = project(conditional(gt(mask,1.0-1e-2), 1, 0), M) #Lagrange->DG
-B2 = Function(Q,''.join([dd,'analytical2_mesh_B2.xml']))
+B2 = Function(M,''.join([dd,'analytical2_mesh_B2.xml']))
 alpha = ln(B2)
 
 #Number of cells in grid

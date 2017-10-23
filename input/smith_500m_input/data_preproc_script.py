@@ -11,14 +11,16 @@ from IPython import embed
 #Details of model domain grid
 ############################
 
-xlim = [-1607000.0,-1383000.0]
-ylim = [-717000.0,-523000.0]
+xlim = [-1607500.0,-1382500.0]
+ylim = [-717500.0,-522500.0]
 
 Lx = xlim[1] - xlim[0]
 Ly = ylim[1] - ylim[0]
 
 nx = Lx/1e3
 ny = Ly/1e3
+
+std_e = 1
 
 ###############
 #BEDMAP2 data
@@ -48,7 +50,7 @@ bm_x = np.linspace(-3333000,3333000, 6667)
 bm_y = np.linspace(3333000,-3333000, 6667)
 
 #Create bufferd x,y masks
-bf = 1e3
+bf=2e3
 xm = (xlim[0] - bf < bm_x) & (bm_x < xlim[1] + bf)
 ym = (ylim[0] - bf < bm_y) & (bm_y < ylim[1] + bf)
 
@@ -63,16 +65,23 @@ bed = bed_[:,xm]
 
 thick_ = bm_thick[ym,:];
 thick = thick_[:,xm]
-thick_vls = np.copy(thick)
-thick[thick<1] = 0
+thick_orig = np.copy(thick)
+thick[thick_orig < 1] = 1 #Fill in small holes
+thick[thick_orig == -9999.0] = 0
+#thick[thick_orig < 1] = 0
+
 
 shelves_ = bm_shelves[ym,:];
 shelves = shelves_[:,xm]
 
 mask = np.empty(thick.shape)
-mask[thick_vls >= 1] = 1
-mask[thick_vls < 1] = -10
-mask[thick_vls == -9999.0] = 0
+
+#mask[thick > 0] = 1
+#mask[thick == 0] = 0
+
+mask[thick_orig >= 1] = 1
+mask[thick_orig < 1] = -10
+mask[thick_orig == -9999.0] = 0
 
 
 ###############
@@ -85,16 +94,22 @@ vf = 'measures450.mat'
 mes_data = io.loadmat(data_dir + vf)
 mes_uvel = mes_data['uvel']
 mes_vvel = mes_data['vvel']
+mes_ustd = mes_data['stdx']
+mes_vstd = mes_data['stdy']
 mes_x = np.squeeze(mes_data['xmeasures450'])
 mes_y = np.squeeze(mes_data['ymeasures450'])
 
 mes_uvel = np.flipud(mes_uvel)
 mes_vvel = np.flipud(mes_vvel)
+
+mes_ustd = np.flipud(mes_ustd)
+mes_vstd = np.flipud(mes_vstd)
+
 mes_y = np.flipud(mes_y)
 
 
 #Create bufferd x,y masks
-bf = 1e3
+bf = 2e3
 xm2 = (xlim[0] - bf < mes_x) & (mes_x < xlim[1] + bf)
 ym2 = (ylim[0] - bf < mes_y) & (mes_y < ylim[1] + bf)
 
@@ -107,6 +122,14 @@ uvel = uvel_[:,xm2]
 vvel_ = mes_vvel[ym2,:]
 vvel = vvel_[:,xm2]
 
+ustd_ = mes_ustd[ym2,:]
+ustd__ = ustd_[:,xm2]
+ustd = np.sqrt(ustd__**2 + std_e**2)
+
+vstd_ = mes_vstd[ym2,:]
+vstd__ = vstd_[:,xm2]
+vstd = np.sqrt(vstd__**2 + std_e**2)
+
 mask_vel = ~(np.isclose(uvel,0) & np.isclose(vvel,0))
 
 outfile = 'grid_data'
@@ -114,7 +137,9 @@ np.savez(outfile,nx=nx,ny=ny,xlim=xlim,ylim=ylim, Lx=Lx, Ly=Ly,
             xcoord_bm=xcoord_bm,ycoord_bm=ycoord_bm,
             xcoord_ms=xcoord_ms,ycoord_ms=ycoord_ms,
             bed=bed, thick=thick, mask=mask,
-            uvel=uvel, vvel=vvel, mask_vel=mask_vel)
+            uvel=uvel, vvel=vvel, ustd=ustd, vstd=vstd,
+            mask_vel=mask_vel)
+
 
 
 plt.figure()
@@ -123,10 +148,10 @@ plt.title('Bed')
 plt.savefig('bed.png')
 
 plt.figure()
-cax = plt.imshow(thick)
-plt.title('Thickness >10m')
+cax = plt.imshow(thick > 1e-3)
+plt.title('Thickness > 0m')
 plt.colorbar(cax)
-cax.set_clim(10, 2000)
+cax.set_clim(0, 2)
 plt.savefig('thick.png')
 
 plt.figure()

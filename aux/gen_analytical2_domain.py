@@ -16,7 +16,7 @@ Lx = 50e3
 Ly = 400e3
 
 mesh = RectangleMesh(Point(0,0), Point(Lx, Ly), nx, ny)
-V = FunctionSpace(mesh, 'Lagrange',1)
+V = FunctionSpace(mesh, 'DG',0)
 v = Function(V)
 n = V.dim()
 d = mesh.geometry().dim()

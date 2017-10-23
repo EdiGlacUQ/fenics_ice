@@ -27,6 +27,8 @@ thick = npzfile['thick']
 mask = npzfile['mask']
 uvel = npzfile['uvel']
 vvel = npzfile['vvel']
+ustd = npzfile['ustd']
+vstd = npzfile['vstd']
 mask_vel = npzfile['mask_vel']
 
 #Fenics mesh
@@ -54,6 +56,8 @@ mask_interp = interp.RegularGridInterpolator(xycoord_bm, zip(*mask[::-1]), metho
 
 uvel_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*uvel[::-1]))
 vvel_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*vvel[::-1]))
+ustd_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*ustd[::-1]))
+vstd_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*vstd[::-1]))
 mask_vel_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*mask_vel[::-1]), method='nearest')
 
 
@@ -64,7 +68,10 @@ thick = thick_interp(dof_xy)
 mask = mask_interp(dof_xy)
 u_obs = uvel_interp(dof_xy)
 v_obs = vvel_interp(dof_xy)
-mask_vel = mask_vel_interp(dof_xy)
+u_std = ustd_interp(dof_xy)
+v_std = vstd_interp(dof_xy)
+mask_vel_ = mask_vel_interp(dof_xy)
+mask_vel = np.logical_and(mask, mask_vel_ )
 
 #Save mesh and data points at coordinates
 dd = './'
@@ -85,6 +92,12 @@ File(''.join([dd,'smith450m_mesh_u_obs.xml'])) <<  v
 
 v.vector()[:] = v_obs.flatten()
 File(''.join([dd,'smith450m_mesh_v_obs.xml'])) <<  v
+
+v.vector()[:] = u_std.flatten()
+File(''.join([dd,'smith450m_mesh_u_std.xml'])) <<  v
+
+v.vector()[:] = v_std.flatten()
+File(''.join([dd,'smith450m_mesh_v_std.xml'])) <<  v
 
 v.vector()[:] = mask_vel.flatten()
 File(''.join([dd,'smith450m_mesh_mask_vel.xml'])) <<  v

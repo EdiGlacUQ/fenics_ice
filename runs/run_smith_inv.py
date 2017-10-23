@@ -7,8 +7,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import fenics_util as fu
 import time
+import datetime
+import pickle
 from IPython import embed
 
+#Store key python variables in here
+savefile = 'smithinv_' + datetime.datetime.now().strftime("%m%d%H%M")
 
 set_log_level(20)
 
@@ -21,6 +25,8 @@ thick = Function(Q,''.join([dd,'smith450m_mesh_thick.xml']))
 mask = Function(Q,''.join([dd,'smith450m_mesh_mask.xml']))
 u_obs = Function(Q,''.join([dd,'smith450m_mesh_u_obs.xml']))
 v_obs = Function(Q,''.join([dd,'smith450m_mesh_v_obs.xml']))
+u_std = Function(Q,''.join([dd,'smith450m_mesh_u_std.xml']))
+v_std = Function(Q,''.join([dd,'smith450m_mesh_v_std.xml']))
 mask_vel = Function(Q,''.join([dd,'smith450m_mesh_mask_vel.xml']))
 
 #Generate model mesh
@@ -37,18 +43,17 @@ mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 param = {'eq_def' : 'weak',
         'solver': 'default',
         'outdir' :'./output_smith_inv/',
-        'gamma': 1}
+        'gamma': 1e4}
 mdl = model.model(mesh,param)
 mdl.init_bed(bed)
 mdl.init_thick(thick)
 mdl.init_mask(mask)
 #mdl.gen_ice_mask()
-mdl.init_vel_obs(u_obs,v_obs, mask_vel)
+mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
 mdl.init_bmelt(Constant(0.0))
-#mdl.gen_alpha()
-mdl.init_alpha(Constant(ln(2000)))
+mdl.gen_alpha()
+mdl.init_alpha(Constant(ln(5000)))
 mdl.gen_domain()
-
 
 #Solve
 slvr = solver.ssa_solver(mdl)
@@ -61,22 +66,18 @@ embed()
 slvr = solver.ssa_solver(mdl)
 slvr.inversion()
 
-#Plot
-B2 = project(exp(slvr.alpha_inv),mdl.M)
+#Plots to for quick output evaluation
+B2 = project(exp(slvr.alpha),mdl.M)
 F_vals = [x for x in slvr.F_vals if x > 0]
 
 fu.plot_variable(B2, 'B2', mdl.param['outdir'])
 fu.plot_inv_conv(F_vals, 'convergence', mdl.param['outdir'])
 
 
+#Output model variables in ParaView+Fenics friendly format
 outdir = mdl.param['outdir']
 
-vtkfile = File(''.join([outdir,'U.pvd']))
-U = project(mdl.U,mdl.V)
-vtkfile << U
-
-vtkfile = File(''.join([outdir,'alpha.pvd']))
-vtkfile << slvr.alpha_inv
+File(''.join([outdir,'mesh.xml'])) << data_mesh
 
 vtkfile = File(''.join([outdir,'bed.pvd']))
 vtkfile << mdl.bed
@@ -87,10 +88,35 @@ vtkfile << mdl.thick
 vtkfile = File(''.join([outdir,'mask.pvd']))
 vtkfile << mdl.mask
 
-vtkfile = File(''.join([outdir,'uvel.pvd']))
+vtkfile = File(''.join([outdir,'mask_vel.pvd']))
+vtkfile << mdl.mask_vel
+
+vtkfile = File(''.join([outdir,'u_obs.pvd']))
 vtkfile << mdl.u_obs
 
-vtkfile = File(''.join([outdir,'vvel.pvd']))
+vtkfile = File(''.join([outdir,'v_obs.pvd']))
 vtkfile << mdl.v_obs
+
+vtkfile = File(''.join([outdir,'u_std.pvd']))
+vtkfile << mdl.u_std
+
+vtkfile = File(''.join([outdir,'v_std.pvd']))
+vtkfile << mdl.v_std
+
+vtkfile = File(''.join([outdir,'uv_obs.pvd']))
+U_obs = project((mdl.v_obs**2 + mdl.u_obs**2)**(1.0/2.0), mdl.M)
+vtkfile << U_obs
+
+vtkfile = File(''.join([outdir,'U.pvd']))
+vtkfile << mdl.U
+
+vtkfile = File(''.join([outdir,'alpha.pvd']))
+vtkfile << slvr.alpha
+
+vtkfile = File(''.join([outdir,'alpha_mdl.pvd']))
+vtkfile << mdl.alpha
+
+vtkfile = File(''.join([outdir,'B2.pvd']))
+vtkfile << B2
 
 embed()

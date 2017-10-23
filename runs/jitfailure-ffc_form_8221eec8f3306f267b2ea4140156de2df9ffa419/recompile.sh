@@ -1,3 +1,0 @@
-#!/bin/bash
-# Execute this file to recompile locally
-c++ -Wall -shared -fPIC -std=c++11 -O2 -ffast-math -march=native -I/usr/local/lib/python2.7/dist-packages/ffc/backends/ufc -I/home/fenics/.cache/dijitso/include ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.cpp -L/home/fenics/.cache/dijitso/lib -Wl,-rpath,/home/fenics/.cache/dijitso/lib -ldijitso-ffc_element_e70bc42904b37e5ca21a54f369f8d6678e3cd3c7 -ldijitso-ffc_element_6c16acd7c1e5c03c02e3b8ba4005fcbee12bfae2 -olibdijitso-ffc_form_8221eec8f3306f267b2ea4140156de2df9ffa419.so

@@ -14,9 +14,9 @@ class ssa_solver:
 
     def __init__(self, model):
         # Enable aggressive compiler options
-        parameters["form_compiler"]["cpp_optimize"] = True
-        parameters["form_compiler"]["cpp_optimize_flags"] = "-O2 -ffast-math -march=native"
-
+        #parameters["form_compiler"]["cpp_optimize"] = True
+        #parameters["form_compiler"]["cpp_optimize_flags"] = "-O2 -ffast-math -march=native"
+        #parameters["form_compiler"]["optimize"] = False
 
         self.model = model
         self.param = model.param
@@ -33,6 +33,8 @@ class ssa_solver:
         try:
             self.u_obs = model.u_obs
             self.v_obs = model.v_obs
+            self.u_std = model.u_std
+            self.v_std = model.v_std
         except:
             pass
 
@@ -66,6 +68,7 @@ class ssa_solver:
         self.dIce = self.dx(self.OMEGA_ICE) + self.dx(self.OMEGA_ICE_OBS)
         self.dUobs = self.dx(self.OMEGA_ICE_OBS)
         self.dTmn = self.dS(self.GAMMA_TMN)
+        self.dBnd = self.dS(self.GAMMA_TMN) + self.dS(self.GAMMA_NF)
 
     def def_mom_eq(self):
 
@@ -76,6 +79,7 @@ class ssa_solver:
         alpha = self.alpha
         dIce = self.dIce
         dS = self.dS
+        dTmn = self.dTmn
 
         rhoi = self.param['rhoi']
         rhow = self.param['rhow']
@@ -110,8 +114,8 @@ class ssa_solver:
             #Terminating margin boundary condition
             ii = project(conditional(mask > 0.0, 1.0, 0.0),self.M, annotate=False)
             sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
-            mgn_bc = inner(self.U("+") * sigma_n("+"), self.nm("+"))*abs(jump(ii))
-            #mgn_bc = inner(self.U("+") * sigma_n("+"), self.nm("+")) * abs(jump(mask))
+            #mgn_bc = inner(self.U("+") * sigma_n("+"), self.nm("+"))*abs(jump(ii))
+            mgn_bc = inner(self.U("+") * sigma_n("+"), self.nm("+")) * abs(jump(mask))
 
             #Viscous Dissipation
             epsdot = self.effective_strain_rate(self.U)
@@ -123,7 +127,7 @@ class ssa_solver:
             Sl = 0.5 * (1.0 -fl_ex) * B2 * dot(self.U,self.U)
 
             # action :
-            Action = (height*Vd + Ds + Sl)*dIce - mgn_bc*self.dS
+            Action = (height*Vd + Ds + Sl)*dIce - mgn_bc*dS
 
             # the first variation of the action in the direction of a
             # test function ; the extremum :
@@ -176,8 +180,12 @@ class ssa_solver:
             self.mom_F = ( -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * dIce
                     - inner(grad(Phi_y), height * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * dIce
                     - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * dIce
-                    - inner(Phi, rhoi * g * height * grad(s)) * dIce
-            #        + inner(Phi("+")*sigma_n,self.nm("+"))*jump(mask)*dS)
+
+                    + inner(div(Phi * rhoi * g * height), s) * dIce
+                    #- inner(jump(Phi * rhoi * g * height), avg(s) * self.nm("+")) * dS(0)
+                    - inner(Phi("+") * rhoi * g * height("+"), s("+") * self.nm("+")) *abs(jump(ii))*dS
+
+                    #- inner(Phi, rhoi * g * height * grad(s)) * dIce
                     + inner(Phi("+") * sigma_n("+"), self.nm("+"))*abs(jump(ii))*dS )
             self.mom_Jac = derivative(self.mom_F, self.U)
 
@@ -186,6 +194,7 @@ class ssa_solver:
     def solve_mom_eq(self):
         #Dirichlet Boundary Conditons: Lateral, No Flow
         bc0 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_LAT)
+        #self.bcs = [bc0]
         bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF)
         self.bcs = [bc0, bc1]
         t0 = time.time()
@@ -195,7 +204,15 @@ class ssa_solver:
 
     def inversion(self):
 
+
+        u_obs = self.u_obs
+        v_obs = self.v_obs
+        u_std = self.u_std
+        v_std = self.v_std
+
+        alpha = self.alpha
         gamma = self.param['gamma']
+
 
         #Record value of functional during minimization
         self.F_iter = 0
@@ -213,21 +230,32 @@ class ssa_solver:
         #Inversion Code
         u, v = split(self.U)
 
-        u_obs = self.u_obs
-        v_obs = self.v_obs
-
-        alpha = self.alpha
-        gamma = self.param['gamma']
-
         #Define functional and control variable
-        J = Functional( (0.5*(u-u_obs)**2 + 0.5*(v-v_obs)**2)*self.dUobs +
+        J = Functional( (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dUobs +
                         gamma*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce)
+
         control = Control(alpha)
         rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
         #Optimization routine
-        self.alpha_inv = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
+        alpha_inv = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
+        self.alpha.assign(alpha_inv)
 
+        #Compute velocities with inverted basal drag
+        self.solve_mom_eq()
+
+        embed()
+
+        #Print out results
+        J_ls =  assemble((u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dUobs)
+        J_reg = assemble(gamma*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce)
+        J = J_ls + J_reg
+        print 'Inversion Details'
+        print 'J: %.2e' % J
+        print 'gamma: %.2e' % gamma
+        print 'J_ls: %.2e' % J_ls
+        print 'J_reg: %.2e' % J_reg
+        print 'J_reg/J_ls: %.2e' % (J_reg/J_ls)
 
     def epsilon(self, U):
         """
