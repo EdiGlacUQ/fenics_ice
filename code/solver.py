@@ -52,8 +52,10 @@ class ssa_solver:
         #Cells
         self.cf = model.cf
         self.OMEGA_X = model.OMEGA_X
-        self.OMEGA_ICE = model.OMEGA_ICE
-        self.OMEGA_ICE_OBS = model.OMEGA_ICE_OBS
+        self.OMEGA_ICE_FLT = model.OMEGA_ICE_FLT
+        self.OMEGA_ICE_GND = model.OMEGA_ICE_GND
+        self.OMEGA_ICE_FLT_OBS = model.OMEGA_ICE_FLT_OBS
+        self.OMEGA_ICE_GND_OBS = model.OMEGA_ICE_GND_OBS
 
         #Facets
         self.ff = model.ff
@@ -62,13 +64,27 @@ class ssa_solver:
         self.GAMMA_TMN = model.GAMMA_TMN      #Value at ice terminus
         self.GAMMA_NF = model.GAMMA_NF
 
+        #Vertices
+        self.vertex_nf = model.vertex_nf
+        #self.vf = model.vf
+        #self.DELTA_DEF          = 0 # default value
+        #self.DELTA_NF           = 1 # no flow
+
         #Measures
         self.dx = Measure('dx', domain=self.mesh, subdomain_data=self.cf)
         self.dS = Measure('dS', domain=self.mesh, subdomain_data=self.ff)
-        self.dIce = self.dx(self.OMEGA_ICE) + self.dx(self.OMEGA_ICE_OBS)
-        self.dUobs = self.dx(self.OMEGA_ICE_OBS)
+        self.dIce = self.dx(self.OMEGA_ICE_FLT) + self.dx(self.OMEGA_ICE_GND) + \
+                    self.dx(self.OMEGA_ICE_FLT_OBS) + self.dx(self.OMEGA_ICE_GND_OBS)
+        self.dIce_flt = self.dx(self.OMEGA_ICE_FLT) + self.dx(self.OMEGA_ICE_FLT_OBS)
+        self.dIce_gnd = self.dx(self.OMEGA_ICE_GND) + self.dx(self.OMEGA_ICE_GND_OBS)
+
+        self.dObs = self.dx(self.OMEGA_ICE_FLT_OBS) + self.dx(self.OMEGA_ICE_GND_OBS)
+        self.dObs_gnd = self.dx(self.OMEGA_ICE_FLT_OBS)
+        self.dObs_flt = self.dx(self.OMEGA_ICE_GND_OBS)
+
+
         self.dTmn = self.dS(self.GAMMA_TMN)
-        self.dBnd = self.dS(self.GAMMA_TMN) + self.dS(self.GAMMA_NF)
+        self.dNF = self.dS(self.GAMMA_NF)
 
     def def_mom_eq(self):
 
@@ -187,15 +203,16 @@ class ssa_solver:
 
                     #- inner(Phi, rhoi * g * height * grad(s)) * dIce
                     + inner(Phi("+") * sigma_n("+"), self.nm("+"))*abs(jump(ii))*dS )
+
             self.mom_Jac = derivative(self.mom_F, self.U)
 
 
 
     def solve_mom_eq(self):
-        #Dirichlet Boundary Conditons: Lateral, No Flow
+        embed()
+        #Dirichlet Boundary Conditons: Zero flow
         bc0 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_LAT)
-        #self.bcs = [bc0]
-        bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF)
+        bc1 = DirichletBC(self.V, (0.0, 0.0), self.vertex_nf, method="pointwise")
         self.bcs = [bc0, bc1]
         t0 = time.time()
         solve(self.mom_F == 0, self.U, J = self.mom_Jac, bcs = self.bcs, solver_parameters = self.param['solver_param'])
@@ -231,8 +248,8 @@ class ssa_solver:
         u, v = split(self.U)
 
         #Define functional and control variable
-        J = Functional( (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dUobs +
-                        gamma*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce)
+        J = Functional( (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs_gnd +
+                        gamma*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce_gnd)
 
         control = Control(alpha)
         rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
@@ -247,8 +264,8 @@ class ssa_solver:
         embed()
 
         #Print out results
-        J_ls =  assemble((u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dUobs)
-        J_reg = assemble(gamma*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce)
+        J_ls =  assemble((u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs_gnd)
+        J_reg = assemble(gamma*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce_gnd)
         J = J_ls + J_reg
         print 'Inversion Details'
         print 'J: %.2e' % J

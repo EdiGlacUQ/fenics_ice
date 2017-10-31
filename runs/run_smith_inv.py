@@ -52,7 +52,7 @@ mdl.init_mask(mask)
 mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
 mdl.init_bmelt(Constant(0.0))
 mdl.gen_alpha()
-mdl.init_alpha(Constant(ln(5000)))
+#mdl.init_alpha(Constant(ln(5000)))
 mdl.gen_domain()
 
 #Solve

@@ -63,6 +63,7 @@ ycoord_bm = bm_y[ym]
 bed_ = bm_bed[ym,:];
 bed = bed_[:,xm]
 
+
 thick_ = bm_thick[ym,:];
 thick = thick_[:,xm]
 thick_orig = np.copy(thick)
@@ -76,12 +77,12 @@ shelves = shelves_[:,xm]
 
 mask = np.empty(thick.shape)
 
-#mask[thick > 0] = 1
-#mask[thick == 0] = 0
+mask[thick > 0] = 1
+mask[thick == 0] = 0
 
-mask[thick_orig >= 1] = 1
-mask[thick_orig < 1] = -10
-mask[thick_orig == -9999.0] = 0
+#mask[thick_orig >= 1] = 1
+#mask[thick_orig < 1] = -10
+#mask[thick_orig == -9999.0] = 0
 
 
 ###############

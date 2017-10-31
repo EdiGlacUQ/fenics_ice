@@ -36,7 +36,7 @@ class model:
         param['g'] =  9.81           #acceleration due to gravity
         param['n'] =  3.0            #glen's flow law exponent
         param['eps_rp'] =  1e-5      #effective strain regularization
-        param['A'] =  3.5e-25 * param['ty']     #Creep paramater
+        param['A'] =  3.5e-24 * param['ty']     #Creep paramater
         param['tol'] =  1e-6         #Tolerance for tests
         param['gamma'] =  1.0          #Cost function scaling parameter
 
@@ -65,11 +65,11 @@ class model:
         param['solver_default']= {'newton_solver' :
                 {
                 'linear_solver'            : 'cg',
-                'preconditioner'           : 'jacobi',
+                #'preconditioner'           : 'jacobi',
                 'relative_tolerance'       : 1e-15,
                 'absolute_tolerance'       : 1.0,
                 'relaxation_parameter'     : 0.7,
-                'maximum_iterations'       : 50,
+                'maximum_iterations'       : 5,
                 'error_on_nonconvergence'  : False,
                 #'krylov_solver': {'monitor_convergence': True}
                 }}
@@ -135,7 +135,7 @@ class model:
         self.mask_vel = project(Constant(1.0), self.M)
 
 
-    def gen_alpha(self, a_bgd=2000.0, a_lb = 1e2, a_ub = 2.0e4):
+    def gen_alpha(self, a_bgd=2000.0, a_lb = 5e2, a_ub = 2.0e4):
 
         bed = self.bed
         height = self.thick
@@ -161,7 +161,7 @@ class model:
         s = project(s_,self.Q)
         grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
 
-        #Calculate alpha, apply bound
+        #Calculate alpha, apply background, apply bound
         alpha_ = ( (1.0 - fl_ex) *rhoi*g*height*grads/U
            + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
 
@@ -174,31 +174,50 @@ class model:
 
     def gen_domain(self):
         tol = self.param['tol']
+        bed = self.bed
+        height = self.thick
+        g = self.param['g']
+        rhoi = self.param['rhoi']
+        rhow = self.param['rhow']
+
+        #Flotation Criterion
+        height_s = -rhow/rhoi * bed
+        fl_ex_ = conditional(height <= height_s, 1.0, 0.0)
+        fl_ex = project(fl_ex_, self.M)
 
         #Mask labels
-        self.MASK_ICE = 1   #Ice
-        self.MASK_LO = 0    #Land/Ocean
-        self.MASK_XD = -10  #Out of domain
+        self.MASK_ICE           = 1 #Ice
+        self.MASK_LO            = 0 #Land/Ocean
+        self.MASK_XD            = -10 #Out of domain
 
         #Cell labels
-        self.OMEGA_X     = 0     #exterior to ice sheet
-        self.OMEGA_ICE   = 1
-        self.OMEGA_ICE_OBS = 2
-
+        self.OMEGA_X            = 0     #exterior to ice sheet
+        self.OMEGA_ICE_FLT      = 1
+        self.OMEGA_ICE_GND      = 2
+        self.OMEGA_ICE_FLT_OBS  = 3
+        self.OMEGA_ICE_GND_OBS  = 4
 
         #Facet labels
-        self.GAMMA_DEF = 0      #default value
-        self.GAMMA_LAT = 1      #Value at lateral domain boundaries
-        self.GAMMA_TMN = 2      #Value at ice terminus
-        self.GAMMA_NF = 3       #No flow dirichlet bc
+        self.GAMMA_DEF          = 0 #default value
+        self.GAMMA_LAT          = 1 #Value at lateral domain boundaries
+        self.GAMMA_TMN          = 2 #Value at ice terminus
+        self.GAMMA_NF           = 3 #No flow dirichlet bc
 
-        #Cell and Facet markers
+        #Vertex labels
+        self.DELTA_DEF          = 0 # default value
+        self.DELTA_NF           = 1 # no flow
+
+
+        #Cell and Facet Markers
         self.cf      = CellFunction('size_t',  self.mesh)
         self.ff      = FacetFunction('size_t', self.mesh)
+        self.vertex_nf = ''
+
 
         #Initialize Values
         self.cf.set_all(self.OMEGA_X)
         self.ff.set_all(self.GAMMA_DEF)
+        self.ff.set_all(self.DELTA_DEF)
 
         # Build connectivity between facets and cells
         D = self.mesh.topology().dim()
@@ -210,14 +229,22 @@ class model:
             y_m       = c.midpoint().y()
             m_xy = self.mask(x_m, y_m)
             mv_xy = self.mask_vel(x_m, y_m)
+            fl_xy = fl_ex(x_m, y_m)
 
             #Determine whether cell is in the domain
             if near(m_xy,1, tol) & near(mv_xy,1, tol):
-                self.cf[c] = self.OMEGA_ICE_OBS
-
+                if fl_xy:
+                    self.cf[c] = self.OMEGA_ICE_FLT_OBS
+                else:
+                    self.cf[c] = self.OMEGA_ICE_GND_OBS
             elif near(m_xy,1, tol):
-                self.cf[c] = self.OMEGA_ICE
+                if fl_xy:
+                    self.cf[c] = self.OMEGA_ICE_FLT
+                else:
+                    self.cf[c] = self.OMEGA_ICE_GND
 
+        vertex_nf = ''
+        cntr = 0
         for f in facets(self.mesh):
             x_m      = f.midpoint().x()
             y_m      = f.midpoint().y()
@@ -247,7 +274,13 @@ class model:
                 if near(n1_mask + n2_mask,self.MASK_ICE + self.MASK_LO,tol):
                     self.ff[f] = self.GAMMA_TMN
 
-
                 #Identify facets which to apply no flow boundary condition
-                if near(n1_mask+n2_mask,self.MASK_ICE +self.MASK_XD,tol):
+            elif not near(n1_mask+n2_mask,self.MASK_ICE + self.MASK_ICE,tol):
                     self.ff[f] = self.GAMMA_NF
+                    cntr = cntr + 1
+                    for vv in vertices(f):
+                            vertex_nf= vertex_nf + "near(x[0]," + \
+                            str(vv.point().x())+ ") && near(x[1]," + \
+                            str(vv.point().y())+ ") + || "
+        self.vertex_nf = vertex_nf[0:-5]
+        embed()
