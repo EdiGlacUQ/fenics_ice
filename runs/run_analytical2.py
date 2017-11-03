@@ -11,13 +11,12 @@ import numpy as np
 
 dd = '../input/analytical2/'
 data_mesh = Mesh(''.join([dd,'analytical2_mesh.xml']))
-Q = FunctionSpace(data_mesh, 'Lagrange', 1)
 M = FunctionSpace(data_mesh, 'DG', 0)
 bed = Function(M,''.join([dd,'analytical2_mesh_bed.xml']))
-surf = Function(M,''.join([dd,'analytical2_mesh_surf.xml']))
+height = Function(M,''.join([dd,'analytical2_mesh_height.xml']))
 bmelt = Function(M,''.join([dd,'analytical2_mesh_bmelt.xml']))
 mask = Function(M,''.join([dd,'analytical2_mesh_mask.xml']))
-mask = project(conditional(gt(mask,1.0-1e-2), 1, 0), M) #Lagrange->DG
+mask = project(conditional(gt(mask,1.0-1e-2), 1.0, 0.0), M) #Binary
 B2 = Function(M,''.join([dd,'analytical2_mesh_B2.xml']))
 alpha = ln(B2)
 
@@ -35,9 +34,8 @@ mesh = RectangleMesh(Point(0,0), Point(Lx, Ly), nx, ny)
 param = {'eq_def' : 'weak',
         'outdir' :'./output_analytical2/'}
 mdl = model.model(mesh,param)
-mdl.init_surf(surf)
 mdl.init_bed(bed)
-mdl.gen_thick()
+mdl.init_thick(height)
 mdl.init_mask(mask)
 mdl.gen_vel_mask()
 mdl.init_bmelt(bmelt)
@@ -50,7 +48,6 @@ mdl.gen_domain()
 slvr = solver.ssa_solver(mdl)
 slvr.def_mom_eq()
 slvr.solve_mom_eq()
-
 
 #Plot
 outdir = mdl.param['outdir']
@@ -78,9 +75,6 @@ vtkfile << U
 
 vtkfile = File(''.join([outdir,'bed.pvd']))
 vtkfile << mdl.bed
-
-vtkfile = File(''.join([outdir,'surf.pvd']))
-vtkfile << mdl.surf
 
 vtkfile = File(''.join([outdir,'thick.pvd']))
 vtkfile << mdl.thick

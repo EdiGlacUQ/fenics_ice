@@ -330,7 +330,7 @@ class analytical2:
         x -- x coordinates in metres as a numpy array
         y -- y coordinates in metres as a numpy array
         '''
-        self.B2 = 1.0e3*(np.ones([x.size, y.size]))
+        self.B2 = 1e3*(np.ones([x.size, y.size]))
 
     def init_bmelt(self,x,y):
         '''Return bedrock topography in metres

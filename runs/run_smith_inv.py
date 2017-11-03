@@ -51,8 +51,8 @@ mdl.init_mask(mask)
 #mdl.gen_ice_mask()
 mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
 mdl.init_bmelt(Constant(0.0))
-mdl.gen_alpha()
-#mdl.init_alpha(Constant(ln(5000)))
+#mdl.gen_alpha()
+mdl.init_alpha(Constant(ln(5000)))
 mdl.gen_domain()
 
 #Solve
@@ -78,6 +78,9 @@ fu.plot_inv_conv(F_vals, 'convergence', mdl.param['outdir'])
 outdir = mdl.param['outdir']
 
 File(''.join([outdir,'mesh.xml'])) << data_mesh
+
+vtkfile = File(''.join([outdir,'U.pvd']))
+vtkfile << mdl.U
 
 vtkfile = File(''.join([outdir,'bed.pvd']))
 vtkfile << mdl.bed
@@ -107,8 +110,6 @@ vtkfile = File(''.join([outdir,'uv_obs.pvd']))
 U_obs = project((mdl.v_obs**2 + mdl.u_obs**2)**(1.0/2.0), mdl.M)
 vtkfile << U_obs
 
-vtkfile = File(''.join([outdir,'U.pvd']))
-vtkfile << mdl.U
 
 vtkfile = File(''.join([outdir,'alpha.pvd']))
 vtkfile << slvr.alpha

@@ -44,10 +44,6 @@ class ssa_solver:
         self.Q = model.Q
         self.M = model.M
 
-        #Functions
-        self.U = model.U
-        self.dU = model.dU
-        self.Phi = model.Phi
 
         #Cells
         self.cf = model.cf
@@ -62,13 +58,22 @@ class ssa_solver:
         self.GAMMA_DEF = model.GAMMA_DEF
         self.GAMMA_LAT = model.GAMMA_LAT
         self.GAMMA_TMN = model.GAMMA_TMN      #Value at ice terminus
-        self.GAMMA_NF = model.GAMMA_NF
+        self.GAMMA_INT_NF = model.GAMMA_INT_NF
+        self.GAMMA_LAT_NF = model.GAMMA_LAT_NF
 
         #Vertices
         self.vertex_nf = model.vertex_nf
         #self.vf = model.vf
         #self.DELTA_DEF          = 0 # default value
         #self.DELTA_NF           = 1 # no flow
+
+
+        #Trial/Test Functions
+        self.submesh_ice = SubMesh(self.model.mesh, self.cc, 1)
+        self.V2 = VectorFunctionSpace(self.submesh_ice,'Lagrange',1,dim=2)
+        self.U = Function(self.V2)
+        self.dU = TrialFunction(self.V2)
+        self.Phi = TestFunction(self.V2)
 
         #Measures
         self.dx = Measure('dx', domain=self.mesh, subdomain_data=self.cf)
@@ -84,7 +89,8 @@ class ssa_solver:
 
 
         self.dTmn = self.dS(self.GAMMA_TMN)
-        self.dNF = self.dS(self.GAMMA_NF)
+        self.dNF = self.dS(self.GAMMA_INT_NF)
+
 
     def def_mom_eq(self):
 
@@ -96,6 +102,7 @@ class ssa_solver:
         dIce = self.dIce
         dS = self.dS
         dTmn = self.dTmn
+        dNF = self.dNF
 
         rhoi = self.param['rhoi']
         rhow = self.param['rhow']
@@ -103,6 +110,7 @@ class ssa_solver:
         g = self.param['g']
         n = self.param['n']
         A = self.param['A']
+        tol = self.param['tol']
 
 
         #Equations from Action Principle [Dukowicz et al., 2010, JGlac, Eq 94]
@@ -173,48 +181,67 @@ class ssa_solver:
             #Viscosity
             nu = self.viscosity(self.U)
 
+            #Sliding law
+            B2 = exp(alpha)
+
             #Switch parameters
             height_s = -rhow/rhoi * bed
             fl_ex = conditional(height <= height_s, 1.0, 0.0)
 
-            #Bottom of ice sheet, either bed or draft
-            R_f = ((1.0 - fl_ex) * bed
-               + (fl_ex) * (-rhoi / rhow) * height)
+            #Driving stress quantities
+            F = (fl_ex) * 0.5*rhoi*g*height**2 + \
+                (1-fl_ex) * 0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2 )
 
-            draft = Min(R_f,0)
+            W = (fl_ex) * rhoi*g*height + \
+                (1-fl_ex) * rhoi*g*height_s
 
-            #Ice Sheet Surface
-            s = R_f + height
-
-            #Sliding law
-            B2 = exp(alpha)
+            draft = (fl_ex) * (rhoi / rhow) * height
 
             #Terminating margin boundary condition
-            sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
-            ii = project(conditional(mask > 0.0, 1.0, 0.0),self.M, annotate=False)
+            sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2)) - F
 
-            self.mom_F = ( -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * dIce
-                    - inner(grad(Phi_y), height * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * dIce
-                    - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * dIce
+            ii = project(conditional(mask > tol, 1.0, 0.0),self.M, annotate=False)
+            self.mom_F = (
+                    #Membrance Stresses
+                    -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * self.dIce
+                    - inner(grad(Phi_y), height * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * self.dIce
 
-                    + inner(div(Phi * rhoi * g * height), s) * dIce
-                    #- inner(jump(Phi * rhoi * g * height), avg(s) * self.nm("+")) * dS(0)
-                    - inner(Phi("+") * rhoi * g * height("+"), s("+") * self.nm("+")) *abs(jump(ii))*dS
+                    #Basal Drag
+                    - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * self.dIce
 
-                    #- inner(Phi, rhoi * g * height * grad(s)) * dIce
-                    + inner(Phi("+") * sigma_n("+"), self.nm("+"))*abs(jump(ii))*dS )
+                    #Driving Stress
+                    + ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
+
+                    #Boundary condition
+                    + inner(Phi("+") * sigma_n("+"), self.nm("+"))* abs(jump(ii)) * self.dS )
 
             self.mom_Jac = derivative(self.mom_F, self.U)
 
 
-
     def solve_mom_eq(self):
-        embed()
+#        embed()
         #Dirichlet Boundary Conditons: Zero flow
         bc0 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_LAT)
-        bc1 = DirichletBC(self.V, (0.0, 0.0), self.vertex_nf, method="pointwise")
-        self.bcs = [bc0, bc1]
+        self.bcs = [bc0]
+
+        xx = domain_x()
+        xx.set_mask(self.mask)
+        bc1 = DirichletBC(self.V, (0.0, 0.0), xx, method='pointwise')
+        self.bcs = [bc0,bc1]
+
+        #Non zero initial perturbation
+        #n = self.U.vector().array().size
+        #U = self.U.vector()
+        #U[:] = np.random.uniform(1, 10, n)
+        #parameters['krylov_solver']['nonzero_initial_guess'] = True
+
         t0 = time.time()
+        #self.U.vector().set_local(numpy.ones(self.U.vector().local_size()))
+        #self.U.vector().apply("insert")
+        #[bc.apply(self.U.vector()) for bc in self.bcs]
+        #u, v = self.U.split(deepcopy = True)
+        #File("bcs.pvd") << u
+        #stop
         solve(self.mom_F == 0, self.U, J = self.mom_Jac, bcs = self.bcs, solver_parameters = self.param['solver_param'])
         t1 = time.time()
         print "Time for solve: ", t1-t0
@@ -305,3 +332,43 @@ class ssa_solver:
         nu = 0.5 * A**(-1.0/n) * eps_2**((1.0-n)/(2.0*n))
 
         return nu
+
+
+class domain_x(SubDomain):
+    def set_mask(self,fn):
+        self.mask = fn.copy(deepcopy=True)
+        self.cntr = 0
+        self.xx = []
+        self.yy = []
+
+    def inside(self,x, on_boundary):
+        tol = 1e-2
+        mask = self.mask
+
+        CC = mask(x[0],x[1])
+
+        try:
+            CE = mask(x[0] + tol,x[1])
+        except:
+            CE = 0.0
+        try:
+            CW = mask(x[0] - tol ,x[1])
+        except:
+            CW = 0.0
+        try:
+            CN = mask(x[0], x[1] + tol)
+        except:
+            CN = 0.0
+        try:
+            CS = mask(x[0], x[1] - tol)
+        except:
+            CS = 0.0
+
+        mv = np.max([CC, CE, CW, CN, CS])
+        if near(mv,0.0,tol):
+            self.cntr += 1
+            self.xx.append(x[0])
+            self.yy.append(x[1])
+            return True
+        else:
+            return False

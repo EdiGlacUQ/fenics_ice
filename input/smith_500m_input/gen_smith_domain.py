@@ -64,8 +64,9 @@ mask_vel_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*mask_vel[::-1]
 #Coordinates of DOFS of fenics mesh in order data is stored
 dof_xy = (dof_x, dof_y)
 bed = bed_interp(dof_xy)
-thick = thick_interp(dof_xy)
 mask = mask_interp(dof_xy)
+thick = thick_interp(dof_xy)
+thick[np.isclose(mask,0.0)] = 0.0 #Remove spurious interpolation features
 u_obs = uvel_interp(dof_xy)
 v_obs = vvel_interp(dof_xy)
 u_std = ustd_interp(dof_xy)

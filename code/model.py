@@ -15,7 +15,6 @@ class model:
         self.nm = FacetNormal(self.mesh)
         self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
-        self.L = FunctionSpace(self.mesh,'DG',1)
         self.M = FunctionSpace(self.mesh,'DG',0)
 
         #Initiate Functions
@@ -36,7 +35,7 @@ class model:
         param['g'] =  9.81           #acceleration due to gravity
         param['n'] =  3.0            #glen's flow law exponent
         param['eps_rp'] =  1e-5      #effective strain regularization
-        param['A'] =  3.5e-24 * param['ty']     #Creep paramater
+        param['A'] =  3.5e-25 * param['ty']     #Creep paramater
         param['tol'] =  1e-6         #Tolerance for tests
         param['gamma'] =  1.0          #Cost function scaling parameter
 
@@ -65,11 +64,11 @@ class model:
         param['solver_default']= {'newton_solver' :
                 {
                 'linear_solver'            : 'cg',
-                #'preconditioner'           : 'jacobi',
+                'preconditioner'           : 'jacobi',
                 'relative_tolerance'       : 1e-15,
                 'absolute_tolerance'       : 1.0,
                 'relaxation_parameter'     : 0.7,
-                'maximum_iterations'       : 5,
+                'maximum_iterations'       : 50,
                 'error_on_nonconvergence'  : False,
                 #'krylov_solver': {'monitor_convergence': True}
                 }}
@@ -101,7 +100,7 @@ class model:
         self.bed = project(bed,self.M)
 
     def init_thick(self,thick):
-        self.thick = project(thick,self.L)
+        self.thick = project(thick,self.M)
 
     def init_alpha(self,alpha):
         self.alpha = project(alpha,self.Q)
@@ -126,7 +125,7 @@ class model:
 
         h_diff = self.surf-self.bed
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
-        self.thick = project(Min(h_diff,h_hyd),self.L)
+        self.thick = project(Min(h_diff,h_hyd),self.M)
 
     def gen_ice_mask(self):
         self.mask = project(conditional(gt(self.thick,self.param['tol']),1,0), self.M)
@@ -188,7 +187,7 @@ class model:
         #Mask labels
         self.MASK_ICE           = 1 #Ice
         self.MASK_LO            = 0 #Land/Ocean
-        self.MASK_XD            = -10 #Out of domain
+        self.MASK_XD            = 10 #Out of domain
 
         #Cell labels
         self.OMEGA_X            = 0     #exterior to ice sheet
@@ -200,8 +199,10 @@ class model:
         #Facet labels
         self.GAMMA_DEF          = 0 #default value
         self.GAMMA_LAT          = 1 #Value at lateral domain boundaries
-        self.GAMMA_TMN          = 2 #Value at ice terminus
-        self.GAMMA_NF           = 3 #No flow dirichlet bc
+        self.GAMMA_LAT_NF       = 2 #Value at lateral domain boundaries
+        self.GAMMA_INT_NF       = 3 #Value at lateral domain boundaries
+        self.GAMMA_TMN          = 4 #Value at ice terminus
+        self.GAMMA_NF           = 5 #No flow dirichlet bc
 
         #Vertex labels
         self.DELTA_DEF          = 0 # default value
@@ -217,7 +218,7 @@ class model:
         #Initialize Values
         self.cf.set_all(self.OMEGA_X)
         self.ff.set_all(self.GAMMA_DEF)
-        self.ff.set_all(self.DELTA_DEF)
+
 
         # Build connectivity between facets and cells
         D = self.mesh.topology().dim()
@@ -253,6 +254,8 @@ class model:
             if f.exterior():
                 if near(m_xy,1,tol):
                     self.ff[f] = self.GAMMA_LAT
+                else:
+                    self.ff[f] = self.GAMMA_LAT_NF
 
             else:
                 #Identify the 2 neighboring cells
@@ -275,12 +278,13 @@ class model:
                     self.ff[f] = self.GAMMA_TMN
 
                 #Identify facets which to apply no flow boundary condition
-            elif not near(n1_mask+n2_mask,self.MASK_ICE + self.MASK_ICE,tol):
-                    self.ff[f] = self.GAMMA_NF
+                elif not near(n1_mask+n2_mask,self.MASK_ICE + self.MASK_ICE,tol):
+                    self.ff[f] = self.GAMMA_INT_NF
                     cntr = cntr + 1
-                    for vv in vertices(f):
-                            vertex_nf= vertex_nf + "near(x[0]," + \
-                            str(vv.point().x())+ ") && near(x[1]," + \
-                            str(vv.point().y())+ ") + || "
-        self.vertex_nf = vertex_nf[0:-5]
-        embed()
+                    if cntr < 2000:
+                        for vv in vertices(f):
+                                vertex_nf= vertex_nf + "near(x[0]," + \
+                                str(vv.point().x())+ ") && near(x[1]," + \
+                                str(vv.point().y())+ ") || "
+
+        self.vertex_nf = vertex_nf[0:-3]

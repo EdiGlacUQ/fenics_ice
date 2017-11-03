@@ -49,14 +49,11 @@ bm_bed[bm_shelves==1] = 1.5*bm_bed[bm_shelves==1]
 bm_x = np.linspace(-3333000,3333000, 6667)
 bm_y = np.linspace(3333000,-3333000, 6667)
 
-#Create bufferd x,y masks
+#Create buffered x,y masks
 bf=2e3
 xm = (xlim[0] - bf < bm_x) & (bm_x < xlim[1] + bf)
 ym = (ylim[0] - bf < bm_y) & (bm_y < ylim[1] + bf)
 
-#Alternative to np.linspace which has depreciated support for floats
-#xcoord = [xlim[0] + x*1e3 for x in np.arange(0,nx+1)]
-#ycoord = [ylim[0] + x*1e3 for x in np.arange(0,ny+1)]
 xcoord_bm = bm_x[xm]
 ycoord_bm = bm_y[ym]
 
