@@ -44,6 +44,10 @@ class ssa_solver:
         self.Q = model.Q
         self.M = model.M
 
+        #Trial/Test Functions
+        self.U = Function(self.V)
+        self.dU = TrialFunction(self.V)
+        self.Phi = TestFunction(self.V)
 
         #Cells
         self.cf = model.cf
@@ -66,14 +70,6 @@ class ssa_solver:
         #self.vf = model.vf
         #self.DELTA_DEF          = 0 # default value
         #self.DELTA_NF           = 1 # no flow
-
-
-        #Trial/Test Functions
-        self.submesh_ice = SubMesh(self.model.mesh, self.cc, 1)
-        self.V2 = VectorFunctionSpace(self.submesh_ice,'Lagrange',1,dim=2)
-        self.U = Function(self.V2)
-        self.dU = TrialFunction(self.V2)
-        self.Phi = TestFunction(self.V2)
 
         #Measures
         self.dx = Measure('dx', domain=self.mesh, subdomain_data=self.cf)
@@ -197,6 +193,8 @@ class ssa_solver:
 
             draft = (fl_ex) * (rhoi / rhow) * height
 
+            s = (fl_ex) * delta * height
+
             #Terminating margin boundary condition
             sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2)) - F
 
@@ -213,7 +211,7 @@ class ssa_solver:
                     + ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
 
                     #Boundary condition
-                    + inner(Phi("+") * sigma_n("+"), self.nm("+"))* abs(jump(ii)) * self.dS )
+                    + inner(abs(ii("+"))*Phi("+") * sigma_n("+"), self.nm("+"))* abs(jump(ii)) * dS )
 
             self.mom_Jac = derivative(self.mom_F, self.U)
 
@@ -230,10 +228,10 @@ class ssa_solver:
         self.bcs = [bc0,bc1]
 
         #Non zero initial perturbation
-        #n = self.U.vector().array().size
-        #U = self.U.vector()
-        #U[:] = np.random.uniform(1, 10, n)
-        #parameters['krylov_solver']['nonzero_initial_guess'] = True
+        n = self.U.vector().array().size
+        U = self.U.vector()
+        U[:] = np.random.uniform(1, 10, n)
+        parameters['krylov_solver']['nonzero_initial_guess'] = True
 
         t0 = time.time()
         #self.U.vector().set_local(numpy.ones(self.U.vector().local_size()))
