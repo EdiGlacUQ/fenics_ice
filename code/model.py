@@ -8,22 +8,25 @@ import matplotlib.pyplot as plt
 
 class model:
 
-    def __init__(self, mesh_in, param_in):
+    def __init__(self, mesh_in, mask_in, param_in):
 
-        #Default Mesh/Function Spaces
-        self.mesh = Mesh(mesh_in)
+        #Initiate parameters
+        self.init_param(param_in)
+
+        #Full mask/mesh
+        self.mesh_ext = Mesh(mesh_in)
+        self.mask_ext = mask_in.copy(deepcopy=True)
+
+        #Generate Domain and Function Spaces
+        self.gen_domain()
         self.nm = FacetNormal(self.mesh)
         self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
         self.M = FunctionSpace(self.mesh,'DG',0)
 
-        #Initiate Functions
-        self.U = Function(self.V)
-        self.dU = TrialFunction(self.V)
-        self.Phi = TestFunction(self.V)
-
-        #Initiate parameters
-        self.init_param(param_in)
+        #Default velocity mask and Beta fields
+        self.def_vel_mask()
+        self.def_B_field()
 
     def init_param(self, param_in):
 
@@ -35,9 +38,11 @@ class model:
         param['g'] =  9.81           #acceleration due to gravity
         param['n'] =  3.0            #glen's flow law exponent
         param['eps_rp'] =  1e-5      #effective strain regularization
-        param['A'] =  3.5e-25 * param['ty']     #Creep paramater
+        param['A'] =  1.2e-25 * param['ty']     #Creep paramater
+        param['B'] = param['A']**(-1.0/param['n'])
         param['tol'] =  1e-6         #Tolerance for tests
-        param['gamma'] =  1.0          #Cost function scaling parameter
+        param['gamma1'] =  1.0          #Cost function scaling parameter
+        param['gamma2'] =  1.0
 
         #Output
         param['outdir'] = './output/'
@@ -48,13 +53,13 @@ class model:
         param['solver_param'] = {}
 
         #Solver options
-        param['snes_linesearch_alpha'] = 1e-6
+        param['snes_linesearch_alpha'] = 1e-9
         param['solver_petsc'] = {'nonlinear_solver'      : 'snes',
                             'snes_solver':
                             {
-                            'linear_solver'         : 'cg',
-                            'preconditioner'        : 'jacobi',
-                            'line_search'           : 'bt',
+                            'linear_solver'         : 'umfpack',
+                            #'preconditioner'        : 'hypre',
+                            'line_search'           : 'nleqerr',
                             'relative_tolerance'    : 1e-15,
                             'absolute_tolerance'    : 1e-15,
                             'solution_tolerance'    : 1e-15
@@ -63,8 +68,8 @@ class model:
         #Default fenics solver. No line search.
         param['solver_default']= {'newton_solver' :
                 {
-                'linear_solver'            : 'cg',
-                'preconditioner'           : 'jacobi',
+                'linear_solver'            : 'umfpack',
+                #'preconditioner'           : 'jacobi',
                 'relative_tolerance'       : 1e-15,
                 'absolute_tolerance'       : 1.0,
                 'relaxation_parameter'     : 0.7,
@@ -73,7 +78,7 @@ class model:
                 #'krylov_solver': {'monitor_convergence': True}
                 }}
 
-        param['inv_options'] = {'disp': True, 'maxiter': 15, 'factr': 0.0}
+        param['inv_options'] = {'disp': True, 'maxiter': 10, 'factr': 0.0}
 
         #Update default values based on input
         param.update(param_in)
@@ -92,6 +97,14 @@ class model:
             param['solver_param'] = param['solver_default']
 
         self.param = param
+
+    def def_vel_mask(self):
+        self.mask_vel = project(Constant(1.0), self.M)
+
+    def def_B_field(self):
+        A = self.param['A']
+        n = self.param['n']
+        self.beta = project(ln(A**(-1.0/n)), self.Q)
 
     def init_surf(self,surf):
         self.surf = project(surf,self.M)
@@ -129,10 +142,6 @@ class model:
 
     def gen_ice_mask(self):
         self.mask = project(conditional(gt(self.thick,self.param['tol']),1,0), self.M)
-
-    def gen_vel_mask(self):
-        self.mask_vel = project(Constant(1.0), self.M)
-
 
     def gen_alpha(self, a_bgd=2000.0, a_lb = 5e2, a_ub = 2.0e4):
 
@@ -173,6 +182,22 @@ class model:
 
     def gen_domain(self):
         tol = self.param['tol']
+        cf_mask = CellFunction('size_t',  self.mesh_ext)
+
+        for c in cells(self.mesh_ext):
+            x_m       = c.midpoint().x()
+            y_m       = c.midpoint().y()
+            m_xy = self.mask_ext(x_m, y_m)
+
+            #Determine whether cell is in the domain
+            if near(m_xy,1, tol):
+                cf_mask[c] = 1
+
+        self.mesh = SubMesh(self.mesh_ext, cf_mask, 1)
+
+
+    def label_domain(self):
+        tol = self.param['tol']
         bed = self.bed
         height = self.thick
         g = self.param['g']
@@ -187,36 +212,31 @@ class model:
         #Mask labels
         self.MASK_ICE           = 1 #Ice
         self.MASK_LO            = 0 #Land/Ocean
-        self.MASK_XD            = 10 #Out of domain
+        self.MASK_XD            = -10 #Out of domain
 
         #Cell labels
-        self.OMEGA_X            = 0     #exterior to ice sheet
+        self.OMEGA_DEF          = 0     #default value; should not appear in cc after processing
         self.OMEGA_ICE_FLT      = 1
         self.OMEGA_ICE_GND      = 2
         self.OMEGA_ICE_FLT_OBS  = 3
         self.OMEGA_ICE_GND_OBS  = 4
 
         #Facet labels
-        self.GAMMA_DEF          = 0 #default value
+        self.GAMMA_DEF          = 0 #default value, appears in interior cells
         self.GAMMA_LAT          = 1 #Value at lateral domain boundaries
-        self.GAMMA_LAT_NF       = 2 #Value at lateral domain boundaries
-        self.GAMMA_INT_NF       = 3 #Value at lateral domain boundaries
-        self.GAMMA_TMN          = 4 #Value at ice terminus
-        self.GAMMA_NF           = 5 #No flow dirichlet bc
+        self.GAMMA_TMN          = 2 #Value at ice terminus
+        self.GAMMA_NF           = 3 #No flow dirichlet bc
 
-        #Vertex labels
-        self.DELTA_DEF          = 0 # default value
-        self.DELTA_NF           = 1 # no flow
+
 
 
         #Cell and Facet Markers
         self.cf      = CellFunction('size_t',  self.mesh)
         self.ff      = FacetFunction('size_t', self.mesh)
-        self.vertex_nf = ''
 
 
         #Initialize Values
-        self.cf.set_all(self.OMEGA_X)
+        self.cf.set_all(self.OMEGA_DEF)
         self.ff.set_all(self.GAMMA_DEF)
 
 
@@ -228,7 +248,7 @@ class model:
         for c in cells(self.mesh):
             x_m       = c.midpoint().x()
             y_m       = c.midpoint().y()
-            m_xy = self.mask(x_m, y_m)
+            m_xy = self.mask_ext(x_m, y_m)
             mv_xy = self.mask_vel(x_m, y_m)
             fl_xy = fl_ex(x_m, y_m)
 
@@ -244,47 +264,42 @@ class model:
                 else:
                     self.cf[c] = self.OMEGA_ICE_GND
 
-        vertex_nf = ''
-        cntr = 0
         for f in facets(self.mesh):
-            x_m      = f.midpoint().x()
-            y_m      = f.midpoint().y()
-            m_xy = self.mask(x_m, y_m)
 
+            #Facet facet label based on mask and corresponding bc
             if f.exterior():
-                if near(m_xy,1,tol):
+                mask        = self.mask_ext
+                x_m         = f.midpoint().x()
+                y_m         = f.midpoint().y()
+                tol         = 1e-2
+
+                CC = mask(x_m,y_m)
+
+                try:
+                    CE = mask(x_m + tol,y_m)
+                except:
+                    CE = np.Inf
+                try:
+                    CW = mask(x_m - tol ,y_m)
+                except:
+                    CW = np.Inf
+                try:
+                    CN = mask(x_m, y_m + tol)
+                except:
+                    CN = np.Inf
+                try:
+                    CS = mask(x_m, y_m - tol)
+                except:
+                    CS = np.Inf
+
+                mv = np.min([CC, CE, CW, CN, CS])
+
+                if near(mv,self.MASK_ICE,tol):
                     self.ff[f] = self.GAMMA_LAT
-                else:
-                    self.ff[f] = self.GAMMA_LAT_NF
 
-            else:
-                #Identify the 2 neighboring cells
-                [n1_num,n2_num] = f.entities(D)
-
-                #Mask value of neighbor 1
-                n1 = Cell(self.mesh,n1_num)
-                n1_x = n1.midpoint().x()
-                n1_y = n1.midpoint().y()
-                n1_mask = self.mask(n1_x,n1_y)
-
-                #Mask value of neighbor 2
-                n2 = Cell(self.mesh,n2_num)
-                n2_x = n2.midpoint().x()
-                n2_y = n2.midpoint().y()
-                n2_mask = self.mask(n2_x,n2_y)
-
-                #Identify facets which to apply terminating boundary condition
-                if near(n1_mask + n2_mask,self.MASK_ICE + self.MASK_LO,tol):
+                elif near(mv,self.MASK_LO,tol):
                     self.ff[f] = self.GAMMA_TMN
 
-                #Identify facets which to apply no flow boundary condition
-                elif not near(n1_mask+n2_mask,self.MASK_ICE + self.MASK_ICE,tol):
-                    self.ff[f] = self.GAMMA_INT_NF
-                    cntr = cntr + 1
-                    if cntr < 2000:
-                        for vv in vertices(f):
-                                vertex_nf= vertex_nf + "near(x[0]," + \
-                                str(vv.point().x())+ ") && near(x[1]," + \
-                                str(vv.point().y())+ ") || "
-
-        self.vertex_nf = vertex_nf[0:-3]
+                elif near(mv,self.MASK_XD,tol):
+                    self.ff[f] = self.GAMMA_NF
+        embed()

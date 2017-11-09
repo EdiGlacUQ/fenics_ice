@@ -51,7 +51,7 @@ xycoord_ms = (xcoord_ms, np.flipud(ycoord_ms))
 #using interpolation function to get correct grid ordering
 #Note Transpose for x,y indexing, allow extrap from cell centre to cell edge
 bed_interp = interp.RegularGridInterpolator(xycoord_bm, zip(*bed[::-1]))
-thick_interp = interp.RegularGridInterpolator(xycoord_bm, zip(*thick[::-1]))
+thick_interp = interp.RegularGridInterpolator(xycoord_bm, zip(*thick[::-1]), method='nearest')
 mask_interp = interp.RegularGridInterpolator(xycoord_bm, zip(*mask[::-1]), method='nearest')
 
 uvel_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*uvel[::-1]))
@@ -73,6 +73,8 @@ u_std = ustd_interp(dof_xy)
 v_std = vstd_interp(dof_xy)
 mask_vel_ = mask_vel_interp(dof_xy)
 mask_vel = np.logical_and(mask, mask_vel_ )
+
+embed()
 
 #Save mesh and data points at coordinates
 dd = './'

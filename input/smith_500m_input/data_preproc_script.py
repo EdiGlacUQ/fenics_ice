@@ -64,9 +64,10 @@ bed = bed_[:,xm]
 thick_ = bm_thick[ym,:];
 thick = thick_[:,xm]
 thick_orig = np.copy(thick)
-thick[thick_orig < 1] = 1 #Fill in small holes
+#thick[thick_orig < 1] = 1 #Fill in small holes
+thick[thick_orig < 1] = 0 # Or set No flow BC
 thick[thick_orig == -9999.0] = 0
-#thick[thick_orig < 1] = 0
+
 
 
 shelves_ = bm_shelves[ym,:];
@@ -74,13 +75,14 @@ shelves = shelves_[:,xm]
 
 mask = np.empty(thick.shape)
 
-mask[thick > 0] = 1
-mask[thick == 0] = 0
+#mask[thick > 0] = 1
+#mask[thick == 0] = 0
 
-#mask[thick_orig >= 1] = 1
-#mask[thick_orig < 1] = -10
-#mask[thick_orig == -9999.0] = 0
+mask[thick_orig >= 1] = 1
+mask[thick_orig < 1] = -10
+mask[thick_orig == -9999.0] = 0
 
+embed()
 
 ###############
 #Measures data

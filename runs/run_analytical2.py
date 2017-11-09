@@ -33,16 +33,15 @@ mesh = RectangleMesh(Point(0,0), Point(Lx, Ly), nx, ny)
 #Initialize Model
 param = {'eq_def' : 'weak',
         'outdir' :'./output_analytical2/'}
-mdl = model.model(mesh,param)
+mdl = model.model(mesh,mask, param)
 mdl.init_bed(bed)
 mdl.init_thick(height)
 mdl.init_mask(mask)
-mdl.gen_vel_mask()
 mdl.init_bmelt(bmelt)
 mdl.init_alpha(alpha)
-
 #mdl.gen_ice_mask()
-mdl.gen_domain()
+
+mdl.label_domain()
 
 #Solve
 slvr = solver.ssa_solver(mdl)
@@ -59,18 +58,19 @@ delta = 1.0 - rhoi/rhow
 A = mdl.param['A']
 h = 1000.0
 
+slvr.U.set_allow_extrapolation(True)
 x = np.linspace(0,Lx,nx+1)
 points = [(x_,Ly/2) for x_ in x]
 mod_line = np.array([slvr.U(point)[0] for point in points])
 ex_line = x * (rhoi*g*delta*h/4.0)**3 * A
 plt.figure()
-plt.plot(ex_line)
-plt.plot(mod_line)
+plt.plot(ex_line, color='k')
+plt.plot(mod_line, 'b.')
 plt.savefig(outdir + 'lineplot.png')
 
 
 vtkfile = File(''.join([outdir,'U.pvd']))
-U = project(mdl.U,mdl.V)
+U = project(slvr.U,slvr.V)
 vtkfile << U
 
 vtkfile = File(''.join([outdir,'bed.pvd']))

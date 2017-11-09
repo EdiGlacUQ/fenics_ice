@@ -14,9 +14,9 @@ class ssa_solver:
 
     def __init__(self, model):
         # Enable aggressive compiler options
-        #parameters["form_compiler"]["cpp_optimize"] = True
-        #parameters["form_compiler"]["cpp_optimize_flags"] = "-O2 -ffast-math -march=native"
-        #parameters["form_compiler"]["optimize"] = False
+        parameters["form_compiler"]["cpp_optimize"] = True
+        parameters["form_compiler"]["cpp_optimize_flags"] = "-O2 -ffast-math -march=native"
+        parameters["form_compiler"]["optimize"] = False
 
         self.model = model
         self.param = model.param
@@ -24,6 +24,7 @@ class ssa_solver:
         #Fields
         self.bed = model.bed
         self.height = model.thick
+        self.beta = model.beta
         self.mask = model.mask
         self.alpha = model.alpha
         self.bmelt = model.bmelt
@@ -51,7 +52,7 @@ class ssa_solver:
 
         #Cells
         self.cf = model.cf
-        self.OMEGA_X = model.OMEGA_X
+        self.OMEGA_DEF = model.OMEGA_DEF
         self.OMEGA_ICE_FLT = model.OMEGA_ICE_FLT
         self.OMEGA_ICE_GND = model.OMEGA_ICE_GND
         self.OMEGA_ICE_FLT_OBS = model.OMEGA_ICE_FLT_OBS
@@ -62,20 +63,15 @@ class ssa_solver:
         self.GAMMA_DEF = model.GAMMA_DEF
         self.GAMMA_LAT = model.GAMMA_LAT
         self.GAMMA_TMN = model.GAMMA_TMN      #Value at ice terminus
-        self.GAMMA_INT_NF = model.GAMMA_INT_NF
-        self.GAMMA_LAT_NF = model.GAMMA_LAT_NF
+        self.GAMMA_NF = model.GAMMA_NF
 
-        #Vertices
-        self.vertex_nf = model.vertex_nf
-        #self.vf = model.vf
-        #self.DELTA_DEF          = 0 # default value
-        #self.DELTA_NF           = 1 # no flow
 
         #Measures
         self.dx = Measure('dx', domain=self.mesh, subdomain_data=self.cf)
         self.dS = Measure('dS', domain=self.mesh, subdomain_data=self.ff)
-        self.dIce = self.dx(self.OMEGA_ICE_FLT) + self.dx(self.OMEGA_ICE_GND) + \
-                    self.dx(self.OMEGA_ICE_FLT_OBS) + self.dx(self.OMEGA_ICE_GND_OBS)
+        self.ds = dolfin.ds
+
+        self.dIce = self.dx
         self.dIce_flt = self.dx(self.OMEGA_ICE_FLT) + self.dx(self.OMEGA_ICE_FLT_OBS)
         self.dIce_gnd = self.dx(self.OMEGA_ICE_GND) + self.dx(self.OMEGA_ICE_GND_OBS)
 
@@ -83,9 +79,6 @@ class ssa_solver:
         self.dObs_gnd = self.dx(self.OMEGA_ICE_FLT_OBS)
         self.dObs_flt = self.dx(self.OMEGA_ICE_GND_OBS)
 
-
-        self.dTmn = self.dS(self.GAMMA_TMN)
-        self.dNF = self.dS(self.GAMMA_INT_NF)
 
 
     def def_mom_eq(self):
@@ -95,18 +88,16 @@ class ssa_solver:
         height = self.height
         mask = self.mask
         alpha = self.alpha
-        dIce = self.dIce
-        dS = self.dS
-        dTmn = self.dTmn
-        dNF = self.dNF
+
 
         rhoi = self.param['rhoi']
         rhow = self.param['rhow']
         delta = 1.0 - rhoi/rhow
         g = self.param['g']
         n = self.param['n']
-        A = self.param['A']
         tol = self.param['tol']
+        dIce = self.dIce
+        ds = self.ds
 
 
         #Equations from Action Principle [Dukowicz et al., 2010, JGlac, Eq 94]
@@ -198,7 +189,6 @@ class ssa_solver:
             #Terminating margin boundary condition
             sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2)) - F
 
-            ii = project(conditional(mask > tol, 1.0, 0.0),self.M, annotate=False)
             self.mom_F = (
                     #Membrance Stresses
                     -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * self.dIce
@@ -211,41 +201,27 @@ class ssa_solver:
                     + ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
 
                     #Boundary condition
-                    + inner(abs(ii("+"))*Phi("+") * sigma_n("+"), self.nm("+"))* abs(jump(ii)) * dS )
+                    + inner(Phi * sigma_n, self.nm) * self.ds )
 
             self.mom_Jac = derivative(self.mom_F, self.U)
 
 
     def solve_mom_eq(self):
-#        embed()
         #Dirichlet Boundary Conditons: Zero flow
         bc0 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_LAT)
-        self.bcs = [bc0]
-
-        xx = domain_x()
-        xx.set_mask(self.mask)
-        bc1 = DirichletBC(self.V, (0.0, 0.0), xx, method='pointwise')
-        self.bcs = [bc0,bc1]
+        bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF)
+        self.bcs = [bc0, bc1]
 
         #Non zero initial perturbation
-        n = self.U.vector().array().size
-        U = self.U.vector()
-        U[:] = np.random.uniform(1, 10, n)
-        parameters['krylov_solver']['nonzero_initial_guess'] = True
+        #self.init_guess()
+        #parameters['krylov_solver']['nonzero_initial_guess'] = True
 
         t0 = time.time()
-        #self.U.vector().set_local(numpy.ones(self.U.vector().local_size()))
-        #self.U.vector().apply("insert")
-        #[bc.apply(self.U.vector()) for bc in self.bcs]
-        #u, v = self.U.split(deepcopy = True)
-        #File("bcs.pvd") << u
-        #stop
         solve(self.mom_F == 0, self.U, J = self.mom_Jac, bcs = self.bcs, solver_parameters = self.param['solver_param'])
         t1 = time.time()
         print "Time for solve: ", t1-t0
 
     def inversion(self):
-
 
         u_obs = self.u_obs
         v_obs = self.v_obs
@@ -253,12 +229,16 @@ class ssa_solver:
         v_std = self.v_std
 
         alpha = self.alpha
-        gamma = self.param['gamma']
+        beta = self.beta
+        beta_bgd = beta.copy(deepcopy=True)
+        B = exp(beta)
 
+        gamma1 = self.param['gamma1']
+        gamma2 = self.param['gamma2']
 
         #Record value of functional during minimization
         self.F_iter = 0
-        self.F_vals = np.zeros(2*self.param['inv_options']['maxiter']);
+        self.F_vals = np.zeros(10*self.param['inv_options']['maxiter']);
 
         def derivative_cb(j, dj, m):
             self.F_vals[self.F_iter] = j
@@ -273,31 +253,52 @@ class ssa_solver:
         u, v = split(self.U)
 
         #Define functional and control variable
-        J = Functional( (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs_gnd +
-                        gamma*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce_gnd)
+        V = 50 #Velocity scale for Non-Dimensionalization
+        eta = 5 #Minimium velocity
 
-        control = Control(alpha)
+        J_ls = 0.01*(u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
+        J_log = ((V**2)*ln( ((u**2 + v**2)**2 + eta) /  ((u_obs**2 + v_obs**2)**2 + eta) )**2) *self.dObs
+        J_reg_alpha = gamma1*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce_gnd
+        J_reg_beta = gamma2*(0.001*inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_flt +
+                inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_gnd)
+
+        J = Functional(J_ls + J_log+ J_reg_alpha + J_reg_beta)
+
+        embed()
+        control = [Control(alpha), Control(beta)]
+        #control = Control(beta)
+
         rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
+        embed
         #Optimization routine
-        alpha_inv = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
-        self.alpha.assign(alpha_inv)
+        opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
+        embed()
+        self.alpha.assign(opt_var[0])
+        self.beta.assign(opt_var[1])
+        #self.beta.assign(opt_var)
 
         #Compute velocities with inverted basal drag
         self.solve_mom_eq()
 
-        embed()
-
         #Print out results
-        J_ls =  assemble((u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs_gnd)
-        J_reg = assemble(gamma*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce_gnd)
-        J = J_ls + J_reg
+        J1 =  assemble(J_ls)
+        J2 =  assemble(J_log)
+        J3 = assemble(J_reg_alpha)
+        J4 = assemble(J_reg_beta)
+
+
         print 'Inversion Details'
-        print 'J: %.2e' % J
-        print 'gamma: %.2e' % gamma
-        print 'J_ls: %.2e' % J_ls
-        print 'J_reg: %.2e' % J_reg
-        print 'J_reg/J_ls: %.2e' % (J_reg/J_ls)
+        print 'J: %.2e' % sum([J1,J2,J3,J4])
+        print 'gamma1: %.2e' % gamma1
+        print 'gamma2: %.2e' % gamma2
+        print 'J_cst: %.2e' % sum([J1,J2])
+        print 'J_ls: %.2e' % J1
+        print 'J_log: %.2e' % J2
+        print 'J_reg: %.2e' % sum([J3,J4])
+        print 'J_reg_alpha: %.2e' % J3
+        print 'J_reg_beta: %.2e' % J4
+        print 'J_reg/J_cst: %.2e' % ((J2+J3)/(J1+J2))
 
     def epsilon(self, U):
         """
@@ -323,13 +324,40 @@ class ssa_solver:
         return eps_2
 
     def viscosity(self,U):
-        A = self.param['A']
+        B = exp(self.beta)
         n = self.param['n']
 
         eps_2 = self.effective_strain_rate(U)
-        nu = 0.5 * A**(-1.0/n) * eps_2**((1.0-n)/(2.0*n))
+        nu = 0.5 * B * eps_2**((1.0-n)/(2.0*n))
 
         return nu
+
+    def init_guess(self):
+        #Simplify accessing fields and parameters
+        bed = self.bed
+        height = self.height
+        alpha = self.alpha
+
+        rhoi = self.param['rhoi']
+        rhow = self.param['rhow']
+        delta = 1.0 - rhoi/rhow
+        g = self.param['g']
+        n = self.param['n']
+        tol = self.param['tol']
+
+        B2 = exp(alpha)
+        height_s = -rhow/rhoi * bed
+        fl_ex = conditional(height <= height_s, 1.0, 0.0)
+
+        s = project((1-fl_ex) * (bed + height),self.Q)
+        grads = as_vector([s.dx(0), s.dx(1)])
+        U_ = project((1-fl_ex)*(rhoi*g*height*grads)/B2, self.V)
+
+        self.U.assign(U_)
+
+        vtkfile = File('U_init.pvd')
+        vtkfile << self.U
+
 
 
 class domain_x(SubDomain):

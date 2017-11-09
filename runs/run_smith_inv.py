@@ -41,10 +41,11 @@ mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 
 #Initialize Model
 param = {'eq_def' : 'weak',
-        'solver': 'default',
+        'solver': 'petsc',
         'outdir' :'./output_smith_inv/',
-        'gamma': 1e4}
-mdl = model.model(mesh,param)
+        'gamma1': 1e2,
+        'gamma2': 1}
+mdl = model.model(mesh,mask, param)
 mdl.init_bed(bed)
 mdl.init_thick(thick)
 mdl.init_mask(mask)
@@ -52,19 +53,19 @@ mdl.init_mask(mask)
 mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
 mdl.init_bmelt(Constant(0.0))
 #mdl.gen_alpha()
-mdl.init_alpha(Constant(ln(5000)))
-mdl.gen_domain()
+mdl.init_alpha(Constant(ln(12000)))
+
+mdl.label_domain()
 
 #Solve
 slvr = solver.ssa_solver(mdl)
 slvr.def_mom_eq()
 slvr.solve_mom_eq()
 
-embed()
-
 #Inversions
-slvr = solver.ssa_solver(mdl)
 slvr.inversion()
+
+embed()
 
 #Plots to for quick output evaluation
 B2 = project(exp(slvr.alpha),mdl.M)
@@ -80,7 +81,10 @@ outdir = mdl.param['outdir']
 File(''.join([outdir,'mesh.xml'])) << data_mesh
 
 vtkfile = File(''.join([outdir,'U.pvd']))
-vtkfile << mdl.U
+vtkfile << slvr.U
+
+vtkfile = File(''.join([outdir,'beta.pvd']))
+vtkfile << slvr.beta
 
 vtkfile = File(''.join([outdir,'bed.pvd']))
 vtkfile << mdl.bed
@@ -90,6 +94,9 @@ vtkfile << mdl.thick
 
 vtkfile = File(''.join([outdir,'mask.pvd']))
 vtkfile << mdl.mask
+
+vtkfile = File(''.join([outdir,'mask_ext.pvd']))
+vtkfile << mdl.mask_ext
 
 vtkfile = File(''.join([outdir,'mask_vel.pvd']))
 vtkfile << mdl.mask_vel
