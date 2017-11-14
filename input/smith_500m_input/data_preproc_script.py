@@ -43,7 +43,7 @@ file_contents = np.fromfile(fid, dtype='float32')
 bm_shelves= np.reshape(file_contents, [6667,6667])
 
 #Depress bed beneath shelves
-bm_bed[bm_shelves==1] = 1.5*bm_bed[bm_shelves==1]
+bm_bed[bm_shelves==1] = 1.25*bm_bed[bm_shelves==1]
 
 #Cell centre coords
 bm_x = np.linspace(-3333000,3333000, 6667)
@@ -82,7 +82,6 @@ mask[thick_orig >= 1] = 1
 mask[thick_orig < 1] = -10
 mask[thick_orig == -9999.0] = 0
 
-embed()
 
 ###############
 #Measures data
@@ -132,13 +131,44 @@ vstd = np.sqrt(vstd__**2 + std_e**2)
 
 mask_vel = ~(np.isclose(uvel,0) & np.isclose(vvel,0))
 
+
+###############
+#Depth Integrated Ice Creep
+#################
+
+data_dir = '/Users/conradkoziol/Documents/Glaciology/Data/Pattyn_Temp/'
+vf = 'depth_int_A.mat'
+
+di_data = io.loadmat(data_dir + vf)
+di_x = di_data['X']
+di_y = di_data['Y']
+di_B = di_data['B']
+
+di_B = np.flipud(di_B)
+di_y = np.fliplr(di_y)
+
+bf = 5e3
+xm3 = (xlim[0] - bf < di_x) & (di_x < xlim[1] + bf); xm3 = xm3.flatten()
+ym3 = (ylim[0] - bf < di_y) & (di_y < ylim[1] + bf); ym3 = ym3.flatten()
+
+xcoord_di = di_x[0,xm3]
+ycoord_di = di_y[0,ym3]
+
+di_B[np.isnan(di_B)] = 0.0 #Replace nan with zeros for extrap at edge
+B_ = di_B[ym3,:]
+B = B_[:,xm3]
+
+
+
+
 outfile = 'grid_data'
 np.savez(outfile,nx=nx,ny=ny,xlim=xlim,ylim=ylim, Lx=Lx, Ly=Ly,
             xcoord_bm=xcoord_bm,ycoord_bm=ycoord_bm,
             xcoord_ms=xcoord_ms,ycoord_ms=ycoord_ms,
+            xcoord_di=xcoord_di,ycoord_di=ycoord_di,
             bed=bed, thick=thick, mask=mask,
             uvel=uvel, vvel=vvel, ustd=ustd, vstd=vstd,
-            mask_vel=mask_vel)
+            mask_vel=mask_vel, B=B)
 
 
 
@@ -173,6 +203,12 @@ plt.figure()
 plt.imshow((uvel**2.0 + vvel**2.0)**(1.0/2.0))
 plt.title('Velocities')
 plt.savefig('vel.png')
+
+plt.figure()
+plt.imshow((B))
+plt.title('B')
+plt.savefig('B.png')
+
 
 plt.figure()
 plt.imshow(mask_vel)

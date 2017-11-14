@@ -38,8 +38,7 @@ class model:
         param['g'] =  9.81           #acceleration due to gravity
         param['n'] =  3.0            #glen's flow law exponent
         param['eps_rp'] =  1e-5      #effective strain regularization
-        param['A'] =  1.2e-25 * param['ty']     #Creep paramater
-        param['B'] = param['A']**(-1.0/param['n'])
+        param['A'] =  3.5e-25 * param['ty']     #Creep paramater
         param['tol'] =  1e-6         #Tolerance for tests
         param['gamma1'] =  1.0          #Cost function scaling parameter
         param['gamma2'] =  1.0
@@ -60,9 +59,9 @@ class model:
                             'linear_solver'         : 'umfpack',
                             #'preconditioner'        : 'hypre',
                             'line_search'           : 'nleqerr',
-                            'relative_tolerance'    : 1e-15,
-                            'absolute_tolerance'    : 1e-15,
-                            'solution_tolerance'    : 1e-15
+                            'relative_tolerance'    : 1e-18,
+                            'absolute_tolerance'    : 1e-0,
+                            'solution_tolerance'    : 1e-18
                             }}
 
         #Default fenics solver. No line search.
@@ -71,7 +70,7 @@ class model:
                 'linear_solver'            : 'umfpack',
                 #'preconditioner'           : 'jacobi',
                 'relative_tolerance'       : 1e-15,
-                'absolute_tolerance'       : 1.0,
+                'absolute_tolerance'       : 1e-5,
                 'relaxation_parameter'     : 0.7,
                 'maximum_iterations'       : 50,
                 'error_on_nonconvergence'  : False,
@@ -110,13 +109,16 @@ class model:
         self.surf = project(surf,self.M)
 
     def init_bed(self,bed):
-        self.bed = project(bed,self.M)
+        self.bed = project(bed,self.Q)
 
     def init_thick(self,thick):
         self.thick = project(thick,self.M)
 
     def init_alpha(self,alpha):
         self.alpha = project(alpha,self.Q)
+
+    def init_beta(self,beta):
+        self.beta = project(beta,self.M)
 
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.M)
@@ -302,4 +304,3 @@ class model:
 
                 elif near(mv,self.MASK_XD,tol):
                     self.ff[f] = self.GAMMA_NF
-        embed()

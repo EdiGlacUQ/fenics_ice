@@ -181,28 +181,17 @@ class ismipC:
         self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
 
-
-    def init_bed(self,x,y):
-        '''Return bedrock topography in metres
-        Input:
-        x -- x coordinates in metres as a numpy array
-        y -- y coordinates in metres as a numpy array
-        '''
-        #Create bed topography in metres
-        self.bed = self.surf - 1000.0
-
-
+        self.init_mask(self.x,self.y)
 
     def init_surf(self,x,y):
         xx = np.meshgrid(x, y)[0]
         self.surf = 1e4 -xx*np.tan(0.1*np.pi/180.0)
 
+    def init_bed(self,x,y):
+        #Create bed topography in metres
+        self.bed = self.surf - 1000.0
+
     def init_B2(self,x,y):
-        '''Return bedrock topography in metres
-        Input:
-        x -- x coordinates in metres as a numpy array
-        y -- y coordinates in metres as a numpy array
-        '''
         w = 2.0*np.pi/self.L
         xx,yy = np.meshgrid(x,y)
         self.B2 = (1000.0 + 1000.0*np.sin(3.0*w*xx)*np.sin(3.0*w*yy))
@@ -218,6 +207,16 @@ class ismipC:
         yy = np.meshgrid(x,y)[1]
 
         self.bmelt = 1.0*np.ones(yy.shape)
+
+
+    def init_mask(self,x,y):
+        '''Return ice mask
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        yy = np.meshgrid(x,y)[1]
+        self.mask = 1.0*(np.ones([x.size, y.size]))
 
 
 

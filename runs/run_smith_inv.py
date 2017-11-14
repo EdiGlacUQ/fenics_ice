@@ -28,6 +28,7 @@ v_obs = Function(Q,''.join([dd,'smith450m_mesh_v_obs.xml']))
 u_std = Function(Q,''.join([dd,'smith450m_mesh_u_std.xml']))
 v_std = Function(Q,''.join([dd,'smith450m_mesh_v_std.xml']))
 mask_vel = Function(Q,''.join([dd,'smith450m_mesh_mask_vel.xml']))
+B_mod = Function(Q,''.join([dd,'smith450m_mesh_mask_B_mod.xml']))
 
 #Generate model mesh
 gf = 'grid_data.npz'
@@ -43,7 +44,7 @@ mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 param = {'eq_def' : 'weak',
         'solver': 'petsc',
         'outdir' :'./output_smith_inv/',
-        'gamma1': 1e2,
+        'gamma1': 1e-1,
         'gamma2': 1}
 mdl = model.model(mesh,mask, param)
 mdl.init_bed(bed)
@@ -53,9 +54,12 @@ mdl.init_mask(mask)
 mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
 mdl.init_bmelt(Constant(0.0))
 #mdl.gen_alpha()
-mdl.init_alpha(Constant(ln(12000)))
+mdl.init_alpha(Constant(ln(16000)))
+mdl.init_beta(ln(B_mod))
 
 mdl.label_domain()
+
+embed()
 
 #Solve
 slvr = solver.ssa_solver(mdl)
@@ -123,6 +127,10 @@ vtkfile << slvr.alpha
 
 vtkfile = File(''.join([outdir,'alpha_mdl.pvd']))
 vtkfile << mdl.alpha
+
+vtkfile = File(''.join([outdir,'Bglen_mdl.pvd']))
+Bglen = project(exp(mdl.beta),mdl.M)
+vtkfile << Bglen
 
 vtkfile = File(''.join([outdir,'B2.pvd']))
 vtkfile << B2

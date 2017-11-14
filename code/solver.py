@@ -176,15 +176,13 @@ class ssa_solver:
             fl_ex = conditional(height <= height_s, 1.0, 0.0)
 
             #Driving stress quantities
-            F = (fl_ex) * 0.5*rhoi*g*height**2 + \
-                (1-fl_ex) * 0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2 )
+            F = (1 - fl_ex) * 0.5*rhoi*g*height**2 + \
+                (fl_ex) * 0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2 )
 
-            W = (fl_ex) * rhoi*g*height + \
-                (1-fl_ex) * rhoi*g*height_s
+            W = (1 - fl_ex) * rhoi*g*height + \
+                (fl_ex) * rhoi*g*height_s
 
             draft = (fl_ex) * (rhoi / rhow) * height
-
-            s = (fl_ex) * delta * height
 
             #Terminating margin boundary condition
             sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2)) - F
@@ -256,27 +254,25 @@ class ssa_solver:
         V = 50 #Velocity scale for Non-Dimensionalization
         eta = 5 #Minimium velocity
 
-        J_ls = 0.01*(u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
+        J_ls = 0.0*(u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
         J_log = ((V**2)*ln( ((u**2 + v**2)**2 + eta) /  ((u_obs**2 + v_obs**2)**2 + eta) )**2) *self.dObs
         J_reg_alpha = gamma1*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce_gnd
-        J_reg_beta = gamma2*(0.001*inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_flt +
+        J_reg_beta = 0.0*gamma2*(inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_flt +
                 inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_gnd)
 
         J = Functional(J_ls + J_log+ J_reg_alpha + J_reg_beta)
 
-        embed()
-        control = [Control(alpha), Control(beta)]
-        #control = Control(beta)
+        #control = [Control(alpha), Control(beta)]
+        control = Control(alpha)
 
         rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
-        embed
         #Optimization routine
         opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
-        embed()
-        self.alpha.assign(opt_var[0])
-        self.beta.assign(opt_var[1])
-        #self.beta.assign(opt_var)
+
+        #self.alpha.assign(opt_var[0])
+        #self.beta.assign(opt_var[1])
+        self.alpha.assign(opt_var)
 
         #Compute velocities with inverted basal drag
         self.solve_mom_eq()

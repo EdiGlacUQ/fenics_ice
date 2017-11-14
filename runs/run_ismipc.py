@@ -10,11 +10,12 @@ from IPython import embed
 
 dd = '../input/ismipC/'
 data_mesh = Mesh(''.join([dd,'ismipC_mesh.xml']))
-Q = FunctionSpace(data_mesh, 'Lagrange', 1)
-bed = Function(Q,''.join([dd,'ismipC_mesh_bed.xml']))
-surf = Function(Q,''.join([dd,'ismipC_mesh_surf.xml']))
-bmelt = Function(Q,''.join([dd,'ismipC_mesh_bmelt.xml']))
-B2 = Function(Q,''.join([dd,'ismipC_mesh_B2.xml']))
+M = FunctionSpace(data_mesh, 'DG', 0)
+bed = Function(M,''.join([dd,'ismipC_mesh_bed.xml']))
+height = Function(M,''.join([dd,'ismipC_mesh_height.xml']))
+bmelt = Function(M,''.join([dd,'ismipC_mesh_bmelt.xml']))
+mask = Function(M,''.join([dd,'ismipC_mesh_mask.xml']))
+B2 = Function(M,''.join([dd,'ismipC_mesh_B2.xml']))
 alpha = ln(B2)
 
 #Generate model mesh
@@ -25,37 +26,43 @@ mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
 
 
 #Initialize Model
-#eq_def=1 SSA from Action Principle (Default)
-#eq_def=2 SSA directly in weak form
-output_dir='./output2/'
-mdl = model.model(mesh,outdir=output_dir,eq_def=1)
-mdl.init_surf(surf)
+param = {'eq_def' : 'weak',
+        'solver': 'petsc',
+        'outdir' :'./output_ismipc/',
+        'A': 10**(-16),
+        'rhoi': 910 }
+mdl = model.model(mesh,mask, param)
 mdl.init_bed(bed)
-mdl.gen_thick()
+mdl.init_thick(height)
+mdl.init_mask(mask)
 mdl.init_bmelt(bmelt)
 mdl.init_alpha(alpha)
-mdl.default_solver_params()
 
-mdl.gen_ice_mask()
-mdl.gen_domain()
+mdl.label_domain()
 
 #Solve
 slvr = solver.ssa_solver(mdl)
 slvr.def_mom_eq()
 slvr.solve_mom_eq()
 
-vtkfile = File(''.join([mdl.outdir,'U.pvd']))
-U = project(mdl.U,mdl.V)
+#Plot
+outdir = mdl.param['outdir']
+
+vtkfile = File(''.join([outdir,'U.pvd']))
+U = project(slvr.U,slvr.V)
 vtkfile << U
 
-vtkfile = File(''.join([mdl.outdir,'bed.pvd']))
+vtkfile = File(''.join([outdir,'bed.pvd']))
 vtkfile << mdl.bed
 
-vtkfile = File(''.join([mdl.outdir,'surf.pvd']))
-vtkfile << mdl.surf
-
-vtkfile = File(''.join([mdl.outdir,'thick.pvd']))
+vtkfile = File(''.join([outdir,'thick.pvd']))
 vtkfile << mdl.thick
 
-vtkfile = File(''.join([mdl.outdir,'mask.pvd']))
+vtkfile = File(''.join([outdir,'mask.pvd']))
 vtkfile << mdl.mask
+
+vtkfile = File(''.join([outdir,'B2.pvd']))
+B2 = project(exp(mdl.alpha), M)
+vtkfile << B2
+
+embed()
