@@ -159,7 +159,7 @@ B_ = di_B[ym3,:]
 B = B_[:,xm3]
 
 
-
+embed()
 
 outfile = 'grid_data'
 np.savez(outfile,nx=nx,ny=ny,xlim=xlim,ylim=ylim, Lx=Lx, Ly=Ly,

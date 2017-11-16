@@ -135,6 +135,7 @@ class ssa_solver:
             #Sliding law
             B2 = exp(alpha)
             fl_ex = conditional(height <= height_s, 1.0, 0.0)
+            fl_ex2 = conditional(height < height_s, 1.0, 0.0)
             Sl = 0.5 * (1.0 -fl_ex) * B2 * dot(self.U,self.U)
 
             # action :
@@ -174,13 +175,19 @@ class ssa_solver:
             #Switch parameters
             height_s = -rhow/rhoi * bed
             fl_ex = conditional(height <= height_s, 1.0, 0.0)
-
+            fl_ex2 = conditional(height < height_s, 1.0, 0.0)
             #Driving stress quantities
-            F = (1 - fl_ex) * 0.5*rhoi*g*height**2 + \
-                (fl_ex) * 0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2 )
+            #F = (1 - fl_ex) * 0.5*rhoi*g*height**2 + \
+            #    (fl_ex) * 0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2 )
 
-            W = (1 - fl_ex) * rhoi*g*height + \
-                (fl_ex) * rhoi*g*height_s
+            #W = (1 - fl_ex) * rhoi*g*height + \
+            #    (fl_ex) * rhoi*g*height_s
+
+            F = (1 - fl_ex2) * 0.5*rhoi*g*height**2 + \
+                (fl_ex2) * 0.5*rhoi*g*(delta*height**2)
+
+            W = (1 - fl_ex2) * rhoi*g*height + \
+                (fl_ex2) * 0
 
             draft = (fl_ex) * (rhoi / rhow) * height
 

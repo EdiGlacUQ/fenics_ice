@@ -59,13 +59,13 @@ mdl.init_beta(ln(B_mod))
 
 mdl.label_domain()
 
-embed()
 
 #Solve
 slvr = solver.ssa_solver(mdl)
 slvr.def_mom_eq()
 slvr.solve_mom_eq()
 
+embed()
 #Inversions
 slvr.inversion()
 
@@ -88,6 +88,7 @@ vtkfile = File(''.join([outdir,'U.pvd']))
 vtkfile << slvr.U
 
 vtkfile = File(''.join([outdir,'beta.pvd']))
+
 vtkfile << slvr.beta
 
 vtkfile = File(''.join([outdir,'bed.pvd']))
