@@ -1,5 +1,6 @@
 import sys
 import numpy as np
+import scipy.ndimage as ndimage
 import scipy.io as io
 import scipy.interpolate as interp
 import matplotlib.pyplot as plt
@@ -43,7 +44,26 @@ file_contents = np.fromfile(fid, dtype='float32')
 bm_shelves= np.reshape(file_contents, [6667,6667])
 
 #Depress bed beneath shelves
-bm_bed[bm_shelves==1] = 1.25*bm_bed[bm_shelves==1]
+bm_bed[bm_shelves==1] = 1.5*bm_bed[bm_shelves==1]
+
+thick_ = bm_thick
+surf = bm_bed + thick_
+surf_ = surf
+surf[thick_ < 1.0 ] = np.NaN
+
+surf_f1 = ndimage.median_filter(surf,3, mode='nearest')
+surf_f2 = ndimage.gaussian_filter(surf_f1,2, truncate = 1, mode='nearest')
+
+bed_f1 = ndimage.median_filter(bm_bed,3, mode='nearest')
+bed_f2 = ndimage.gaussian_filter(bed_f1,2, truncate = 1, mode='nearest')
+
+bm_bed = bed_f2
+surf = surf_f2
+surf[bm_surf==np.NaN] = surf_[bm_surf==np.NaN]
+bm_thick = np.maximum(surf - bm_bed,0)
+bm_thick[thick_ < 1.0 ] = 0.0
+bm_thick[thick_ == -9999.0] = -9999.0
+
 
 #Cell centre coords
 bm_x = np.linspace(-3333000,3333000, 6667)

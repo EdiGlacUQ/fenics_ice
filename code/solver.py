@@ -135,7 +135,7 @@ class ssa_solver:
             #Sliding law
             B2 = exp(alpha)
             fl_ex = conditional(height <= height_s, 1.0, 0.0)
-            fl_ex2 = conditional(height < height_s, 1.0, 0.0)
+            fl_ex2 = conditional(height <= height_s, 1.0, 0.0)
             Sl = 0.5 * (1.0 -fl_ex) * B2 * dot(self.U,self.U)
 
             # action :
@@ -167,7 +167,8 @@ class ssa_solver:
             v_x, v_y = v.dx(0), v.dx(1)
 
             #Viscosity
-            nu = self.viscosity(self.U)
+            U_marker = Function(self.U.function_space(), name = "%s_marker" % self.U.name())
+            nu = self.viscosity(U_marker)
 
             #Sliding law
             B2 = exp(alpha)
@@ -175,19 +176,20 @@ class ssa_solver:
             #Switch parameters
             height_s = -rhow/rhoi * bed
             fl_ex = conditional(height <= height_s, 1.0, 0.0)
-            fl_ex2 = conditional(height < height_s, 1.0, 0.0)
+            fl_ex2 = conditional(height <= height_s, 1.0, 0.0)
+
             #Driving stress quantities
-            #F = (1 - fl_ex) * 0.5*rhoi*g*height**2 + \
-            #    (fl_ex) * 0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2 )
+            F = (1 - fl_ex) * 0.5*rhoi*g*height**2 + \
+                (fl_ex) * 0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2 )
 
-            #W = (1 - fl_ex) * rhoi*g*height + \
-            #    (fl_ex) * rhoi*g*height_s
+            W = (1 - fl_ex) * rhoi*g*height + \
+                (fl_ex) * rhoi*g*height_s
 
-            F = (1 - fl_ex2) * 0.5*rhoi*g*height**2 + \
-                (fl_ex2) * 0.5*rhoi*g*(delta*height**2)
-
-            W = (1 - fl_ex2) * rhoi*g*height + \
-                (fl_ex2) * 0
+            #F = (1 - fl_ex2) * 0.5*rhoi*g*height**2 + \
+            #    (fl_ex2) * 0.5*rhoi*g*(delta*height**2)
+            #
+            #W = (1 - fl_ex2) * rhoi*g*height + \
+            #    (fl_ex2) * 0
 
             draft = (fl_ex) * (rhoi / rhow) * height
 
@@ -208,6 +210,8 @@ class ssa_solver:
                     #Boundary condition
                     + inner(Phi * sigma_n, self.nm) * self.ds )
 
+            self.mom_Jac_p = replace(derivative(self.mom_F, self.U), {U_marker:self.U})
+            self.mom_F = replace(self.mom_F, {U_marker:self.U})
             self.mom_Jac = derivative(self.mom_F, self.U)
 
 
@@ -220,9 +224,42 @@ class ssa_solver:
         #Non zero initial perturbation
         #self.init_guess()
         #parameters['krylov_solver']['nonzero_initial_guess'] = True
-
         t0 = time.time()
-        solve(self.mom_F == 0, self.U, J = self.mom_Jac, bcs = self.bcs, solver_parameters = self.param['solver_param'])
+        picard_params = {"nonlinear_solver":"newton",
+                         "newton_solver":{"linear_solver":"umfpack",
+                                          "maximum_iterations":200,
+                                          "absolute_tolerance":1.0e-16,
+                                          "relative_tolerance":5.0e-2,
+                                          "convergence_criterion":"incremental",
+                                          "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+        newton_params = {"nonlinear_solver":"newton",
+                         "newton_solver":{"linear_solver":"umfpack",
+                                          "maximum_iterations":20,
+                                          "absolute_tolerance":1.0e-16,
+                                          "relative_tolerance":1.0e-9,
+                                          "convergence_criterion":"incremental",
+                                          "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+        from dolfin_adjoint_custom import EquationSolver
+        J_p = self.mom_Jac_p
+
+        class MomentumSolver(EquationSolver):
+          def forward_solve(self, x, deps):
+            replace_map = dict(zip(self._EquationSolver__deps, deps))
+
+            if not self._EquationSolver__initial_guess is None:
+              x.assign(replace_map[self._EquationSolver__initial_guess])
+            replace_map[self.x()] = x
+
+            lhs = replace(self._EquationSolver__lhs, replace_map)
+            rhs = 0 if self._EquationSolver__rhs == 0 else replace(self._EquationSolver__rhs, replace_map)
+            J = replace(self._EquationSolver__J, replace_map)
+
+            solve(lhs == rhs, x, self._EquationSolver__bcs, J = replace(J_p, replace_map), form_compiler_parameters = self._EquationSolver__form_compiler_parameters, solver_parameters = picard_params)
+            solve(lhs == rhs, x, self._EquationSolver__bcs, J = J, form_compiler_parameters = self._EquationSolver__form_compiler_parameters, solver_parameters = self._EquationSolver__solver_parameters)
+
+            return
+
+        MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, solver_parameters = newton_params).solve()#self.param['solver_param'])
         t1 = time.time()
         print "Time for solve: ", t1-t0
 
@@ -236,10 +273,21 @@ class ssa_solver:
         alpha = self.alpha
         beta = self.beta
         beta_bgd = beta.copy(deepcopy=True)
-        B = exp(beta)
 
-        gamma1 = self.param['gamma1']
-        gamma2 = self.param['gamma2']
+        #Small perturbation so derivative of regularization is not zero
+        pertf = np.random.uniform(0.98,1.02,self.alpha.vector().array().size)
+
+        alpha.vector().set_local(np.multiply(pertf,alpha.vector()[:].array()))
+        alpha.vector().apply("insert")
+
+        beta.vector().set_local(np.multiply(pertf,beta.vector()[:].array()))
+        beta.vector().apply("insert")
+
+        gc1 = self.param['gc1']
+        gc2 = self.param['gc2']
+        gr1 = self.param['gr1']
+        gr2 = self.param['gr2']
+        gr3 = self.param['gr3']
 
         #Record value of functional during minimization
         self.F_iter = 0
@@ -261,25 +309,25 @@ class ssa_solver:
         V = 50 #Velocity scale for Non-Dimensionalization
         eta = 5 #Minimium velocity
 
-        J_ls = 0.0*(u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
-        J_log = ((V**2)*ln( ((u**2 + v**2)**2 + eta) /  ((u_obs**2 + v_obs**2)**2 + eta) )**2) *self.dObs
-        J_reg_alpha = gamma1*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce_gnd
-        J_reg_beta = 0.0*gamma2*(inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_flt +
-                inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_gnd)
+        J_ls = gc1*(u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
+        J_log = gc2*((V**2)*ln( ((u**2 + v**2)**2 + eta) /  ((u_obs**2 + v_obs**2)**2 + eta) )**2) *self.dObs
+        J_reg_alpha = gr1*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce_gnd
+        J_reg_beta = gr2*inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_gnd
+        J_reg2_beta = gr3*inner(grad(exp(beta)),grad(exp(beta)))*self.dIce
 
-        J = Functional(J_ls + J_log+ J_reg_alpha + J_reg_beta)
+        J = Functional(J_ls + J_log+ J_reg_alpha + J_reg_beta + J_reg2_beta)
 
-        #control = [Control(alpha), Control(beta)]
-        control = Control(alpha)
+        control = [Control(alpha), Control(beta)]
+        #control = Control(alpha)
 
         rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
         #Optimization routine
         opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
 
-        #self.alpha.assign(opt_var[0])
-        #self.beta.assign(opt_var[1])
-        self.alpha.assign(opt_var)
+        self.alpha.assign(opt_var[0])
+        self.beta.assign(opt_var[1])
+        #self.alpha.assign(opt_var)
 
         #Compute velocities with inverted basal drag
         self.solve_mom_eq()
@@ -289,19 +337,24 @@ class ssa_solver:
         J2 =  assemble(J_log)
         J3 = assemble(J_reg_alpha)
         J4 = assemble(J_reg_beta)
+        J5 = assemble(J_reg2_beta)
 
 
         print 'Inversion Details'
         print 'J: %.2e' % sum([J1,J2,J3,J4])
-        print 'gamma1: %.2e' % gamma1
-        print 'gamma2: %.2e' % gamma2
+        print 'gc1: %.2e' % gc1
+        print 'gc2: %.2e' % gc2
+        print 'gr1: %.2e' % gr1
+        print 'gr2: %.2e' % gr2
+        print 'gr3: %.2e' % gr3
         print 'J_cst: %.2e' % sum([J1,J2])
         print 'J_ls: %.2e' % J1
         print 'J_log: %.2e' % J2
-        print 'J_reg: %.2e' % sum([J3,J4])
+        print 'J_reg: %.2e' % sum([J3,J4,J5])
         print 'J_reg_alpha: %.2e' % J3
         print 'J_reg_beta: %.2e' % J4
-        print 'J_reg/J_cst: %.2e' % ((J2+J3)/(J1+J2))
+        print 'J_reg2_beta: %.2e' % J5
+        print 'J_reg/J_cst: %.2e' % ((J3+J4+J5)/(J1+J2))
 
     def epsilon(self, U):
         """

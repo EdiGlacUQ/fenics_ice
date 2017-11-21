@@ -44,8 +44,12 @@ mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 param = {'eq_def' : 'weak',
         'solver': 'petsc',
         'outdir' :'./output_smith_inv/',
-        'gamma1': 1e-1,
-        'gamma2': 1}
+        'gc1': 0.0, #1e2
+        'gc2': 1e0, #1e0
+        'gr1': 1e1,
+        'gr2': 1e4,#1e5
+        'gr3': 1e0,#1e1
+        }
 mdl = model.model(mesh,mask, param)
 mdl.init_bed(bed)
 mdl.init_thick(thick)
@@ -53,26 +57,24 @@ mdl.init_mask(mask)
 #mdl.gen_ice_mask()
 mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
 mdl.init_bmelt(Constant(0.0))
-#mdl.gen_alpha()
-mdl.init_alpha(Constant(ln(16000)))
+mdl.gen_alpha()
+#mdl.init_alpha(Constant(ln(6000)))
 mdl.init_beta(ln(B_mod))
 
 mdl.label_domain()
-
 
 #Solve
 slvr = solver.ssa_solver(mdl)
 slvr.def_mom_eq()
 slvr.solve_mom_eq()
 
-embed()
 #Inversions
 slvr.inversion()
 
 embed()
 
 #Plots to for quick output evaluation
-B2 = project(exp(slvr.alpha),mdl.M)
+B2 = project(exp(slvr.alpha),mdl.Q)
 F_vals = [x for x in slvr.F_vals if x > 0]
 
 fu.plot_variable(B2, 'B2', mdl.param['outdir'])
@@ -122,14 +124,10 @@ vtkfile = File(''.join([outdir,'uv_obs.pvd']))
 U_obs = project((mdl.v_obs**2 + mdl.u_obs**2)**(1.0/2.0), mdl.M)
 vtkfile << U_obs
 
-
 vtkfile = File(''.join([outdir,'alpha.pvd']))
-vtkfile << slvr.alpha
-
-vtkfile = File(''.join([outdir,'alpha_mdl.pvd']))
 vtkfile << mdl.alpha
 
-vtkfile = File(''.join([outdir,'Bglen_mdl.pvd']))
+vtkfile = File(''.join([outdir,'Bglen.pvd']))
 Bglen = project(exp(mdl.beta),mdl.M)
 vtkfile << Bglen
 

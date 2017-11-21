@@ -40,8 +40,11 @@ class model:
         param['eps_rp'] =  1e-5      #effective strain regularization
         param['A'] =  3.5e-25 * param['ty']     #Creep paramater
         param['tol'] =  1e-6         #Tolerance for tests
-        param['gamma1'] =  1.0          #Cost function scaling parameter
-        param['gamma2'] =  1.0
+        param['gc1'] =  1.0          #Scaling parameters for cost function
+        param['gc2'] =  1.0
+        param['gr1'] =  1.0
+        param['gr2'] =  1.0
+        param['gr3'] =  1.0
 
         #Output
         param['outdir'] = './output/'
@@ -60,8 +63,9 @@ class model:
                             #'preconditioner'        : 'hypre',
                             'line_search'           : 'nleqerr',
                             'relative_tolerance'    : 1e-18,
-                            'absolute_tolerance'    : 1e-0,
-                            'solution_tolerance'    : 1e-18
+                            'absolute_tolerance'    : 1.0,
+                            'solution_tolerance'    : 1e-18,
+                            'error_on_nonconvergence'  : False
                             }}
 
         #Default fenics solver. No line search.
@@ -70,7 +74,7 @@ class model:
                 'linear_solver'            : 'umfpack',
                 #'preconditioner'           : 'jacobi',
                 'relative_tolerance'       : 1e-15,
-                'absolute_tolerance'       : 1e-5,
+                'absolute_tolerance'       : 1.0,
                 'relaxation_parameter'     : 0.7,
                 'maximum_iterations'       : 50,
                 'error_on_nonconvergence'  : False,
@@ -118,7 +122,7 @@ class model:
         self.alpha = project(alpha,self.Q)
 
     def init_beta(self,beta):
-        self.beta = project(beta,self.M)
+        self.beta = project(beta,self.Q)
 
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.M)
@@ -145,7 +149,7 @@ class model:
     def gen_ice_mask(self):
         self.mask = project(conditional(gt(self.thick,self.param['tol']),1,0), self.M)
 
-    def gen_alpha(self, a_bgd=2000.0, a_lb = 5e2, a_ub = 2.0e4):
+    def gen_alpha(self, a_bgd=6000.0, a_lb = 1e3, a_ub = 1e4):
 
         bed = self.bed
         height = self.thick
