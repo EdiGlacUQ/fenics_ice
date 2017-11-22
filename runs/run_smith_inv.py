@@ -53,13 +53,13 @@ param = {'eq_def' : 'weak',
 mdl = model.model(mesh,mask, param)
 mdl.init_bed(bed)
 mdl.init_thick(thick)
+mdl.gen_surf()
 mdl.init_mask(mask)
-#mdl.gen_ice_mask()
 mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
 mdl.init_bmelt(Constant(0.0))
 mdl.gen_alpha()
-#mdl.init_alpha(Constant(ln(6000)))
-mdl.init_beta(ln(B_mod))
+#mdl.init_alpha(Constant(ln(6000))) #Initialize using uniform alpha
+mdl.init_beta(ln(B_mod))            #Comment to use uniform Bglen
 
 mdl.label_domain()
 
@@ -68,10 +68,10 @@ slvr = solver.ssa_solver(mdl)
 slvr.def_mom_eq()
 slvr.solve_mom_eq()
 
+embed()
+
 #Inversions
 slvr.inversion()
-
-embed()
 
 #Plots to for quick output evaluation
 B2 = project(exp(slvr.alpha),mdl.Q)
@@ -133,5 +133,8 @@ vtkfile << Bglen
 
 vtkfile = File(''.join([outdir,'B2.pvd']))
 vtkfile << B2
+
+vtkfile = File(''.join([outdir,'surf.pvd']))
+vtkfile << mdl.surf
 
 embed()

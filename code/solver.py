@@ -24,6 +24,7 @@ class ssa_solver:
         #Fields
         self.bed = model.bed
         self.height = model.thick
+        self.surf = model.surf
         self.beta = model.beta
         self.mask = model.mask
         self.alpha = model.alpha
@@ -86,6 +87,7 @@ class ssa_solver:
         #Simplify accessing fields and parameters
         bed = self.bed
         height = self.height
+        surf = self.surf
         mask = self.mask
         alpha = self.alpha
 
@@ -135,7 +137,6 @@ class ssa_solver:
             #Sliding law
             B2 = exp(alpha)
             fl_ex = conditional(height <= height_s, 1.0, 0.0)
-            fl_ex2 = conditional(height <= height_s, 1.0, 0.0)
             Sl = 0.5 * (1.0 -fl_ex) * B2 * dot(self.U,self.U)
 
             # action :
@@ -176,7 +177,6 @@ class ssa_solver:
             #Switch parameters
             height_s = -rhow/rhoi * bed
             fl_ex = conditional(height <= height_s, 1.0, 0.0)
-            fl_ex2 = conditional(height <= height_s, 1.0, 0.0)
 
             #Driving stress quantities
             F = (1 - fl_ex) * 0.5*rhoi*g*height**2 + \
@@ -185,17 +185,13 @@ class ssa_solver:
             W = (1 - fl_ex) * rhoi*g*height + \
                 (fl_ex) * rhoi*g*height_s
 
-            #F = (1 - fl_ex2) * 0.5*rhoi*g*height**2 + \
-            #    (fl_ex2) * 0.5*rhoi*g*(delta*height**2)
-            #
-            #W = (1 - fl_ex2) * rhoi*g*height + \
-            #    (fl_ex2) * 0
-
             draft = (fl_ex) * (rhoi / rhow) * height
 
             #Terminating margin boundary condition
             sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2)) - F
+            sigma_n2 = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
 
+            embed()
             self.mom_F = (
                     #Membrance Stresses
                     -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * self.dIce
@@ -205,10 +201,12 @@ class ssa_solver:
                     - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * self.dIce
 
                     #Driving Stress
-                    + ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
+                    #+ ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
+                    - inner(Phi, rhoi * g * height * grad(surf)) * dIce
 
                     #Boundary condition
-                    + inner(Phi * sigma_n, self.nm) * self.ds )
+                    #+ inner(Phi * sigma_n, self.nm) * self.ds )
+                    + inner(Phi * sigma_n2, self.nm) * self.ds )
 
             self.mom_Jac_p = replace(derivative(self.mom_F, self.U), {U_marker:self.U})
             self.mom_F = replace(self.mom_F, {U_marker:self.U})

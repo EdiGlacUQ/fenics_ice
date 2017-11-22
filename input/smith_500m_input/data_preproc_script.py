@@ -29,6 +29,7 @@ std_e = 1
 data_dir = '/Users/conradkoziol/Documents/Glaciology/Data/bedmap2_bin/'
 tf = 'bedmap2_thickness.flt'
 bf = 'bedmap2_bed.flt'
+sf = 'bedmap2_surface.flt'
 gsf = 'bedmap2_icemask_grounded_and_shelves.flt'
 
 fid = open(data_dir + tf,"rb")
@@ -39,28 +40,19 @@ fid = open(data_dir + bf,"rb")
 file_contents = np.fromfile(fid, dtype='float32')
 bm_bed= np.reshape(file_contents, [6667,6667])
 
+fid = open(data_dir + sf,"rb")
+file_contents = np.fromfile(fid, dtype='float32')
+bm_surf= np.reshape(file_contents, [6667,6667])
+
 fid = open(data_dir + gsf,"rb")
 file_contents = np.fromfile(fid, dtype='float32')
 bm_shelves= np.reshape(file_contents, [6667,6667])
 
 #Depress bed beneath shelves
-bm_bed[bm_shelves==1] = 1.5*bm_bed[bm_shelves==1]
+bm_bed[bm_shelves==1] = 2*bm_bed[bm_shelves==1]
 
-thick_ = bm_thick
-surf = bm_bed + thick_
-surf_ = surf
-surf[thick_ < 1.0 ] = np.NaN
+thick_ = np.copy(bm_thick)
 
-surf_f1 = ndimage.median_filter(surf,3, mode='nearest')
-surf_f2 = ndimage.gaussian_filter(surf_f1,2, truncate = 1, mode='nearest')
-
-bed_f1 = ndimage.median_filter(bm_bed,3, mode='nearest')
-bed_f2 = ndimage.gaussian_filter(bed_f1,2, truncate = 1, mode='nearest')
-
-bm_bed = bed_f2
-surf = surf_f2
-surf[bm_surf==np.NaN] = surf_[bm_surf==np.NaN]
-bm_thick = np.maximum(surf - bm_bed,0)
 bm_thick[thick_ < 1.0 ] = 0.0
 bm_thick[thick_ == -9999.0] = -9999.0
 
@@ -80,7 +72,6 @@ ycoord_bm = bm_y[ym]
 bed_ = bm_bed[ym,:];
 bed = bed_[:,xm]
 
-
 thick_ = bm_thick[ym,:];
 thick = thick_[:,xm]
 thick_orig = np.copy(thick)
@@ -88,10 +79,11 @@ thick_orig = np.copy(thick)
 thick[thick_orig < 1] = 0 # Or set No flow BC
 thick[thick_orig == -9999.0] = 0
 
-
-
 shelves_ = bm_shelves[ym,:];
 shelves = shelves_[:,xm]
+
+surf_ = bm_surf[ym,:];
+surf = surf_[:,xm]
 
 mask = np.empty(thick.shape)
 
@@ -102,6 +94,40 @@ mask[thick_orig >= 1] = 1
 mask[thick_orig < 1] = -10
 mask[thick_orig == -9999.0] = 0
 
+#Smoothing
+surf_ = np.copy(surf)
+thick_ = np.copy(thick)
+bed_ = np.copy(bed)
+
+thick_[thick < 1.0] = np.nan
+
+def nanmedian(x):
+    if all(np.isnan(x)):
+        return np.nan
+    else:
+        return np.nanmedian(x)
+
+def nanmean(x):
+    if all(np.isnan(x)):
+        return np.nan
+    else:
+        return np.nanmean(x)
+
+thick_f1 = ndimage.filters.generic_filter(thick_, nanmedian, 3, mode='nearest')
+thick_f2 = ndimage.filters.generic_filter(thick_f1, nanmean, 5, mode='nearest')
+thick_f2 = ndimage.filters.generic_filter(thick_f2, nanmean, 7, mode='nearest')
+
+bed_f1 = ndimage.filters.generic_filter(bed_, nanmedian, 3, mode='nearest')
+bed = ndimage.filters.generic_filter(bed_f1, nanmean, 5, mode='nearest')
+bed = ndimage.filters.generic_filter(bed, nanmean, 7, mode='nearest')
+
+thick_ = np.copy(thick_f2)
+thick_[thick<1.0] = 0
+thick = thick_
+
+# plt.imshow(thick_-thick)
+# plt.show()
+# embed()
 
 ###############
 #Measures data

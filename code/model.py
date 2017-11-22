@@ -110,7 +110,7 @@ class model:
         self.beta = project(ln(A**(-1.0/n)), self.Q)
 
     def init_surf(self,surf):
-        self.surf = project(surf,self.M)
+        self.surf = project(surf,self.Q)
 
     def init_bed(self,bed):
         self.bed = project(bed,self.Q)
@@ -145,6 +145,17 @@ class model:
         h_diff = self.surf-self.bed
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
         self.thick = project(Min(h_diff,h_hyd),self.M)
+
+    def gen_surf(self):
+        rhoi = self.param['rhoi']
+        rhow = self.param['rhow']
+        bed = self.bed
+        height = self.thick
+
+        height_s = -rhow/rhoi * bed
+        fl_ex = conditional(height <= height_s, 1.0, 0.0)
+
+        self.surf = project((1-fl_ex)*(bed+height) + (fl_ex)*height*(1-rhoi/rhow), self.M)
 
     def gen_ice_mask(self):
         self.mask = project(conditional(gt(self.thick,self.param['tol']),1,0), self.M)
