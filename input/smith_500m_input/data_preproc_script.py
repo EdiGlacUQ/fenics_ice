@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from IPython import embed
 
-############################
-#Details of model domain grid
-############################
+#########################################
+#Details of model domain grid + Constants
+#########################################
 
 xlim = [-1607500.0,-1382500.0]
 ylim = [-717500.0,-522500.0]
@@ -21,11 +21,14 @@ Ly = ylim[1] - ylim[0]
 nx = Lx/1e3
 ny = Ly/1e3
 
+rhoi = 917.0
+rhow = 1000.0
+
 std_e = 1
 
 ###############
 #BEDMAP2 data
-##############
+###############
 data_dir = '/Users/conradkoziol/Documents/Glaciology/Data/bedmap2_bin/'
 tf = 'bedmap2_thickness.flt'
 bf = 'bedmap2_bed.flt'
@@ -50,6 +53,7 @@ bm_shelves= np.reshape(file_contents, [6667,6667])
 
 #Depress bed beneath shelves
 bm_bed[bm_shelves==1] = 2*bm_bed[bm_shelves==1]
+#bm_thick[bm_shelves==1] = bm_surf[bm_shelves==1]/(1 - rhoi/rhow)
 
 thick_ = np.copy(bm_thick)
 
@@ -75,8 +79,7 @@ bed = bed_[:,xm]
 thick_ = bm_thick[ym,:];
 thick = thick_[:,xm]
 thick_orig = np.copy(thick)
-#thick[thick_orig < 1] = 1 #Fill in small holes
-thick[thick_orig < 1] = 0 # Or set No flow BC
+thick[thick_orig < 1] = 0 #No flow BC around these holes
 thick[thick_orig == -9999.0] = 0
 
 shelves_ = bm_shelves[ym,:];
@@ -87,14 +90,12 @@ surf = surf_[:,xm]
 
 mask = np.empty(thick.shape)
 
-#mask[thick > 0] = 1
-#mask[thick == 0] = 0
-
 mask[thick_orig >= 1] = 1
 mask[thick_orig < 1] = -10
 mask[thick_orig == -9999.0] = 0
 
-#Smoothing
+
+#Smooth thickness and bed
 surf_ = np.copy(surf)
 thick_ = np.copy(thick)
 bed_ = np.copy(bed)
@@ -115,21 +116,16 @@ def nanmean(x):
 
 thick_f1 = ndimage.filters.generic_filter(thick_, nanmedian, 3, mode='nearest')
 thick_f2 = ndimage.filters.generic_filter(thick_f1, nanmean, 5, mode='nearest')
-thick_f2 = ndimage.filters.generic_filter(thick_f2, nanmean, 7, mode='nearest')
+
+thick_f2[thick<1.0] = 0
+thick = thick_f2
 
 bed_f1 = ndimage.filters.generic_filter(bed_, nanmedian, 3, mode='nearest')
-bed = ndimage.filters.generic_filter(bed_f1, nanmean, 5, mode='nearest')
-bed = ndimage.filters.generic_filter(bed, nanmean, 7, mode='nearest')
+bed = ndimage.filters.generic_filter(bed_f1, nanmean, 5, mode='nearest') #Save Bed
 
-thick_ = np.copy(thick_f2)
-thick_[thick<1.0] = 0
-thick = thick_
+embed()
 
-# plt.imshow(thick_-thick)
-# plt.show()
-# embed()
-
-###############
+################
 #Measures data
 #################
 
@@ -204,8 +200,6 @@ di_B[np.isnan(di_B)] = 0.0 #Replace nan with zeros for extrap at edge
 B_ = di_B[ym3,:]
 B = B_[:,xm3]
 
-
-embed()
 
 outfile = 'grid_data'
 np.savez(outfile,nx=nx,ny=ny,xlim=xlim,ylim=ylim, Lx=Lx, Ly=Ly,

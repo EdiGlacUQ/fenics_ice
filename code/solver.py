@@ -189,9 +189,8 @@ class ssa_solver:
 
             #Terminating margin boundary condition
             sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2)) - F
-            sigma_n2 = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
+            #sigma_n2 = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
 
-            embed()
             self.mom_F = (
                     #Membrance Stresses
                     -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * self.dIce
@@ -201,12 +200,12 @@ class ssa_solver:
                     - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * self.dIce
 
                     #Driving Stress
-                    #+ ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
-                    - inner(Phi, rhoi * g * height * grad(surf)) * dIce
+                    + ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
+                    #- inner(Phi, rhoi * g * height * grad(surf)) * dIce
 
                     #Boundary condition
-                    #+ inner(Phi * sigma_n, self.nm) * self.ds )
-                    + inner(Phi * sigma_n2, self.nm) * self.ds )
+                    + inner(Phi * sigma_n, self.nm) * self.ds )
+                    #+ inner(Phi * sigma_n2, self.nm) * self.ds )
 
             self.mom_Jac_p = replace(derivative(self.mom_F, self.U), {U_marker:self.U})
             self.mom_F = replace(self.mom_F, {U_marker:self.U})
@@ -309,7 +308,7 @@ class ssa_solver:
 
         J_ls = gc1*(u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
         J_log = gc2*((V**2)*ln( ((u**2 + v**2)**2 + eta) /  ((u_obs**2 + v_obs**2)**2 + eta) )**2) *self.dObs
-        J_reg_alpha = gr1*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce_gnd
+        J_reg_alpha = gr1*inner(grad(exp(alpha)),grad(exp(alpha)))*self.dIce
         J_reg_beta = gr2*inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_gnd
         J_reg2_beta = gr3*inner(grad(exp(beta)),grad(exp(beta)))*self.dIce
 

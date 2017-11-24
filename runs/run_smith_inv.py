@@ -46,7 +46,7 @@ param = {'eq_def' : 'weak',
         'outdir' :'./output_smith_inv/',
         'gc1': 0.0, #1e2
         'gc2': 1e0, #1e0
-        'gr1': 1e1,
+        'gr1': 1e2, #1e1
         'gr2': 1e4,#1e5
         'gr3': 1e0,#1e1
         }
@@ -67,8 +67,6 @@ mdl.label_domain()
 slvr = solver.ssa_solver(mdl)
 slvr.def_mom_eq()
 slvr.solve_mom_eq()
-
-embed()
 
 #Inversions
 slvr.inversion()

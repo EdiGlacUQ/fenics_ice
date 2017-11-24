@@ -81,7 +81,7 @@ class model:
                 #'krylov_solver': {'monitor_convergence': True}
                 }}
 
-        param['inv_options'] = {'disp': True, 'maxiter': 10, 'factr': 0.0}
+        param['inv_options'] = {'disp': True, 'maxiter': 20, 'factr': 0.0}
 
         #Update default values based on input
         param.update(param_in)
@@ -155,12 +155,12 @@ class model:
         height_s = -rhow/rhoi * bed
         fl_ex = conditional(height <= height_s, 1.0, 0.0)
 
-        self.surf = project((1-fl_ex)*(bed+height) + (fl_ex)*height*(1-rhoi/rhow), self.M)
+        self.surf = project((1-fl_ex)*(bed+height) + (fl_ex)*height*(1-rhoi/rhow), self.Q)
 
     def gen_ice_mask(self):
         self.mask = project(conditional(gt(self.thick,self.param['tol']),1,0), self.M)
 
-    def gen_alpha(self, a_bgd=6000.0, a_lb = 1e3, a_ub = 1e4):
+    def gen_alpha(self, a_bgd=500.0, a_lb = 1e2, a_ub = 1e4):
 
         bed = self.bed
         height = self.thick
