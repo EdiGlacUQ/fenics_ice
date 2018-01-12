@@ -22,11 +22,13 @@ class model:
         self.nm = FacetNormal(self.mesh)
         self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
+        self.Q2 = FunctionSpace(self.mesh,'Lagrange',2)
         self.M = FunctionSpace(self.mesh,'DG',0)
 
         #Default velocity mask and Beta fields
         self.def_vel_mask()
         self.def_B_field()
+        self.def_lat_dirichletbc()
 
     def init_param(self, param_in):
 
@@ -61,7 +63,7 @@ class model:
                             {
                             'linear_solver'         : 'umfpack',
                             #'preconditioner'        : 'hypre',
-                            'line_search'           : 'nleqerr',
+                            #'line_search'           : 'nleqerr',
                             'relative_tolerance'    : 1e-18,
                             'absolute_tolerance'    : 1.0,
                             'solution_tolerance'    : 1e-18,
@@ -81,7 +83,7 @@ class model:
                 #'krylov_solver': {'monitor_convergence': True}
                 }}
 
-        param['inv_options'] = {'disp': True, 'maxiter': 20, 'factr': 0.0}
+        param['inv_options'] = {'disp': True, 'maxiter': 5}
 
         #Update default values based on input
         param.update(param_in)
@@ -109,6 +111,9 @@ class model:
         n = self.param['n']
         self.beta = project(ln(A**(-1.0/n)), self.Q)
 
+    def def_lat_dirichletbc(self):
+        self.latbc = Constant([0.0,0.0])
+
     def init_surf(self,surf):
         self.surf = project(surf,self.Q)
 
@@ -119,10 +124,10 @@ class model:
         self.thick = project(thick,self.M)
 
     def init_alpha(self,alpha):
-        self.alpha = project(alpha,self.Q)
+        self.alpha = project(alpha,self.Q2)
 
     def init_beta(self,beta):
-        self.beta = project(beta,self.Q)
+        self.beta = project(beta,self.Q2)
 
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.M)
@@ -133,6 +138,16 @@ class model:
         self.mask_vel = project(mv,self.M)
         self.u_std = project(ustd,self.M)
         self.v_std = project(vstd,self.M)
+
+    def init_lat_dirichletbc(self):
+        u_obs = project(self.u_obs,self.Q)
+        v_obs = project(self.v_obs,self.Q)
+
+        latbc = Function(self.V)
+        assign(latbc.sub(0),u_obs)
+        assign(latbc.sub(1),v_obs)
+
+        self.latbc = latbc
 
 
     def init_mask(self,mask):
@@ -194,7 +209,7 @@ class model:
         alpha__ = Max(alpha_, a_lb)
         alpha = Min(alpha__, a_ub)
         alpha = ln(alpha)
-        self.alpha = project(alpha,self.Q)
+        self.alpha = project(alpha,self.Q2)
 
 
     def gen_domain(self):

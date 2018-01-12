@@ -38,14 +38,14 @@ ny = int(npzfile['ny'])
 xlim = npzfile['xlim']
 ylim = npzfile['ylim']
 
-mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
+mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny, 'crossed')
 
 #Initialize Model
 param = {'eq_def' : 'weak',
         'solver': 'petsc',
-        'outdir' :'./output_smith_inv/',
-        'gc1': 0.0, #1e2
-        'gc2': 1e0, #1e0
+        'outdir' :'./output_smith_inv_reg2/',
+        'gc1': 1e2, #1e2
+        'gc2': 0.0, #1e0
         'gr1': 1e2, #1e1
         'gr2': 1e4,#1e5
         'gr3': 1e0,#1e1
@@ -56,6 +56,7 @@ mdl.init_thick(thick)
 mdl.gen_surf()
 mdl.init_mask(mask)
 mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
+mdl.init_lat_dirichletbc()
 mdl.init_bmelt(Constant(0.0))
 mdl.gen_alpha()
 #mdl.init_alpha(Constant(ln(6000))) #Initialize using uniform alpha
@@ -71,7 +72,7 @@ slvr.solve_mom_eq()
 #Inversions
 slvr.inversion()
 
-#Plots to for quick output evaluation
+#Plots for quick output evaluation
 B2 = project(exp(slvr.alpha),mdl.Q)
 F_vals = [x for x in slvr.F_vals if x > 0]
 

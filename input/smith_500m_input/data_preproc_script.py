@@ -12,23 +12,30 @@ from IPython import embed
 #Details of model domain grid + Constants
 #########################################
 
+#Domain limits
 xlim = [-1607500.0,-1382500.0]
-ylim = [-717500.0,-522500.0]
+ylim = [-717500.0,-528500.0]
+#Reduce ylim from Dan's values of: ylim = [-717500.0,-522500.0]
 
+#Domain length
 Lx = xlim[1] - xlim[0]
 Ly = ylim[1] - ylim[0]
 
+#Number of cells
 nx = Lx/1e3
 ny = Ly/1e3
 
+#Density of ice and water
 rhoi = 917.0
 rhow = 1000.0
 
-std_e = 1
+#Regularization for velocity error (m/yr)
+regE = 1
 
 ###############
 #BEDMAP2 data
 ###############
+
 data_dir = '/Users/conradkoziol/Documents/Glaciology/Data/bedmap2_bin/'
 tf = 'bedmap2_thickness.flt'
 bf = 'bedmap2_bed.flt'
@@ -51,12 +58,12 @@ fid = open(data_dir + gsf,"rb")
 file_contents = np.fromfile(fid, dtype='float32')
 bm_shelves= np.reshape(file_contents, [6667,6667])
 
-#Depress bed beneath shelves
+#Depress bed beneath shelves by a factor of 2 (elev there is negative)
 bm_bed[bm_shelves==1] = 2*bm_bed[bm_shelves==1]
-#bm_thick[bm_shelves==1] = bm_surf[bm_shelves==1]/(1 - rhoi/rhow)
 
 thick_ = np.copy(bm_thick)
 
+#Remove ice thickness less than 1m; set thick to -9999 outside of domain
 bm_thick[thick_ < 1.0 ] = 0.0
 bm_thick[thick_ == -9999.0] = -9999.0
 
@@ -78,9 +85,9 @@ bed = bed_[:,xm]
 
 thick_ = bm_thick[ym,:];
 thick = thick_[:,xm]
-thick_orig = np.copy(thick)
-thick[thick_orig < 1] = 0 #No flow BC around these holes
-thick[thick_orig == -9999.0] = 0
+#thick_orig = np.copy(thick)
+#thick[thick_orig < 1] = 0 #No flow BC around these holes
+#thick[thick_orig == -9999.0] = 0
 
 shelves_ = bm_shelves[ym,:];
 shelves = shelves_[:,xm]
@@ -96,34 +103,33 @@ mask[thick_orig == -9999.0] = 0
 
 
 #Smooth thickness and bed
-surf_ = np.copy(surf)
-thick_ = np.copy(thick)
-bed_ = np.copy(bed)
+# surf_ = np.copy(surf)
+# thick_ = np.copy(thick)
+# bed_ = np.copy(bed)
+#
+# thick_[thick < 1.0] = np.nan
+#
+# def nanmedian(x):
+#     if all(np.isnan(x)):
+#         return np.nan
+#     else:
+#         return np.nanmedian(x)
+#
+# def nanmean(x):
+#     if all(np.isnan(x)):
+#         return np.nan
+#     else:
+#         return np.nanmean(x)
 
-thick_[thick < 1.0] = np.nan
+# thick_f1 = ndimage.filters.generic_filter(thick_, nanmedian, 3, mode='nearest')
+# thick_f2 = ndimage.filters.generic_filter(thick_f1, nanmean, 5, mode='nearest')
+#
+# thick_f2[thick<1.0] = 0
+# thick = thick_f2
+#
+# bed_f1 = ndimage.filters.generic_filter(bed_, nanmedian, 3, mode='nearest')
+# bed = ndimage.filters.generic_filter(bed_f1, nanmean, 5, mode='nearest') #Save Bed
 
-def nanmedian(x):
-    if all(np.isnan(x)):
-        return np.nan
-    else:
-        return np.nanmedian(x)
-
-def nanmean(x):
-    if all(np.isnan(x)):
-        return np.nan
-    else:
-        return np.nanmean(x)
-
-thick_f1 = ndimage.filters.generic_filter(thick_, nanmedian, 3, mode='nearest')
-thick_f2 = ndimage.filters.generic_filter(thick_f1, nanmean, 5, mode='nearest')
-
-thick_f2[thick<1.0] = 0
-thick = thick_f2
-
-bed_f1 = ndimage.filters.generic_filter(bed_, nanmedian, 3, mode='nearest')
-bed = ndimage.filters.generic_filter(bed_f1, nanmean, 5, mode='nearest') #Save Bed
-
-embed()
 
 ################
 #Measures data
@@ -165,11 +171,11 @@ vvel = vvel_[:,xm2]
 
 ustd_ = mes_ustd[ym2,:]
 ustd__ = ustd_[:,xm2]
-ustd = np.sqrt(ustd__**2 + std_e**2)
+ustd = np.sqrt(ustd__**2 + regE**2)
 
 vstd_ = mes_vstd[ym2,:]
 vstd__ = vstd_[:,xm2]
-vstd = np.sqrt(vstd__**2 + std_e**2)
+vstd = np.sqrt(vstd__**2 + regE**2)
 
 mask_vel = ~(np.isclose(uvel,0) & np.isclose(vvel,0))
 
