@@ -5,7 +5,6 @@ from IPython import embed
 from numpy.random import rand
 import matplotlib.pyplot as plt
 
-
 class model:
 
     def __init__(self, mesh_in, mask_in, param_in):
@@ -22,7 +21,7 @@ class model:
         self.nm = FacetNormal(self.mesh)
         self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
-        self.Q2 = FunctionSpace(self.mesh,'Lagrange',2)
+        self.Q2 = FunctionSpace(self.mesh,'Lagrange',1)
         self.M = FunctionSpace(self.mesh,'DG',0)
 
         #Default velocity mask and Beta fields
@@ -83,7 +82,7 @@ class model:
                 #'krylov_solver': {'monitor_convergence': True}
                 }}
 
-        param['inv_options'] = {'disp': True, 'maxiter': 5}
+        param['inv_options'] = {'disp': True, 'maxiter': 2}
 
         #Update default values based on input
         param.update(param_in)

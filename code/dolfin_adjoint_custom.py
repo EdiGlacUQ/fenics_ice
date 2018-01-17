@@ -276,7 +276,9 @@ if _dolfin_adjoint:
         
       stop_annotating = parameters["adjoint"]["stop_annotating"]
       parameters["adjoint"]["stop_annotating"] = True
-      
+   
+      inner_index = dependencies.index(inner_variable)
+      outer_index = dependencies.index(outer_variable)   
       b = self.__eq.second_derivative_action([value.data for value in values],
         dependencies.index(inner_variable),
         inner_contraction_vector.data,
@@ -284,7 +286,7 @@ if _dolfin_adjoint:
         action_vector.data,
         hermitian)
       if isinstance(b, Vector):
-        F = Function(action_vector.data.function_space())
+        F = Function(values[outer_index if hermitian else inner_index].data.function_space())
         assign_vector(F.vector(), b)
         b = F
       v = adjlinalg.Vector(b)

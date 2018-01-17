@@ -52,7 +52,7 @@ class ssa_solver:
         self.M = model.M
 
         #Trial/Test Functions
-        self.U = Function(self.V)
+        self.U = Function(self.V, name = "U")
         self.Phi = TestFunction(self.V)
         self.Ksi = TestFunction(self.M)
 
@@ -107,114 +107,60 @@ class ssa_solver:
         ds = self.ds
 
 
-        #Equations from Action Principle [Dukowicz et al., 2010, JGlac, Eq 94]
-        if self.param['eq_def'] == 'action':
+        if self.param['eq_def'] != 'weak':
+            print 'Unrecognized eq_def, resorting to weak form'
 
-            #Driving Stress
-            height_s = -rhow/rhoi * bed
+        #Vector components of trial function
+        u, v = split(self.U)
 
-            F = conditional(gt(height,height_s),0.5*rhoi*g*height**2,
-                0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2))
+        #Vector components of test function
+        Phi = self.Phi
+        Phi_x, Phi_y = split(Phi)
 
-            W = conditional(gt(height,height_s), rhoi*g*height, rhoi*g*height_s)
+        #Derivatives
+        u_x, u_y = u.dx(0), u.dx(1)
+        v_x, v_y = v.dx(0), v.dx(1)
 
-            Ds = dot(self.U, grad(F) + W*grad(bed))
+        #Viscosity
+        U_marker = Function(self.U.function_space(), name = "%s_marker" % self.U.name())
+        nu = self.viscosity(U_marker)
 
-            fl_ex = conditional(height <= height_s, 1.0, 0.0)
+        #Sliding law
+        B2 = exp(alpha)
 
+        #Switch parameters
+        height_s = -rhow/rhoi * bed
+        fl_ex = conditional(height <= height_s, 1.0, 0.0)
 
-            #bottom of ice sheet, either bed or draft
-            R_f = ((1.0 - fl_ex) * bed
-               + (fl_ex) * (-rhoi / rhow) * height)
+        #Driving stress quantities
+        F = (1 - fl_ex) * 0.5*rhoi*g*height**2 + \
+            (fl_ex) * 0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2 )
 
-            draft = Min(R_f,0)
+        W = (1 - fl_ex) * rhoi*g*height + \
+            (fl_ex) * rhoi*g*height_s
 
-            #Terminating margin boundary condition
-            ii = project(conditional(mask > 0.0, 1.0, 0.0),self.M, annotate=False)
-            sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
-            #mgn_bc = inner(self.U("+") * sigma_n("+"), self.nm("+"))*abs(jump(ii))
-            mgn_bc = inner(self.U("+") * sigma_n("+"), self.nm("+")) * abs(jump(mask))
+        draft = (fl_ex) * (rhoi / rhow) * height
 
-            #Viscous Dissipation
-            epsdot = self.effective_strain_rate(self.U)
-            Vd = (2.0*n)/(n+1.0) * (A**(-1.0/n)) * (epsdot**((n+1.0)/(2.0*n)))
+        #Terminating margin boundary condition
+        sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2)) - F
 
-            #Sliding law
-            B2 = exp(alpha)
-            fl_ex = conditional(height <= height_s, 1.0, 0.0)
-            Sl = 0.5 * (1.0 -fl_ex) * B2 * dot(self.U,self.U)
+        self.mom_F = (
+                #Membrance Stresses
+                -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * self.dIce
+                - inner(grad(Phi_y), height * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * self.dIce
 
-            # action :
-            Action = (height*Vd + Ds + Sl)*dIce - mgn_bc*dS
+                #Basal Drag
+                - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * self.dIce
 
-            # the first variation of the action in the direction of a
-            # test function ; the extremum :
-            self.mom_F = derivative(Action, self.U)
+                #Driving Stress
+                + ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
 
-            # the first variation of the extremum in the direction
-            # a trial function ; the Jacobian :
-            self.mom_Jac = derivative(self.mom_F, self.U)
+                #Boundary condition
+                + inner(Phi * sigma_n, self.nm) * self.ds )
 
-        #Equations in weak form
-        else:
-
-            if self.param['eq_def'] != 'weak':
-                print 'Unrecognized eq_def, resorting to weak form'
-
-            #Vector components of trial function
-            u, v = split(self.U)
-
-            #Vector components of test function
-            Phi = self.Phi
-            Phi_x, Phi_y = split(Phi)
-
-            #Derivatives
-            u_x, u_y = u.dx(0), u.dx(1)
-            v_x, v_y = v.dx(0), v.dx(1)
-
-            #Viscosity
-            U_marker = Function(self.U.function_space(), name = "%s_marker" % self.U.name())
-            nu = self.viscosity(U_marker)
-
-            #Sliding law
-            B2 = exp(alpha)
-
-            #Switch parameters
-            height_s = -rhow/rhoi * bed
-            fl_ex = conditional(height <= height_s, 1.0, 0.0)
-
-            #Driving stress quantities
-            F = (1 - fl_ex) * 0.5*rhoi*g*height**2 + \
-                (fl_ex) * 0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2 )
-
-            W = (1 - fl_ex) * rhoi*g*height + \
-                (fl_ex) * rhoi*g*height_s
-
-            draft = (fl_ex) * (rhoi / rhow) * height
-
-            #Terminating margin boundary condition
-            sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2)) - F
-            #sigma_n2 = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2))
-
-            self.mom_F = (
-                    #Membrance Stresses
-                    -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * self.dIce
-                    - inner(grad(Phi_y), height * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * self.dIce
-
-                    #Basal Drag
-                    - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * self.dIce
-
-                    #Driving Stress
-                    + ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
-                    #- inner(Phi, rhoi * g * height * grad(surf)) * dIce
-
-                    #Boundary condition
-                    + inner(Phi * sigma_n, self.nm) * self.ds )
-                    #+ inner(Phi * sigma_n2, self.nm) * self.ds )
-
-            self.mom_Jac_p = replace(derivative(self.mom_F, self.U), {U_marker:self.U})
-            self.mom_F = replace(self.mom_F, {U_marker:self.U})
-            self.mom_Jac = derivative(self.mom_F, self.U)
+        self.mom_Jac_p = replace(derivative(self.mom_F, self.U), {U_marker:self.U})
+        self.mom_F = replace(self.mom_F, {U_marker:self.U})
+        self.mom_Jac = derivative(self.mom_F, self.U)
 
 
     def solve_mom_eq(self):
@@ -231,19 +177,22 @@ class ssa_solver:
         picard_params = {"nonlinear_solver":"newton",
                          "newton_solver":{"linear_solver":"umfpack",
                                           "maximum_iterations":200,
-                                          "absolute_tolerance":1.0e-16,
+                                          "absolute_tolerance":1.0e-9,
                                           "relative_tolerance":5.0e-2,
                                           "convergence_criterion":"incremental",
                                           "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
         newton_params = {"nonlinear_solver":"newton",
                          "newton_solver":{"linear_solver":"umfpack",
                                           "maximum_iterations":20,
-                                          "absolute_tolerance":1.0e-16,
+                                          "absolute_tolerance":1.0e-9,
                                           "relative_tolerance":1.0e-9,
                                           "convergence_criterion":"incremental",
                                           "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+
+
         from dolfin_adjoint_custom import EquationSolver
         J_p = self.mom_Jac_p
+
 
         class MomentumSolver(EquationSolver):
           def forward_solve(self, x, deps):
@@ -279,18 +228,18 @@ class ssa_solver:
         beta_bgd = beta.copy(deepcopy=True)
 
         #Small perturbation so derivative of regularization is not zero for uniform initial guess
-        pert = Function(self.Q2)
+        pert = Function(self.Q2, name = "pert")
         noise_ = 0.005
 
-        max_ = alpha.vector().norm("linf")
-        pert.vector().set_local(max_*noise_*np.random.uniform(0,1,self.alpha.vector().array().size))
-        pert.vector().apply("insert")
-        alpha.vector().axpy(1.0,pert.vector())
-
-        max_ = beta.vector().norm("linf")
-        pert.vector().set_local(max_*noise_*np.random.uniform(0,1,self.beta.vector().array().size))
-        pert.vector().apply("insert")
-        beta.vector().axpy(1.0,pert.vector())
+        # max_ = alpha.vector().norm("linf")
+        # pert.vector().set_local(max_*noise_*np.random.uniform(0,1,self.alpha.vector().array().size))
+        # pert.vector().apply("insert")
+        # alpha.vector().axpy(1.0,pert.vector())
+        #
+        # max_ = beta.vector().norm("linf")
+        # pert.vector().set_local(max_*noise_*np.random.uniform(0,1,self.beta.vector().array().size))
+        # pert.vector().apply("insert")
+        # beta.vector().axpy(1.0,pert.vector())
 
         #Scaling factors for cost function
         gc1 = self.param['gc1']
@@ -318,14 +267,15 @@ class ssa_solver:
 
         #Define functional and control variable
         #Misfit Term
-        J_ls = gc1*(u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
+        J_ls = (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
 
         #Classical Regularization
         #B2 = exp(alpha)
         #Aglen = exp(beta)
         #Aglen_bgd = exp(beta_bgd)
-        #J_reg_alpha = gr1*inner(B2 + grad(B2),B2 + grad(B2))*self.dIce
-        #J_reg_beta = gr2*inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_gnd
+        #J_ls = gc1*(u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
+        #J_reg_alpha = gc1*inner(B2 + grad(B2),B2 + grad(B2))*self.dIce
+        #J_reg_beta = gc2*inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_gnd
         #J = Functional(J_ls + J_reg_alpha + J_reg_beta + J_reg2_beta)
         #J0 = assemble(J_ls + J_reg_alpha + J_reg_beta + J_reg2_beta)
 
@@ -333,6 +283,11 @@ class ssa_solver:
         lambda_b = 1e-3
         delta_a = 1000
         delta_b = 100
+
+        lambda_a = 1e-5
+        lambda_b = 1e-5
+        delta_a = 100
+        delta_b = 20
 
         reg_a = lambda_a * exp(alpha) - delta_a*div(grad(exp(alpha)))
         reg_b = lambda_b * (exp(beta)-exp(beta_bgd)) - delta_b*div(grad((exp(beta)-exp(beta_bgd))))
@@ -342,8 +297,6 @@ class ssa_solver:
 
         J = Functional(J_ls + J_reg_alpha + J_reg_beta)
         J0 = assemble(J_ls + J_reg_alpha + J_reg_beta)
-
-        embed()
 
         SqrtMasslumpEquation = 0
         if SqrtMasslumpEquation:
@@ -381,7 +334,10 @@ class ssa_solver:
         end
 
         #Re-compute velocities with inversion results
+        adj_reset()
+        parameters["adjoint"]["stop_annotating"] = False
         self.solve_mom_eq()
+        parameters["adjoint"]["stop_annotating"] = True
 
         #Print out results
         J1 =  assemble(J_ls)
@@ -411,6 +367,13 @@ class ssa_solver:
         print 'J_reg/J_cst: %.2e' % ((J2+J3+J4)/(J1))
 
         embed()
+
+
+        #cc = Control(alpha)
+        #hess = hessian(J,cc)
+        #direction = interpolate(Constant(1), alpha.function_space())
+        #hess( direction)
+        # solve(self.mom_F == 0, self.U, bcs = self.bcs, solver_parameters = newton_solver)
 
 
 
