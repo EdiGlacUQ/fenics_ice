@@ -1,0 +1,81 @@
+\documentclass[11pt, reqno, nocenter]{article}
+
+
+\usepackage{geometry}                % See geometry.pdf to learn the layout options. There are lots.
+\geometry{letterpaper}                   % ... or a4paper or a5paper or ... 
+%\geometry{landscape}                % Activate for for rotated page geometry
+%\usepackage[parfill]{parskip}    % Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{epstopdf}
+\usepackage{amsmath}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Rho}{\mathrm{P}}
+\usepackage{parskip}
+\DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
+
+
+
+\title{Fenics Ice Sheet Model Readme}
+%\date{}                                           % Activate to display a given date or no date
+
+\begin{document}
+\maketitle
+
+This document briefly outlines how to get started with the Fenics ice sheet model. 
+
+
+\section{Installing Fenics + dolfin-adjoint}
+
+The ice sheet mdoel is built using the open source Python finite element software Fenics, and depends on the package dolfin-adjoint for implementing inversion and error propagation capabilities. The simplest way to install Fenics and dolfin-adjoint is to use a pre-built docker image. Installation instructions are available online via the Fenics website at: http://fenics.readthedocs.io/projects/containers/en/latest/.
+
+\subsection{Eddie}
+On Eddie, the following procedure was used succssfully:
+
+1. Login into Eddie, go onto worker node. It was recommended to specify the memory usage:\\
+ \verb!qlogin -pe interactivemem 4 -l h_vmem=4G!
+ 
+2. Install Anaconda. This can be either Anaconda itself, or miniconda, which is a stripped down version. I went for the latter, Python 2.7.
+https://conda.io/miniconda.html for the link, or
+
+ \verb!wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh!
+
+3. It takes up a little space, so I installed it in the iceocean group directory: \\
+ \verb!/exports/csce/eddie/geos/groups/geos_iceocean/ckoziol!
+
+4. During the install it asks whether you want to change the pythonpath, I said no. 
+
+5. At the end it gives you an export command, I added this to my .bashrc
+\begin{verbatim}
+export PATH=/exports/csce/eddie/geos/groups/...
+geos_iceocean/ckoziol/miniconda2/bin:\$PATH
+\end{verbatim}
+
+6. Installing dolfin adjoint: \\
+ \verb!conda create -n dolfinproject -c conda-forge dolfin-adjoint=2016.2.0!
+
+Note, I couldnt get the latest version 2017.1.0 to work. 
+
+This creates an environment 'dolfinproject' which will contain dolfin/fenics. (note can use a different name).
+
+7. to enter the environment, we use
+\verb!source activate dolfinproject!
+
+
+8. then you can type \verb!python!, and \verb!from dolfin_adjoint import *!
+
+
+\section{Program structure}
+
+The core of the ice sheet model is in two files: {\tt /code/model.py} and {\tt /code/solver.py}. Each simulation then has its own main routine located in the {\tt /runs } folder. The run routine loads any necessary data specific to your simulation, and is where you can specify the parameters of your run. These data and parameters are then used to create a model object (via a class defined in {\tt model.py}), which contains all the necessary data for a simulation, such as topography, constants, and velocity observations for inversions. The ice sheet physics/inversion code is contained within in {\tt solver.py}, which contains the code to create a solver object. The model object created in your run file is then passed as a parameter to your solver object. This object then allows you to solve the SSA equations on your domain, as well perform an inversion. 
+
+For an example of a run file, see {\tt /runs/run\_inv\_smith.py}. This is under development, and is the most up to date at present.
+
+
+
+
+
+
+
+
+\end{document}  

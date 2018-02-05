@@ -21,8 +21,9 @@ class model:
         self.nm = FacetNormal(self.mesh)
         self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
-        self.Q2 = FunctionSpace(self.mesh,'Lagrange',1)
+        self.Q2 = FunctionSpace(self.mesh,'Lagrange',2)
         self.M = FunctionSpace(self.mesh,'DG',0)
+        self.RT = FunctionSpace(self.mesh,'RT',1)
 
         #Default velocity mask and Beta fields
         self.def_vel_mask()
@@ -41,11 +42,8 @@ class model:
         param['eps_rp'] =  1e-5      #effective strain regularization
         param['A'] =  3.5e-25 * param['ty']     #Creep paramater
         param['tol'] =  1e-6         #Tolerance for tests
-        param['gc1'] =  1.0          #Scaling parameters for cost function
-        param['gc2'] =  1.0
-        param['gr1'] =  1.0
-        param['gr2'] =  1.0
-        param['gr3'] =  1.0
+        param['rc_inv'] =  [0.0]       #regularization constants for inversion
+
 
         #Output
         param['outdir'] = './output/'
@@ -123,10 +121,11 @@ class model:
         self.thick = project(thick,self.M)
 
     def init_alpha(self,alpha):
-        self.alpha = project(alpha,self.Q2)
+        self.alpha = project(alpha,self.Q)
 
     def init_beta(self,beta):
-        self.beta = project(beta,self.Q2)
+        self.beta = project(beta,self.Q)
+        self.beta_bgd = project(beta,self.Q)
 
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.M)
@@ -208,7 +207,7 @@ class model:
         alpha__ = Max(alpha_, a_lb)
         alpha = Min(alpha__, a_ub)
         alpha = ln(alpha)
-        self.alpha = project(alpha,self.Q2)
+        self.alpha = project(alpha,self.Q)
 
 
     def gen_domain(self):

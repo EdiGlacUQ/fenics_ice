@@ -27,6 +27,7 @@ class ssa_solver:
         self.height = model.thick
         self.surf = model.surf
         self.beta = model.beta
+        self.beta_bgd = model.beta_bgd
         self.mask = model.mask
         self.alpha = model.alpha
         self.bmelt = model.bmelt
@@ -50,6 +51,7 @@ class ssa_solver:
         self.Q = model.Q
         self.Q2 = model.Q2
         self.M = model.M
+        self.RT = model.RT
 
         #Trial/Test Functions
         self.U = Function(self.V, name = "U")
@@ -177,14 +179,14 @@ class ssa_solver:
         picard_params = {"nonlinear_solver":"newton",
                          "newton_solver":{"linear_solver":"umfpack",
                                           "maximum_iterations":200,
-                                          "absolute_tolerance":1.0e-9,
+                                          "absolute_tolerance":1.0e-8,
                                           "relative_tolerance":5.0e-2,
                                           "convergence_criterion":"incremental",
                                           "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
         newton_params = {"nonlinear_solver":"newton",
                          "newton_solver":{"linear_solver":"umfpack",
                                           "maximum_iterations":20,
-                                          "absolute_tolerance":1.0e-9,
+                                          "absolute_tolerance":1.0e-8,
                                           "relative_tolerance":1.0e-9,
                                           "convergence_criterion":"incremental",
                                           "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
@@ -218,35 +220,15 @@ class ssa_solver:
 
     def inversion(self):
 
-        u_obs = self.u_obs
-        v_obs = self.v_obs
-        u_std = self.u_std
-        v_std = self.v_std
-
-        alpha = self.alpha
-        beta = self.beta
-        beta_bgd = beta.copy(deepcopy=True)
-
-        #Small perturbation so derivative of regularization is not zero for uniform initial guess
-        pert = Function(self.Q2, name = "pert")
-        noise_ = 0.005
-
-        # max_ = alpha.vector().norm("linf")
-        # pert.vector().set_local(max_*noise_*np.random.uniform(0,1,self.alpha.vector().array().size))
-        # pert.vector().apply("insert")
-        # alpha.vector().axpy(1.0,pert.vector())
+        # u_obs = self.u_obs
+        # v_obs = self.v_obs
+        # u_std = self.u_std
+        # v_std = self.v_std
         #
-        # max_ = beta.vector().norm("linf")
-        # pert.vector().set_local(max_*noise_*np.random.uniform(0,1,self.beta.vector().array().size))
-        # pert.vector().apply("insert")
-        # beta.vector().axpy(1.0,pert.vector())
+        # alpha = self.alpha
+        # beta = self.beta
+        # beta_bgd = self.beta_bgd
 
-        #Scaling factors for cost function
-        gc1 = self.param['gc1']
-        gc2 = self.param['gc2']
-        gr1 = self.param['gr1']
-        gr2 = self.param['gr2']
-        gr3 = self.param['gr3']
 
         #Record value of functional during minimization
         self.F_iter = 0
@@ -262,41 +244,41 @@ class ssa_solver:
         self.def_mom_eq()
         self.solve_mom_eq()
 
-        #Inversion Code
-        u, v = split(self.U)
+        # #Inversion Code
+        # u, v = split(self.U)
+        #
+        # #Define functional and control variable
+        # #Misfit Term
+        # J_ls = (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
+        #
+        # lambda_a = self.param['rc_inv'][0]
+        # lambda_b = self.param['rc_inv'][1]
+        # delta_a = self.param['rc_inv'][2]
+        # delta_b = self.param['rc_inv'][3]
+        #
+        # grad_alpha = grad(alpha)
+        # grad_alpha_ = project(grad_alpha, self.RT)
+        # div_alpha = div(grad_alpha_)
+        #
+        # betadiff_ = (exp(beta)-exp(beta_bgd))
+        # grad_betadiff = grad(betadiff_)
+        # grad_betadiff_ = project(grad_betadiff, self.RT)
+        # div_beta = div(grad_betadiff_)
+        #
+        # reg_a = lambda_a * exp(alpha) - delta_a*div_alpha
+        # reg_b = lambda_b * (exp(beta)-exp(beta_bgd)) - delta_b*div_beta
+        #
+        # J_reg_alpha = inner(reg_a,reg_a)*self.dIce
+        # J_reg_beta = inner(reg_b,reg_b)*self.dIce
+        #
+        # J = Functional(J_ls + J_reg_alpha + J_reg_beta)
+        # J0 = assemble(J_ls + J_reg_alpha + J_reg_beta)
 
-        #Define functional and control variable
-        #Misfit Term
-        J_ls = (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
 
-        #Classical Regularization
-        #B2 = exp(alpha)
-        #Aglen = exp(beta)
-        #Aglen_bgd = exp(beta_bgd)
-        #J_ls = gc1*(u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
-        #J_reg_alpha = gc1*inner(B2 + grad(B2),B2 + grad(B2))*self.dIce
-        #J_reg_beta = gc2*inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_gnd
-        #J = Functional(J_ls + J_reg_alpha + J_reg_beta + J_reg2_beta)
-        #J0 = assemble(J_ls + J_reg_alpha + J_reg_beta + J_reg2_beta)
+        J_ = self.set_J_inv()
+        J = Functional(self.J_inv)
+        J0 = assemble(self.J_inv)
 
-        lambda_a = 1e-4
-        lambda_b = 1e-3
-        delta_a = 1000
-        delta_b = 100
-
-        lambda_a = 1e-5
-        lambda_b = 1e-5
-        delta_a = 100
-        delta_b = 20
-
-        reg_a = lambda_a * exp(alpha) - delta_a*div(grad(exp(alpha)))
-        reg_b = lambda_b * (exp(beta)-exp(beta_bgd)) - delta_b*div(grad((exp(beta)-exp(beta_bgd))))
-
-        J_reg_alpha = inner(reg_a,reg_a)*self.dIce
-        J_reg_beta = inner(reg_b,reg_b)*self.dIce
-
-        J = Functional(J_ls + J_reg_alpha + J_reg_beta)
-        J0 = assemble(J_ls + J_reg_alpha + J_reg_beta)
 
         SqrtMasslumpEquation = 0
         if SqrtMasslumpEquation:
@@ -323,7 +305,7 @@ class ssa_solver:
 
         else:
 
-            control = [Control(alpha), Control(beta)]
+            control = [Control(self.alpha), Control(self.beta)]
             rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
             #Optimization routine
@@ -339,40 +321,39 @@ class ssa_solver:
         self.solve_mom_eq()
         parameters["adjoint"]["stop_annotating"] = True
 
-        #Print out results
-        J1 =  assemble(J_ls)
-        J2 = assemble(J_reg_alpha)
-        J3 = assemble(J_reg_beta)
-
-        try:
-            J4 = assemble(J_reg2_beta)
-        except:
-            J4 = 0
-
-
-        print 'Inversion Details'
-        print 'J_init: %.2e' % J0
-        print 'J_fin: %.2e' % sum([J1,J2,J3,J4])
-        print 'gc1: %.2e' % gc1
-        print 'gc2: %.2e' % gc2
-        print 'gr1: %.2e' % gr1
-        print 'gr2: %.2e' % gr2
-        print 'gr3: %.2e' % gr3
-        print 'J_cst: %.2e' % sum([J1])
-        print 'J_ls: %.2e' % J1
-        print 'J_reg: %.2e' % sum([J2,J3,J4])
-        print 'J_reg_alpha: %.2e' % J2
-        print 'J_reg_beta: %.2e' % J3
-        print 'J_reg2_beta: %.2e' % J4
-        print 'J_reg/J_cst: %.2e' % ((J2+J3+J4)/(J1))
+        # #Print out results
+        # J1 =  assemble(J_ls)
+        # J2 = assemble(J_reg_alpha)
+        # J3 = assemble(J_reg_beta)
+        #
+        # try:
+        #     J4 = assemble(J_reg2_beta)
+        # except:
+        #     J4 = 0
+        #
+        #
+        # print 'Inversion Details'
+        # print 'J_init: %.2e' % J0
+        # print 'J_fin: %.2e' % sum([J1,J2,J3,J4])
+        # print 'gc1: %.2e' % gc1
+        # print 'gc2: %.2e' % gc2
+        # print 'gr1: %.2e' % gr1
+        # print 'gr2: %.2e' % gr2
+        # print 'gr3: %.2e' % gr3
+        # print 'J_cst: %.2e' % sum([J1])
+        # print 'J_ls: %.2e' % J1
+        # print 'J_reg: %.2e' % sum([J2,J3,J4])
+        # print 'J_reg_alpha: %.2e' % J2
+        # print 'J_reg_beta: %.2e' % J3
+        # print 'J_reg2_beta: %.2e' % J4
+        # print 'J_reg/J_cst: %.2e' % ((J2+J3+J4)/(J1))
 
         embed()
 
-
-        #cc = Control(alpha)
-        #hess = hessian(J,cc)
-        #direction = interpolate(Constant(1), alpha.function_space())
-        #hess( direction)
+        cc = Control(alpha)
+        self.hess = hessian(J,cc)
+        direction = interpolate(Constant(1), alpha.function_space())
+        tmp = hess( direction)
         # solve(self.mom_F == 0, self.U, bcs = self.bcs, solver_parameters = newton_solver)
 
 
@@ -436,6 +417,63 @@ class ssa_solver:
         vtkfile = File('U_init.pvd')
         vtkfile << self.U
 
+    def set_J_inv(self, verbose=False):
+
+        u, v = split(self.U)
+        u_obs = self.u_obs
+        v_obs = self.v_obs
+        u_std = self.u_std
+        v_std = self.v_std
+
+        alpha = self.alpha
+        beta = self.beta
+        beta_bgd = self.beta_bgd
+
+        J_ls = (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
+
+        lambda_a = self.param['rc_inv'][0]
+        lambda_b = self.param['rc_inv'][1]
+        delta_a = self.param['rc_inv'][2]
+        delta_b = self.param['rc_inv'][3]
+
+        grad_alpha = grad(alpha)
+        grad_alpha_ = project(grad_alpha, self.RT)
+        div_alpha = div(grad_alpha_)
+
+        betadiff_ = (exp(beta)-exp(beta_bgd))
+        grad_betadiff = grad(betadiff_)
+        grad_betadiff_ = project(grad_betadiff, self.RT)
+        div_beta = div(grad_betadiff_)
+
+        reg_a = lambda_a * exp(alpha) - delta_a*div_alpha
+        reg_b = lambda_b * (exp(beta)-exp(beta_bgd)) - delta_b*div_beta
+
+        J_reg_alpha = inner(reg_a,reg_a)*self.dIce
+        J_reg_beta = inner(reg_b,reg_b)*self.dIce
+
+        J = J_ls + J_reg_alpha + J_reg_beta
+        self.J_inv = J
+
+        if verbose:
+            #Print out results
+            J1 = assemble(J)
+            J2 =  assemble(J_ls)
+            J3 = assemble(J_reg_alpha)
+            J4 = assemble(J_reg_beta)
+
+
+            print 'Inversion Details'
+            print 'lambda_a: %.2e' % lambda_a
+            print 'lambda_b: %.2e' % lambda_b
+            print 'delta_a: %.2e' % delta_a
+            print 'delta_b: %.2e' % delta_b
+            print 'J: %.2e' % J1
+            print 'J_ls: %.2e' % J2
+            print 'J_reg: %.2e' % sum([J3,J4])
+            print 'J_reg_alpha: %.2e' % J3
+            print 'J_reg_beta: %.2e' % J4
+            print 'J_reg/J_cst: %.2e' % ((J3+J4)/(J2))
+
 
 
 class domain_x(SubDomain):
@@ -476,3 +514,30 @@ class domain_x(SubDomain):
             return True
         else:
             return False
+
+
+
+#Small perturbation so derivative of regularization is not zero for uniform initial guess
+#pert = Function(self.Q2, name = "pert")
+#noise_ = 0.005
+
+# max_ = alpha.vector().norm("linf")
+# pert.vector().set_local(max_*noise_*np.random.uniform(0,1,self.alpha.vector().array().size))
+# pert.vector().apply("insert")
+# alpha.vector().axpy(1.0,pert.vector())
+#
+# max_ = beta.vector().norm("linf")
+# pert.vector().set_local(max_*noise_*np.random.uniform(0,1,self.beta.vector().array().size))
+# pert.vector().apply("insert")
+# beta.vector().axpy(1.0,pert.vector())
+
+
+#Classical Regularization
+# B2 = exp(alpha)
+# Aglen = exp(beta)
+# Aglen_bgd = exp(beta_bgd)
+# J_ls = gc1*(u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
+# J_reg_alpha = gc1*inner(B2 + grad(B2),B2 + grad(B2))*self.dIce
+# J_reg_beta = gc2*inner(beta - beta_bgd,beta - beta_bgd)*self.dIce_gnd
+# J = Functional(J_ls + J_reg_alpha + J_reg_beta + J_reg2_beta)
+# J0 = assemble(J_ls + J_reg_alpha + J_reg_beta + J_reg2_beta)
