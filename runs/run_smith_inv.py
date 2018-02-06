@@ -46,11 +46,6 @@ param = {'eq_def' : 'weak',
         'solver': 'petsc',
         'outdir' :'./output_smith_inv_reg2/',
         'rc_inv': [1e-5, 1e-4, 100, 40],
-        'gc1': 1.0, #1e2
-        'gc2': 0.0, #1e0
-        'gr1': 1e2, #1e1
-        'gr2': 1e4,#1e5
-        'gr3': 1e0,#1e1
         }
 
 mdl = model.model(mesh,mask, param)
@@ -73,6 +68,9 @@ slvr.solve_mom_eq()
 
 #Inversions
 slvr.inversion()
+
+embed()
+direction = interpolate(Constant(1), slvr.alpha.function_space())
 
 #Plots for quick output evaluation
 B2 = project(exp(slvr.alpha),mdl.Q)

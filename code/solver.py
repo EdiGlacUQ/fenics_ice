@@ -220,15 +220,6 @@ class ssa_solver:
 
     def inversion(self):
 
-        # u_obs = self.u_obs
-        # v_obs = self.v_obs
-        # u_std = self.u_std
-        # v_std = self.v_std
-        #
-        # alpha = self.alpha
-        # beta = self.beta
-        # beta_bgd = self.beta_bgd
-
 
         #Record value of functional during minimization
         self.F_iter = 0
@@ -244,76 +235,20 @@ class ssa_solver:
         self.def_mom_eq()
         self.solve_mom_eq()
 
-        # #Inversion Code
-        # u, v = split(self.U)
-        #
-        # #Define functional and control variable
-        # #Misfit Term
-        # J_ls = (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
-        #
-        # lambda_a = self.param['rc_inv'][0]
-        # lambda_b = self.param['rc_inv'][1]
-        # delta_a = self.param['rc_inv'][2]
-        # delta_b = self.param['rc_inv'][3]
-        #
-        # grad_alpha = grad(alpha)
-        # grad_alpha_ = project(grad_alpha, self.RT)
-        # div_alpha = div(grad_alpha_)
-        #
-        # betadiff_ = (exp(beta)-exp(beta_bgd))
-        # grad_betadiff = grad(betadiff_)
-        # grad_betadiff_ = project(grad_betadiff, self.RT)
-        # div_beta = div(grad_betadiff_)
-        #
-        # reg_a = lambda_a * exp(alpha) - delta_a*div_alpha
-        # reg_b = lambda_b * (exp(beta)-exp(beta_bgd)) - delta_b*div_beta
-        #
-        # J_reg_alpha = inner(reg_a,reg_a)*self.dIce
-        # J_reg_beta = inner(reg_b,reg_b)*self.dIce
-        #
-        # J = Functional(J_ls + J_reg_alpha + J_reg_beta)
-        # J0 = assemble(J_ls + J_reg_alpha + J_reg_beta)
-
-
-        J_ = self.set_J_inv()
+        #Set up cost functional
+        self.set_J_inv()
         J = Functional(self.J_inv)
-        J0 = assemble(self.J_inv)
 
+        #Control parameters and functional problem
+        control = [Control(self.alpha), Control(self.beta)]
+        rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
-        SqrtMasslumpEquation = 0
-        if SqrtMasslumpEquation:
-            # Use SqrtMasslumpEquation
-            alpha_coeff = Function(alpha.function_space())
-            eq_alpha = SqrtMasslumpEquation(alpha_coeff, alpha)
-            eq_alpha.sqrt_masslump_action(alpha, alpha_coeff)
-            eq_alpha.solve()
+        #Optimization routine
+        opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
 
-            beta_coeff = Function(beta.function_space())
-            eq_beta = SqrtMasslumpEquation(beta_coeff, beta)
-            eq_beta.sqrt_masslump_action(beta, beta_coeff)
-            eq_beta.solve()
-
-            control = [Control(alpha_coeff), Control(beta_coeff)]
-            rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
-
-            #Optimization routine
-            opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
-
-            #Save results
-            self.alpha.assign(eq_alpha.sqrt_inv_masslump_action(opt_var[0]))
-            self.beta.assign(eq_beta.sqrt_inv_masslump_action(opt_var[1]))
-
-        else:
-
-            control = [Control(self.alpha), Control(self.beta)]
-            rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
-
-            #Optimization routine
-            opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
-
-            self.alpha.assign(opt_var[0])
-            self.beta.assign(opt_var[1])
-        end
+        #Save results
+        self.alpha.assign(opt_var[0])
+        self.beta.assign(opt_var[1])
 
         #Re-compute velocities with inversion results
         adj_reset()
@@ -321,43 +256,8 @@ class ssa_solver:
         self.solve_mom_eq()
         parameters["adjoint"]["stop_annotating"] = True
 
-        # #Print out results
-        # J1 =  assemble(J_ls)
-        # J2 = assemble(J_reg_alpha)
-        # J3 = assemble(J_reg_beta)
-        #
-        # try:
-        #     J4 = assemble(J_reg2_beta)
-        # except:
-        #     J4 = 0
-        #
-        #
-        # print 'Inversion Details'
-        # print 'J_init: %.2e' % J0
-        # print 'J_fin: %.2e' % sum([J1,J2,J3,J4])
-        # print 'gc1: %.2e' % gc1
-        # print 'gc2: %.2e' % gc2
-        # print 'gr1: %.2e' % gr1
-        # print 'gr2: %.2e' % gr2
-        # print 'gr3: %.2e' % gr3
-        # print 'J_cst: %.2e' % sum([J1])
-        # print 'J_ls: %.2e' % J1
-        # print 'J_reg: %.2e' % sum([J2,J3,J4])
-        # print 'J_reg_alpha: %.2e' % J2
-        # print 'J_reg_beta: %.2e' % J3
-        # print 'J_reg2_beta: %.2e' % J4
-        # print 'J_reg/J_cst: %.2e' % ((J2+J3+J4)/(J1))
-
-        embed()
-
-        cc = Control(alpha)
-        self.hess = hessian(J,cc)
-        direction = interpolate(Constant(1), alpha.function_space())
-        tmp = hess( direction)
-        # solve(self.mom_F == 0, self.U, bcs = self.bcs, solver_parameters = newton_solver)
-
-
-
+        #Print out inversion results/parameter values
+        self.set_J_inv(verbose = True)
 
     def epsilon(self, U):
         """
@@ -475,6 +375,10 @@ class ssa_solver:
             print 'J_reg/J_cst: %.2e' % ((J3+J4)/(J2))
 
 
+    def set_hessian_action(self, cntrl):
+        J = Functional(self.J_inv)
+        cc = Control(cntrl)
+        self.hess = hessian(J,cc)
 
 class domain_x(SubDomain):
     def set_mask(self,fn):
