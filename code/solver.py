@@ -24,7 +24,9 @@ class ssa_solver:
 
         #Fields
         self.bed = model.bed
-        self.height = model.thick
+        self.H_np = model.H_np
+        self.H_s = model.H_s
+        self.H = model.H
         self.surf = model.surf
         self.beta = model.beta
         self.beta_bgd = model.beta_bgd
@@ -49,14 +51,17 @@ class ssa_solver:
         self.mesh = model.mesh
         self.V = model.V
         self.Q = model.Q
-        self.Q2 = model.Q2
         self.M = model.M
         self.RT = model.RT
 
         #Trial/Test Functions
         self.U = Function(self.V, name = "U")
+        self.U_np = Function(self.V, name = "U_np")
         self.Phi = TestFunction(self.V)
         self.Ksi = TestFunction(self.M)
+
+        self.trial_H = TrialFunction(self.M)
+        self.H_nps = Function(self.M)
 
         #Cells
         self.cf = model.cf
@@ -87,13 +92,15 @@ class ssa_solver:
         self.dObs_gnd = self.dx(self.OMEGA_ICE_FLT_OBS)
         self.dObs_flt = self.dx(self.OMEGA_ICE_GND_OBS)
 
+        self.dt = Constant(self.param['dt'])
+
 
 
     def def_mom_eq(self):
 
         #Simplify accessing fields and parameters
         bed = self.bed
-        height = self.height
+        H = self.H
         surf = self.surf
         mask = self.mask
         alpha = self.alpha
@@ -131,25 +138,25 @@ class ssa_solver:
         B2 = exp(alpha)
 
         #Switch parameters
-        height_s = -rhow/rhoi * bed
-        fl_ex = conditional(height <= height_s, 1.0, 0.0)
+        H_s = -rhow/rhoi * bed
+        fl_ex = conditional(H <= H_s, 1.0, 0.0)
 
         #Driving stress quantities
-        F = (1 - fl_ex) * 0.5*rhoi*g*height**2 + \
-            (fl_ex) * 0.5*rhoi*g*(delta*height**2 + (1-delta)*height_s**2 )
+        F = (1 - fl_ex) * 0.5*rhoi*g*H**2 + \
+            (fl_ex) * 0.5*rhoi*g*(delta*H**2 + (1-delta)*H_s**2 )
 
-        W = (1 - fl_ex) * rhoi*g*height + \
-            (fl_ex) * rhoi*g*height_s
+        W = (1 - fl_ex) * rhoi*g*H + \
+            (fl_ex) * rhoi*g*H_s
 
-        draft = (fl_ex) * (rhoi / rhow) * height
+        draft = (fl_ex) * (rhoi / rhow) * H
 
         #Terminating margin boundary condition
-        sigma_n = 0.5 * rhoi * g * ((height ** 2) - (rhow / rhoi) * (draft ** 2)) - F
+        sigma_n = 0.5 * rhoi * g * ((H ** 2) - (rhow / rhoi) * (draft ** 2)) - F
 
         self.mom_F = (
                 #Membrance Stresses
-                -inner(grad(Phi_x), height * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * self.dIce
-                - inner(grad(Phi_y), height * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * self.dIce
+                -inner(grad(Phi_x), H * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * self.dIce
+                - inner(grad(Phi_y), H * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * self.dIce
 
                 #Basal Drag
                 - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * self.dIce
@@ -163,7 +170,6 @@ class ssa_solver:
         self.mom_Jac_p = replace(derivative(self.mom_F, self.U), {U_marker:self.U})
         self.mom_F = replace(self.mom_F, {U_marker:self.U})
         self.mom_Jac = derivative(self.mom_F, self.U)
-
 
     def solve_mom_eq(self):
         #Dirichlet Boundary Conditons: Zero flow
@@ -218,8 +224,91 @@ class ssa_solver:
         t1 = time.time()
         print "Time for solve: ", t1-t0
 
-    def inversion(self):
 
+    def def_thickadv_eq(self):
+        U = self.U
+        U_np = self.U_np
+        Ksi = self.Ksi
+        trial_H = self.trial_H
+        H_np = self.H_np
+        H_s = self.H_s
+        H = self.H
+        dt = self.dt
+        nm = self.nm
+        dIce = self.dIce
+        ds = self.ds
+        dS = self.dS
+
+        self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
+        - inner(grad(Ksi), U_np * 0.5 * (trial_H + H_np)) * dIce
+        + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * 0.5 * (trial_H + H_np))) * dS
+        + inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)) * ds)
+
+        self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
+
+        bc0 = DirichletBC(self.M, self.H, self.ff, self.GAMMA_LAT)
+        bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
+        self.H_bcs = [bc0, bc1]
+
+    def solve_thickadv_eq(self):
+
+        H_s = self.H_s
+        a, L = lhs(self.thickadv), rhs(self.thickadv)
+        solve(a==L,H_s,bcs = self.H_bcs)
+
+    def solve_thickadv_split_eq(self):
+        H_nps = self.H_nps
+        a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
+        solve(a==L,H_nps, bcs = self.H_bcs)
+
+    def timestep(self, save = 1):
+        U = self.U
+        U_np = self.U_np
+        H = self.H
+        H_np = self.H_np
+        H_s = self.H_s
+        H_nps = self.H_nps
+
+        n_steps = self.param['n_steps']
+        dt = self.dt
+
+        if save:
+            output_hts = File("H_ts.pvd", "compressed")
+            output_uts = File("U_ts.pvd", "compressed")
+
+
+        self.def_thickadv_eq()
+        self.def_mom_eq()
+        self.solve_mom_eq()
+        U_np.assign(U)
+
+        t=0.0
+
+        adj_start_timestep()
+        for n in xrange(n_steps):
+            begin("Starting timestep %i of %i, time = %.16e a" % (n + 1, n_steps, t))
+
+            # Solve
+            self.solve_thickadv_eq()
+            self.solve_mom_eq()
+            self.solve_thickadv_split_eq()
+
+            U_np.assign(U)
+            H_np.assign(H_nps)
+
+            #Increment time
+            n += 1
+            t = n * float(dt)
+
+            #Record
+            if save:
+                output_hts << (H_np, t)
+                output_uts << (U_np, t)
+
+            end()
+            adj_inc_timestep()
+
+    def inversion(self):
 
         #Record value of functional during minimization
         self.F_iter = 0
@@ -294,7 +383,7 @@ class ssa_solver:
     def init_guess(self):
         #Simplify accessing fields and parameters
         bed = self.bed
-        height = self.height
+        H = self.H
         alpha = self.alpha
 
         rhoi = self.param['rhoi']
@@ -305,12 +394,12 @@ class ssa_solver:
         tol = self.param['tol']
 
         B2 = exp(alpha)
-        height_s = -rhow/rhoi * bed
-        fl_ex = conditional(height <= height_s, 1.0, 0.0)
+        H_s = -rhow/rhoi * bed
+        fl_ex = conditional(H <= H_s, 1.0, 0.0)
 
-        s = project((1-fl_ex) * (bed + height),self.Q)
+        s = project((1-fl_ex) * (bed + H),self.Q)
         grads = as_vector([s.dx(0), s.dx(1)])
-        U_ = project((1-fl_ex)*(rhoi*g*height*grads)/B2, self.V)
+        U_ = project((1-fl_ex)*(rhoi*g*H*grads)/B2, self.V)
 
         self.U.assign(U_)
 
@@ -374,50 +463,76 @@ class ssa_solver:
             print 'J_reg_beta: %.2e' % J4
             print 'J_reg/J_cst: %.2e' % ((J3+J4)/(J2))
 
+    def set_J_vaf(self, verbose=False):
+        H = self.H
+        B = Function(self.M)
+        B.assign(self.bed, annotate=False)
+        rhoi = self.param['rhoi']
+        rhow = self.param['rhow']
+        dIce = self.dIce
+        dIce_gnd = self.dIce_gnd
+        dt = self.dt
+
+        b_ex = conditional(B < 0.0, 1.0, 0.0)
+        HAF = b_ex * (H + rhow/rhoi*B) + (1-b_ex)*(H)
+
+        self.J_vaf = HAF * dIce_gnd
+
+    def set_dJ_vaf(self, cntrl):
+        J = Functional(self.J_vaf)
+        control = Control(cntrl)
+        dJ = compute_gradient(J, control, forget = False)
+        self.dJ_vaf = dJ
+
 
     def set_hessian_action(self, cntrl):
         J = Functional(self.J_inv)
         cc = Control(cntrl)
         self.hess = hessian(J,cc)
 
-class domain_x(SubDomain):
-    def set_mask(self,fn):
-        self.mask = fn.copy(deepcopy=True)
-        self.cntr = 0
-        self.xx = []
-        self.yy = []
 
-    def inside(self,x, on_boundary):
-        tol = 1e-2
-        mask = self.mask
 
-        CC = mask(x[0],x[1])
 
-        try:
-            CE = mask(x[0] + tol,x[1])
-        except:
-            CE = 0.0
-        try:
-            CW = mask(x[0] - tol ,x[1])
-        except:
-            CW = 0.0
-        try:
-            CN = mask(x[0], x[1] + tol)
-        except:
-            CN = 0.0
-        try:
-            CS = mask(x[0], x[1] - tol)
-        except:
-            CS = 0.0
 
-        mv = np.max([CC, CE, CW, CN, CS])
-        if near(mv,0.0,tol):
-            self.cntr += 1
-            self.xx.append(x[0])
-            self.yy.append(x[1])
-            return True
-        else:
-            return False
+
+# class domain_x(SubDomain):
+#     def set_mask(self,fn):
+#         self.mask = fn.copy(deepcopy=True)
+#         self.cntr = 0
+#         self.xx = []
+#         self.yy = []
+#
+#     def inside(self,x, on_boundary):
+#         tol = 1e-2
+#         mask = self.mask
+#
+#         CC = mask(x[0],x[1])
+#
+#         try:
+#             CE = mask(x[0] + tol,x[1])
+#         except:
+#             CE = 0.0
+#         try:
+#             CW = mask(x[0] - tol ,x[1])
+#         except:
+#             CW = 0.0
+#         try:
+#             CN = mask(x[0], x[1] + tol)
+#         except:
+#             CN = 0.0
+#         try:
+#             CS = mask(x[0], x[1] - tol)
+#         except:
+#             CS = 0.0
+#
+#         mv = np.max([CC, CE, CW, CN, CS])
+#         if near(mv,0.0,tol):
+#             self.cntr += 1
+#             self.xx.append(x[0])
+#             self.yy.append(x[1])
+#             return True
+#         else:
+#             return False
 
 
 

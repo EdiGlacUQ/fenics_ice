@@ -21,7 +21,6 @@ class model:
         self.nm = FacetNormal(self.mesh)
         self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
-        self.Q2 = FunctionSpace(self.mesh,'Lagrange',2)
         self.M = FunctionSpace(self.mesh,'DG',0)
         self.RT = FunctionSpace(self.mesh,'RT',1)
 
@@ -43,7 +42,6 @@ class model:
         param['A'] =  3.5e-25 * param['ty']     #Creep paramater
         param['tol'] =  1e-6         #Tolerance for tests
         param['rc_inv'] =  [0.0]       #regularization constants for inversion
-
 
         #Output
         param['outdir'] = './output/'
@@ -80,10 +78,13 @@ class model:
                 #'krylov_solver': {'monitor_convergence': True}
                 }}
 
-        param['inv_options'] = {'disp': True, 'maxiter': 2}
+        param['inv_options'] = {'disp': True, 'maxiter': 15}
 
         #Update default values based on input
         param.update(param_in)
+        if 'run_length' in param:
+            param['dt'] = param['run_length']/param['n_steps']
+
         #Set solver parameters
         if param['solver'] == 'petsc':
             print('Using Petsc to solve forward model')
@@ -118,7 +119,9 @@ class model:
         self.bed = project(bed,self.Q)
 
     def init_thick(self,thick):
-        self.thick = project(thick,self.M)
+        self.H_np = project(thick,self.M)
+        self.H_s = project(thick,self.M)
+        self.H = 0.5*(self.H_np + self.H_s)
 
     def init_alpha(self,alpha):
         self.alpha = project(alpha,self.Q)
@@ -157,26 +160,26 @@ class model:
 
         h_diff = self.surf-self.bed
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
-        self.thick = project(Min(h_diff,h_hyd),self.M)
+        self.H = project(Min(h_diff,h_hyd),self.M)
 
     def gen_surf(self):
         rhoi = self.param['rhoi']
         rhow = self.param['rhow']
         bed = self.bed
-        height = self.thick
+        H = self.H
 
-        height_s = -rhow/rhoi * bed
-        fl_ex = conditional(height <= height_s, 1.0, 0.0)
+        H_s = -rhow/rhoi * bed
+        fl_ex = conditional(H <= H_s, 1.0, 0.0)
 
-        self.surf = project((1-fl_ex)*(bed+height) + (fl_ex)*height*(1-rhoi/rhow), self.Q)
+        self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
 
     def gen_ice_mask(self):
-        self.mask = project(conditional(gt(self.thick,self.param['tol']),1,0), self.M)
+        self.mask = project(conditional(gt(self.H,self.param['tol']),1,0), self.M)
 
     def gen_alpha(self, a_bgd=500.0, a_lb = 1e2, a_ub = 1e4):
 
         bed = self.bed
-        height = self.thick
+        H = self.H
         g = self.param['g']
         rhoi = self.param['rhoi']
         rhow = self.param['rhow']
@@ -185,22 +188,22 @@ class model:
         U = Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
         #Flotation Criterion
-        height_s = -rhow/rhoi * bed
-        fl_ex = conditional(height <= height_s, 1.0, 0.0)
+        H_s = -rhow/rhoi * bed
+        fl_ex = conditional(H <= H_s, 1.0, 0.0)
 
         #Thickness Criterion
-        m_d = conditional(height > 0,1.0,0.0)
+        m_d = conditional(H > 0,1.0,0.0)
 
         #Calculate surface gradient
         R_f = ((1.0 - fl_ex) * bed
-               + (fl_ex) * (-rhoi / rhow) * height)
+               + (fl_ex) * (-rhoi / rhow) * H)
 
-        s_ = Max(height + R_f,0)
+        s_ = Max(H + R_f,0)
         s = project(s_,self.Q)
         grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
 
         #Calculate alpha, apply background, apply bound
-        alpha_ = ( (1.0 - fl_ex) *rhoi*g*height*grads/U
+        alpha_ = ( (1.0 - fl_ex) *rhoi*g*H*grads/U
            + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
 
 
@@ -229,14 +232,14 @@ class model:
     def label_domain(self):
         tol = self.param['tol']
         bed = self.bed
-        height = self.thick
+        H = self.H
         g = self.param['g']
         rhoi = self.param['rhoi']
         rhow = self.param['rhow']
 
         #Flotation Criterion
-        height_s = -rhow/rhoi * bed
-        fl_ex_ = conditional(height <= height_s, 1.0, 0.0)
+        H_s = -rhow/rhoi * bed
+        fl_ex_ = conditional(H <= H_s, 1.0, 0.0)
         fl_ex = project(fl_ex_, self.M)
 
         #Mask labels
