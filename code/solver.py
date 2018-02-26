@@ -329,15 +329,17 @@ class ssa_solver:
         J = Functional(self.J_inv)
 
         #Control parameters and functional problem
-        control = [Control(self.alpha), Control(self.beta)]
+        control = Control(self.alpha)
+        #control = [Control(self.alpha), Control(self.beta)]
         rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
         #Optimization routine
         opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
 
         #Save results
-        self.alpha.assign(opt_var[0])
-        self.beta.assign(opt_var[1])
+        self.alpha.assign(opt_var)
+        #self.alpha.assign(opt_var[0])
+        #self.beta.assign(opt_var[1])
 
         #Re-compute velocities with inversion results
         adj_reset()
@@ -418,6 +420,10 @@ class ssa_solver:
         beta = self.beta
         beta_bgd = self.beta_bgd
 
+        dIce = self.dIce
+        ds = self.ds
+        nm = self.nm
+
         J_ls = (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
 
         lambda_a = self.param['rc_inv'][0]
@@ -425,23 +431,30 @@ class ssa_solver:
         delta_a = self.param['rc_inv'][2]
         delta_b = self.param['rc_inv'][3]
 
-        grad_alpha = grad(alpha)
+        grad_alpha = grad(exp(alpha))
         grad_alpha_ = project(grad_alpha, self.RT)
-        div_alpha = div(grad_alpha_)
+        lap_alpha = div(grad_alpha_)
 
         betadiff_ = (exp(beta)-exp(beta_bgd))
         grad_betadiff = grad(betadiff_)
         grad_betadiff_ = project(grad_betadiff, self.RT)
-        div_beta = div(grad_betadiff_)
+        lap_beta = div(grad_betadiff_)
 
-        reg_a = lambda_a * exp(alpha) - delta_a*div_alpha
-        reg_b = lambda_b * (exp(beta)-exp(beta_bgd)) - delta_b*div_beta
+        reg_a = lambda_a * exp(alpha) - delta_a*lap_alpha
+        reg_a_bndry = delta_a*inner(grad_alpha,nm)
 
-        J_reg_alpha = inner(reg_a,reg_a)*self.dIce
-        J_reg_beta = inner(reg_b,reg_b)*self.dIce
+        reg_b = lambda_b * (exp(beta)-exp(beta_bgd)) - delta_b*lap_beta
+        reg_b_bndry = delta_b*inner(grad_betadiff,nm)
 
-        J = J_ls + J_reg_alpha + J_reg_beta
+        J_reg_alpha = inner(reg_a,reg_a)*dIce + inner(reg_a_bndry,reg_a_bndry)*ds
+        J_reg_beta = inner(reg_b,reg_b)*dIce + inner(reg_b_bndry,reg_b_bndry)*ds
+
+        #J = J_ls + J_reg_alpha + 0.0*J_reg_beta
+        J = inner(lambda_a * alpha,lambda_a * alpha)*dIce
         self.J_inv = J
+
+        embed()
+
 
         if verbose:
             #Print out results
@@ -478,7 +491,7 @@ class ssa_solver:
 
         self.J_vaf = HAF * dIce_gnd
 
-    def set_dJ_vaf(self, cntrl):
+    def comp_dJ_vaf(self, cntrl):
         J = Functional(self.J_vaf)
         control = Control(cntrl)
         dJ = compute_gradient(J, control, forget = False)

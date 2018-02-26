@@ -51,6 +51,10 @@ class model:
         param['solver'] = 'default'
         param['solver_param'] = {}
 
+        #Timestepping
+        param['run_length'] = 1.0
+        param['n_steps'] = 20
+
         #Solver options
         param['snes_linesearch_alpha'] = 1e-9
         param['solver_petsc'] = {'nonlinear_solver'      : 'snes',
@@ -82,8 +86,8 @@ class model:
 
         #Update default values based on input
         param.update(param_in)
-        if 'run_length' in param:
-            param['dt'] = param['run_length']/param['n_steps']
+
+        param['dt'] = param['run_length']/param['n_steps']
 
         #Set solver parameters
         if param['solver'] == 'petsc':

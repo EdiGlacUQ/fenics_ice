@@ -63,22 +63,11 @@ mdl.label_domain()
 
 #Solve
 slvr = solver.ssa_solver(mdl)
-slvr.def_mom_eq()
-slvr.solve_mom_eq()
-
-slvr.set_J_inv()
-slvr.set_hessian_action(slvr.alpha)
-direction = interpolate(Constant(1), slvr.alpha.function_space())
-slvr.hess(direction)
-embed()
-
-
 slvr.timestep()
 slvr.set_J_vaf()
-slvr.set_dJ_vaf(mdl.alpha)
+slvr.comp_dJ_vaf(mdl.alpha)
 #plot(slvr.dJ_vaf)
 #plt.savefig('tmp.png')
-embed()
 
 
 #Output model variables in ParaView+Fenics friendly format
@@ -87,6 +76,11 @@ pickle.dump( mdl.param, open( ''.join([outdir,'param.p']), "wb" ) )
 
 File(''.join([outdir,'mesh.xml'])) << mdl.mesh
 File(''.join([outdir,'data_mesh.xml'])) << data_mesh
+
+vtkfile = File(''.join([outdir,'dJ_vaf.pvd']))
+xmlfile = File(''.join([outdir,'dJ_vaf.xml']))
+vtkfile << slvr.dJ_vaf
+xmlfile << slvr.dJ_vaf
 
 vtkfile = File(''.join([outdir,'U.pvd']))
 xmlfile = File(''.join([outdir,'U.xml']))

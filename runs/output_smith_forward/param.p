@@ -9,16 +9,16 @@ p3
 sS'rc_inv'
 p4
 (lp5
-F1e-05
+F0.01
 aF0.0001
-aI100
-aI40
+aF10.0
+aF40.0
 asS'eps_rp'
 p6
 F1e-05
 sS'n_steps'
 p7
-I40
+I2
 sS'ty'
 p8
 F31536000.0
@@ -36,7 +36,7 @@ p12
 F917.0
 sS'dt'
 p13
-F0.05
+F0.1
 sS'solver_param'
 p14
 (dp15
@@ -99,7 +99,7 @@ p37
 F3.0
 sS'run_length'
 p38
-F2.0
+F0.2
 sS'solver_petsc'
 p39
 g15
@@ -111,5 +111,5 @@ p42
 I01
 sS'maxiter'
 p43
-I15
+I20
 ss.

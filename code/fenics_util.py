@@ -4,6 +4,7 @@ import os
 from matplotlib import colors
 from pylab import plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from fenics import *
 
 def plot_variable(u, name, direc, cmap='gist_yarg', scale='lin', numLvls=12,
                   umin=None, umax=None, tp=False, tpAlpha=0.5, show=True,
@@ -105,3 +106,62 @@ def binread(fn):
   if sys.byteorder == 'little': file_contents.byteswap(True)
   fid.close()
   return file_contents
+
+def conjgrad(A, b, x0 = None, max_iter = np.Inf, tol=1e-10, verbose =True):
+
+    fs = b.function_space()
+    x, p, r = Function(fs), Function(fs), Function(fs)
+
+    x.assign(Constant(0.0) if x0 is None else x0)
+    p.assign(Constant(0.0))
+    r.assign(Constant(0.0))
+
+    max_iter = min(b.vector().size(), max_iter)
+
+
+    r.assign(b - A(x))
+    p.assign(r)
+    rs = innerprod(r, r)
+
+    if np.sqrt(rs) < tol:
+        print '''Norm of residual is less than tolerance (%1.2e) \n
+                Converged in %i iterations ''' % (tol, 0)
+        return x
+
+
+    for i in range(max_iter):
+        Ap = A(p)
+        print 'Inner Product p * Ap %i' % innerprod(p, Ap)
+        alpha = rs / innerprod(p, Ap)
+        axpy(x, alpha, p)
+        axpy(r, -alpha, Ap)
+        rs_new = innerprod(r, r)
+
+        #Check stopping criterion
+        if np.sqrt(rs_new) < tol:
+            print '''Norm of residual is less than tolerance (%1.2e)
+            Converged in %i iterations ''' % (tol, i)
+            return x
+
+        elif i==max_iter:
+            print '''Maximum number of iterations reached (%i)
+            Norm of residual is (%1.2e)''' % (max_iter, np.sqrt(rs_new))
+            return x
+
+        p.assign(r + (rs_new / rs) * p)
+        rs = rs_new
+
+        if verbose:
+            print 'Iteration: %i, Norm of residual: %1.2e' % (i,np.sqrt(rs_new))
+
+def innerprod(x, y):
+    inner = 0.0
+    x = x.vector()
+    y = y.vector()
+    inner += x.inner(y)
+    return inner
+
+def axpy(x, alpha, y):
+    x = x.vector()
+    y = y.vector()
+    x.axpy(alpha, y)
