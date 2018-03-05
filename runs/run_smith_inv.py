@@ -45,9 +45,9 @@ mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 param = {'eq_def' : 'weak',
         'solver': 'petsc',
         'outdir' :'./output_smith_inv/',
-        'rc_inv': [1e-2, 1e-4, 10.0, 40.0], #alpha only
+        'rc_inv': [1, 1e-4, 5e6, 40.0], #alpha only
         #'rc_inv': [1e-5, 1e-4, 100.0, 40.0], #alpha + beta
-        'inv_options': {'disp': True, 'maxiter': 20}
+        'inv_options': {'disp': True, 'maxiter': 5}
         }
 
 mdl = model.model(mesh,mask, param)

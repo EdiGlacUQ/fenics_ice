@@ -15,9 +15,9 @@ p5
 sS'rc_inv'
 p6
 (lp7
-F0.01
+I1
 aF0.0001
-aF10.0
+aF5000000.0
 aF40.0
 asS'eps_rp'
 p8
@@ -111,5 +111,5 @@ p42
 I01
 sS'maxiter'
 p43
-I20
+I5
 ss.

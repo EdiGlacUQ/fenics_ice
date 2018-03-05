@@ -1,5 +1,6 @@
 import sys
 from fenics import *
+from dolfin_adjoint import *
 sys.path.insert(0,'../code/')
 import model
 import solver
@@ -42,27 +43,14 @@ mdl.init_alpha(alpha)
 mdl.label_domain()
 
 #Solve
+
 slvr = solver.ssa_solver(mdl)
-slvr.def_mom_eq()
-slvr.solve_mom_eq()
 
-#Plot
-outdir = mdl.param['outdir']
+alpha0 = slvr.alpha.copy(deepcopy=True)
+cc = Control(alpha0)
 
-vtkfile = File(''.join([outdir,'U.pvd']))
-U = project(slvr.U,slvr.V)
-vtkfile << U
+slvr.taylor_ver(alpha0,annotate_flag=True)
+dJ = compute_gradient(Functional(slvr.J), cc, forget = False)
+#ddJ = hessian(Functional(slvr.J), cc)
 
-vtkfile = File(''.join([outdir,'bed.pvd']))
-vtkfile << mdl.bed
-
-vtkfile = File(''.join([outdir,'thick.pvd']))
-H = project(mdl.H, mdl.M)
-vtkfile << H
-
-vtkfile = File(''.join([outdir,'mask.pvd']))
-vtkfile << mdl.mask
-
-vtkfile = File(''.join([outdir,'B2.pvd']))
-B2 = project(exp(mdl.alpha), M)
-vtkfile << B2
+minconv = taylor_test(slvr.taylor_ver, cc, assemble(slvr.J), dJ, seed = 1e-4, size = 4)

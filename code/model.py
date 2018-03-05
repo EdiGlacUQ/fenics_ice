@@ -106,12 +106,13 @@ class model:
         self.param = param
 
     def def_vel_mask(self):
-        self.mask_vel = project(Constant(1.0), self.M)
+        self.mask_vel = project(Constant(0.0), self.M)
 
     def def_B_field(self):
         A = self.param['A']
         n = self.param['n']
         self.beta = project(ln(A**(-1.0/n)), self.Q)
+        self.beta_bgd = project(ln(A**(-1.0/n)), self.Q)
 
     def def_lat_dirichletbc(self):
         self.latbc = Constant([0.0,0.0])

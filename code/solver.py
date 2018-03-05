@@ -27,7 +27,7 @@ class ssa_solver:
         self.H_np = model.H_np
         self.H_s = model.H_s
         self.H = model.H
-        self.surf = model.surf
+        #self.surf = model.surf
         self.beta = model.beta
         self.beta_bgd = model.beta_bgd
         self.mask = model.mask
@@ -101,7 +101,7 @@ class ssa_solver:
         #Simplify accessing fields and parameters
         bed = self.bed
         H = self.H
-        surf = self.surf
+        #surf = self.surf
         mask = self.mask
         alpha = self.alpha
 
@@ -171,12 +171,14 @@ class ssa_solver:
         self.mom_F = replace(self.mom_F, {U_marker:self.U})
         self.mom_Jac = derivative(self.mom_F, self.U)
 
+
     def solve_mom_eq(self):
         #Dirichlet Boundary Conditons: Zero flow
 
         bc0 = DirichletBC(self.V, self.latbc, self.ff, self.GAMMA_LAT)
         bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF)
         self.bcs = [bc0, bc1]
+        self.bcs = [bc0]
 
         #Non zero initial perturbation
         #self.init_guess()
@@ -431,29 +433,30 @@ class ssa_solver:
         delta_a = self.param['rc_inv'][2]
         delta_b = self.param['rc_inv'][3]
 
-        grad_alpha = grad(exp(alpha))
+        grad_alpha = grad(alpha)
         grad_alpha_ = project(grad_alpha, self.RT)
         lap_alpha = div(grad_alpha_)
 
-        betadiff_ = (exp(beta)-exp(beta_bgd))
-        grad_betadiff = grad(betadiff_)
+        betadiff = beta-beta_bgd
+        grad_betadiff = grad(betadiff)
         grad_betadiff_ = project(grad_betadiff, self.RT)
         lap_beta = div(grad_betadiff_)
 
-        reg_a = lambda_a * exp(alpha) - delta_a*lap_alpha
+        reg_a = lambda_a * alpha - delta_a*lap_alpha
         reg_a_bndry = delta_a*inner(grad_alpha,nm)
 
-        reg_b = lambda_b * (exp(beta)-exp(beta_bgd)) - delta_b*lap_beta
+        reg_b = lambda_b * betadiff - delta_b*lap_beta
         reg_b_bndry = delta_b*inner(grad_betadiff,nm)
 
         J_reg_alpha = inner(reg_a,reg_a)*dIce + inner(reg_a_bndry,reg_a_bndry)*ds
         J_reg_beta = inner(reg_b,reg_b)*dIce + inner(reg_b_bndry,reg_b_bndry)*ds
 
         #J = J_ls + J_reg_alpha + 0.0*J_reg_beta
-        J = inner(lambda_a * alpha,lambda_a * alpha)*dIce
+        #J = inner(lambda_a * (alpha) - delta_a*lap_alpha,lambda_a * (alpha) - delta_a*lap_alpha)*dIce
+        #J = inner(delta_a*lap_alpha,delta_a*lap_alpha)*dIce
+        J = inner(grad_alpha,grad_alpha)*dIce
         self.J_inv = J
 
-        embed()
 
 
         if verbose:
@@ -502,6 +505,16 @@ class ssa_solver:
         J = Functional(self.J_inv)
         cc = Control(cntrl)
         self.hess = hessian(J,cc)
+
+    def taylor_ver(self,alpha_in, annotate_flag=False):
+        self.alpha = project(alpha_in, self.Q, annotate=annotate_flag)
+        self.def_mom_eq()
+        self.solve_mom_eq()
+        self.J =  inner(self.U,self.U)*self.dIce
+        return assemble(self.J)
+
+
+
 
 
 
