@@ -39,10 +39,7 @@ mdl.gen_surf()
 mdl.init_mask(mask)
 mdl.init_bmelt(bmelt)
 mdl.init_alpha(alpha)
-
 mdl.label_domain()
-
-#Solve
 
 slvr = solver.ssa_solver(mdl)
 
@@ -51,6 +48,6 @@ cc = Control(alpha0)
 
 slvr.taylor_ver(alpha0,annotate_flag=True)
 dJ = compute_gradient(Functional(slvr.J), cc, forget = False)
-#ddJ = hessian(Functional(slvr.J), cc)
+ddJ = hessian(Functional(slvr.J), cc)
 
-minconv = taylor_test(slvr.taylor_ver, cc, assemble(slvr.J), dJ, seed = 1e-4, size = 4)
+minconv = taylor_test(slvr.taylor_ver, cc, assemble(slvr.J), dJ,HJm = ddJ, seed = 1e-2, size = 4)

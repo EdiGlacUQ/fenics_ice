@@ -4,6 +4,7 @@ from dolfin_adjoint_sqrt_masslump import *
 
 import matplotlib.pyplot as plt
 import numpy as np
+import ufl
 
 import timeit
 import time
@@ -15,9 +16,10 @@ class ssa_solver:
 
     def __init__(self, model):
         # Enable aggressive compiler options
+        parameters["form_compiler"]["optimize"] = False
         parameters["form_compiler"]["cpp_optimize"] = True
         parameters["form_compiler"]["cpp_optimize_flags"] = "-O2 -ffast-math -march=native"
-        parameters["form_compiler"]["optimize"] = False
+
 
         self.model = model
         self.param = model.param
@@ -115,10 +117,6 @@ class ssa_solver:
         dIce = self.dIce
         ds = self.ds
 
-
-        if self.param['eq_def'] != 'weak':
-            print 'Unrecognized eq_def, resorting to weak form'
-
         #Vector components of trial function
         u, v = split(self.U)
 
@@ -135,11 +133,13 @@ class ssa_solver:
         nu = self.viscosity(U_marker)
 
         #Sliding law
-        B2 = exp(alpha)
+        #B2 = exp(alpha)
+        B2 = alpha*alpha
 
         #Switch parameters
         H_s = -rhow/rhoi * bed
-        fl_ex = conditional(H <= H_s, 1.0, 0.0)
+        fl_ex = ufl.operators.Conditional(H <= H_s, Constant(1.0), Constant(0.0))
+        #fl_ex = Constant(0.0)
 
         #Driving stress quantities
         F = (1 - fl_ex) * 0.5*rhoi*g*H**2 + \
@@ -172,13 +172,13 @@ class ssa_solver:
         self.mom_Jac = derivative(self.mom_F, self.U)
 
 
-    def solve_mom_eq(self):
+    def solve_mom_eq(self, annotate_flag=True):
         #Dirichlet Boundary Conditons: Zero flow
 
         bc0 = DirichletBC(self.V, self.latbc, self.ff, self.GAMMA_LAT)
         bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF)
         self.bcs = [bc0, bc1]
-        self.bcs = [bc0]
+
 
         #Non zero initial perturbation
         #self.init_guess()
@@ -194,7 +194,7 @@ class ssa_solver:
         newton_params = {"nonlinear_solver":"newton",
                          "newton_solver":{"linear_solver":"umfpack",
                                           "maximum_iterations":20,
-                                          "absolute_tolerance":1.0e-8,
+                                          "absolute_tolerance":1.0e-9,
                                           "relative_tolerance":1.0e-9,
                                           "convergence_criterion":"incremental",
                                           "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
@@ -222,7 +222,7 @@ class ssa_solver:
 
             return
 
-        MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, solver_parameters = newton_params).solve()#self.param['solver_param'])
+        MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, solver_parameters = newton_params).solve(annotate=annotate_flag)#self.param['solver_param'])
         t1 = time.time()
         print "Time for solve: ", t1-t0
 
@@ -451,10 +451,8 @@ class ssa_solver:
         J_reg_alpha = inner(reg_a,reg_a)*dIce + inner(reg_a_bndry,reg_a_bndry)*ds
         J_reg_beta = inner(reg_b,reg_b)*dIce + inner(reg_b_bndry,reg_b_bndry)*ds
 
-        #J = J_ls + J_reg_alpha + 0.0*J_reg_beta
-        #J = inner(lambda_a * (alpha) - delta_a*lap_alpha,lambda_a * (alpha) - delta_a*lap_alpha)*dIce
-        #J = inner(delta_a*lap_alpha,delta_a*lap_alpha)*dIce
-        J = inner(grad_alpha,grad_alpha)*dIce
+        J = J_ls + J_reg_alpha + J_reg_beta
+
         self.J_inv = J
 
 
@@ -508,6 +506,16 @@ class ssa_solver:
 
     def taylor_ver(self,alpha_in, annotate_flag=False):
         self.alpha = project(alpha_in, self.Q, annotate=annotate_flag)
+        self.def_mom_eq()
+        #self.solve_mom_eq(annotate_flag=False) #Makes no difference for Hessian
+        self.solve_mom_eq()
+        self.J =  inner(self.U,self.U)*self.dIce
+        #self.J =  inner(self.alpha**2,self.alpha**2)*self.dIce
+        return assemble(self.J)
+
+    def taylor_ver2(self,alpha_in):
+        #Same as above for a single test
+        self.alpha = alpha_in
         self.def_mom_eq()
         self.solve_mom_eq()
         self.J =  inner(self.U,self.U)*self.dIce

@@ -60,17 +60,24 @@ mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
 mdl.init_lat_dirichletbc()
 mdl.init_bmelt(Constant(0.0))
 mdl.gen_alpha()
-#mdl.init_alpha(Constant(ln(6000))) #Initialize using uniform alpha
+#mdl.init_alpha(Constant(ln(20000))) #Initialize using uniform alpha
 mdl.init_beta(ln(B_mod))            #Comment to use uniform Bglen
 mdl.label_domain()
 
 
 slvr = solver.ssa_solver(mdl)
 
-alpha0 = slvr.alpha.copy(deepcopy=True)
-cc = Control(alpha0)
+# alpha0 = slvr.alpha.copy(deepcopy=True)
+# cc = Control(alpha0)
+#
+# slvr.taylor_ver(alpha0,annotate_flag=True)
+# dJ = compute_gradient(Functional(slvr.J), cc, forget = False)
+# ddJ = hessian(Functional(slvr.J), cc)
 
-slvr.taylor_ver(alpha0,annotate_flag=True)
+cc = Control(slvr.alpha)
+
+slvr.taylor_ver2(slvr.alpha)
 dJ = compute_gradient(Functional(slvr.J), cc, forget = False)
+ddJ = hessian(Functional(slvr.J), cc)
 
-minconv = taylor_test(slvr.taylor_ver, cc, assemble(slvr.J), dJ, seed = 1e-3, size = 4)
+minconv = taylor_test(slvr.taylor_ver, cc, assemble(slvr.J), dJ, HJm = ddJ, seed = 1e-1, size = 7)

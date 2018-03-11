@@ -1,3 +1,4 @@
+import sys
 from fenics import *
 from dolfin_adjoint import *
 
@@ -28,7 +29,9 @@ toy = toy_object(mesh)
 #Taylor verification
 toy.taylor_ver(alpha0,annotate_flag=True)
 dJ = compute_gradient(Functional(toy.J), cc, forget = False)
+
+#dJ = compute_gradient(Functional(toy.J), cc, forget = False)
 ddJ = hessian(Functional(toy.J), cc)
 
 #minconv begins to fail at 1e-5
-minconv = taylor_test(toy.taylor_ver, cc, assemble(toy.J), dJ, HJm = ddJ, seed = 1e-1, size = 4)
+minconv = taylor_test(toy.taylor_ver, cc, assemble(toy.J), dJ, HJm = ddJ, seed = 1e-3, size = 4)

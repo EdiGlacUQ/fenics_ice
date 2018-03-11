@@ -11,7 +11,7 @@ nx = 360;
 ny = 360;
 
 #Fenics mesh
-L = 120e3
+L = 720e3
 mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
 V = FunctionSpace(mesh, 'DG',0)
 v = Function(V)

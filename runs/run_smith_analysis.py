@@ -68,7 +68,7 @@ slvr.solve_mom_eq()
 
 slvr.set_J_inv()
 slvr.set_hessian_action(slvr.alpha)
-direction = interpolate(Constant(1), slvr.alpha.function_space())
+direction = interpolate(Constant(1.0), slvr.alpha.function_space())
 #slvr.hess(dJ_vaf)
 fu.conjgrad(slvr.hess,dJ_vaf)
 
