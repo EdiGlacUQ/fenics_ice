@@ -115,18 +115,10 @@ else:
 
 
 slvr = solver.ssa_solver(mdl)
-
-# alpha0 = slvr.alpha.copy(deepcopy=True)
-# cc = Control(alpha0)
-#
-# slvr.taylor_ver(alpha0,annotate_flag=True)
-# dJ = compute_gradient(Functional(slvr.J), cc, forget = False)
-# ddJ = hessian(Functional(slvr.J), cc)
-
 cc = Control(slvr.alpha)
 
-slvr.taylor_ver2(slvr.alpha)
+slvr.taylor_ver(slvr.alpha)
 dJ = compute_gradient(Functional(slvr.J_inv), cc, forget = False)
 ddJ = hessian(Functional(slvr.J_inv), cc)
 
-minconv = taylor_test(slvr.taylor_ver2, cc, assemble(slvr.J_inv), dJ, HJm = ddJ, seed = 1e-1, size = 3)
+minconv = taylor_test(slvr.taylor_ver, cc, assemble(slvr.J_inv), dJ, HJm = ddJ, seed = 1e-1, size = 3)
