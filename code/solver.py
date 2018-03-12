@@ -331,17 +331,17 @@ class ssa_solver:
         J = Functional(self.J_inv)
 
         #Control parameters and functional problem
-        control = Control(self.alpha)
-        #control = [Control(self.alpha), Control(self.beta)]
+        #control = Control(self.alpha)
+        control = [Control(self.alpha), Control(self.beta)]
         rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
         #Optimization routine
         opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
 
         #Save results
-        self.alpha.assign(opt_var)
-        #self.alpha.assign(opt_var[0])
-        #self.beta.assign(opt_var[1])
+        #self.alpha.assign(opt_var)
+        self.alpha.assign(opt_var[0])
+        self.beta.assign(opt_var[1])
 
         #Re-compute velocities with inversion results
         adj_reset()
@@ -376,7 +376,7 @@ class ssa_solver:
         return eps_2
 
     def viscosity(self,U):
-        B = exp(self.beta)
+        B = self.beta*self.beta
         n = self.param['n']
 
         eps_2 = self.effective_strain_rate(U)
@@ -518,8 +518,38 @@ class ssa_solver:
         self.alpha = alpha_in
         self.def_mom_eq()
         self.solve_mom_eq()
-        self.J =  inner(self.U,self.U)*self.dIce
-        return assemble(self.J)
+        self.set_J_inv()
+
+        # beta = self.beta
+        # beta_bgd = self.beta_bgd
+        #
+        # u, v = split(self.U)
+        # u_obs = self.u_obs
+        # v_obs = self.v_obs
+        # u_std = self.u_std
+        # v_std = self.v_std
+        # lambda_a = self.param['rc_inv'][0]
+        # lambda_b = self.param['rc_inv'][1]
+        # delta_a = self.param['rc_inv'][2]
+        # delta_b = self.param['rc_inv'][3]
+        #
+        # grad_alpha = grad(self.alpha)
+        # grad_alpha_ = project(grad_alpha, self.RT)
+        # lap_alpha = div(grad_alpha_)
+
+        # betadiff = beta-beta_bgd
+        # grad_betadiff = grad(betadiff)
+        # grad_betadiff_ = project(grad_betadiff, self.RT)
+        # lap_beta = div(grad_betadiff_)
+
+        # reg_a = lambda_a * self.alpha - delta_a*lap_alpha
+        # reg_a_bndry = delta_a*inner(grad_alpha,self.nm)
+        # J_reg_alpha = inner(reg_a,reg_a)*self.dIce + inner(reg_a_bndry,reg_a_bndry)*ds
+        #
+        # self.J = (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs + J_reg_alpha
+
+        #self.J =  inner(self.U,self.U)*self.dIce
+        return assemble(self.J_inv)
 
 
 

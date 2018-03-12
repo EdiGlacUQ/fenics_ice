@@ -45,9 +45,8 @@ mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 param = {'eq_def' : 'weak',
         'solver': 'petsc',
         'outdir' :'./output_smith_inv/',
-        'rc_inv': [1, 1e-4, 5e6, 40.0], #alpha only
-        #'rc_inv': [1e-5, 1e-4, 100.0, 40.0], #alpha + beta
-        'inv_options': {'disp': True, 'maxiter': 5}
+        'rc_inv': [5e-2, 1e2, 5e4, 5e6], #alpha + beta
+        'inv_options': {'disp': True, 'maxiter': 15}
         }
 
 mdl = model.model(mesh,mask, param)
@@ -59,8 +58,8 @@ mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
 mdl.init_lat_dirichletbc()
 mdl.init_bmelt(Constant(0.0))
 mdl.gen_alpha()
-#mdl.init_alpha(Constant(ln(6000))) #Initialize using uniform alpha
-mdl.init_beta(ln(B_mod))            #Comment to use uniform Bglen
+#mdl.init_alpha(Constant(sqrt(6000))) #Initialize using uniform alpha
+mdl.init_beta(sqrt(B_mod))            #Comment to use uniform Bglen
 mdl.label_domain()
 
 #Inversion
@@ -73,7 +72,7 @@ slvr.inversion()
 
 
 #Plots for quick output evaluation
-B2 = project(exp(slvr.alpha),mdl.Q)
+B2 = project(slvr.alpha*slvr.alpha,mdl.Q)
 F_vals = [x for x in slvr.F_vals if x > 0]
 
 fu.plot_variable(B2, 'B2', mdl.param['outdir'])
@@ -156,7 +155,7 @@ xmlfile << mdl.alpha
 
 vtkfile = File(''.join([outdir,'Bglen.pvd']))
 xmlfile = File(''.join([outdir,'Bglen.xml']))
-Bglen = project(exp(mdl.beta),mdl.M)
+Bglen = project(mdl.beta*mdl.beta,mdl.M)
 vtkfile << Bglen
 xmlfile << Bglen
 

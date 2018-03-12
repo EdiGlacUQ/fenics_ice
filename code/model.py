@@ -33,13 +33,13 @@ class model:
 
         #Constants for ice sheet modelling
         param = {}
-        param['ty'] = Constant(365*24*60*60.0)  #seconds in year
-        param['rhoi'] =  Constant(917.0)      #density ice
-        param['rhow'] =   Constant(1000.0)     #density water
-        param['g'] =  Constant(9.81)           #acceleration due to gravity
-        param['n'] =  Constant(3.0)            #glen's flow law exponent
-        param['eps_rp'] =  Constant(1e-5)      #effective strain regularization
-        param['A'] =  Constant(3.5e-25 * param['ty'])     #Creep paramater
+        param['ty'] = 365*24*60*60.0  #seconds in year
+        param['rhoi'] =  917.0      #density ice
+        param['rhow'] =   1000.0     #density water
+        param['g'] =  9.81           #acceleration due to gravity
+        param['n'] =  3.0            #glen's flow law exponent
+        param['eps_rp'] =  1e-5      #effective strain regularization
+        param['A'] =  3.5e-25 * param['ty']     #Creep paramater
         param['tol'] =  1e-6         #Tolerance for tests
         param['rc_inv'] =  [0.0]       #regularization constants for inversion
 
@@ -82,7 +82,7 @@ class model:
                 #'krylov_solver': {'monitor_convergence': True}
                 }}
 
-        param['inv_options'] = {'disp': True, 'maxiter': 15}
+        param['inv_options'] = {'disp': True, 'maxiter': 5}
 
         #Update default values based on input
         param.update(param_in)
@@ -111,8 +111,8 @@ class model:
     def def_B_field(self):
         A = self.param['A']
         n = self.param['n']
-        self.beta = project(ln(A**(-1.0/n)), self.Q)
-        self.beta_bgd = project(ln(A**(-1.0/n)), self.Q)
+        self.beta = project(sqrt(A**(-1.0/n)), self.Q)
+        self.beta_bgd = project(sqrt(A**(-1.0/n)), self.Q)
 
     def def_lat_dirichletbc(self):
         self.latbc = Constant([0.0,0.0])
@@ -214,7 +214,6 @@ class model:
 
         alpha__ = Max(alpha_, a_lb)
         alpha = Min(alpha__, a_ub)
-        #alpha = ln(alpha)
         alpha = sqrt(alpha)
         self.alpha = project(alpha,self.Q)
 

@@ -17,7 +17,7 @@ thick = Function(M,''.join([dd,'ismipC_mesh_height.xml']))
 bmelt = Function(M,''.join([dd,'ismipC_mesh_bmelt.xml']))
 mask = Function(M,''.join([dd,'ismipC_mesh_mask.xml']))
 B2 = Function(M,''.join([dd,'ismipC_mesh_B2.xml']))
-alpha = ln(B2)
+alpha = sqrt(B2)
 
 #Generate model mesh
 nx = 120

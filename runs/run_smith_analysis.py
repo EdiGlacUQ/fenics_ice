@@ -1,6 +1,7 @@
 import sys
 sys.path.insert(0,'../code/')
 from fenics import *
+from dolfin_adjoint import *
 import model
 import solver
 import matplotlib.pyplot as plt
@@ -69,8 +70,9 @@ slvr.solve_mom_eq()
 slvr.set_J_inv()
 slvr.set_hessian_action(slvr.alpha)
 direction = interpolate(Constant(1.0), slvr.alpha.function_space())
+fu.conjgrad(slvr.hess,direction)
 #slvr.hess(dJ_vaf)
-fu.conjgrad(slvr.hess,dJ_vaf)
+#fu.conjgrad(slvr.hess,dJ_vaf)
 
 
 
@@ -150,7 +152,7 @@ xmlfile << mdl.alpha
 
 vtkfile = File(''.join([outdir,'Bglen.pvd']))
 xmlfile = File(''.join([outdir,'Bglen.xml']))
-Bglen = project(exp(mdl.beta),mdl.M)
+Bglen = project(mdl.beta*mdl.beta,mdl.M)
 vtkfile << Bglen
 xmlfile << Bglen
 
