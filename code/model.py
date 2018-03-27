@@ -2,8 +2,7 @@ from dolfin import *
 import numpy as np
 import timeit
 from IPython import embed
-from numpy.random import rand
-import matplotlib.pyplot as plt
+from numpy.random import randn
 
 class model:
 
@@ -131,9 +130,18 @@ class model:
     def init_alpha(self,alpha):
         self.alpha = project(alpha,self.Q)
 
-    def init_beta(self,beta):
-        self.beta = project(beta,self.Q)
+    def init_beta(self,beta, pert= True):
         self.beta_bgd = project(beta,self.Q)
+        if pert:
+            #Perturbed field for nonzero gradient at first step of inversion
+            beta_n = project(beta, self.M)
+            pert_vec = beta_n.vector().array()*0.00001*randn(beta_n.vector().array().size)
+            beta_n.vector().set_local(beta_n.vector().array() + pert_vec)
+            self.beta = project(beta_n,self.Q)
+        else:
+            self.beta = project(beta,self.Q)
+
+
 
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.M)
@@ -207,14 +215,20 @@ class model:
         s = project(s_,self.Q)
         grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
 
+        #bgd = Function(self.M)
+        #bgd.assign(Constant(a_bgd))
+        #pert_vec = bgd.vector().array()*0.1*randn(bgd.vector().array().size)
+        #bgd.vector().set_local(bgd.vector().array() + pert_vec)
+
+
         #Calculate alpha, apply background, apply bound
         alpha_ = ( (1.0 - fl_ex) *rhoi*g*H*grads/U
            + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
 
 
-        alpha__ = Max(alpha_, a_lb)
-        alpha = Min(alpha__, a_ub)
-        alpha = sqrt(alpha)
+        alpha_tmp1 = Max(alpha_, a_lb)
+        alpha_tmp2 = Min(alpha_tmp1, a_ub)
+        alpha = sqrt(alpha_tmp2)
         self.alpha = project(alpha,self.Q)
 
 

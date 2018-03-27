@@ -1,8 +1,7 @@
 from dolfin import *
 from dolfin_adjoint import *
 from dolfin_adjoint_sqrt_masslump import *
-
-import matplotlib.pyplot as plt
+import moola
 import numpy as np
 import ufl
 
@@ -139,7 +138,6 @@ class ssa_solver:
         #Switch parameters
         H_s = -rhow/rhoi * bed
         fl_ex = ufl.operators.Conditional(H <= H_s, Constant(1.0), Constant(0.0))
-        #fl_ex = Constant(0.0)
 
         #Driving stress quantities
         F = (1 - fl_ex) * 0.5*rhoi*g*H**2 + \
@@ -263,7 +261,7 @@ class ssa_solver:
         a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
         solve(a==L,H_nps, bcs = self.H_bcs)
 
-    def timestep(self, save = 1):
+    def timestep(self, save = 1, adjoint_flag=1):
         U = self.U
         U_np = self.U_np
         H = self.H
@@ -286,7 +284,9 @@ class ssa_solver:
 
         t=0.0
 
-        adj_start_timestep()
+        if adjoint_flag:
+            adj_start_timestep()
+
         for n in xrange(n_steps):
             begin("Starting timestep %i of %i, time = %.16e a" % (n + 1, n_steps, t))
 
@@ -307,10 +307,11 @@ class ssa_solver:
                 output_hts << (H_np, t)
                 output_uts << (U_np, t)
 
-            end()
-            adj_inc_timestep()
+            if adjoint_flag:
+                end()
+                adj_inc_timestep()
 
-    def inversion(self):
+    def inversion(self, cntrl):
 
         #Record value of functional during minimization
         self.F_iter = 0
@@ -327,21 +328,39 @@ class ssa_solver:
         self.solve_mom_eq()
 
         #Set up cost functional
-        self.set_J_inv()
+        self.set_J_inv(verbose=True)
         J = Functional(self.J_inv)
 
         #Control parameters and functional problem
-        #control = Control(self.alpha)
-        control = [Control(self.alpha), Control(self.beta)]
+        control = [Control(x) for x in cntrl] if type(cntrl) is list else Control(cntrl)
         rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
-        #Optimization routine
-        opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
+        if type(cntrl) is list:
+            control = moola.DolfinPrimalVectorSet([moola.DolfinPrimalVector(x) for x in cntrl])
+        else:
+            control = moola.DolfinPrimalVector(cntrl)
 
-        #Save results
-        #self.alpha.assign(opt_var)
-        self.alpha.assign(opt_var[0])
-        self.beta.assign(opt_var[1])
+
+        #Define action of initial H^--1
+
+        problem = MoolaOptimizationProblem(rf)
+        solver = moola.BFGS(problem, control, options={'jtol': 0,
+                                               'gtol': 1e-9,
+                                               'Hinit': "default",
+                                               'maxiter': 3,
+                                               'mem_lim': 10})
+
+        sol = solver.solve()
+        opt_var = sol['control']
+
+        if type(cntrl) is list:
+            map(lambda x: x[0].vector().set_local(x[1].array()), zip(cntrl,opt_var))
+        else:
+            cntrl.vector().set_local(opt_var.array())
+
+        #Scipy Optimization routine
+        #opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
+        #map(lambda x: x[0].assign(x[1]), zip(cntrl,opt_var)) if type(cntrl) is list else cntrl.assign(opt_var)
 
         #Re-compute velocities with inversion results
         adj_reset()
@@ -351,6 +370,7 @@ class ssa_solver:
 
         #Print out inversion results/parameter values
         self.set_J_inv(verbose = True)
+        embed()
 
     def epsilon(self, U):
         """
@@ -397,9 +417,9 @@ class ssa_solver:
         n = self.param['n']
         tol = self.param['tol']
 
-        B2 = exp(alpha)
+        B2 = alpha*alpha
         H_s = -rhow/rhoi * bed
-        fl_ex = conditional(H <= H_s, 1.0, 0.0)
+        fl_ex = ufl.operators.Conditional(H <= H_s, 1.0, 0.0)
 
         s = project((1-fl_ex) * (bed + H),self.Q)
         grads = as_vector([s.dx(0), s.dx(1)])
@@ -426,12 +446,13 @@ class ssa_solver:
         ds = self.ds
         nm = self.nm
 
-        J_ls = (u_std**(-2)*(u-u_obs)**2 + v_std**(-2)*(v-v_obs)**2)*self.dObs
+        gamma_a = self.param['rc_inv'][0]
+        lambda_a = self.param['rc_inv'][1]
+        lambda_b = self.param['rc_inv'][2]
+        delta_a = self.param['rc_inv'][3]
+        delta_b = self.param['rc_inv'][4]
 
-        lambda_a = self.param['rc_inv'][0]
-        lambda_b = self.param['rc_inv'][1]
-        delta_a = self.param['rc_inv'][2]
-        delta_b = self.param['rc_inv'][3]
+        J_ls = gamma_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*(v-v_obs)**2.0)*self.dObs
 
         grad_alpha = grad(alpha)
         grad_alpha_ = project(grad_alpha, self.RT)
@@ -443,18 +464,14 @@ class ssa_solver:
         lap_beta = div(grad_betadiff_)
 
         reg_a = lambda_a * alpha - delta_a*lap_alpha
-        reg_a_bndry = delta_a*inner(grad_alpha,nm)
-
         reg_b = lambda_b * betadiff - delta_b*lap_beta
-        reg_b_bndry = delta_b*inner(grad_betadiff,nm)
 
-        J_reg_alpha = inner(reg_a,reg_a)*dIce + inner(reg_a_bndry,reg_a_bndry)*ds
-        J_reg_beta = inner(reg_b,reg_b)*dIce + inner(reg_b_bndry,reg_b_bndry)*ds
+        J_reg_alpha = inner(reg_a,reg_a)*dIce
+        J_reg_beta = inner(reg_b,reg_b)*dIce
 
         J = J_ls + J_reg_alpha + J_reg_beta
 
         self.J_inv = J
-
 
 
         if verbose:
@@ -478,16 +495,18 @@ class ssa_solver:
             print 'J_reg/J_cst: %.2e' % ((J3+J4)/(J2))
 
     def set_J_vaf(self, verbose=False):
-        H = self.H
+        H = self.H_nps
+        #B stands in for self.bed, which leads to a taping error
         B = Function(self.M)
         B.assign(self.bed, annotate=False)
-        rhoi = self.param['rhoi']
-        rhow = self.param['rhow']
+        rhoi = Constant(self.param['rhoi'])
+        rhow = Constant(self.param['rhow'])
         dIce = self.dIce
         dIce_gnd = self.dIce_gnd
         dt = self.dt
 
         b_ex = conditional(B < 0.0, 1.0, 0.0)
+
         HAF = b_ex * (H + rhow/rhoi*B) + (1-b_ex)*(H)
 
         self.J_vaf = HAF * dIce_gnd
@@ -498,15 +517,33 @@ class ssa_solver:
         dJ = compute_gradient(J, control, forget = False)
         self.dJ_vaf = dJ
 
+    def comp_dJ_inv(self, cntrl):
+        J = Functional(self.inv)
+        control = Control(cntrl)
+        dJ = compute_gradient(J, control, forget = False)
+        self.dJ_inv = dJ
+
 
     def set_hessian_action(self, cntrl):
         J = Functional(self.J_inv)
-        cc = Control(cntrl)
-        self.hess = hessian(J,cc)
+        cc = [Control(x) for x in cntrl] if type(cntrl) is list else Control(cntrl)
+        self.ddJ = hessian(J,cc)
 
-    def taylor_ver(self,alpha_in):
+    def taylor_ver_inv(self,alpha_in):
         self.alpha = alpha_in
         self.def_mom_eq()
         self.solve_mom_eq()
         self.set_J_inv()
         return assemble(self.J_inv)
+
+    def taylor_ver_vaf_init(self,H):
+        self.H_init = H
+
+    def taylor_ver_vaf(self,alpha_in, adjoint_flag=0):
+        self.alpha = alpha_in
+        self.H = self.H_init.copy(deepcopy=True)
+        self.H_s = self.H_init.copy(deepcopy=True)
+        self.H_np = self.H_init.copy(deepcopy=True)
+        self.timestep(save=0, adjoint_flag=adjoint_flag)
+        self.set_J_vaf()
+        return assemble(self.J_vaf)

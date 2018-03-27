@@ -117,8 +117,8 @@ else:
 slvr = solver.ssa_solver(mdl)
 cc = Control(slvr.alpha)
 
-slvr.taylor_ver(slvr.alpha)
+slvr.taylor_ver_inv(slvr.alpha)
 dJ = compute_gradient(Functional(slvr.J_inv), cc, forget = False)
 ddJ = hessian(Functional(slvr.J_inv), cc)
 
-minconv = taylor_test(slvr.taylor_ver, cc, assemble(slvr.J_inv), dJ, HJm = ddJ, seed = 1e-1, size = 3)
+minconv = taylor_test(slvr.taylor_ver_inv, cc, assemble(slvr.J_inv), dJ, HJm = ddJ, seed = 1e-1, size = 3)

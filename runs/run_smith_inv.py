@@ -45,7 +45,7 @@ mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 param = {'eq_def' : 'weak',
         'solver': 'petsc',
         'outdir' :'./output_smith_inv/',
-        'rc_inv': [5e-2, 1e2, 5e4, 5e6], #alpha + beta
+        'rc_inv': [1.0, 5e-2, 1e1, 5e4, 1e7], #alpha + beta
         'inv_options': {'disp': True, 'maxiter': 15}
         }
 
@@ -64,12 +64,8 @@ mdl.label_domain()
 
 #Inversion
 slvr = solver.ssa_solver(mdl)
-slvr.inversion()
-#slvr.def_mom_eq()
-#slvr.solve_mom_eq()
-
-#Inversions
-
+slvr.inversion(slvr.alpha)
+#slvr.inversion([slvr.alpha,slvr.beta])
 
 #Plots for quick output evaluation
 B2 = project(slvr.alpha*slvr.alpha,mdl.Q)
