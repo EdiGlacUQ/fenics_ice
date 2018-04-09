@@ -56,9 +56,9 @@ def main(argv):
     param = pickle.load( open( ''.join([dd,'param.p']), "rb" ) )
 
     if msft_flag:
-        rc_inv2 = param{'rc_inv'}
+        rc_inv2 = param['rc_inv']
         rc_inv2[1:] = 0.0
-        param{'rc_inv'} = rc_inv2
+        param['rc_inv'] = rc_inv2
 
     #Complete Mesh and data mask
     data_mesh = Mesh(''.join([dd,'data_mesh.xml']))
