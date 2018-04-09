@@ -25,7 +25,7 @@ def main(argv):
 
     #Handle command line options to update default settings
     try:
-      opts, args = getopt.getopt(argv,'sn:i:o:')
+      opts, args = getopt.getopt(argv,'smn:i:o:')
     except getopt.GetoptError:
       print 'file.py -n <number of eigenvalues> -i <power iterations>'
       sys.exit(2)
@@ -56,8 +56,9 @@ def main(argv):
     param = pickle.load( open( ''.join([dd,'param.p']), "rb" ) )
 
     if msft_flag:
+        embed()
         rc_inv2 = param['rc_inv']
-        rc_inv2[1:] = 0.0
+        rc_inv2[1:] = [0 for i in rc_inv2[1:]]
         param['rc_inv'] = rc_inv2
 
     #Complete Mesh and data mask
