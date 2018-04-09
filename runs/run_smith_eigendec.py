@@ -56,7 +56,6 @@ def main(argv):
     param = pickle.load( open( ''.join([dd,'param.p']), "rb" ) )
 
     if msft_flag:
-        embed()
         rc_inv2 = param['rc_inv']
         rc_inv2[1:] = [0 for i in rc_inv2[1:]]
         param['rc_inv'] = rc_inv2
