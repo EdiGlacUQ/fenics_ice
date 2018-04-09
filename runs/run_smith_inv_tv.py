@@ -47,7 +47,7 @@ if ss == 1:
     param = {'eq_def' : 'weak',
             'solver': 'petsc',
             'outdir' :'./output_smith_inv/',
-            'rc_inv': [1e-2, 1e-12, 5e4, 5e6],
+            'rc_inv': [1.0, 1e-2, 1e-12, 5e4, 5e6],
             'inv_options': {'disp': True, 'maxiter': 5}
             }
 

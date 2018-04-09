@@ -1,2 +1,6 @@
 *.vtu
 *.xml
+*.pyc
+*.pvd
+*.txt
+*.png

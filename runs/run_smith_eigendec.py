@@ -20,7 +20,8 @@ def main(argv):
     num_eig = False         #Number of eigenvalues to solve for. Non-optional argument.
     n_iter = 1              #Number of power iterations (randomized method only)
     outdir = '.'            #Directory to save output
-    slepsc_flag=False       #Flag to use slepsc instaed of randomized eigenvalue method
+    slepsc_flag=False       #Flag to use slepsc instead of randomized eigenvalue method
+    msft_flag=False         #Consider only the misfit term in the cost function
 
     #Handle command line options to update default settings
     try:
@@ -35,6 +36,8 @@ def main(argv):
             n_iter = int(arg)
         elif opt == '-s':
             slepsc_flag = True
+        elif opt == '-m':
+            msft_flag = True
         elif opt == '-o':
             outdir = arg
             if not os.path.isdir(outdir):
@@ -51,6 +54,11 @@ def main(argv):
 
     #Load parameters of run
     param = pickle.load( open( ''.join([dd,'param.p']), "rb" ) )
+
+    if msft_flag:
+        rc_inv2 = param{'rc_inv'}
+        rc_inv2[1:] = 0.0
+        param{'rc_inv'} = rc_inv2
 
     #Complete Mesh and data mask
     data_mesh = Mesh(''.join([dd,'data_mesh.xml']))
@@ -127,7 +135,7 @@ def main(argv):
         pickle.dump( [lam,v], open( "{0}/slpesceig{1}.p".format(outdir,num_eig), "wb" ))
 
     else:
-    #Determine eigenvalues using a randomized method    
+    #Determine eigenvalues using a randomized method
         A= eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha)
         [lam,v] = eigenfunc.eigens(A,k=num_eig,n_iter=n_iter)
         pickle.dump( [lam,v], open( "{0}/randeig{1}.p".format(outdir,num_eig), "wb" ))
