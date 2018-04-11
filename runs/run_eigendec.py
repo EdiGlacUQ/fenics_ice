@@ -2,7 +2,7 @@
 
 import sys
 import os
-import getopt
+import argparse
 from fenics import *
 from dolfin_adjoint import *
 import pickle
@@ -14,51 +14,7 @@ import optim
 import eigenfunc
 import eigendecomposition
 
-def main(argv):
-
-    #Default Settings
-    num_eig = False         #Number of eigenvalues to solve for. Non-optional argument.
-    dd = False              #Directory of input data [should be previous inversion]
-    n_iter = 1              #Number of power iterations (randomized method only)
-    outdir = '.'            #Directory to save output
-    slepsc_flag=False       #Flag to use slepsc instead of randomized eigenvalue method
-    msft_flag=False         #Consider only the misfit term in the cost function
-
-    #Handle command line options to update default settings
-    try:
-      opts, args = getopt.getopt(argv,'smn:i:o:d:')
-    except getopt.GetoptError:
-      print 'file.py -n <number of eigenvalues> -i <power iterations>'
-      sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-n':
-            num_eig = int(arg)
-        elif opt == '-i':
-            n_iter = int(arg)
-        elif opt == '-s':
-            slepsc_flag = True
-        elif opt == '-m':
-            msft_flag = True
-        elif opt == '-d':
-            dd = arg
-            if not os.path.isdir(dd):
-                print("Directory not valid, or does not exist")
-                sys.exit(2)
-        elif opt == '-o':
-            outdir = arg
-            if not os.path.isdir(outdir):
-                print("Directory not valid, or does not exist")
-                sys.exit(2)
-
-    #Ensure user has provided the number of eigenvalues
-    if not num_eig:
-        print 'Use -n <number of eigenvalues>'
-        sys.exit(2)
-
-    #Ensure user has provided an input directory
-    if not dd:
-        print 'Use -d <directory of data>'
-        sys.exit(2)
+def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
 
     #Load parameters of run
     param = pickle.load( open( ''.join([dd,'param.p']), "rb" ) )
@@ -149,4 +105,27 @@ def main(argv):
         pickle.dump( [lam,v], open( "{0}/randeig{1}.p".format(outdir,num_eig), "wb" ))
 
 if __name__ == "__main__":
-   main(sys.argv[1:])
+
+
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-n', '--numeig', dest='num_eig', type=int, required=True, help='Number of eigenvalues to find')
+    parser.add_argument('-i', '--niter', dest='n_iter', type=int, help='Number of power iterations for random algorithm')
+    parser.add_argument('-s', '--slepsc', dest='slepsc_flag', action='store_true', help='Use slepsc instead of random algorithm')
+    parser.add_argument('-m', '--msft_flag', dest='msft_flag', action='store_true', help='Consider only the misfit term of the cost function without regularization')
+
+    parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
+    parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
+
+    parser.set_defaults(run_length=10.0, n_steps=120, init_yr=5, outdir='./')
+    args = parser.parse_args()
+
+    num_eig = args.num_eig
+    n_iter = args.n_iter
+    slepsc_flag = args.slepsc_flag
+    msft_flag = args.msft_flag
+    outdir = args.outdir
+    dd = args.dd
+
+
+    main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd)
