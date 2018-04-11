@@ -142,7 +142,6 @@ class model:
             self.beta = project(beta,self.Q)
 
 
-
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.M)
 
@@ -214,12 +213,6 @@ class model:
         s_ = Max(H + R_f,0)
         s = project(s_,self.Q)
         grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
-
-        #bgd = Function(self.M)
-        #bgd.assign(Constant(a_bgd))
-        #pert_vec = bgd.vector().array()*0.1*randn(bgd.vector().array().size)
-        #bgd.vector().set_local(bgd.vector().array() + pert_vec)
-
 
         #Calculate alpha, apply background, apply bound
         alpha_ = ( (1.0 - fl_ex) *rhoi*g*H*grads/U

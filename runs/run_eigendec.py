@@ -18,6 +18,7 @@ def main(argv):
 
     #Default Settings
     num_eig = False         #Number of eigenvalues to solve for. Non-optional argument.
+    dd = False              #Directory of input data [should be previous inversion]
     n_iter = 1              #Number of power iterations (randomized method only)
     outdir = '.'            #Directory to save output
     slepsc_flag=False       #Flag to use slepsc instead of randomized eigenvalue method
@@ -25,7 +26,7 @@ def main(argv):
 
     #Handle command line options to update default settings
     try:
-      opts, args = getopt.getopt(argv,'smn:i:o:')
+      opts, args = getopt.getopt(argv,'smn:i:o:d:')
     except getopt.GetoptError:
       print 'file.py -n <number of eigenvalues> -i <power iterations>'
       sys.exit(2)
@@ -38,6 +39,11 @@ def main(argv):
             slepsc_flag = True
         elif opt == '-m':
             msft_flag = True
+        elif opt == '-d':
+            dd = arg
+            if not os.path.isdir(dd):
+                print("Directory not valid, or does not exist")
+                sys.exit(2)
         elif opt == '-o':
             outdir = arg
             if not os.path.isdir(outdir):
@@ -49,8 +55,10 @@ def main(argv):
         print 'Use -n <number of eigenvalues>'
         sys.exit(2)
 
-    #Data file: Should be previously completed inversion
-    dd = './output_smith_inv/'
+    #Ensure user has provided an input directory
+    if not dd:
+        print 'Use -d <directory of data>'
+        sys.exit(2)
 
     #Load parameters of run
     param = pickle.load( open( ''.join([dd,'param.p']), "rb" ) )

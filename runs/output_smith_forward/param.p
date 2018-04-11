@@ -11,15 +11,15 @@ p4
 (lp5
 F1.0
 aF0.05
-aF100.0
+aF10.0
 aF50000.0
-aF10000000000.0
+aF10000000.0
 asS'eps_rp'
 p6
 F1e-05
 sS'n_steps'
 p7
-I2
+I10
 sS'ty'
 p8
 F31536000.0
@@ -100,7 +100,7 @@ p37
 F3.0
 sS'run_length'
 p38
-F0.2
+F1.0
 sS'solver_petsc'
 p39
 g15
@@ -112,5 +112,5 @@ p42
 I01
 sS'maxiter'
 p43
-I15
+I20
 ss.

@@ -67,7 +67,7 @@ mdl.label_domain()
 H_init = mdl.H_s.copy(deepcopy=True)
 
 slvr = solver.ssa_solver(mdl)
-slvr.taylor_ver_vaf_init(H_init)
+slvr.save_H_init(H_init)
 
 alpha0 = slvr.alpha.copy(deepcopy=True)
 slvr.taylor_ver_vaf(alpha0,adjoint_flag=1)

@@ -261,20 +261,32 @@ class ssa_solver:
         a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
         solve(a==L,H_nps, bcs = self.H_bcs)
 
-    def timestep(self, save = 1, adjoint_flag=1):
+    def timestep(self, save = 1, adjoint_flag=1, outdir='./'):
         U = self.U
         U_np = self.U_np
         H = self.H
         H_np = self.H_np
         H_s = self.H_s
         H_nps = self.H_nps
+        self.save_H_init(H)
 
         n_steps = self.param['n_steps']
         dt = self.dt
 
         if save:
-            output_hts = File("H_ts.pvd", "compressed")
-            output_uts = File("U_ts.pvd", "compressed")
+            hdf_hts = HDF5File(self.mesh.mpi_comm(), outdir + 'H_ts.h5','w')
+            hdf_uts = HDF5File(self.mesh.mpi_comm(), outdir + 'U_ts.h5','w')
+
+            pvd_hts = File(outdir + "H_ts.pvd", "compressed")
+            pvd_uts = File(outdir + "U_ts.pvd", "compressed")
+
+            hdf_hts.write(H_np, 'H', 0.0)
+            hdf_uts.write(U_np, 'U', 0.0)
+
+            pvd_hts << (H_np, 0.0)
+            pvd_uts << (U_np, 0.0)
+
+
 
 
         self.def_thickadv_eq()
@@ -304,8 +316,11 @@ class ssa_solver:
 
             #Record
             if save:
-                output_hts << (H_np, t)
-                output_uts << (U_np, t)
+                hdf_hts.write(H_np, 'H', t)
+                hdf_uts.write(U_np, 'U', t)
+
+                pvd_hts << (H_np, t)
+                pvd_uts << (U_np, t)
 
             if adjoint_flag:
                 end()
@@ -536,7 +551,7 @@ class ssa_solver:
         self.set_J_inv()
         return assemble(self.J_inv)
 
-    def taylor_ver_vaf_init(self,H):
+    def save_H_init(self,H):
         self.H_init = H
 
     def taylor_ver_vaf(self,alpha_in, adjoint_flag=0):
