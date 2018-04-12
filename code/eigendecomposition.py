@@ -51,7 +51,7 @@ def eig(N, A_action, hermitian = False, N_eigenvalues = None,
   esolver.setWhichEigenpairs(which)
   esolver.setDimensions(nev = N if N_eigenvalues is None else N_eigenvalues,
                         ncv = SLEPc.DECIDE, mpd = SLEPc.DECIDE)
- # esolver.setConvergenceTest(SLEPc.EPS.Conv.EIG)
+  #esolver.setConvergenceTest(SLEPc.EPS.Conv.EIG)
   esolver.setTolerances(tol = tolerance, max_it = SLEPc.DECIDE)
   esolver.setUp()
 
@@ -71,7 +71,7 @@ def eig(N, A_action, hermitian = False, N_eigenvalues = None,
 
   return lam, v
 
-        
+
 class eigendecomposition_unittests(unittest.TestCase):
   def test_HEP(self):
     A = numpy.array([[3.0, 0.0], [0.0, -10.0]], dtype = numpy.float64)

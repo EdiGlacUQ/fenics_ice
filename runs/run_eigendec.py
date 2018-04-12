@@ -13,6 +13,7 @@ import solver
 import optim
 import eigenfunc
 import eigendecomposition
+import datetime
 
 def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
 
@@ -79,8 +80,8 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     slvr.set_J_inv()
     slvr.set_hessian_action(slvr.alpha)
 
-
     #Determine eigenvalues with slepsc using the interfacing script written by James Maddison
+    timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
     if slepsc_flag:
         class ddJ_wrapper(object):
             def __init__(self, ddJ_action, cntrl):
@@ -88,21 +89,63 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
                 self.ddJ_F = Function(cntrl.function_space())
 
             def apply(self,x):
-
                 self.ddJ_F.vector().set_local(x.getArray())
                 self.ddJ_F.vector().apply('insert')
                 return self.ddJ_action(self.ddJ_F).vector().get_local()
 
 
         ddJw = ddJ_wrapper(slvr.ddJ,slvr.alpha)
-        lam, v = eigendecomposition.eig(ddJw.ddJ_F.vector().local_size(), ddJw.apply, hermitian = True, N_eigenvalues = n_iter)
-        pickle.dump( [lam,v], open( "{0}/slepceig{1}.p".format(outdir,num_eig), "wb" ))
+        lam, v = eigendecomposition.eig(ddJw.ddJ_F.vector().local_size(), ddJw.apply, hermitian = True, N_eigenvalues = num_eig)
+        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( "{0}/slepceig{1}_{2}.p".format(outdir,num_eig,timestamp), "wb" ))
 
     else:
     #Determine eigenvalues using a randomized method
         A= eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha)
         [lam,v] = eigenfunc.eigens(A,k=num_eig,n_iter=n_iter)
-        pickle.dump( [lam,v], open( "{0}/randeig{1}.p".format(outdir,num_eig), "wb" ))
+        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( "{0}/randeig{1}_{2}.p".format(outdir,num_eig,timestamp), "wb" ))
+
+
+    #Sanity checks on eigenvalues/eigenvectors.
+    neg_ind = np.nonzero(lam<0)
+    print('Number of eigenvalues: {0}'.format(num_eig))
+    print('Number of negative eigenvalues: {0}'.format(len(neg_ind)))
+
+    cntr_nn = 0.0
+    cntr_np = 0.0
+
+    print('Checking negative eigenvalues...')
+    #For each negative eigenvalue, independently recalculate their value using its eigenvector
+    for i in neg_ind:
+        ev = v[i,:]
+        ll = lam[i]
+        ll2 = ev.T * ddJw.apply(ev) / (np.dot(ev,ev))
+
+        #Compare signs of the calculated eigenvals, increment correct counter
+        if np.sign(ll) == np.sign(ll2):
+            cntr_nn += 1
+        elif:
+            cntr_np +=1
+            print('Eigenval {0} at index {1} is a false negative'.format(ll,i))
+
+    print('The number of verified negative eigenvals is {0}'.format(cntr_nn))
+    print('The sign {0} eigenvals is not supported by independent calculation using its eigenvector'.format(cntr_np))
+
+
+    print('Checking the accuracy of eigenval/eigenvec pairs...')
+
+    npair = min(num_eig, 10.0) #Select a maximum of 10 pairs
+    f = lambda m, n: [i*n//m + n//(2*m) for i in range(m)] #selector function
+    pind = f(npair,num_eig)
+
+    for i in pind:
+        ev = v[i,:]
+        ll = lam[i]
+        res = np.linalg.norm(ddJw.apply(ev) - ll*ev)
+        print('Residual of {0} at index {1}'.format(res, i))
+
+
+
+
 
 if __name__ == "__main__":
 

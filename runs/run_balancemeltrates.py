@@ -20,51 +20,6 @@ set_log_level(20)
 #def main(argv):
 def main(dd, outdir, run_length, n_steps, init_yr):
 
-
-    # #Default Settings
-    # dd = False              #Directory of input data [should be previous inversion]
-    # outdir = False          #Directory to save output
-    # run_length = 10.0       #Default run length of 10 years
-    # n_steps = 120         #Default to monthly time steps
-    # init_yr = 5.0           #Initial year to difference with final year to calc balance melt rates
-    #
-    #
-    #
-    #
-    # #Handle command line options to update default settings
-    # try:
-    #   opts, args = getopt.getopt(argv,'rso:d:')
-    # except getopt.GetoptError:
-    #   print 'see code for command line arguments.'
-    #   sys.exit(2)
-    # for opt, arg in opts:
-    #     if opt == '-d':
-    #         dd = arg
-    #         if not os.path.isdir(dd):
-    #             print("Directory not valid, or does not exist")
-    #             sys.exit(2)
-    #     elif opt == '-o':
-    #         outdir = arg
-    #         if not os.path.isdir(outdir):
-    #             print("Directory not valid, or does not exist")
-    #             sys.exit(2)
-    #     elif opt == '-r':
-    #         run_length = arg
-    #         n_steps = run_length*12.0
-    #
-    #     elif opt == '-n':
-    #         n_steps = arg
-    #
-    #     elif opt == '-y':
-    #         init_yr = arg
-    #
-    #
-    #
-    # #Ensure user an input directory
-    # if not dd:
-    #     print 'Use -d <directory of data>'
-    #     sys.exit(2)
-
     if not outdir:
         outdir = './balance_melt_rates/'
         if not os.path.isdir(outdir):
@@ -274,7 +229,7 @@ if __name__ == "__main__":
     dd = args.dd
 
     if not outdir:
-        outdir = './balance_melt_rates/'
+        outdir = ''.join(['./balance_melt_rates_', datetime.datetime.now().strftime("%m%d%H%M%S"), '/'])
         if not os.path.isdir(outdir):
             print('Creating output directory: {0}'.format(outdir))
             os.makedirs(outdir)

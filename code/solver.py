@@ -385,7 +385,6 @@ class ssa_solver:
 
         #Print out inversion results/parameter values
         self.set_J_inv(verbose = True)
-        embed()
 
     def epsilon(self, U):
         """
