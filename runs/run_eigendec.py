@@ -14,6 +14,7 @@ import optim
 import eigenfunc
 import eigendecomposition
 import datetime
+import numpy as np
 
 def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
 
@@ -97,7 +98,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
         ddJw = ddJ_wrapper(slvr.ddJ,slvr.alpha)
         lam, v = eigendecomposition.eig(ddJw.ddJ_F.vector().local_size(), ddJw.apply, hermitian = True, N_eigenvalues = num_eig)
         pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( "{0}/slepceig{1}_{2}.p".format(outdir,num_eig,timestamp), "wb" ))
-
+        A= eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha) #for sanity checks
     else:
     #Determine eigenvalues using a randomized method
         A= eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha)
@@ -118,7 +119,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     for i in neg_ind:
         ev = v[:,i]
         ll = lam[i]
-        ll2 = np.dot(ev, ddJw.apply(ev)) / np.dot(ev,ev)
+        ll2 = np.dot(ev, A.apply(ev)) / np.dot(ev,ev)
 
         #Compare signs of the calculated eigenvals, increment correct counter
         if np.sign(ll) == np.sign(ll2):
@@ -140,7 +141,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     for i in pind:
         ev = v[:,i]
         ll = lam[i]
-        res = np.linalg.norm(ddJw.apply(ev) - ll*ev)/ll
+        res = np.linalg.norm(A.apply(ev) - ll*ev)/ll
         print('Residual of {0} at index {1}'.format(res, i))
 
 
