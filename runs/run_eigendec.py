@@ -106,7 +106,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
 
 
     #Sanity checks on eigenvalues/eigenvectors.
-    neg_ind = np.nonzero(lam<0)
+    neg_ind = np.nonzero(lam<0)[0]
     print('Number of eigenvalues: {0}'.format(num_eig))
     print('Number of negative eigenvalues: {0}'.format(len(neg_ind)))
 
@@ -116,14 +116,14 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     print('Checking negative eigenvalues...')
     #For each negative eigenvalue, independently recalculate their value using its eigenvector
     for i in neg_ind:
-        ev = v[i,:]
+        ev = v[:,i]
         ll = lam[i]
-        ll2 = ev.T * ddJw.apply(ev) / (np.dot(ev,ev))
+        ll2 = np.dot(ev, ddJw.apply(ev)) / np.dot(ev,ev)
 
         #Compare signs of the calculated eigenvals, increment correct counter
         if np.sign(ll) == np.sign(ll2):
             cntr_nn += 1
-        elif:
+        else:
             cntr_np +=1
             print('Eigenval {0} at index {1} is a false negative'.format(ll,i))
 
@@ -133,14 +133,14 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
 
     print('Checking the accuracy of eigenval/eigenvec pairs...')
 
-    npair = min(num_eig, 10.0) #Select a maximum of 10 pairs
+    npair = min(num_eig, 10) #Select a maximum of 10 pairs
     f = lambda m, n: [i*n//m + n//(2*m) for i in range(m)] #selector function
     pind = f(npair,num_eig)
 
     for i in pind:
-        ev = v[i,:]
+        ev = v[:,i]
         ll = lam[i]
-        res = np.linalg.norm(ddJw.apply(ev) - ll*ev)
+        res = np.linalg.norm(ddJw.apply(ev) - ll*ev)/ll
         print('Residual of {0} at index {1}'.format(res, i))
 
 
