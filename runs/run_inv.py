@@ -186,7 +186,6 @@ if __name__ == "__main__":
     outdir = args.outdir
     dd = args.dd
 
-    embed()
     if not outdir:
         outdir = ''.join(['./run_inv_', datetime.datetime.now().strftime("%m%d%H%M%S")])
         print('Creating output directory: {0}'.format(outdir))
