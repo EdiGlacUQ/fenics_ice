@@ -19,7 +19,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd):
     #Load Data
     data_mesh = Mesh(os.path.join(dd,'smith450m_mesh.xml'))
     Q = FunctionSpace(data_mesh, 'DG', 0)
-    bed = Function(Q,os.path.join([dd,'smith450m_mesh_bed.xml'), name = "bed")
+    bed = Function(Q,os.path.join(dd,'smith450m_mesh_bed.xml'), name = "bed")
     thick = Function(Q,os.path.join(dd,'smith450m_mesh_thick.xml'), name = "thick")
     mask = Function(Q,os.path.join(dd,'smith450m_mesh_mask.xml'), name = "mask")
     u_obs = Function(Q,os.path.join(dd,'smith450m_mesh_u_obs.xml'), name = "u_obs")
@@ -32,7 +32,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd):
 
     #Generate model mesh
     gf = 'grid_data.npz'
-    npzfile = np.load(os.path.join([dd,'/grid_data.npz']))
+    npzfile = np.load(os.path.join(dd,'grid_data.npz'))
     nx = int(npzfile['nx'])
     ny = int(npzfile['ny'])
     xlim = npzfile['xlim']
@@ -82,8 +82,8 @@ def main(maxiter, rc_inv, pflag, outdir, dd):
     outdir = mdl.param['outdir']
     pickle.dump( mdl.param, open( os.path.join(outdir,'param.p'), "wb" ) )
 
-    File(os.path.join([outdir,'mesh.xml'])) << mdl.mesh
-    File(os.path.join([outdir,'data_mesh.xml'])) << data_mesh
+    File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
+    File(os.path.join(outdir,'data_mesh.xml')) << data_mesh
 
     vtkfile = File(os.path.join(outdir,'U.pvd'))
     xmlfile = File(os.path.join(outdir,'U.xml'))
