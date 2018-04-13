@@ -4,7 +4,7 @@ from dolfin_adjoint_sqrt_masslump import *
 import moola
 import numpy as np
 import ufl
-
+import os
 import timeit
 import time
 from IPython import embed
@@ -274,11 +274,11 @@ class ssa_solver:
         dt = self.dt
 
         if save:
-            hdf_hts = HDF5File(self.mesh.mpi_comm(), outdir + 'H_ts.h5','w')
-            hdf_uts = HDF5File(self.mesh.mpi_comm(), outdir + 'U_ts.h5','w')
+            hdf_hts = HDF5File(self.mesh.mpi_comm(), os.path.join(outdir, 'H_ts.h5'),'w')
+            hdf_uts = HDF5File(self.mesh.mpi_comm(), os.path.join(outdir, 'U_ts.h5',)'w')
 
-            pvd_hts = File(outdir + "H_ts.pvd", "compressed")
-            pvd_uts = File(outdir + "U_ts.pvd", "compressed")
+            pvd_hts = File(os.path.join(outdir, "H_ts.pvd"), "compressed")
+            pvd_uts = File(os.path.join(outdir, "U_ts.pvd"), "compressed")
 
             hdf_hts.write(H_np, 'H', 0.0)
             hdf_uts.write(U_np, 'U', 0.0)

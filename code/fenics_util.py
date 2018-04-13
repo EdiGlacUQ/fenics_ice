@@ -86,7 +86,7 @@ def plot_variable(u, name, direc, cmap='gist_yarg', scale='lin', numLvls=12,
     plt.tight_layout(rect=[.03,.03,0.97,0.97])
   else:
     plt.tight_layout()
-  plt.savefig(direc + name + '.png', dpi=300)
+  plt.savefig(os.path.join(direc, name + '.png'), dpi=300)
   if show:
     plt.show()
   plt.close(fig)
@@ -96,7 +96,7 @@ def plot_inv_conv(fvals, name, direc):
     plt.semilogy(fvals, 'ko-')
     plt.xlabel('Iterations')
     plt.ylabel('Cost Function')
-    plt.savefig(direc + name + '.png', dpi=300)
+    plt.savefig(os.path.join(direc, name + '.png'), dpi=300)
     plt.close()
 
 

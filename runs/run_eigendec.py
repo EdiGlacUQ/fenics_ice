@@ -19,7 +19,7 @@ import numpy as np
 def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
 
     #Load parameters of run
-    param = pickle.load( open( ''.join([dd,'param.p']), "rb" ) )
+    param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
 
     if msft_flag:
         rc_inv2 = param['rc_inv']
@@ -27,12 +27,12 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
         param['rc_inv'] = rc_inv2
 
     #Complete Mesh and data mask
-    data_mesh = Mesh(''.join([dd,'data_mesh.xml']))
+    data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
     M_dm = FunctionSpace(data_mesh,'DG',0)
-    data_mask = Function(M_dm,''.join([dd,'data_mask.xml']))
+    data_mask = Function(M_dm,os.path.join(dd,'data_mask.xml'))
 
     #Ice only mesh
-    mdl_mesh = Mesh(''.join([dd,'mesh.xml']))
+    mdl_mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
     #Set up Function spaces
     V = VectorFunctionSpace(mdl_mesh,'Lagrange',1,dim=2)
@@ -40,21 +40,21 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     M = FunctionSpace(mdl_mesh,'DG',0)
 
     #Load fields
-    U = Function(V,''.join([dd,'U.xml']))
-    alpha = Function(Q,''.join([dd,'alpha.xml']))
-    beta = Function(Q,''.join([dd,'beta.xml']))
-    bed = Function(Q,''.join([dd,'bed.xml']))
-    surf = Function(Q,''.join([dd,'surf.xml']))
-    thick = Function(M,''.join([dd,'thick.xml']))
-    mask = Function(M,''.join([dd,'mask.xml']))
-    mask_vel = Function(M,''.join([dd,'mask_vel.xml']))
-    u_obs = Function(M,''.join([dd,'u_obs.xml']))
-    v_obs = Function(M,''.join([dd,'v_obs.xml']))
-    u_std = Function(M,''.join([dd,'u_std.xml']))
-    v_std = Function(M,''.join([dd,'v_std.xml']))
-    uv_obs = Function(M,''.join([dd,'uv_obs.xml']))
-    Bglen = Function(M,''.join([dd,'Bglen.xml']))
-    B2 = Function(Q,''.join([dd,'B2.xml']))
+    U = Function(V,os.path.join(dd,'U.xml')
+    alpha = Function(Q,os.path.join(dd,'alpha.xml'))
+    beta = Function(Q,os.path.join(dd,'beta.xml'))
+    bed = Function(Q,os.path.join(dd,'bed.xml'))
+    surf = Function(Q,os.path.join(dd,'surf.xml'))
+    thick = Function(M,os.path.join(dd,'thick.xml'))
+    mask = Function(M,os.path.join(dd,'mask.xml'))
+    mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
+    u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
+    v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
+    u_std = Function(M,os.path.join(dd,'u_std.xml'))
+    v_std = Function(M,os.path.join(dd,'v_std.xml'))
+    uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
+    Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
+    B2 = Function(Q,os.path.join(dd,'B2.xml'))
 
     #Initialize our model object
     mdl = model.model(data_mesh,data_mask, param)
@@ -97,13 +97,13 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
 
         ddJw = ddJ_wrapper(slvr.ddJ,slvr.alpha)
         lam, v = eigendecomposition.eig(ddJw.ddJ_F.vector().local_size(), ddJw.apply, hermitian = True, N_eigenvalues = num_eig)
-        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( "{0}/slepceig{1}_{2}.p".format(outdir,num_eig,timestamp), "wb" ))
+        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, 'slepceig{0}_{1}.p'.format(num_eig,timestamp)), "wb" ))
         A= eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha) #for sanity checks
     else:
     #Determine eigenvalues using a randomized method
         A= eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha)
         [lam,v] = eigenfunc.eigens(A,k=num_eig,n_iter=n_iter)
-        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( "{0}/randeig{1}_{2}.p".format(outdir,num_eig,timestamp), "wb" ))
+        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, 'randeig{0}_{1}.p'.format(num_eig,timestamp)), "wb" ))
 
 
     #Sanity checks on eigenvalues/eigenvectors.
@@ -161,7 +161,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
 
-    parser.set_defaults(run_length=10.0, n_steps=120, init_yr=5, outdir='./')
+    parser.set_defaults(run_length=10.0, n_steps=120, init_yr=5, outdir='.')
     args = parser.parse_args()
 
     num_eig = args.num_eig
