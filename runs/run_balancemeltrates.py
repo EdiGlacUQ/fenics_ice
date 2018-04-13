@@ -230,11 +230,13 @@ if __name__ == "__main__":
 
     if not outdir:
         outdir = ''.join(['./balance_melt_rates_', datetime.datetime.now().strftime("%m%d%H%M%S")])
-        if not os.path.isdir(outdir):
-            print('Creating output directory: {0}'.format(outdir))
-            os.makedirs(outdir)
-        else:
-            print("Default outdir exists, will overwrite contents.")
+        print('Creating output directory: {0}'.format(outdir))
+        os.makedirs(outdir)
+    else:
+        d = os.path.dirname(outdir)
+        if not os.path.exists(d):
+            os.makedirs(d)
+
 
     if init_yr >= run_length:
         print('Init year must less than the run length')

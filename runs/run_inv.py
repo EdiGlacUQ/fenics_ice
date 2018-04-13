@@ -188,10 +188,13 @@ if __name__ == "__main__":
 
     if not outdir:
         outdir = ''.join(['./run_inv_', datetime.datetime.now().strftime("%m%d%H%M%S")])
-        if not os.path.isdir(outdir):
-            print('Creating output directory: {0}'.format(outdir))
-            os.makedirs(outdir)
-        else:
-            sys.exit(2)
+        print('Creating output directory: {0}'.format(outdir))
+        os.makedirs(outdir)
+    else:
+        d = os.path.dirname(outdir)
+        if not os.path.exists(d):
+            os.makedirs(d)
+
+
 
     main(maxiter, rc_inv, pflag, outdir, dd)
