@@ -233,9 +233,8 @@ if __name__ == "__main__":
         print('Creating output directory: {0}'.format(outdir))
         os.makedirs(outdir)
     else:
-        d = os.path.dirname(outdir)
-        if not os.path.exists(d):
-            os.makedirs(d)
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
 
 
     if init_yr >= run_length:
