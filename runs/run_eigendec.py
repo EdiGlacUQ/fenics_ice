@@ -40,7 +40,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     M = FunctionSpace(mdl_mesh,'DG',0)
 
     #Load fields
-    U = Function(V,os.path.join(dd,'U.xml')
+    U = Function(V,os.path.join(dd,'U.xml'))
     alpha = Function(Q,os.path.join(dd,'alpha.xml'))
     beta = Function(Q,os.path.join(dd,'beta.xml'))
     bed = Function(Q,os.path.join(dd,'bed.xml'))
@@ -161,7 +161,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
 
-    parser.set_defaults(run_length=10.0, n_steps=120, init_yr=5, outdir='.')
+    parser.set_defaults(n_iter=1, slepsc_flag=False, msft_flag=False, outdir='.')
     args = parser.parse_args()
 
     num_eig = args.num_eig

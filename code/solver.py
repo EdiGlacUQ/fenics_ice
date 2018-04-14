@@ -357,12 +357,11 @@ class ssa_solver:
 
 
         #Define action of initial H^--1
-
         problem = MoolaOptimizationProblem(rf)
         solver = moola.BFGS(problem, control, options={'jtol': 0,
                                                'gtol': 1e-9,
                                                'Hinit': "default",
-                                               'maxiter': 3,
+                                               'maxiter': self.param['inv_options']['maxiter'],
                                                'mem_lim': 10})
 
         sol = solver.solve()
