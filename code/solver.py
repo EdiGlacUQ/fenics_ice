@@ -351,16 +351,29 @@ class ssa_solver:
         rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
         if type(cntrl) is list:
-            control = moola.DolfinPrimalVectorSet([moola.DolfinPrimalVector(x) for x in cntrl])
+            controlm = moola.DolfinPrimalVectorSet([moola.DolfinPrimalVector(x) for x in cntrl])
         else:
-            control = moola.DolfinPrimalVector(cntrl)
+            controlm = moola.DolfinPrimalVector(cntrl)
 
 
-        #Define action of initial H^--1
+
+        def Hinit(x):
+            """ Returns the primal representation. """
+            #events.increment("Dual -> primal map")
+            if x.riesz_map.inner_product == "l2":
+                return moola.DolfinPrimalVectorSet([vec.primal() for vec in x.vector_list],
+                riesz_map = x.riesz_map)
+            else:
+                primal_vecs = zeros(len(x), dtype = "object")
+                primal_vecs[:] = [v.primal() for v in x.vector_list]
+                return moola.DolfinPrimalVectorSet(x.riesz_map.riesz_inv * primal_vecs,
+                riesz_map = x.riesz_map)
+
+
         problem = MoolaOptimizationProblem(rf)
-        solver = moola.BFGS(problem, control, options={'jtol': 0,
+        solver = moola.BFGS(problem, controlm, options={'jtol': 0,
                                                'gtol': 1e-9,
-                                               'Hinit': "default",
+                                               'Hinit': Hinit,
                                                'maxiter': self.param['inv_options']['maxiter'],
                                                'mem_lim': 10})
 
@@ -531,8 +544,8 @@ class ssa_solver:
         self.dJ_vaf = dJ
 
     def comp_dJ_inv(self, cntrl):
-        J = Functional(self.inv)
-        control = Control(cntrl)
+        J = Functional(self.J_inv)
+        control = [Control(x) for x in cntrl] if type(cntrl) is list else Control(cntrl)
         dJ = compute_gradient(J, control, forget = False)
         self.dJ_inv = dJ
 

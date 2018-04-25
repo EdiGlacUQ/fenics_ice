@@ -97,13 +97,15 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
 
         ddJw = ddJ_wrapper(slvr.ddJ,slvr.alpha)
         lam, v = eigendecomposition.eig(ddJw.ddJ_F.vector().local_size(), ddJw.apply, hermitian = True, N_eigenvalues = num_eig)
-        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, 'slepceig{0}_{1}.p'.format(num_eig,timestamp)), "wb" ))
-        A= eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha) #for sanity checks
+        fo = 'slepceig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
+        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, fo), "wb" ))
+        A = eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha) #for sanity checks
     else:
     #Determine eigenvalues using a randomized method
-        A= eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha)
+        A = eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha)
         [lam,v] = eigenfunc.eigens(A,k=num_eig,n_iter=n_iter)
-        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, 'randeig{0}_{1}.p'.format(num_eig,timestamp)), "wb" ))
+        fo = 'randeig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
+        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, fo), "wb" ))
 
 
     #Sanity checks on eigenvalues/eigenvectors.
@@ -111,8 +113,8 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     print('Number of eigenvalues: {0}'.format(num_eig))
     print('Number of negative eigenvalues: {0}'.format(len(neg_ind)))
 
-    cntr_nn = 0.0
-    cntr_np = 0.0
+    cntr_nn = 0
+    cntr_np = 0
 
     print('Checking negative eigenvalues...')
     #For each negative eigenvalue, independently recalculate their value using its eigenvector
@@ -129,7 +131,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
             print('Eigenval {0} at index {1} is a false negative'.format(ll,i))
 
     print('The number of verified negative eigenvals is {0}'.format(cntr_nn))
-    print('The sign {0} eigenvals is not supported by independent calculation using its eigenvector'.format(cntr_np))
+    print('The sign of {0} eigenvals is not supported by independent calculation using its eigenvector'.format(cntr_np))
 
 
     print('Checking the accuracy of eigenval/eigenvec pairs...')
