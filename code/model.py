@@ -132,14 +132,13 @@ class model:
 
     def init_beta(self,beta, pert= True):
         self.beta_bgd = project(beta,self.Q)
+        self.beta = project(beta,self.Q)
         if pert:
             #Perturbed field for nonzero gradient at first step of inversion
-            beta_n = project(beta, self.M)
-            pert_vec = beta_n.vector().array()*0.00001*randn(beta_n.vector().array().size)
-            beta_n.vector().set_local(beta_n.vector().array() + pert_vec)
-            self.beta = project(beta_n,self.Q)
-        else:
-            self.beta = project(beta,self.Q)
+            bv = self.beta.vector().array()
+            pert_vec = 0.001*bv*randn(bv.size)
+            self.beta.vector().set_local(bv + pert_vec)
+
 
 
     def init_bmelt(self,bmelt):

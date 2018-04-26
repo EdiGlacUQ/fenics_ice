@@ -44,6 +44,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd):
     param = {
             'outdir' : outdir,
             'rc_inv': rc_inv, #alpha + beta
+            'pflag': pflag,
             'inv_options': {'maxiter': maxiter}
             }
 
@@ -94,6 +95,11 @@ def main(maxiter, rc_inv, pflag, outdir, dd):
     xmlfile = File(os.path.join(outdir,'beta.xml'))
     vtkfile << slvr.beta
     xmlfile << slvr.beta
+
+    vtkfile = File(os.path.join(outdir,'beta_bgd.pvd'))
+    xmlfile = File(os.path.join(outdir,'beta_bgd.xml'))
+    vtkfile << slvr.beta_bgd
+    xmlfile << slvr.beta_bgd
 
     vtkfile = File(os.path.join(outdir,'bed.pvd'))
     xmlfile = File(os.path.join(outdir,'bed.xml'))

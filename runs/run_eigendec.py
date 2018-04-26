@@ -84,6 +84,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     #Determine eigenvalues with slepsc using the interfacing script written by James Maddison
     timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
     if slepsc_flag:
+
         class ddJ_wrapper(object):
             def __init__(self, ddJ_action, cntrl):
                 self.ddJ_action = ddJ_action

@@ -8,6 +8,7 @@ import os
 import timeit
 import time
 from IPython import embed
+import eigendecomposition
 
 
 
@@ -355,11 +356,31 @@ class ssa_solver:
         else:
             controlm = moola.DolfinPrimalVector(cntrl)
 
+        embed()
 
+        if type(cntrl) is list:
+            Hscale = []
+            for c in cntrl:
+                t0 = time.time()
+                self.set_hessian_action(c)
+                ddJw = ddJ_wrapper(self.ddJ,c)
+                lam,v = eigendecomposition.eig(ddJw.ddJ_F.vector().local_size(), ddJw.apply, hermitian = True, N_eigenvalues = 1)
+                Hscale.append(lam[0])
+                t1 = time.time()
+                print "Time for solve: {0} ".format(t1-t0)
+                self.solve_mom_eq()
 
         def Hinit(x):
             """ Returns the primal representation. """
             #events.increment("Dual -> primal map")
+            print('RATIO')
+            print('searchme')
+            print(max(x[0].array())/max(x[1].array()))
+            print(np.median(np.abs(x[0].array()))/np.median(np.abs(x[1].array())))
+            vscale = [100000.0,1.0]
+            for v,s in zip(x.vector_list,vscale):
+                v.data.vector().set_local(v.array()/s)
+
             if x.riesz_map.inner_product == "l2":
                 return moola.DolfinPrimalVectorSet([vec.primal() for vec in x.vector_list],
                 riesz_map = x.riesz_map)
@@ -373,7 +394,7 @@ class ssa_solver:
         problem = MoolaOptimizationProblem(rf)
         solver = moola.BFGS(problem, controlm, options={'jtol': 0,
                                                'gtol': 1e-9,
-                                               'Hinit': Hinit,
+                                               'Hinit': Hinit if type(cntrl) is list else 'default',
                                                'maxiter': self.param['inv_options']['maxiter'],
                                                'mem_lim': 10})
 
@@ -573,3 +594,14 @@ class ssa_solver:
         self.timestep(save=0, adjoint_flag=adjoint_flag)
         self.set_J_vaf()
         return assemble(self.J_vaf)
+
+
+class ddJ_wrapper(object):
+    def __init__(self, ddJ_action, cntrl):
+        self.ddJ_action = ddJ_action
+        self.ddJ_F = Function(cntrl.function_space())
+
+    def apply(self,x):
+        self.ddJ_F.vector().set_local(x.getArray())
+        self.ddJ_F.vector().apply('insert')
+        return self.ddJ_action(self.ddJ_F).vector().get_local()
