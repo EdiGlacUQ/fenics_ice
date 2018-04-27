@@ -9,6 +9,7 @@ import timeit
 import time
 from IPython import embed
 import eigendecomposition
+import eigenfunc
 
 
 
@@ -193,8 +194,8 @@ class ssa_solver:
         newton_params = {"nonlinear_solver":"newton",
                          "newton_solver":{"linear_solver":"umfpack",
                                           "maximum_iterations":20,
-                                          "absolute_tolerance":1.0e-9,
-                                          "relative_tolerance":1.0e-9,
+                                          "absolute_tolerance":1.0e-8,
+                                          "relative_tolerance":1.0e-8,
                                           "convergence_criterion":"incremental",
                                           "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
@@ -327,11 +328,11 @@ class ssa_solver:
                 end()
                 adj_inc_timestep()
 
-    def inversion(self, cntrl):
+    def inversion(self, cntrl2):
 
         #Record value of functional during minimization
         self.F_iter = 0
-        self.F_vals = np.zeros(10*self.param['inv_options']['maxiter']); #Initialize array
+        self.F_vals = np.zeros(20*self.param['inv_options']['maxiter']); #Initialize array
 
         #Callback function during minimization storing cost function value
         def derivative_cb(j, dj, m):
@@ -347,64 +348,73 @@ class ssa_solver:
         self.set_J_inv(verbose=True)
         J = Functional(self.J_inv)
 
-        #Control parameters and functional problem
-        control = [Control(x) for x in cntrl] if type(cntrl) is list else Control(cntrl)
-        rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
-        if type(cntrl) is list:
-            controlm = moola.DolfinPrimalVectorSet([moola.DolfinPrimalVector(x) for x in cntrl])
-        else:
-            controlm = moola.DolfinPrimalVector(cntrl)
+        for j in range(4):
+            cntrl = cntrl2[j % 2]
+            #Control parameters and functional problem
+            control = [Control(x) for x in cntrl] if type(cntrl) is list else Control(cntrl)
+            rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
 
-        embed()
 
-        if type(cntrl) is list:
-            Hscale = []
-            for c in cntrl:
-                t0 = time.time()
-                self.set_hessian_action(c)
-                ddJw = ddJ_wrapper(self.ddJ,c)
-                lam,v = eigendecomposition.eig(ddJw.ddJ_F.vector().local_size(), ddJw.apply, hermitian = True, N_eigenvalues = 1)
-                Hscale.append(lam[0])
-                t1 = time.time()
-                print "Time for solve: {0} ".format(t1-t0)
-                self.solve_mom_eq()
-
-        def Hinit(x):
-            """ Returns the primal representation. """
-            #events.increment("Dual -> primal map")
-            print('RATIO')
-            print('searchme')
-            print(max(x[0].array())/max(x[1].array()))
-            print(np.median(np.abs(x[0].array()))/np.median(np.abs(x[1].array())))
-            vscale = [100000.0,1.0]
-            for v,s in zip(x.vector_list,vscale):
-                v.data.vector().set_local(v.array()/s)
-
-            if x.riesz_map.inner_product == "l2":
-                return moola.DolfinPrimalVectorSet([vec.primal() for vec in x.vector_list],
-                riesz_map = x.riesz_map)
+            if type(cntrl) is list:
+                controlm = moola.DolfinPrimalVectorSet([moola.DolfinPrimalVector(x) for x in cntrl])
             else:
-                primal_vecs = zeros(len(x), dtype = "object")
-                primal_vecs[:] = [v.primal() for v in x.vector_list]
-                return moola.DolfinPrimalVectorSet(x.riesz_map.riesz_inv * primal_vecs,
-                riesz_map = x.riesz_map)
+                controlm = moola.DolfinPrimalVector(cntrl)
+
+            # if type(cntrl) is list:
+            #     Hscale = []
+            #     for c in cntrl:
+            #         t0 = time.time()
+            #         self.set_hessian_action(c)
+            #         A = eigenfunc.HessWrapper(self.ddJ,c)
+            #         [lam,v] = eigenfunc.eigens(A,k=10,n_iter=2)
+            #         #ddJw = ddJ_wrapper(self.ddJ,c)
+            #         #lam,v = eigendecomposition.eig(ddJw.ddJ_F.vector().local_size(), ddJw.apply, hermitian = True, N_eigenvalues = 1)
+            #         Hscale.append(lam[0])
+            #         t1 = time.time()
+            #         print "Time for solve: {0} ".format(t1-t0)
+            #         self.solve_mom_eq()
+
+            def Hinit(x):
+                """ Returns the primal representation. """
+                #events.increment("Dual -> primal map")
+                print('RATIO')
+                print('searchme')
+                print(max(x[0].array())/max(x[1].array()))
+                print(np.median(np.abs(x[0].array()))/np.median(np.abs(x[1].array())))
+                #vscale = [2.3e+08,1085230.0]
+                vscale = [2.3e+08,10000.0]
+                y = x.copy()
+                for v,s in zip(y.vector_list,vscale):
+                    v.data.vector().set_local(v.array()/s)
+
+                if x.riesz_map.inner_product == "l2":
+                    return moola.DolfinPrimalVectorSet([vec.primal() for vec in y.vector_list],
+                    riesz_map = y.riesz_map)
+                else:
+                    primal_vecs = zeros(len(y), dtype = "object")
+                    primal_vecs[:] = [v.primal() for v in y.vector_list]
+                    return moola.DolfinPrimalVectorSet(y.riesz_map.riesz_inv * primal_vecs,
+                    riesz_map = y.riesz_map)
+
+            problem = MoolaOptimizationProblem(rf)
+            solver = moola.BFGS(problem, controlm, options={'jtol': 1e-4,
+                                                   'gtol': 1e-9,
+                                                   'line_search_options' : {"ftol": 1e-4, "gtol": 0.9, "xtol": 1e-1, "start_stp": 1},
+                                                   'Hinit': Hinit if type(cntrl) is list else 'default',
+                                                   'maxiter': self.param['inv_options']['maxiter'],
+                                                   'mem_lim': 10})
+
+            sol = solver.solve()
+            opt_var = sol['control']
+
+            if type(cntrl) is list:
+                map(lambda x: x[0].vector().set_local(x[1].array()), zip(cntrl,opt_var))
+            else:
+                cntrl.vector().set_local(opt_var.array())
 
 
-        problem = MoolaOptimizationProblem(rf)
-        solver = moola.BFGS(problem, controlm, options={'jtol': 0,
-                                               'gtol': 1e-9,
-                                               'Hinit': Hinit if type(cntrl) is list else 'default',
-                                               'maxiter': self.param['inv_options']['maxiter'],
-                                               'mem_lim': 10})
 
-        sol = solver.solve()
-        opt_var = sol['control']
-
-        if type(cntrl) is list:
-            map(lambda x: x[0].vector().set_local(x[1].array()), zip(cntrl,opt_var))
-        else:
-            cntrl.vector().set_local(opt_var.array())
 
         #Scipy Optimization routine
         #opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
@@ -501,11 +511,13 @@ class ssa_solver:
 
         J_ls = gamma_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*(v-v_obs)**2.0)*self.dObs
 
+
         grad_alpha = grad(alpha)
         grad_alpha_ = project(grad_alpha, self.RT)
         lap_alpha = div(grad_alpha_)
 
         betadiff = beta-beta_bgd
+
         grad_betadiff = grad(betadiff)
         grad_betadiff_ = project(grad_betadiff, self.RT)
         lap_beta = div(grad_betadiff_)

@@ -180,6 +180,7 @@ class ismipC:
 
         self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
+        self.init_Bglen(self.x,self.y)
 
         self.init_mask(self.x,self.y)
 
@@ -197,7 +198,6 @@ class ismipC:
         self.B2 = (1000.0 + 1000.0*np.sin(3.0*w*xx)*np.sin(3.0*w*yy))
 
 
-
     def init_bmelt(self,x,y):
         '''Return bedrock topography in metres
         Input:
@@ -208,6 +208,15 @@ class ismipC:
 
         self.bmelt = 1.0*np.ones(yy.shape)
 
+    def init_Bglen(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        yy = np.meshgrid(x,y)[1]
+
+        self.Bglen = 10**(-16)*np.ones(yy.shape)
 
     def init_mask(self,x,y):
         '''Return ice mask

@@ -28,7 +28,7 @@ mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
 #Initialize Model
 param = {'eq_def' : 'weak',
         'solver': 'petsc',
-        'outdir' :'./output_ismipc/',
+        'outdir' :'../output/ismipc/',
         'A': 10**(-16),
         'rhoi': 910.0 }
 mdl = model.model(mesh,mask, param)
