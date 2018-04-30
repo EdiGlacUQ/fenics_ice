@@ -93,31 +93,31 @@ B_mod = np.array([0.0 if np.isclose(mn,0) else b/ml for ml,mn,b in zip(maskl,mas
 #Save mesh and data points at coordinates
 dd = './'
 
-File(''.join([dd,'smith450m_mesh.xml'])) << mesh
+File(''.join([dd,'mesh.xml'])) << mesh
 
 v.vector()[:] = bed.flatten()
-File(''.join([dd,'smith450m_mesh_bed.xml'])) <<  v
+File(''.join([dd,'bed.xml'])) <<  v
 
 v.vector()[:] = thick.flatten()
-File(''.join([dd,'smith450m_mesh_thick.xml'])) <<  v
+File(''.join([dd,'thick.xml'])) <<  v
 
 v.vector()[:] = mask.flatten()
-File(''.join([dd,'smith450m_mesh_mask.xml'])) <<  v
+File(''.join([dd,'mask.xml'])) <<  v
 
 v.vector()[:] = u_obs.flatten()
-File(''.join([dd,'smith450m_mesh_u_obs.xml'])) <<  v
+File(''.join([dd,'u_obs.xml'])) <<  v
 
 v.vector()[:] = v_obs.flatten()
-File(''.join([dd,'smith450m_mesh_v_obs.xml'])) <<  v
+File(''.join([dd,'v_obs.xml'])) <<  v
 
 v.vector()[:] = u_std.flatten()
-File(''.join([dd,'smith450m_mesh_u_std.xml'])) <<  v
+File(''.join([dd,'u_std.xml'])) <<  v
 
 v.vector()[:] = v_std.flatten()
-File(''.join([dd,'smith450m_mesh_v_std.xml'])) <<  v
+File(''.join([dd,'v_std.xml'])) <<  v
 
 v.vector()[:] = mask_vel.flatten()
-File(''.join([dd,'smith450m_mesh_mask_vel.xml'])) <<  v
+File(''.join([dd,'mask_vel.xml'])) <<  v
 
 v.vector()[:] = B_mod.flatten()
-File(''.join([dd,'smith450m_mesh_mask_B_mod.xml'])) <<  v
+File(''.join([dd,'B_mod.xml'])) <<  v

@@ -174,6 +174,8 @@ class ismipC:
         self.x = np.linspace(0, L, num=nx)
         self.y = np.linspace(0, L, num=ny)
 
+        self.ty = 31556926 #seconds in year from ismip document
+
         self.init_surf(self.x,self.y)
         self.init_bed(self.x,self.y)
         self.thick = self.surf - self.bed;
@@ -206,7 +208,7 @@ class ismipC:
         '''
         yy = np.meshgrid(x,y)[1]
 
-        self.bmelt = 1.0*np.ones(yy.shape)
+        self.bmelt = 0.0*np.ones(yy.shape)
 
     def init_Bglen(self,x,y):
         '''Return bedrock topography in metres
@@ -215,8 +217,8 @@ class ismipC:
         y -- y coordinates in metres as a numpy array
         '''
         yy = np.meshgrid(x,y)[1]
-
-        self.Bglen = 10**(-16)*np.ones(yy.shape)
+        A = 10**(-16)
+        self.Bglen = A**(-1.0/3.0)*np.ones(yy.shape)
 
     def init_mask(self,x,y):
         '''Return ice mask

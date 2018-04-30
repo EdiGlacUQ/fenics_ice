@@ -45,41 +45,29 @@ class model:
         #Output
         param['outdir'] = './output/'
 
-        #Equation and solver
-        param['eq_def'] = 'action'
-        param['solver'] = 'default'
-        param['solver_param'] = {}
 
         #Timestepping
         param['run_length'] = 1.0
         param['n_steps'] = 20
 
         #Solver options
-        param['snes_linesearch_alpha'] = 1e-9
-        param['solver_petsc'] = {'nonlinear_solver'      : 'snes',
-                            'snes_solver':
-                            {
-                            'linear_solver'         : 'umfpack',
-                            #'preconditioner'        : 'hypre',
-                            #'line_search'           : 'nleqerr',
-                            'relative_tolerance'    : 1e-18,
-                            'absolute_tolerance'    : 1.0,
-                            'solution_tolerance'    : 1e-18,
-                            'error_on_nonconvergence'  : False
-                            }}
+        param['picard_params'] = {"nonlinear_solver":"newton",
+                    "newton_solver":{"linear_solver":"umfpack",
+                    "maximum_iterations":200,
+                    "absolute_tolerance":1.0e-8,
+                    "relative_tolerance":5.0e-2,
+                    "convergence_criterion":"incremental",
+                    "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
-        #Default fenics solver. No line search.
-        param['solver_default']= {'newton_solver' :
-                {
-                'linear_solver'            : 'umfpack',
-                #'preconditioner'           : 'jacobi',
-                'relative_tolerance'       : 1e-15,
-                'absolute_tolerance'       : 1.0,
-                'relaxation_parameter'     : 0.7,
-                'maximum_iterations'       : 50,
-                'error_on_nonconvergence'  : False,
-                #'krylov_solver': {'monitor_convergence': True}
-                }}
+        param['newton_params'] = {"nonlinear_solver":"newton",
+                    "newton_solver":{"linear_solver":"umfpack",
+                    "maximum_iterations":20,
+                    "absolute_tolerance":1.0e-8,
+                    "relative_tolerance":1.0e-8,
+                    "convergence_criterion":"incremental",
+                    "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+
+
 
         param['inv_options'] = {'disp': True, 'maxiter': 5}
 
@@ -87,20 +75,6 @@ class model:
         param.update(param_in)
 
         param['dt'] = param['run_length']/param['n_steps']
-
-        #Set solver parameters
-        if param['solver'] == 'petsc':
-            print('Using Petsc to solve forward model')
-            param['solver_param'] = param['solver_petsc']
-        elif param['solver'] == 'default':
-            print('Using default solver for forward model')
-            param['solver_param'] = param['solver_default']
-        elif param['solver'] == 'custom':
-            print('Using custom solver for forward model')
-            param['solver_param'] = param['solver_custom']
-        else:
-            print('Unrecognized forward solver, using default')
-            param['solver_param'] = param['solver_default']
 
         self.param = param
 

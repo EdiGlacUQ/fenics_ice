@@ -11,7 +11,7 @@ nx = 360;
 ny = 360;
 
 #Length of domain
-L = 720e3
+L = 120e3
 
 #Output Location
 dd = '../input/ismipC/'

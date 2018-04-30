@@ -1,6 +1,7 @@
 from dolfin import *
 from dolfin_adjoint import *
 from dolfin_adjoint_sqrt_masslump import *
+from dolfin_adjoint_custom import EquationSolver
 import moola
 import numpy as np
 import ufl
@@ -184,45 +185,9 @@ class ssa_solver:
         #self.init_guess()
         #parameters['krylov_solver']['nonzero_initial_guess'] = True
         t0 = time.time()
-        picard_params = {"nonlinear_solver":"newton",
-                         "newton_solver":{"linear_solver":"umfpack",
-                                          "maximum_iterations":200,
-                                          "absolute_tolerance":1.0e-8,
-                                          "relative_tolerance":5.0e-2,
-                                          "convergence_criterion":"incremental",
-                                          "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
-        newton_params = {"nonlinear_solver":"newton",
-                         "newton_solver":{"linear_solver":"umfpack",
-                                          "maximum_iterations":20,
-                                          "absolute_tolerance":1.0e-8,
-                                          "relative_tolerance":1.0e-8,
-                                          "convergence_criterion":"incremental",
-                                          "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
 
-        from dolfin_adjoint_custom import EquationSolver
-        J_p = self.mom_Jac_p
-
-
-        class MomentumSolver(EquationSolver):
-          def forward_solve(self, x, deps):
-            #replace_map = dict(zip(self._EquationSolver__deps, deps))
-            replace_map = dict(zip(self.dependencies(), deps))
-
-            if not self._EquationSolver__initial_guess is None:
-              x.assign(replace_map[self._EquationSolver__initial_guess])
-            replace_map[self.x()] = x
-
-            lhs = replace(self._EquationSolver__lhs, replace_map)
-            rhs = 0 if self._EquationSolver__rhs == 0 else replace(self._EquationSolver__rhs, replace_map)
-            J = replace(self._EquationSolver__J, replace_map)
-
-            solve(lhs == rhs, x, self._EquationSolver__bcs, J = replace(J_p, replace_map), form_compiler_parameters = self._EquationSolver__form_compiler_parameters, solver_parameters = picard_params)
-            solve(lhs == rhs, x, self._EquationSolver__bcs, J = J, form_compiler_parameters = self._EquationSolver__form_compiler_parameters, solver_parameters = self._EquationSolver__solver_parameters)
-
-            return
-
-        MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, solver_parameters = newton_params).solve(annotate=annotate_flag)#self.param['solver_param'])
+        MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, J_p=self.mom_Jac_p, picard_params = self.param['picard_params'], solver_parameters = self.param['newton_params']).solve(annotate=annotate_flag)
         t1 = time.time()
         print "Time for solve: ", t1-t0
 
@@ -331,13 +296,11 @@ class ssa_solver:
     def inversion(self, cntrl2):
 
         #Record value of functional during minimization
-        self.F_iter = 0
-        self.F_vals = np.zeros(20*self.param['inv_options']['maxiter']); #Initialize array
+        self.F_vals = []; #Initialize array
 
         #Callback function during minimization storing cost function value
         def derivative_cb(j, dj, m):
-            self.F_vals[self.F_iter] = j
-            self.F_iter += 1
+            self.F_vals.append(j)
             print "j = %f" % (j)
 
         #Initial equation definition and solve
@@ -378,11 +341,8 @@ class ssa_solver:
             def Hinit(x):
                 """ Returns the primal representation. """
                 #events.increment("Dual -> primal map")
-                print('RATIO')
-                print('searchme')
-                print(max(x[0].array())/max(x[1].array()))
+
                 print(np.median(np.abs(x[0].array()))/np.median(np.abs(x[1].array())))
-                #vscale = [2.3e+08,1085230.0]
                 vscale = [2.3e+08,10000.0]
                 y = x.copy()
                 for v,s in zip(y.vector_list,vscale):
@@ -617,3 +577,28 @@ class ddJ_wrapper(object):
         self.ddJ_F.vector().set_local(x.getArray())
         self.ddJ_F.vector().apply('insert')
         return self.ddJ_action(self.ddJ_F).vector().get_local()
+
+
+class MomentumSolver(EquationSolver):
+
+    def __init__(self, *args, **kwargs):
+        self.picard_params = kwargs.pop("picard_params", None)
+        self.J_p = kwargs.pop("J_p", None)
+        super(MomentumSolver, self).__init__(*args, **kwargs)
+
+    def forward_solve(self, x, deps):
+        #replace_map = dict(zip(self._EquationSolver__deps, deps))
+        replace_map = dict(zip(self.dependencies(), deps))
+
+        if not self._EquationSolver__initial_guess is None:
+          x.assign(replace_map[self._EquationSolver__initial_guess])
+        replace_map[self.x()] = x
+
+        lhs = replace(self._EquationSolver__lhs, replace_map)
+        rhs = 0 if self._EquationSolver__rhs == 0 else replace(self._EquationSolver__rhs, replace_map)
+        J = replace(self._EquationSolver__J, replace_map)
+
+        solve(lhs == rhs, x, self._EquationSolver__bcs, J = replace(self.J_p, replace_map), form_compiler_parameters = self._EquationSolver__form_compiler_parameters, solver_parameters = self.picard_params)
+        solve(lhs == rhs, x, self._EquationSolver__bcs, J = J, form_compiler_parameters = self._EquationSolver__form_compiler_parameters, solver_parameters = self._EquationSolver__solver_parameters)
+
+        return

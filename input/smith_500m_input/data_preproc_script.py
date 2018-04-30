@@ -85,9 +85,9 @@ bed = bed_[:,xm]
 
 thick_ = bm_thick[ym,:];
 thick = thick_[:,xm]
-#thick_orig = np.copy(thick)
-#thick[thick_orig < 1] = 0 #No flow BC around these holes
-#thick[thick_orig == -9999.0] = 0
+thick_orig = np.copy(thick)
+thick[thick_orig < 1] = 0 #No flow BC around these holes
+thick[thick_orig == -9999.0] = 0
 
 shelves_ = bm_shelves[ym,:];
 shelves = shelves_[:,xm]
@@ -226,7 +226,6 @@ plt.savefig('bed.png')
 plt.figure()
 cax = plt.imshow(thick > 1e-3)
 plt.title('Thickness > 0m')
-plt.colorbar(cax)
 cax.set_clim(0, 2)
 plt.savefig('thick.png')
 

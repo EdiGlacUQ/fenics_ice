@@ -14,29 +14,33 @@ import pickle
 from IPython import embed
 
 
-def main(maxiter, rc_inv, pflag, outdir, dd):
+def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny):
 
     #Load Data
-    data_mesh = Mesh(os.path.join(dd,'smith450m_mesh.xml'))
+    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
     Q = FunctionSpace(data_mesh, 'DG', 0)
-    bed = Function(Q,os.path.join(dd,'smith450m_mesh_bed.xml'), name = "bed")
-    thick = Function(Q,os.path.join(dd,'smith450m_mesh_thick.xml'), name = "thick")
-    mask = Function(Q,os.path.join(dd,'smith450m_mesh_mask.xml'), name = "mask")
-    u_obs = Function(Q,os.path.join(dd,'smith450m_mesh_u_obs.xml'), name = "u_obs")
-    v_obs = Function(Q,os.path.join(dd,'smith450m_mesh_v_obs.xml'), name = "v_obs")
-    u_std = Function(Q,os.path.join(dd,'smith450m_mesh_u_std.xml'), name = "u_std")
-    v_std = Function(Q,os.path.join(dd,'smith450m_mesh_v_std.xml'), name = "v_std")
-    mask_vel = Function(Q,os.path.join(dd,'smith450m_mesh_mask_vel.xml'), name = "mask_vel")
-    B_mod = Function(Q,os.path.join(dd,'smith450m_mesh_mask_B_mod.xml'), name = "B_mod")
+    bed = Function(Q,os.path.join(dd,'bed.xml'), name = "bed")
+    thick = Function(Q,os.path.join(dd,'thick.xml'), name = "thick")
+    mask = Function(Q,os.path.join(dd,'mask.xml'), name = "mask")
+    u_obs = Function(Q,os.path.join(dd,'u_obs.xml'), name = "u_obs")
+    v_obs = Function(Q,os.path.join(dd,'v_obs.xml'), name = "v_obs")
+    u_std = Function(Q,os.path.join(dd,'u_std.xml'), name = "u_std")
+    v_std = Function(Q,os.path.join(dd,'v_std.xml'), name = "v_std")
+    mask_vel = Function(Q,os.path.join(dd,'mask_vel.xml'), name = "mask_vel")
+    B_mod = Function(Q,os.path.join(dd,'B_mod.xml'), name = "B_mod")
 
 
     #Generate model mesh
     gf = 'grid_data.npz'
     npzfile = np.load(os.path.join(dd,'grid_data.npz'))
-    nx = int(npzfile['nx'])
-    ny = int(npzfile['ny'])
+
     xlim = npzfile['xlim']
     ylim = npzfile['ylim']
+
+    if not nx:
+        nx = int(npzfile['nx'])
+    if not ny:
+        ny = int(npzfile['ny'])
 
     mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 
@@ -73,7 +77,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd):
 
     #Plots for quick output evaluation
     B2 = project(slvr.alpha*slvr.alpha,mdl.Q)
-    F_vals = [x for x in slvr.F_vals if x > 0]
+    F_vals = slvr.F_vals
 
     fu.plot_variable(B2, 'B2', mdl.param['outdir'])
     fu.plot_inv_conv(F_vals, 'convergence', mdl.param['outdir'])
@@ -179,11 +183,13 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--maxiter', dest='maxiter', type=int, help='Maximum number of inversion iterations')
     parser.add_argument('-r', '--rc_inv', dest='rc_inv', nargs=5, type=float, required=True, help='Scaling Constants')
     parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, required=True, help='Inversion parameters: alpha (0), beta (1), alpha and beta (2)')
+    parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction (defaults to data resolution)')
+    parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction (defaults to data resolution)')
 
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
 
-    parser.set_defaults(maxiter=15)
+    parser.set_defaults(maxiter=15,nx=False,ny=False)
     args = parser.parse_args()
 
     maxiter = args.maxiter
@@ -191,6 +197,8 @@ if __name__ == "__main__":
     pflag = args.pflag
     outdir = args.outdir
     dd = args.dd
+    nx = args.nx
+    ny = args.ny
 
     if not outdir:
         outdir = ''.join(['./run_inv_', datetime.datetime.now().strftime("%m%d%H%M%S")])
@@ -202,4 +210,4 @@ if __name__ == "__main__":
 
 
 
-    main(maxiter, rc_inv, pflag, outdir, dd)
+    main(maxiter, rc_inv, pflag, outdir, dd, nx, ny)
