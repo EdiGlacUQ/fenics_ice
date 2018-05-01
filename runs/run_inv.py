@@ -14,7 +14,7 @@ import pickle
 from IPython import embed
 
 
-def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny):
+def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, altiter):
 
     #Load Data
     data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
@@ -47,8 +47,10 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny):
     #Initialize Model
     param = {
             'outdir' : outdir,
-            'rc_inv': rc_inv, #alpha + beta
+            'rc_inv': rc_inv,
             'pflag': pflag,
+            'sim_flag': sim_flag,
+            'altiter': altiter,
             'inv_options': {'maxiter': maxiter}
             }
 
@@ -60,20 +62,16 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny):
     mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
     mdl.init_lat_dirichletbc()
     mdl.init_bmelt(Constant(0.0))
-    mdl.gen_alpha()
-    #mdl.init_alpha(Constant(sqrt(6000))) #Initialize using uniform alpha
-    mdl.init_beta(sqrt(B_mod))            #Comment to use uniform Bglen
     mdl.label_domain()
+
+    mdl.gen_alpha()
+    mdl.init_beta(mdl.apply_prmz(B_mod))            #Comment to use uniform Bglen
 
     #Inversion
     slvr = solver.ssa_solver(mdl)
 
-    if pflag == 0:
-        slvr.inversion(slvr.alpha)
-    elif pflag == 1:
-        slvr.inversion(slvr.beta)
-    elif pflag == 2:
-        slvr.inversion([slvr.alpha,slvr.beta])
+    opts = {'0': slvr.alpha, '1': slvr.beta, '2': [slvr.alpha,slvr.beta]}
+    slvr.inversion(opts[str(pflag)])
 
     #Plots for quick output evaluation
     B2 = project(slvr.alpha*slvr.alpha,mdl.Q)
@@ -164,7 +162,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny):
 
     vtkfile = File(os.path.join(outdir,'Bglen.pvd'))
     xmlfile = File(os.path.join(outdir,'Bglen.xml'))
-    Bglen = project(mdl.beta*mdl.beta,mdl.M)
+    Bglen = project(mdl.rev_prmz(mdl.beta),mdl.M)
     vtkfile << Bglen
     xmlfile << Bglen
 
@@ -183,13 +181,15 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--maxiter', dest='maxiter', type=int, help='Maximum number of inversion iterations')
     parser.add_argument('-r', '--rc_inv', dest='rc_inv', nargs=5, type=float, required=True, help='Scaling Constants')
     parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, required=True, help='Inversion parameters: alpha (0), beta (1), alpha and beta (2)')
+    parser.add_argument('-s', '--simultaneousmethod', dest='sim_flag', action='store_true', help='Dual parameter inversion for both parameters simultaneously (default is to alternative through parameters)')
+    parser.add_argument('-a', '--altiter', dest='altiter', type=int, help='Number of times to iterate through parameters for inversions w/ more than one parameter (not applicable when conducting dual inversion)')
     parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction (defaults to data resolution)')
     parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction (defaults to data resolution)')
 
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
 
-    parser.set_defaults(maxiter=15,nx=False,ny=False)
+    parser.set_defaults(maxiter=15,nx=False,ny=False,sim_flag=False,altiter=2)
     args = parser.parse_args()
 
     maxiter = args.maxiter
@@ -199,6 +199,8 @@ if __name__ == "__main__":
     dd = args.dd
     nx = args.nx
     ny = args.ny
+    sim_flag = args.sim_flag
+    altiter = args.altiter
 
     if not outdir:
         outdir = ''.join(['./run_inv_', datetime.datetime.now().strftime("%m%d%H%M%S")])
@@ -210,4 +212,4 @@ if __name__ == "__main__":
 
 
 
-    main(maxiter, rc_inv, pflag, outdir, dd, nx, ny)
+    main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, altiter)

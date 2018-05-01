@@ -39,6 +39,10 @@ class ssa_solver:
         self.bmelt = model.bmelt
         self.latbc = model.latbc
 
+        #Parameterization of alpha/beta
+        self.apply_prmz = model.apply_prmz
+        self.rev_prmz = model.rev_prmz
+
         #Facet normals
         self.nm = model.nm
 
@@ -136,7 +140,7 @@ class ssa_solver:
 
         #Sliding law
         #B2 = exp(alpha)
-        B2 = alpha*alpha
+        B2 = self.rev_prmz(alpha)
 
         #Switch parameters
         H_s = -rhow/rhoi * bed
@@ -176,18 +180,22 @@ class ssa_solver:
     def solve_mom_eq(self, annotate_flag=True):
         #Dirichlet Boundary Conditons: Zero flow
 
-        bc0 = DirichletBC(self.V, self.latbc, self.ff, self.GAMMA_LAT)
-        bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF)
-        self.bcs = [bc0, bc1]
+        self.bcs = []
+        ff_array = self.ff.array()
+        bc0 = DirichletBC(self.V, self.latbc, self.ff, self.GAMMA_LAT) if self.GAMMA_LAT in ff_array else False
+        bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF) if self.GAMMA_NF in ff_array else False
+
+        for j in [bc0,bc1]:
+            if j: self.bcs.append(j)
 
 
-        #Non zero initial perturbation
-        #self.init_guess()
-        #parameters['krylov_solver']['nonzero_initial_guess'] = True
         t0 = time.time()
 
+        newton_params = self.param['newton_params']
+        picard_params = self.param['picard_params']
+        J_p = self.mom_Jac_p
+        MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, J_p=J_p, picard_params = picard_params, solver_parameters = newton_params).solve(annotate=annotate_flag)
 
-        MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, J_p=self.mom_Jac_p, picard_params = self.param['picard_params'], solver_parameters = self.param['newton_params']).solve(annotate=annotate_flag)
         t1 = time.time()
         print "Time for solve: ", t1-t0
 
@@ -293,7 +301,7 @@ class ssa_solver:
                 end()
                 adj_inc_timestep()
 
-    def inversion(self, cntrl2):
+    def inversion(self, cntrl_input):
 
         #Record value of functional during minimization
         self.F_vals = []; #Initialize array
@@ -312,68 +320,82 @@ class ssa_solver:
         J = Functional(self.J_inv)
 
 
-        for j in range(4):
-            cntrl = cntrl2[j % 2]
+        if type(cntrl_input) is not list:
+            cc = Control(cntrl_input)
+            rf = ReducedFunctional(J, cc, derivative_cb_post = derivative_cb)
+
+            ccm = moola.DolfinPrimalVector(cntrl_input)
+            problem = MoolaOptimizationProblem(rf)
+            solver = moola.BFGS(problem, ccm, options={'maxiter': self.param['inv_options']['maxiter']})
+
+            sol = solver.solve()
+            opt_var = sol['control']
+            cntrl_input.vector().set_local(opt_var.array())
+
+
+        elif self.param['sim_flag']:
+
             #Control parameters and functional problem
-            control = [Control(x) for x in cntrl] if type(cntrl) is list else Control(cntrl)
-            rf = ReducedFunctional(J, control, derivative_cb_post = derivative_cb)
+            cc = [Control(x) for x in cntrl_input]
+            rf = ReducedFunctional(J, cc, derivative_cb_post = derivative_cb)
 
+            ccm = moola.DolfinPrimalVectorSet([moola.DolfinPrimalVector(x) for x in cntrl_input])
 
-            if type(cntrl) is list:
-                controlm = moola.DolfinPrimalVectorSet([moola.DolfinPrimalVector(x) for x in cntrl])
-            else:
-                controlm = moola.DolfinPrimalVector(cntrl)
+            p_scale = []
+            for i, c in enumerate(cntrl_input):
+                t0 = time.time()
+                self.set_hessian_action(c)
+                A = eigenfunc.HessWrapper(self.ddJ,c)
+                [lam,v] = eigenfunc.eigens(A,k=10,n_iter=2)
+                p_scale.append(lam[0])
+                t1 = time.time()
+                print "{0}s to determine lead eigenvalue of paramater {1}".format(t1-t0, i)
+                print 'Value: {0}'.format(lam[0])
+                adj_reset() #Reset adjoint tape. Emprically necessary
+                self.def_mom_eq()
+                self.solve_mom_eq()
+                self.set_J_inv(verbose=False)
 
-            # if type(cntrl) is list:
-            #     Hscale = []
-            #     for c in cntrl:
-            #         t0 = time.time()
-            #         self.set_hessian_action(c)
-            #         A = eigenfunc.HessWrapper(self.ddJ,c)
-            #         [lam,v] = eigenfunc.eigens(A,k=10,n_iter=2)
-            #         #ddJw = ddJ_wrapper(self.ddJ,c)
-            #         #lam,v = eigendecomposition.eig(ddJw.ddJ_F.vector().local_size(), ddJw.apply, hermitian = True, N_eigenvalues = 1)
-            #         Hscale.append(lam[0])
-            #         t1 = time.time()
-            #         print "Time for solve: {0} ".format(t1-t0)
-            #         self.solve_mom_eq()
-
-            def Hinit(x):
-                """ Returns the primal representation. """
-                #events.increment("Dual -> primal map")
-
-                print(np.median(np.abs(x[0].array()))/np.median(np.abs(x[1].array())))
-                vscale = [2.3e+08,10000.0]
-                y = x.copy()
-                for v,s in zip(y.vector_list,vscale):
-                    v.data.vector().set_local(v.array()/s)
-
-                if x.riesz_map.inner_product == "l2":
-                    return moola.DolfinPrimalVectorSet([vec.primal() for vec in y.vector_list],
-                    riesz_map = y.riesz_map)
-                else:
-                    primal_vecs = zeros(len(y), dtype = "object")
-                    primal_vecs[:] = [v.primal() for v in y.vector_list]
-                    return moola.DolfinPrimalVectorSet(y.riesz_map.riesz_inv * primal_vecs,
-                    riesz_map = y.riesz_map)
+            Hinit = Hinit_gen(p_scale)
 
             problem = MoolaOptimizationProblem(rf)
-            solver = moola.BFGS(problem, controlm, options={'jtol': 1e-4,
+            solver = moola.BFGS(problem, ccm, options={'jtol': 1e-4,
                                                    'gtol': 1e-9,
                                                    'line_search_options' : {"ftol": 1e-4, "gtol": 0.9, "xtol": 1e-1, "start_stp": 1},
-                                                   'Hinit': Hinit if type(cntrl) is list else 'default',
+                                                   'Hinit': Hinit,
                                                    'maxiter': self.param['inv_options']['maxiter'],
                                                    'mem_lim': 10})
 
             sol = solver.solve()
             opt_var = sol['control']
 
-            if type(cntrl) is list:
-                map(lambda x: x[0].vector().set_local(x[1].array()), zip(cntrl,opt_var))
-            else:
+
+            map(lambda x: x[0].vector().set_local(x[1].array()), zip(cntrl,opt_var))
+
+        else:
+            altiter = self.param['altiter']
+            nparam = len(cntrl_input)
+
+            for j in range(altiter*nparam):
+                cntrl = cntrl_input[j % nparam]
+
+                #Control parameters and functional problem
+                cc = Control(cntrl)
+                rf = ReducedFunctional(J, cc, derivative_cb_post = derivative_cb)
+
+                ccm  = moola.DolfinPrimalVector(cntrl)
+
+
+                problem = MoolaOptimizationProblem(rf)
+                solver = moola.BFGS(problem, ccm, options={'jtol': 1e-4,
+                                                       'gtol': 1e-9,
+                                                       'line_search_options' : {"ftol": 1e-4, "gtol": 0.9, "xtol": 1e-1, "start_stp": 1},
+                                                       'maxiter': self.param['inv_options']['maxiter'],
+                                                       'mem_lim': 10})
+
+                sol = solver.solve()
+                opt_var = sol['control']
                 cntrl.vector().set_local(opt_var.array())
-
-
 
 
         #Scipy Optimization routine
@@ -413,39 +435,13 @@ class ssa_solver:
         return eps_2
 
     def viscosity(self,U):
-        B = self.beta*self.beta
+        B = self.rev_prmz(self.beta)
         n = self.param['n']
 
         eps_2 = self.effective_strain_rate(U)
         nu = 0.5 * B * eps_2**((1.0-n)/(2.0*n))
 
         return nu
-
-    def init_guess(self):
-        #Simplify accessing fields and parameters
-        bed = self.bed
-        H = self.H
-        alpha = self.alpha
-
-        rhoi = self.param['rhoi']
-        rhow = self.param['rhow']
-        delta = 1.0 - rhoi/rhow
-        g = self.param['g']
-        n = self.param['n']
-        tol = self.param['tol']
-
-        B2 = alpha*alpha
-        H_s = -rhow/rhoi * bed
-        fl_ex = ufl.operators.Conditional(H <= H_s, 1.0, 0.0)
-
-        s = project((1-fl_ex) * (bed + H),self.Q)
-        grads = as_vector([s.dx(0), s.dx(1)])
-        U_ = project((1-fl_ex)*(rhoi*g*H*grads)/B2, self.V)
-
-        self.U.assign(U_)
-
-        vtkfile = File('U_init.pvd')
-        vtkfile << self.U
 
     def set_J_inv(self, verbose=False):
 
@@ -602,3 +598,23 @@ class MomentumSolver(EquationSolver):
         solve(lhs == rhs, x, self._EquationSolver__bcs, J = J, form_compiler_parameters = self._EquationSolver__form_compiler_parameters, solver_parameters = self._EquationSolver__solver_parameters)
 
         return
+
+
+def Hinit_gen(p_scale):
+    def Hinit(x):
+        """ Returns the primal representation. """
+        #p_scale = [2.3e+08,10000.0]
+        y = x.copy()
+        for v,s in zip(y.vector_list,p_scale):
+            v.data.vector().set_local(v.array()/s)
+
+        if x.riesz_map.inner_product == "l2":
+            return moola.DolfinPrimalVectorSet([vec.primal() for vec in y.vector_list],
+            riesz_map = y.riesz_map)
+        else:
+            primal_vecs = zeros(len(y), dtype = "object")
+            primal_vecs[:] = [v.primal() for v in y.vector_list]
+            return moola.DolfinPrimalVectorSet(y.riesz_map.riesz_inv * primal_vecs,
+            riesz_map = y.riesz_map)
+
+    return Hinit

@@ -207,6 +207,7 @@ B_ = di_B[ym3,:]
 B = B_[:,xm3]
 
 
+
 outfile = 'grid_data'
 np.savez(outfile,nx=nx,ny=ny,xlim=xlim,ylim=ylim, Lx=Lx, Ly=Ly,
             xcoord_bm=xcoord_bm,ycoord_bm=ycoord_bm,

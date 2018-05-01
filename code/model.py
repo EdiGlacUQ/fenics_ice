@@ -78,6 +78,12 @@ class model:
 
         self.param = param
 
+    def apply_prmz(self, x):
+        return sqrt(x)
+
+    def rev_prmz(self, x):
+        return x*x
+
     def def_vel_mask(self):
         self.mask_vel = project(Constant(0.0), self.M)
 
@@ -194,7 +200,7 @@ class model:
 
         alpha_tmp1 = Max(alpha_, a_lb)
         alpha_tmp2 = Min(alpha_tmp1, a_ub)
-        alpha = sqrt(alpha_tmp2)
+        alpha = self.apply_prmz(alpha_tmp2)
         self.alpha = project(alpha,self.Q)
 
 

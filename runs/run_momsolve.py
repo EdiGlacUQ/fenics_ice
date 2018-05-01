@@ -51,8 +51,8 @@ def main(outdir, dd, nx, ny):
     mdl.gen_surf()
     mdl.init_mask(mask)
     mdl.init_bmelt(bmelt)
-    mdl.init_alpha(sqrt(B2))
-    mdl.init_beta(sqrt(Bglen), pert=False)
+    mdl.init_alpha(mdl.apply_prmz(B2))
+    mdl.init_beta(mdl.apply_prmz(Bglen), pert=False)
     mdl.label_domain()
 
     #Inversion
@@ -113,7 +113,7 @@ def main(outdir, dd, nx, ny):
 
     vtkfile = File(os.path.join(outdir,'Bglen.pvd'))
     xmlfile = File(os.path.join(outdir,'Bglen.xml'))
-    Bglen = project(mdl.beta*mdl.beta,mdl.M)
+    Bglen = project(mdl.rev_prmz(mdl.beta),mdl.M)
     vtkfile << Bglen
     xmlfile << Bglen
 
