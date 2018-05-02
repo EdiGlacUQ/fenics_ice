@@ -160,5 +160,12 @@ if __name__ == "__main__":
     outdir = args.outdir
     dd = args.dd
 
+    if not outdir:
+        outdir = ''.join(['./run_eigendec_', datetime.datetime.now().strftime("%m%d%H%M%S")])
+        print('Creating output directory: {0}'.format(outdir))
+        os.makedirs(outdir)
+    else:
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
 
     main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd)

@@ -5,6 +5,7 @@ from pylab import plt
 from matplotlib import colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from fenics import *
+from IPython import embed
 
 def plot_variable(u, name, direc, cmap='gist_yarg', scale='lin', numLvls=12,
                   umin=None, umax=None, tp=False, tpAlpha=0.5, show=True,
@@ -137,7 +138,7 @@ def U2Uobs(dd,noise_sdev=1.0):
     xmlfile << v
 
 
-    N.vector().set_local(Constant(noise_sdev))
+    N.assign(Constant(noise_sdev))
     xmlfile = File(os.path.join(dd,'u_std.xml'))
     xmlfile << N
 

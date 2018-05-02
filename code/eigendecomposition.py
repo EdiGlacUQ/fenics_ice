@@ -146,6 +146,8 @@ class HessWrapper(object):
         self.shape = (n,n)
 
     def apply(self, x):
+        if type(x) is not np.ndarray:
+            x = x.getArray()
         self.xfn.vector().set_local(x)
         self.xfn.vector().apply(str('insert'))
         return self._action(self.xfn).vector().get_local()

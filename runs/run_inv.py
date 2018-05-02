@@ -67,7 +67,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, altiter):
     mdl.gen_alpha()
     #mdl.init_alpha(Constant(1000.0))
     mdl.init_beta(mdl.apply_prmz(Bglen))            #Comment to use uniform Bglen
-
+    
     #Inversion
     slvr = solver.ssa_solver(mdl)
 
