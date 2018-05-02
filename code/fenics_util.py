@@ -1,8 +1,8 @@
 import numpy as np
 import sys
 import os
-from matplotlib import colors
 from pylab import plt
+from matplotlib import colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from fenics import *
 
@@ -106,3 +106,44 @@ def binread(fn):
   if sys.byteorder == 'little': file_contents.byteswap(True)
   fid.close()
   return file_contents
+
+
+def U2Uobs(dd,noise_sdev=1.0):
+
+    data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
+    V = VectorFunctionSpace(data_mesh, 'Lagrange', 1, dim=2)
+    V1 = FunctionSpace(data_mesh,'Lagrange',1)
+    M = FunctionSpace(data_mesh, 'DG', 0)
+
+    U = Function(V,os.path.join(dd,'U.xml'))
+    N = Function(M)
+
+    uu,vv = U.split(True)
+    u = project(uu,M)
+    v = project(vv,M)
+
+    u_array = u.vector().array()
+    v_array = v.vector().array()
+
+    u_noise = np.random.normal(scale=noise_sdev, size=u_array.size)
+    v_noise = np.random.normal(scale=noise_sdev, size=v_array.size)
+
+    u.vector().set_local(u.vector().array() + u_noise)
+    v.vector().set_local(v.vector().array() + v_noise)
+
+    xmlfile = File(os.path.join(dd,'u_obs.xml'))
+    xmlfile << u
+    xmlfile = File(os.path.join(dd,'v_obs.xml'))
+    xmlfile << v
+
+
+    N.vector().set_local(Constant(noise_sdev))
+    xmlfile = File(os.path.join(dd,'u_std.xml'))
+    xmlfile << N
+
+    xmlfile = File(os.path.join(dd,'v_std.xml'))
+    xmlfile << N
+
+    N.assign(Constant(1.0))
+    xmlfile = File(os.path.join(dd,'mask_vel.xml'))
+    xmlfile << N

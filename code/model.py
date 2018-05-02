@@ -124,7 +124,7 @@ class model:
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.M)
 
-    def init_vel_obs(self, u, v, mv, ustd=1, vstd=1):
+    def init_vel_obs(self, u, v, mv, ustd=1.0, vstd=1.0):
         self.u_obs = project(u,self.M)
         self.v_obs = project(v,self.M)
         self.mask_vel = project(mv,self.M)
@@ -277,12 +277,12 @@ class model:
             fl_xy = fl_ex(x_m, y_m)
 
             #Determine whether cell is in the domain
-            if near(m_xy,1, tol) & near(mv_xy,1, tol):
+            if near(m_xy,1.0, tol) & near(mv_xy,1.0, tol):
                 if fl_xy:
                     self.cf[c] = self.OMEGA_ICE_FLT_OBS
                 else:
                     self.cf[c] = self.OMEGA_ICE_GND_OBS
-            elif near(m_xy,1, tol):
+            elif near(m_xy,1.0, tol):
                 if fl_xy:
                     self.cf[c] = self.OMEGA_ICE_FLT
                 else:

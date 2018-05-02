@@ -19,15 +19,15 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, altiter):
     #Load Data
     data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
     Q = FunctionSpace(data_mesh, 'DG', 0)
-    bed = Function(Q,os.path.join(dd,'bed.xml'), name = "bed")
-    thick = Function(Q,os.path.join(dd,'thick.xml'), name = "thick")
-    mask = Function(Q,os.path.join(dd,'mask.xml'), name = "mask")
-    u_obs = Function(Q,os.path.join(dd,'u_obs.xml'), name = "u_obs")
-    v_obs = Function(Q,os.path.join(dd,'v_obs.xml'), name = "v_obs")
-    u_std = Function(Q,os.path.join(dd,'u_std.xml'), name = "u_std")
-    v_std = Function(Q,os.path.join(dd,'v_std.xml'), name = "v_std")
-    mask_vel = Function(Q,os.path.join(dd,'mask_vel.xml'), name = "mask_vel")
-    B_mod = Function(Q,os.path.join(dd,'B_mod.xml'), name = "B_mod")
+    bed = Function(Q,os.path.join(dd,'bed.xml'))
+    thick = Function(Q,os.path.join(dd,'thick.xml'))
+    mask = Function(Q,os.path.join(dd,'mask.xml'))
+    u_obs = Function(Q,os.path.join(dd,'u_obs.xml'))
+    v_obs = Function(Q,os.path.join(dd,'v_obs.xml'))
+    u_std = Function(Q,os.path.join(dd,'u_std.xml'))
+    v_std = Function(Q,os.path.join(dd,'v_std.xml'))
+    mask_vel = Function(Q,os.path.join(dd,'mask_vel.xml'))
+    Bglen = Function(Q,os.path.join(dd,'Bglen.xml'))
 
 
     #Generate model mesh
@@ -65,7 +65,8 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, altiter):
     mdl.label_domain()
 
     mdl.gen_alpha()
-    mdl.init_beta(mdl.apply_prmz(B_mod))            #Comment to use uniform Bglen
+    #mdl.init_alpha(Constant(1000.0))
+    mdl.init_beta(mdl.apply_prmz(Bglen))            #Comment to use uniform Bglen
 
     #Inversion
     slvr = solver.ssa_solver(mdl)

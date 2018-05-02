@@ -7,11 +7,11 @@ import os
 
 
 #Number of cells in grid
-nx = 360;
-ny = 360;
+nx = 120;
+ny = 120;
 
 #Length of domain
-L = 120e3
+L = 80e3
 
 #Output Location
 dd = '../input/ismipC/'

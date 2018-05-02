@@ -127,6 +127,11 @@ def main(outdir, dd, nx, ny):
     vtkfile << mdl.surf
     xmlfile << mdl.surf
 
+    vtkfile = File(os.path.join(outdir,'bmelt.pvd'))
+    xmlfile = File(os.path.join(outdir,'bmelt.xml'))
+    vtkfile << mdl.bmelt
+    xmlfile << mdl.bmelt
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')

@@ -83,18 +83,16 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
 
     #Determine eigenvalues with slepsc using the interfacing script written by James Maddison
     timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
-    if slepsc_flag:
+    A = eigendecomposition.HessWrapper(slvr.ddJ,slvr.alpha)
 
-        A = eigendecomposition.HessWrapper(slvr.ddJ,slvr.alpha)
+    if slepsc_flag:
         lam, v = eigendecomposition.slepsceig(A.xfn.vector().local_size(), A.apply, hermitian = True, N_eigenvalues = num_eig)
         fo = 'slepceig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
-        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, fo), "wb" ))
     else:
-    #Determine eigenvalues using a randomized method
-        A = eigendecomposition.HessWrapper(slvr.ddJ,slvr.alpha)
         lam,v = eigendecomposition.randeig(A,k=num_eig,n_iter=n_iter)
         fo = 'randeig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
-        pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, fo), "wb" ))
+
+    pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, fo), "wb" ))
 
 
     #Sanity checks on eigenvalues/eigenvectors.
