@@ -85,26 +85,14 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
     if slepsc_flag:
 
-        class ddJ_wrapper(object):
-            def __init__(self, ddJ_action, cntrl):
-                self.ddJ_action = ddJ_action
-                self.ddJ_F = Function(cntrl.function_space())
-
-            def apply(self,x):
-                self.ddJ_F.vector().set_local(x.getArray())
-                self.ddJ_F.vector().apply('insert')
-                return self.ddJ_action(self.ddJ_F).vector().get_local()
-
-
-        ddJw = ddJ_wrapper(slvr.ddJ,slvr.alpha)
-        lam, v = eigendecomposition.eig(ddJw.ddJ_F.vector().local_size(), ddJw.apply, hermitian = True, N_eigenvalues = num_eig)
+        A = eigendecomposition.HessWrapper(slvr.ddJ,slvr.alpha)
+        lam, v = eigendecomposition.slepsceig(A.xfn.vector().local_size(), A.apply, hermitian = True, N_eigenvalues = num_eig)
         fo = 'slepceig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
         pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, fo), "wb" ))
-        A = eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha) #for sanity checks
     else:
     #Determine eigenvalues using a randomized method
-        A = eigenfunc.HessWrapper(slvr.ddJ,slvr.alpha)
-        [lam,v] = eigenfunc.eigens(A,k=num_eig,n_iter=n_iter)
+        A = eigendecomposition.HessWrapper(slvr.ddJ,slvr.alpha)
+        lam,v = eigendecomposition.randeig(A,k=num_eig,n_iter=n_iter)
         fo = 'randeig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
         pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, fo), "wb" ))
 
