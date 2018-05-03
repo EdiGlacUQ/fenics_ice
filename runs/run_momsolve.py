@@ -17,13 +17,20 @@ from IPython import embed
 def main(outdir, dd, nx, ny):
 
     #Load Data
-    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
-    M = FunctionSpace(data_mesh, 'DG', 0)
+    mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    M = FunctionSpace(mesh, 'DG', 0)
+
+    #Bed function space depends on whether we are loading a previous run, or from data
+    try:
+        bed = Function(M,os.path.join(dd,'bed.xml'))
+    else:
+        Q = FunctionSpace(mesh, 'DG', 0)
+        bed = Function(Q,os.path.join(dd,'bed.xml'))
+
 
     B2 = Function(M,os.path.join(dd,'B2.xml'))
     Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
     bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
-    bed = Function(M,os.path.join(dd,'bed.xml'))
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
 
@@ -119,6 +126,7 @@ def main(outdir, dd, nx, ny):
 
     vtkfile = File(os.path.join(outdir,'B2.pvd'))
     xmlfile = File(os.path.join(outdir,'B2.xml'))
+    B2 = Project(mdl.rev_prmz(mdl.alpha), mdl.M)
     vtkfile << B2
     xmlfile << B2
 

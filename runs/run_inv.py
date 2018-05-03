@@ -17,17 +17,25 @@ from IPython import embed
 def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, altiter):
 
     #Load Data
-    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
-    Q = FunctionSpace(data_mesh, 'DG', 0)
-    bed = Function(Q,os.path.join(dd,'bed.xml'))
-    thick = Function(Q,os.path.join(dd,'thick.xml'))
-    mask = Function(Q,os.path.join(dd,'mask.xml'))
-    u_obs = Function(Q,os.path.join(dd,'u_obs.xml'))
-    v_obs = Function(Q,os.path.join(dd,'v_obs.xml'))
-    u_std = Function(Q,os.path.join(dd,'u_std.xml'))
-    v_std = Function(Q,os.path.join(dd,'v_std.xml'))
-    mask_vel = Function(Q,os.path.join(dd,'mask_vel.xml'))
-    Bglen = Function(Q,os.path.join(dd,'Bglen.xml'))
+    mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    M = FunctionSpace(mesh, 'DG', 0)
+
+    #Bed function space depends on whether we are loading a previous run, or from data
+    try:
+        bed = Function(M,os.path.join(dd,'bed.xml'))
+    else:
+        Q = FunctionSpace(mesh, 'DG', 0)
+        bed = Function(Q,os.path.join(dd,'bed.xml'))
+
+
+    thick = Function(M,os.path.join(dd,'thick.xml'))
+    mask = Function(M,os.path.join(dd,'mask.xml'))
+    u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
+    v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
+    u_std = Function(M,os.path.join(dd,'u_std.xml'))
+    v_std = Function(M,os.path.join(dd,'v_std.xml'))
+    mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
+    Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
 
 
     #Generate model mesh
@@ -67,7 +75,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, altiter):
     mdl.gen_alpha()
     #mdl.init_alpha(Constant(1000.0))
     mdl.init_beta(mdl.apply_prmz(Bglen))            #Comment to use uniform Bglen
-    
+
     #Inversion
     slvr = solver.ssa_solver(mdl)
 
@@ -75,7 +83,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, altiter):
     slvr.inversion(opts[str(pflag)])
 
     #Plots for quick output evaluation
-    B2 = project(slvr.alpha*slvr.alpha,mdl.Q)
+    B2 = project(mdl.rev_prmz(slvr.alpha),mdl.M)
     F_vals = slvr.F_vals
 
     fu.plot_variable(B2, 'B2', mdl.param['outdir'])

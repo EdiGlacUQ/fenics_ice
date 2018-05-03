@@ -27,24 +27,25 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
         param['rc_inv'] = rc_inv2
 
     #Complete Mesh and data mask
-    data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
-    M_dm = FunctionSpace(data_mesh,'DG',0)
-    data_mask = Function(M_dm,os.path.join(dd,'data_mask.xml'))
+    #data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
+    #M_dm = FunctionSpace(data_mesh,'DG',0)
+    #data_mask = Function(M_dm,os.path.join(dd,'data_mask.xml'))
 
     #Ice only mesh
-    mdl_mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
     #Set up Function spaces
-    V = VectorFunctionSpace(mdl_mesh,'Lagrange',1,dim=2)
-    Q = FunctionSpace(mdl_mesh,'Lagrange',1)
-    M = FunctionSpace(mdl_mesh,'DG',0)
+    V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
+    Q = FunctionSpace(mesh,'Lagrange',1)
+    M = FunctionSpace(mesh,'DG',0)
 
     #Load fields
     U = Function(V,os.path.join(dd,'U.xml'))
+
     alpha = Function(Q,os.path.join(dd,'alpha.xml'))
     beta = Function(Q,os.path.join(dd,'beta.xml'))
     bed = Function(Q,os.path.join(dd,'bed.xml'))
-    surf = Function(Q,os.path.join(dd,'surf.xml'))
+
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
     mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
@@ -54,10 +55,10 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     v_std = Function(M,os.path.join(dd,'v_std.xml'))
     uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
     Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
-    B2 = Function(Q,os.path.join(dd,'B2.xml'))
+
 
     #Initialize our model object
-    mdl = model.model(data_mesh,data_mask, param)
+    mdl = model.model(mesh,mask, param)
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
