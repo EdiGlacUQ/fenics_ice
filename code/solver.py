@@ -181,12 +181,14 @@ class ssa_solver:
         #Dirichlet Boundary Conditons: Zero flow
 
         self.bcs = []
-        ff_array = self.ff.array()
-        bc0 = DirichletBC(self.V, self.latbc, self.ff, self.GAMMA_LAT) if self.GAMMA_LAT in ff_array else False
-        bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF) if self.GAMMA_NF in ff_array else False
 
-        for j in [bc0,bc1]:
-            if j: self.bcs.append(j)
+        if not self.param['periodic_bc']:
+            ff_array = self.ff.array()
+            bc0 = DirichletBC(self.V, self.latbc, self.ff, self.GAMMA_LAT) if self.GAMMA_LAT in ff_array else False
+            bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF) if self.GAMMA_NF in ff_array else False
+
+            for j in [bc0,bc1]:
+                if j: self.bcs.append(j)
 
 
         t0 = time.time()

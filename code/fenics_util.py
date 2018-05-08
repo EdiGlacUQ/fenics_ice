@@ -111,8 +111,8 @@ def binread(fn):
 
 def U2Uobs(dd,noise_sdev=1.0):
 
-    data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
-    V = VectorFunctionSpace(data_mesh, 'Lagrange', 1, dim=2)
+    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    V = VectorFunctionSpace(data_mesh, 'Lagrange', 1, dim=2,constrained_domain=PeriodicBoundary(40e3))
     V1 = FunctionSpace(data_mesh,'Lagrange',1)
     M = FunctionSpace(data_mesh, 'DG', 0)
 
@@ -148,3 +148,28 @@ def U2Uobs(dd,noise_sdev=1.0):
     N.assign(Constant(1.0))
     xmlfile = File(os.path.join(dd,'mask_vel.xml'))
     xmlfile << N
+
+
+
+class PeriodicBoundary(SubDomain):
+    def __init__(self,L):
+        self.L = L
+        super(PeriodicBoundary, self).__init__()
+
+    # Left boundary is "target domain" G
+    def inside(self, x, on_boundary):
+        # return True if on left or bottom boundary AND NOT on one of the two corners (0, 1) and (1, 0)
+        return bool((near(x[0], 0) or near(x[1], 0)) and
+                (not ((near(x[0], 0) and near(x[1], self.L)) or
+                        (near(x[0], self.L) and near(x[1], 0)))) and on_boundary)
+
+    def map(self, x, y):
+        if near(x[0], self.L) and near(x[1], self.L):
+            y[0] = x[0] - self.L
+            y[1] = x[1] - self.L
+        elif near(x[0], self.L):
+            y[0] = x[0] - self.L
+            y[1] = x[1]
+        else:   # near(x[1], 1)
+            y[0] = x[0]
+            y[1] = x[1] - self.L

@@ -7,11 +7,11 @@ import os
 
 
 #Number of cells in grid
-nx = 120;
-ny = 120;
+nx = 20;
+ny = 20;
 
 #Length of domain
-L = 80e3
+L = 40e3
 
 #Output Location
 dd = '../input/ismipC/'
@@ -29,7 +29,7 @@ dof_x = dof_coordinates[:, 0]
 dof_y = dof_coordinates[:, 1]
 
 #Sampling Mesh, identical to Fenics mesh
-domain = test_domains.ismipC(L,nx=nx+1,ny=ny+1)
+domain = test_domains.ismipC(L,nx=nx+1,ny=ny+1, tiles=1.0)
 xcoord = domain.x
 ycoord = domain.y
 xycoord = (xcoord, ycoord)

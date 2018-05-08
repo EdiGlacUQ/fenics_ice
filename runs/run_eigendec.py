@@ -35,7 +35,11 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
     #Set up Function spaces
-    V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
+    if not param['periodic_bc']:
+        self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
+    else:
+        self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(self.param['periodic_bc']))
+
     Q = FunctionSpace(mesh,'Lagrange',1)
     M = FunctionSpace(mesh,'DG',0)
 

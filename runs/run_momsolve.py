@@ -14,20 +14,13 @@ import pickle
 from IPython import embed
 
 
-def main(outdir, dd, nx, ny):
+def main(outdir, dd, bflag, nx, ny):
 
     #Load Data
-    mesh = Mesh(os.path.join(dd,'mesh.xml'))
-    M = FunctionSpace(mesh, 'DG', 0)
+    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    M = FunctionSpace(data_mesh, 'DG', 0)
 
-    #Bed function space depends on whether we are loading a previous run, or from data
-    try:
-        bed = Function(M,os.path.join(dd,'bed.xml'))
-    else:
-        Q = FunctionSpace(mesh, 'DG', 0)
-        bed = Function(Q,os.path.join(dd,'bed.xml'))
-
-
+    bed = Function(M,os.path.join(dd,'bed.xml'))
     B2 = Function(M,os.path.join(dd,'B2.xml'))
     Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
     bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
@@ -47,9 +40,16 @@ def main(outdir, dd, nx, ny):
 
     mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 
+    if bflag:
+        L1 = xlim[-1] - xlim[0]
+        L2 = ylim[-1] - ylim[0]
+        assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
+        bflag = L1
+
     #Initialize Model
     param = {
-            'outdir' : outdir
+            'outdir' : outdir,
+            'periodic_bc': bflag
             }
 
     mdl = model.model(mesh,mask, param)
@@ -126,7 +126,7 @@ def main(outdir, dd, nx, ny):
 
     vtkfile = File(os.path.join(outdir,'B2.pvd'))
     xmlfile = File(os.path.join(outdir,'B2.xml'))
-    B2 = Project(mdl.rev_prmz(mdl.alpha), mdl.M)
+    B2 = project(mdl.rev_prmz(mdl.alpha), mdl.M)
     vtkfile << B2
     xmlfile << B2
 
@@ -144,14 +144,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
+    parser.add_argument('-b', '--boundaries', dest='bflag', action='store_true', help='Periodic boundary conditions')
     parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction (defaults to data resolution)')
     parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction (defaults to data resolution)')
 
-    parser.set_defaults(nx=False,ny=False)
+    parser.set_defaults(bflag=False,nx=False,ny=False)
     args = parser.parse_args()
 
     outdir = args.outdir
     dd = args.dd
+    bflag = args.bflag
     nx = args.nx
     ny = args.ny
 
@@ -165,4 +167,4 @@ if __name__ == "__main__":
 
 
 
-    main(outdir, dd, nx, ny)
+    main(outdir, dd, bflag, nx, ny)

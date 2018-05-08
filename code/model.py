@@ -18,10 +18,13 @@ class model:
         #Generate Domain and Function Spaces
         self.gen_domain()
         self.nm = FacetNormal(self.mesh)
-        self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
         self.M = FunctionSpace(self.mesh,'DG',0)
         self.RT = FunctionSpace(self.mesh,'RT',1)
+        if not self.param['periodic_bc']:
+            self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
+        else:
+            self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2,constrained_domain=PeriodicBoundary(self.param['periodic_bc']))
 
         #Default velocity mask and Beta fields
         self.def_vel_mask()
@@ -45,7 +48,6 @@ class model:
         #Output
         param['outdir'] = './output/'
 
-
         #Timestepping
         param['run_length'] = 1.0
         param['n_steps'] = 20
@@ -67,7 +69,8 @@ class model:
                     "convergence_criterion":"incremental",
                     "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
-
+        #Boundary Conditions
+        param['periodic_bc'] = False
 
         param['inv_options'] = {'disp': True, 'maxiter': 5}
 
@@ -326,3 +329,28 @@ class model:
 
                 elif near(mv,self.MASK_XD,tol):
                     self.ff[f] = self.GAMMA_NF
+
+
+
+class PeriodicBoundary(SubDomain):
+    def __init__(self,L):
+        self.L = L
+        super(PeriodicBoundary, self).__init__()
+
+    # Left boundary is "target domain" G
+    def inside(self, x, on_boundary):
+        # return True if on left or bottom boundary AND NOT on one of the two corners (0, 1) and (1, 0)
+        return bool((near(x[0], 0) or near(x[1], 0)) and
+                (not ((near(x[0], 0) and near(x[1], self.L)) or
+                        (near(x[0], self.L) and near(x[1], 0)))) and on_boundary)
+
+    def map(self, x, y):
+        if near(x[0], self.L) and near(x[1], self.L):
+            y[0] = x[0] - self.L
+            y[1] = x[1] - self.L
+        elif near(x[0], self.L):
+            y[0] = x[0] - self.L
+            y[1] = x[1]
+        else:   # near(x[1], 1)
+            y[0] = x[0]
+            y[1] = x[1] - self.L

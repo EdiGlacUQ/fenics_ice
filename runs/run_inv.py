@@ -14,19 +14,14 @@ import pickle
 from IPython import embed
 
 
-def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, altiter):
+def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
 
     #Load Data
-    mesh = Mesh(os.path.join(dd,'mesh.xml'))
-    M = FunctionSpace(mesh, 'DG', 0)
+    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    M = FunctionSpace(data_mesh, 'DG', 0)
+    Q = FunctionSpace(data_mesh, 'Lagrange', 1)
 
-    #Bed function space depends on whether we are loading a previous run, or from data
-    try:
-        bed = Function(M,os.path.join(dd,'bed.xml'))
-    else:
-        Q = FunctionSpace(mesh, 'DG', 0)
-        bed = Function(Q,os.path.join(dd,'bed.xml'))
-
+    bed = Function(M,os.path.join(dd,'bed.xml'))
 
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
@@ -52,12 +47,20 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, altiter):
 
     mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 
+    if bflag:
+        L1 = xlim[-1] - xlim[0]
+        L2 = ylim[-1] - ylim[0]
+        assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
+        bflag = L1
+
+
     #Initialize Model
     param = {
             'outdir' : outdir,
             'rc_inv': rc_inv,
             'pflag': pflag,
             'sim_flag': sim_flag,
+            'periodic_bc': bflag,
             'altiter': altiter,
             'inv_options': {'maxiter': maxiter}
             }
@@ -194,11 +197,11 @@ if __name__ == "__main__":
     parser.add_argument('-a', '--altiter', dest='altiter', type=int, help='Number of times to iterate through parameters for inversions w/ more than one parameter (not applicable when conducting dual inversion)')
     parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction (defaults to data resolution)')
     parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction (defaults to data resolution)')
-
+    parser.add_argument('-b', '--boundaries', dest='bflag', action='store_true', help='Periodic boundary conditions')
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
 
-    parser.set_defaults(maxiter=15,nx=False,ny=False,sim_flag=False,altiter=2)
+    parser.set_defaults(maxiter=15,nx=False,ny=False,sim_flag=False, bflag = False, altiter=2)
     args = parser.parse_args()
 
     maxiter = args.maxiter
@@ -209,6 +212,7 @@ if __name__ == "__main__":
     nx = args.nx
     ny = args.ny
     sim_flag = args.sim_flag
+    bflag = args.bflag
     altiter = args.altiter
 
     if not outdir:
@@ -221,4 +225,4 @@ if __name__ == "__main__":
 
 
 
-    main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, altiter)
+    main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter)

@@ -169,8 +169,9 @@ class grnld_margin:
 
 class ismipC:
 
-    def __init__(self, L, nx=151, ny=151):
+    def __init__(self, L, nx=151, ny=151, tiles=1.0):
         self.L = L
+        self.tiles = tiles
         self.x = np.linspace(0, L, num=nx)
         self.y = np.linspace(0, L, num=ny)
 
@@ -197,7 +198,7 @@ class ismipC:
     def init_B2(self,x,y):
         w = 2.0*np.pi/self.L
         xx,yy = np.meshgrid(x,y)
-        self.B2 = (1000.0 + 1000.0*np.sin(3.0*w*xx)*np.sin(3.0*w*yy))
+        self.B2 = (1000.0 + 1000.0*np.sin(self.tiles*w*xx)*np.sin(self.tiles*w*yy))
 
 
     def init_bmelt(self,x,y):
