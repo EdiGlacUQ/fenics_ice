@@ -33,25 +33,36 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
     Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
 
 
-    #Generate model mesh
-    gf = 'grid_data.npz'
-    npzfile = np.load(os.path.join(dd,'grid_data.npz'))
+    if not os.path.isfile(os.path.join(dd,'param.p')):
+        print('Generating new mesh')
+        #Generate model mesh
+        gf = 'grid_data.npz'
+        npzfile = np.load(os.path.join(dd,'grid_data.npz'))
+        xlim = npzfile['xlim']
+        ylim = npzfile['ylim']
 
-    xlim = npzfile['xlim']
-    ylim = npzfile['ylim']
+        if not nx:
+            nx = int(npzfile['nx'])
+        if not ny:
+            ny = int(npzfile['ny'])
 
-    if not nx:
-        nx = int(npzfile['nx'])
-    if not ny:
-        ny = int(npzfile['ny'])
+        mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
+    else:
+        print('Identified as previous run, reusing mesh')
 
-    mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 
     if bflag:
-        L1 = xlim[-1] - xlim[0]
-        L2 = ylim[-1] - ylim[0]
-        assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
-        bflag = L1
+        if os.path.isfile(os.path.join(dd,'param.p')):
+            bflag = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
+            assert(bflag), 'Need to run periodic bc using original files'
+        else:
+            L1 = xlim[-1] - xlim[0]
+            L2 = ylim[-1] - ylim[0]
+            assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
+            bflag = L1
+
+
+
 
 
     #Initialize Model
@@ -81,7 +92,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
     else:
         mdl.gen_alpha()
 
-        
+
     #mdl.init_alpha(Constant(1000.0))
     mdl.init_beta(mdl.apply_prmz(Bglen))            #Comment to use uniform Bglen
 
