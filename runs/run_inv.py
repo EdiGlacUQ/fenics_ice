@@ -19,9 +19,9 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
     #Load Data
     data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
     M = FunctionSpace(data_mesh, 'DG', 0)
-    Q = FunctionSpace(data_mesh, 'Lagrange', 1)
+    Q = FunctionSpace(data_mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
 
-    bed = Function(M,os.path.join(dd,'bed.xml'))
+    bed = Function(Q,os.path.join(dd,'bed.xml'))
 
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
@@ -75,7 +75,13 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
     mdl.init_bmelt(Constant(0.0))
     mdl.label_domain()
 
-    mdl.gen_alpha()
+    if os.path.isfile(os.path.join(dd,'param.p')):
+        alpha = Function(Q,os.path.join(dd,'alpha.xml'))
+        mdl.init_alpha(alpha)
+    else:
+        mdl.gen_alpha()
+
+        
     #mdl.init_alpha(Constant(1000.0))
     mdl.init_beta(mdl.apply_prmz(Bglen))            #Comment to use uniform Bglen
 

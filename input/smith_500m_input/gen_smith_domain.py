@@ -120,4 +120,4 @@ v.vector()[:] = mask_vel.flatten()
 File(''.join([dd,'mask_vel.xml'])) <<  v
 
 v.vector()[:] = B_mod.flatten()
-File(''.join([dd,'B_mod.xml'])) <<  v
+File(''.join([dd,'Bglen.xml'])) <<  v
