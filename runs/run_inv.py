@@ -18,6 +18,8 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
 
     #Load Data
     data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    mesh = data_mesh
+    
     M = FunctionSpace(data_mesh, 'DG', 0)
     Q = FunctionSpace(data_mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
 
