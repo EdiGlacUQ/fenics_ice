@@ -18,33 +18,48 @@ def main(outdir, dd, bflag, nx, ny):
 
     #Load Data
     data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
-    M = FunctionSpace(data_mesh, 'DG', 0)
+    mesh = data_mesh
 
-    bed = Function(M,os.path.join(dd,'bed.xml'))
+    M = FunctionSpace(data_mesh, 'DG', 0)
+    Q = FunctionSpace(data_mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
+
+    bed = Function(Q,os.path.join(dd,'bed.xml'))
     B2 = Function(M,os.path.join(dd,'B2.xml'))
     Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
     bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
 
-    #Generate model mesh
-    gf = 'grid_data.npz'
-    npzfile = np.load(os.path.join(dd,'grid_data.npz'))
-    xlim = npzfile['xlim']
-    ylim = npzfile['ylim']
 
-    if not nx:
-        nx = int(npzfile['nx'])
-    if not ny:
-        ny = int(npzfile['ny'])
+    if not os.path.isfile(os.path.join(dd,'param.p')):
+        print('Generating new mesh')
+        #Generate model mesh
+        gf = 'grid_data.npz'
+        npzfile = np.load(os.path.join(dd,'grid_data.npz'))
+        xlim = npzfile['xlim']
+        ylim = npzfile['ylim']
 
-    mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
+        if not nx:
+            nx = int(npzfile['nx'])
+        if not ny:
+            ny = int(npzfile['ny'])
+
+        mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
+    else:
+        print('Identified as previous run, reusing mesh')
 
     if bflag:
-        L1 = xlim[-1] - xlim[0]
-        L2 = ylim[-1] - ylim[0]
-        assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
-        bflag = L1
+        if os.path.isfile(os.path.join(dd,'param.p')):
+            bflag = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
+            assert(bflag), 'Need to run periodic bc using original files'
+        else:
+            L1 = xlim[-1] - xlim[0]
+            L2 = ylim[-1] - ylim[0]
+            assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
+            bflag = L1
+
+
+
 
     #Initialize Model
     param = {

@@ -41,7 +41,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Input file to process')
-    parser.add_argument('-i', '--inputfile', dest='inputfile', type=str, required=True, help='Input file to process')
+    parser.add_argument('-i', '--inputfile', dest='inputfile', type=str, required=True, help='Input directory to process')
 
     parser.set_defaults(outdir ='./eigendec')
     args = parser.parse_args()
