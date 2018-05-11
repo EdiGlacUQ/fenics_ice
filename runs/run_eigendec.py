@@ -157,7 +157,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
 
-    parser.set_defaults(n_iter=1, slepsc_flag=False, msft_flag=False, outdir='.')
+    parser.set_defaults(n_iter=1, slepsc_flag=False, msft_flag=False, outdir=False)
     args = parser.parse_args()
 
     num_eig = args.num_eig

@@ -238,7 +238,12 @@ class ssa_solver:
         a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
         solve(a==L,H_nps, bcs = self.H_bcs)
 
-    def timestep(self, save = 1, adjoint_flag=1, outdir='./'):
+    def timestep(self, save = 1, adjoint_flag=1):
+
+        n_steps = self.param['n_steps']
+        dt = self.dt
+        outdir = self.param['outdir']
+
         U = self.U
         U_np = self.U_np
         H = self.H
@@ -247,8 +252,14 @@ class ssa_solver:
         H_nps = self.H_nps
         self.save_H_init(H)
 
-        n_steps = self.param['n_steps']
-        dt = self.dt
+        if adjoint_flag: adj_checkpointing(strategy = "multistage", steps = n_steps, snaps_on_disk = 40, snaps_in_ram = 1,
+                           verbose = True)
+
+        self.def_thickadv_eq()
+        self.def_mom_eq()
+        self.solve_mom_eq()
+        U_np.assign(U)
+
 
         if save:
             hdf_hts = HDF5File(self.mesh.mpi_comm(), os.path.join(outdir, 'H_ts.h5'), 'w')
@@ -263,18 +274,9 @@ class ssa_solver:
             pvd_hts << (H_np, 0.0)
             pvd_uts << (U_np, 0.0)
 
-
-
-
-        self.def_thickadv_eq()
-        self.def_mom_eq()
-        self.solve_mom_eq()
-        U_np.assign(U)
-
         t=0.0
 
-        if adjoint_flag:
-            adj_start_timestep()
+        if adjoint_flag: adj_start_timestep()
 
         for n in xrange(n_steps):
             begin("Starting timestep %i of %i, time = %.16e a" % (n + 1, n_steps, t))
