@@ -109,7 +109,9 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
         lam,v = eigendecomposition.randeig(A,k=num_eig,n_iter=n_iter)
         fo = 'randeig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
 
-    pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], open( os.path.join(outdir, fo), "wb" ))
+    pfile = open( os.path.join(outdir, fo), "wb" )
+    pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], pfile)
+    pfile.close()
 
 
     #Sanity checks on eigenvalues/eigenvectors.
