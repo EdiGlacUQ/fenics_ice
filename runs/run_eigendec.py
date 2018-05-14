@@ -21,6 +21,16 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     #Load parameters of run
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
 
+    param['picard_params'] = {"nonlinear_solver":"newton",
+                "newton_solver":{"linear_solver":"umfpack",
+                "maximum_iterations":200,
+                "absolute_tolerance":1.0e-8,
+                "relative_tolerance":5.0e-3,
+                "convergence_criterion":"incremental",
+                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+
+
+
     if msft_flag:
         rc_inv2 = param['rc_inv']
         rc_inv2[1:] = [0 for i in rc_inv2[1:]]
