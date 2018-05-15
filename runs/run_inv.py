@@ -19,7 +19,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
     #Load Data
     data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
     mesh = data_mesh
-    
+
     M = FunctionSpace(data_mesh, 'DG', 0)
     Q = FunctionSpace(data_mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
 
@@ -33,7 +33,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
     v_std = Function(M,os.path.join(dd,'v_std.xml'))
     mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
     Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
-
+    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
 
     if not os.path.isfile(os.path.join(dd,'param.p')):
         print('Generating new mesh')
@@ -85,10 +85,10 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
     mdl.init_mask(mask)
     mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
     mdl.init_lat_dirichletbc()
-    mdl.init_bmelt(Constant(0.0))
+    mdl.init_bmelt(bmelt)
     mdl.label_domain()
 
-    if os.path.isfile(os.path.join(dd,'param.p')):
+    if os.path.isfile(os.path.join(dd,'alpha.xml')):
         alpha = Function(Q,os.path.join(dd,'alpha.xml'))
         mdl.init_alpha(alpha)
     else:
@@ -199,6 +199,11 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
 
     vtkfile = File(os.path.join(outdir,'B2.pvd'))
     xmlfile = File(os.path.join(outdir,'B2.xml'))
+    vtkfile << B2
+    xmlfile << B2
+
+    vtkfile = File(os.path.join(outdir,'bmelt.pvd'))
+    xmlfile = File(os.path.join(outdir,'bmelt.xml'))
     vtkfile << B2
     xmlfile << B2
 

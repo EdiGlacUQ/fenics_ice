@@ -1,6 +1,5 @@
 from dolfin import *
 from dolfin_adjoint import *
-from dolfin_adjoint_sqrt_masslump import *
 from dolfin_adjoint_custom import EquationSolver
 import moola
 import numpy as np
@@ -199,7 +198,7 @@ class ssa_solver:
         MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, J_p=J_p, picard_params = picard_params, solver_parameters = newton_params).solve(annotate=annotate_flag)
 
         t1 = time.time()
-        print "Time for solve: ", t1-t0
+        print("Time for solve: ", t1-t0)
 
 
     def def_thickadv_eq(self):
@@ -278,7 +277,7 @@ class ssa_solver:
 
         if adjoint_flag: adj_start_timestep()
 
-        for n in xrange(n_steps):
+        for n in range(n_steps):
             begin("Starting timestep %i of %i, time = %.16e a" % (n + 1, n_steps, t))
 
             # Solve
@@ -313,7 +312,7 @@ class ssa_solver:
         #Callback function during minimization storing cost function value
         def derivative_cb(j, dj, m):
             self.F_vals.append(j)
-            print "j = %f" % (j)
+            print("j = %f" % (j))
 
         #Initial equation definition and solve
         self.def_mom_eq()
@@ -353,8 +352,8 @@ class ssa_solver:
                 [lam,v] = eigenfunc.eigens(A,k=10,n_iter=2)
                 p_scale.append(lam[0])
                 t1 = time.time()
-                print "{0}s to determine lead eigenvalue of paramater {1}".format(t1-t0, i)
-                print 'Value: {0}'.format(lam[0])
+                print("{0}s to determine lead eigenvalue of paramater {1}".format(t1-t0, i))
+                print('Value: {0}'.format(lam[0]))
                 adj_reset() #Reset adjoint tape. Emprically necessary
                 self.def_mom_eq()
                 self.solve_mom_eq()
@@ -374,7 +373,7 @@ class ssa_solver:
             opt_var = sol['control']
 
 
-            map(lambda x: x[0].vector().set_local(x[1].array()), zip(cntrl,opt_var))
+            list(map(lambda x: x[0].vector().set_local(x[1].array()), list(zip(cntrl,opt_var))))
 
         else:
             altiter = self.param['altiter']
@@ -501,17 +500,17 @@ class ssa_solver:
             J4 = assemble(J_reg_beta)
 
 
-            print 'Inversion Details'
-            print 'lambda_a: %.2e' % lambda_a
-            print 'lambda_b: %.2e' % lambda_b
-            print 'delta_a: %.2e' % delta_a
-            print 'delta_b: %.2e' % delta_b
-            print 'J: %.2e' % J1
-            print 'J_ls: %.2e' % J2
-            print 'J_reg: %.2e' % sum([J3,J4])
-            print 'J_reg_alpha: %.2e' % J3
-            print 'J_reg_beta: %.2e' % J4
-            print 'J_reg/J_cst: %.2e' % ((J3+J4)/(J2))
+            print('Inversion Details')
+            print('lambda_a: %.2e' % lambda_a)
+            print('lambda_b: %.2e' % lambda_b)
+            print('delta_a: %.2e' % delta_a)
+            print('delta_b: %.2e' % delta_b)
+            print('J: %.2e' % J1)
+            print('J_ls: %.2e' % J2)
+            print('J_reg: %.2e' % sum([J3,J4]))
+            print('J_reg_alpha: %.2e' % J3)
+            print('J_reg_beta: %.2e' % J4)
+            print('J_reg/J_cst: %.2e' % ((J3+J4)/(J2)))
 
     def set_J_vaf(self, verbose=False):
         H = self.H_nps
@@ -588,7 +587,7 @@ class MomentumSolver(EquationSolver):
 
     def forward_solve(self, x, deps):
         #replace_map = dict(zip(self._EquationSolver__deps, deps))
-        replace_map = dict(zip(self.dependencies(), deps))
+        replace_map = dict(list(zip(self.dependencies(), deps)))
 
         if not self._EquationSolver__initial_guess is None:
           x.assign(replace_map[self._EquationSolver__initial_guess])

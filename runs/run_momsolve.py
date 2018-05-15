@@ -5,9 +5,7 @@ import argparse
 from fenics import *
 import model
 import solver
-import matplotlib.pyplot as plt
 import numpy as np
-import fenics_util as fu
 import time
 import datetime
 import pickle
@@ -24,7 +22,6 @@ def main(outdir, dd, bflag, nx, ny):
     Q = FunctionSpace(data_mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
 
     bed = Function(Q,os.path.join(dd,'bed.xml'))
-    B2 = Function(M,os.path.join(dd,'B2.xml'))
     Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
     bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
     thick = Function(M,os.path.join(dd,'thick.xml'))
@@ -67,15 +64,39 @@ def main(outdir, dd, bflag, nx, ny):
             'periodic_bc': bflag
             }
 
+
     mdl = model.model(mesh,mask, param)
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
     mdl.init_mask(mask)
     mdl.init_bmelt(bmelt)
-    mdl.init_alpha(mdl.apply_prmz(B2))
-    mdl.init_beta(mdl.apply_prmz(Bglen), pert=False)
     mdl.label_domain()
+
+    if os.path.isfile(os.path.join(dd,'alpha.xml')):
+        alpha = Function(Q,os.path.join(dd,'alpha.xml'))
+        mdl.init_alpha(alpha)
+
+    elif os.path.isfile(os.path.join(dd,'B2.xml')):
+        B2 = Function(M,os.path.join(dd,'B2.xml'))
+        mdl.init_alpha(mdl.apply_prmz(B2))
+
+    else:
+        print('Model requires basal drag')
+        sys.exit()
+
+    if os.path.isfile(os.path.join(dd,'beta.xml')):
+        beta = Function(Q,os.path.join(dd,'beta.xml'))
+        mdl.init_beta(beta)
+
+    elif os.path.isfile(os.path.join(dd,'Bglen.xml')):
+        Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
+        mdl.init_beta(mdl.apply_prmz(Bglen))
+
+    else:
+        print('Using default bglen (constant)')
+
+
 
     #Inversion
     slvr = solver.ssa_solver(mdl)

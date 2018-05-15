@@ -54,21 +54,21 @@ xycoord_di = (xcoord_di, np.flipud(ycoord_di))
 #Data is not stored in an ordered manner on the fencis mesh;
 #using interpolation function to get correct grid ordering
 #Note Transpose for x,y indexing
-bed_interp = interp.RegularGridInterpolator(xycoord_bm, zip(*bed[::-1]))
-thick_interp = interp.RegularGridInterpolator(xycoord_bm, zip(*thick[::-1]))
-mask_interp = interp.RegularGridInterpolator(xycoord_bm, zip(*mask[::-1]), method='nearest')
+bed_interp = interp.RegularGridInterpolator(xycoord_bm, list(zip(*bed[::-1])))
+thick_interp = interp.RegularGridInterpolator(xycoord_bm, list(zip(*thick[::-1])))
+mask_interp = interp.RegularGridInterpolator(xycoord_bm, list(zip(*mask[::-1])), method='nearest')
 
 mask_bin = np.isclose(mask,1.0).astype(int)   #linear/nearest for edge thickness correction
-maskl_interp = interp.RegularGridInterpolator(xycoord_bm, zip(*mask_bin[::-1]))
-maskn_interp = interp.RegularGridInterpolator(xycoord_bm, zip(*mask_bin[::-1]), method='nearest')
+maskl_interp = interp.RegularGridInterpolator(xycoord_bm, list(zip(*mask_bin[::-1])))
+maskn_interp = interp.RegularGridInterpolator(xycoord_bm, list(zip(*mask_bin[::-1])), method='nearest')
 
-uvel_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*uvel[::-1]))
-vvel_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*vvel[::-1]))
-ustd_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*ustd[::-1]))
-vstd_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*vstd[::-1]))
-mask_vel_interp = interp.RegularGridInterpolator(xycoord_ms, zip(*mask_vel[::-1]), method='nearest')
+uvel_interp = interp.RegularGridInterpolator(xycoord_ms, list(zip(*uvel[::-1])))
+vvel_interp = interp.RegularGridInterpolator(xycoord_ms, list(zip(*vvel[::-1])))
+ustd_interp = interp.RegularGridInterpolator(xycoord_ms, list(zip(*ustd[::-1])))
+vstd_interp = interp.RegularGridInterpolator(xycoord_ms, list(zip(*vstd[::-1])))
+mask_vel_interp = interp.RegularGridInterpolator(xycoord_ms, list(zip(*mask_vel[::-1])), method='nearest')
 
-B_interp = interp.RegularGridInterpolator(xycoord_di, zip(*B_mod[::-1]))
+B_interp = interp.RegularGridInterpolator(xycoord_di, list(zip(*B_mod[::-1])))
 
 #Coordinates of DOFS of fenics mesh in order data is stored
 dof_xy = (dof_x, dof_y)
@@ -121,3 +121,6 @@ File(''.join([dd,'mask_vel.xml'])) <<  v
 
 v.vector()[:] = B_mod.flatten()
 File(''.join([dd,'Bglen.xml'])) <<  v
+
+v.vector()[:] = 0.0
+File(''.join([dd,'bmelt.xml'])) <<  v
