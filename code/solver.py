@@ -304,6 +304,8 @@ class ssa_solver:
                 end()
                 adj_inc_timestep()
 
+
+
     def inversion(self, cntrl_input):
 
         #Record value of functional during minimization
@@ -459,6 +461,7 @@ class ssa_solver:
         beta_bgd = self.beta_bgd
 
         dIce = self.dIce
+        dIce_gnd = self.dIce_gnd
         ds = self.ds
         nm = self.nm
 
@@ -484,7 +487,7 @@ class ssa_solver:
         reg_a = lambda_a * alpha - delta_a*lap_alpha
         reg_b = lambda_b * betadiff - delta_b*lap_beta
 
-        J_reg_alpha = inner(reg_a,reg_a)*dIce
+        J_reg_alpha = inner(reg_a,reg_a)*dIce_gnd
         J_reg_beta = inner(reg_b,reg_b)*dIce
 
         J = J_ls + J_reg_alpha + J_reg_beta

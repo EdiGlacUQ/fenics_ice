@@ -17,7 +17,6 @@ def main(inputfile, outdir, dd):
     lpos = np.argwhere(lam > 0)
     lneg = np.argwhere(lam < 0)
     lind = np.arange(0,len(lam))
-    embed()
 
     plt.figure()
     plt.semilogy(lind[lpos], lam[lpos], 'b.')
