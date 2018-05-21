@@ -1,4 +1,5 @@
-from dolfin import *
+from fenics import *
+#from dolfin import *
 import numpy as np
 import timeit
 from IPython import embed
@@ -112,6 +113,7 @@ class model:
 
     def init_alpha(self,alpha):
         self.alpha = project(alpha,self.Q)
+        self.alpha.rename('alpha', self.alpha.label())
 
     def init_beta(self,beta, pert= True):
         self.beta_bgd = project(beta,self.Q)
@@ -205,6 +207,7 @@ class model:
         alpha_tmp2 = Min(alpha_tmp1, a_ub)
         alpha = self.apply_prmz(alpha_tmp2)
         self.alpha = project(alpha,self.Q)
+        self.alpha.rename('alpha', self.alpha.label())
 
 
     def gen_domain(self):
