@@ -75,7 +75,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
             'sim_flag': sim_flag,
             'periodic_bc': bflag,
             'altiter': altiter,
-            'inv_options': {'maxiter': maxiter}
+            'inv_options': {'maxiter': maxiter, 'disp': True}
             }
 
     mdl = model.model(mesh,mask, param)
@@ -101,15 +101,15 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
     #Inversion
     slvr = solver.ssa_solver(mdl)
 
-    opts = {'0': slvr.alpha, '1': slvr.beta, '2': [slvr.alpha,slvr.beta]}
+    opts = {'0': [slvr.alpha], '1': [slvr.beta], '2': [slvr.alpha,slvr.beta]}
     slvr.inversion(opts[str(pflag)])
 
     #Plots for quick output evaluation
-    B2 = project(mdl.rev_prmz(slvr.alpha),mdl.M)
-    F_vals = slvr.F_vals
+    #B2 = project(mdl.rev_prmz(slvr.alpha),mdl.M)
+    #F_vals = slvr.F_vals
 
-    fu.plot_variable(B2, 'B2', mdl.param['outdir'])
-    fu.plot_inv_conv(F_vals, 'convergence', mdl.param['outdir'])
+    #fu.plot_variable(B2, 'B2', mdl.param['outdir'])
+    #fu.plot_inv_conv(F_vals, 'convergence', mdl.param['outdir'])
 
 
     #Output model variables in ParaView+Fenics friendly format
@@ -199,6 +199,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
 
     vtkfile = File(os.path.join(outdir,'B2.pvd'))
     xmlfile = File(os.path.join(outdir,'B2.xml'))
+    B2 = project(mdl.rev_prmz(slvr.alpha),mdl.M)
     vtkfile << B2
     xmlfile << B2
 

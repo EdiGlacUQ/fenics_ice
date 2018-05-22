@@ -96,6 +96,7 @@ class model:
         n = self.param['n']
         self.beta = project(sqrt(A**(-1.0/n)), self.Q)
         self.beta_bgd = project(sqrt(A**(-1.0/n)), self.Q)
+        self.beta.rename('beta', self.beta.label())
 
     def def_lat_dirichletbc(self):
         self.latbc = Constant([0.0,0.0])
@@ -123,6 +124,8 @@ class model:
             bv = self.beta.vector().array()
             pert_vec = 0.001*bv*randn(bv.size)
             self.beta.vector().set_local(bv + pert_vec)
+
+        self.beta.rename('beta', self.beta.label())
 
 
 

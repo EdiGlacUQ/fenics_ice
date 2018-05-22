@@ -303,7 +303,7 @@ class ssa_solver:
             n += 1
             t = n * float(dt)
 
-            if n_steps < n_steps - 1 and adjoint_flag::
+            if n_steps < n_steps - 1 and adjoint_flag:
                 new_block()
 
             #Record
@@ -318,38 +318,63 @@ class ssa_solver:
 
     def inversion(self, cntrl_input):
 
-
-        def forward(cc = self.alpha):
+        def forward_alpha(cc):
             clear_caches()
             self.alpha = cc
             self.def_mom_eq()
             self.solve_mom_eq()
-            self.set_J_inv()
+            self.set_J_inv(verbose=False)
             J = Functional()
-            #J.assign(inner(self.U, self.U) * dx)
             J.assign(self.J_inv)
             return J
 
+        def forward_beta(cc):
+            clear_caches()
+            self.beta = cc
+            self.def_mom_eq()
+            self.solve_mom_eq()
+            self.set_J_inv(verbose=False)
+            J = Functional()
+            J.assign(self.J_inv)
+            return J
+
+        nparam = len(cntrl_input)
+        num_iter = self.param['altiter']*nparam if nparam > 1 else nparam
+
+        for j in range(num_iter):
+
+            cntrl = cntrl_input[j % nparam]
+            forward = forward_alpha if cntrl.name() == 'alpha' else forward_beta
+
+            reset()
+            clear_caches()
+            start_annotating()
+            J = forward(cntrl)
+            stop_annotating()
+
+            #dJ = compute_gradient(J, self.alpha)
+            #ddJ = Hessian(forward)
+            #min_order = taylor_test(forward, self.alpha, J_val = J.value(), dJ = dJ, ddJ=ddJ, seed = 1.0e-6)
+
+            cntrl_opt, result = minimize_scipy(forward, cntrl, J, method = 'L-BFGS-B',
+                options = self.param['inv_options'])
+              #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
+
+            cntrl = cntrl_opt
+
+        self.def_mom_eq()
+
+
+        #Re-compute velocities with inversion results
         reset()
         clear_caches()
         start_annotating()
-        J = forward()
+        self.solve_mom_eq()
         stop_annotating()
-        print(J.value())
-        manager_info()
 
-        dJ = compute_gradient(J, self.alpha)
-        print(function_inner(dJ, dJ))
-#        ddJ = Hessian(forward)
-#        min_order = taylor_test(forward, self.alpha, J_val = J.value(), dJ = dJ, ddJ=ddJ, seed = 1.0e-6)
+        #Print out inversion results/parameter values
+        self.set_J_inv(verbose = True)
 
-        alpha_opt, result = minimize_scipy(forward, self.alpha, J, method = 'L-BFGS-B',
-          options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
-
-        self.alpha = alpha_opt
-        self.def_mom_eq()
-
-        self.F_vals = []
 
         #
         #
@@ -436,14 +461,14 @@ class ssa_solver:
         #map(lambda x: x[0].assign(x[1]), zip(cntrl,opt_var)) if type(cntrl) is list else cntrl.assign(opt_var)
 
         #Re-compute velocities with inversion results
-        reset()
-        clear_caches()
-        start_annotating()
-        self.solve_mom_eq()
-        stop_annotating()
-
-        #Print out inversion results/parameter values
-        self.set_J_inv(verbose = True)
+        # reset()
+        # clear_caches()
+        # start_annotating()
+        # self.solve_mom_eq()
+        # stop_annotating()
+        #
+        # #Print out inversion results/parameter values
+        # self.set_J_inv(verbose = True)
 
     def epsilon(self, U):
         """
@@ -525,7 +550,7 @@ class ssa_solver:
         self.J_inv = J
 
 
-        if verbose or True:
+        if verbose:
             #Print out results
             J1 = assemble(J)
             J2 =  assemble(J_ls)
