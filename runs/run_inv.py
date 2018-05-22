@@ -75,7 +75,16 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
             'sim_flag': sim_flag,
             'periodic_bc': bflag,
             'altiter': altiter,
-            'inv_options': {'maxiter': maxiter, 'disp': True}
+            'inv_options': {'maxiter': maxiter, 'disp': True},
+            'picard_params': {"nonlinear_solver":"newton",
+                            "newton_solver":{"linear_solver":"umfpack",
+                            "maximum_iterations":200,
+                            "absolute_tolerance":1.0e-8,
+                            "relative_tolerance":5.0e-3,
+                            "convergence_criterion":"incremental",
+                            "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+
+
             }
 
     mdl = model.model(mesh,mask, param)
