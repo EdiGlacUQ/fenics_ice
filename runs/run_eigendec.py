@@ -1,17 +1,15 @@
 #!/usr/bin/env python
-
 import sys
+sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
 import os
 import argparse
 from fenics import *
-from dolfin_adjoint import *
+from tlm_adjoint import *
 import pickle
 from IPython import embed
 sys.path.insert(0,'../code/')
 import model
 import solver
-import optim
-import eigenfunc
 import eigendecomposition
 import datetime
 import numpy as np
@@ -32,9 +30,9 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
 
 
     if msft_flag:
-        rc_inv2 = param['rc_inv']
-        rc_inv2[1:] = [0 for i in rc_inv2[1:]]
-        param['rc_inv'] = rc_inv2
+        tmp = param['rc_inv']
+        tmp[1:] = [0 for i in tmp[1:]]
+        param['rc_inv'] = tmp
 
     #Complete Mesh and data mask
     #data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
@@ -50,7 +48,6 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
        V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
     else:
        V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(self.param['periodic_bc']))
-    #V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(40e3))
 
     Q = FunctionSpace(mesh,'Lagrange',1)
     M = FunctionSpace(mesh,'DG',0)
@@ -91,16 +88,16 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     slvr = solver.ssa_solver(mdl)
 
     #Solve for velocities
-    slvr.def_mom_eq()
-    slvr.solve_mom_eq()
+    #slvr.def_mom_eq()
+    #slvr.solve_mom_eq()
 
     #Set the inversion cost functional, and the Hessian w.r.t parameter
-    slvr.set_J_inv()
+    #slvr.set_J_inv()
     slvr.set_hessian_action(slvr.alpha)
 
     #Determine eigenvalues with slepsc using the interfacing script written by James Maddison
     timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
-    A = eigendecomposition.HessWrapper(slvr.ddJ,slvr.alpha)
+    A = eigendecomposition.HessWrapper(slvr.ddJ.action_fn(slvr.alpha),slvr.alpha)
 
     if slepsc_flag:
         lam, v = eigendecomposition.slepsceig(A.xfn.vector().local_size(), A.apply, hermitian = True, N_eigenvalues = num_eig)

@@ -315,36 +315,46 @@ class ssa_solver:
                 pvd_uts << (U_np, t)
 
 
+    def forward_alpha(self, aa):
+        clear_caches()
+        self.alpha = aa
+        self.def_mom_eq()
+        self.solve_mom_eq()
+        self.set_J_inv(verbose=False)
+        J = Functional()
+        J.assign(self.J_inv)
+        return J
+
+    def forward_beta(self, bb):
+        clear_caches()
+        self.beta = bb
+        self.def_mom_eq()
+        self.solve_mom_eq()
+        self.set_J_inv(verbose=False)
+        J = Functional()
+        J.assign(self.J_inv)
+        return J
+
+    def forward_dual(self, dd):
+        clear_caches()
+        self.alpha = dd[0]
+        self.beta = dd[1]
+        self.def_mom_eq()
+        self.solve_mom_eq()
+        self.set_J_inv(verbose=False)
+        J = Functional()
+        J.assign(self.J_inv)
+        return J
+
 
     def inversion(self, cntrl_input):
-
-        def forward_alpha(cc):
-            clear_caches()
-            self.alpha = cc
-            self.def_mom_eq()
-            self.solve_mom_eq()
-            self.set_J_inv(verbose=False)
-            J = Functional()
-            J.assign(self.J_inv)
-            return J
-
-        def forward_beta(cc):
-            clear_caches()
-            self.beta = cc
-            self.def_mom_eq()
-            self.solve_mom_eq()
-            self.set_J_inv(verbose=False)
-            J = Functional()
-            J.assign(self.J_inv)
-            return J
-
         nparam = len(cntrl_input)
         num_iter = self.param['altiter']*nparam if nparam > 1 else nparam
 
         for j in range(num_iter):
 
             cntrl = cntrl_input[j % nparam]
-            forward = forward_alpha if cntrl.name() == 'alpha' else forward_beta
+            forward = self.forward_alpha if cntrl.name() == 'alpha' else self.forward_beta
 
             reset()
             clear_caches()
@@ -601,9 +611,12 @@ class ssa_solver:
 
 
     def set_hessian_action(self, cntrl):
-        J = Functional(self.J_inv)
-        cc = [Control(x) for x in cntrl] if type(cntrl) is list else Control(cntrl)
-        self.ddJ = hessian(J,cc)
+        if type(cntrl) is not list: cntrl = [cntrl]
+
+        fopts = {'alpha': self.forward_alpha, 'beta': self.forward_beta, 'dual': self.forward_dual}
+        forward = fopts['dual'] if len(cntrl) > 1 else fopts[cntrl[0].name()]
+
+        self.ddJ = Hessian(forward)
 
     def taylor_ver_inv(self,alpha_in):
         self.alpha = alpha_in

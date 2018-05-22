@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 
-from __future__ import division, print_function, unicode_literals
+
 
 import petsc4py.PETSc as PETSc
 import slepc4py.SLEPc as SLEPc
@@ -65,7 +65,7 @@ def slepsceig(N, A_action, hermitian = False, N_eigenvalues = None,
   lam = np.empty(esolver.getConverged(), dtype = np.float64 if hermitian else np.complex64)
   v = np.empty([N, lam.shape[0]], dtype = np.float64 if hermitian else np.complex64)
   v_r, v_i = A_matrix.getVecRight(), A_matrix.getVecRight()
-  for i in xrange(v.shape[1]):
+  for i in range(v.shape[1]):
     lam_i = esolver.getEigenpair(i, v_r, v_i)
     if hermitian:
       lam[i] = lam_i.real
@@ -96,6 +96,7 @@ def randeig(A, k=6, n_iter=4, l=None):
     Q = matmult(A, np.random.uniform(low=-1.0, high=1.0, size=(n, l)))
     t1 = time.time()
     print('Completed in: {0}'.format(t1-t0))
+
 
     # Form a matrix Q whose columns constitute a well-conditioned basis
     # for the columns of the earlier Q.
@@ -135,12 +136,13 @@ def randeig(A, k=6, n_iter=4, l=None):
 
 
 def matmult(A,B):
-    return np.array(map(A.apply,B.T)).T
+    return np.array(list(map(A.apply,B.T))).T
 
 class HessWrapper(object):
 
     def __init__(self,action, cntrl):
         self._action = action
+        self._cntrl = cntrl
         self.xfn = Function(cntrl.function_space())
         n = cntrl.vector().size()
         self.shape = (n,n)
@@ -150,7 +152,7 @@ class HessWrapper(object):
             x = x.getArray()
         self.xfn.vector().set_local(x)
         self.xfn.vector().apply(str('insert'))
-        return self._action(self.xfn).vector().get_local()
+        return self._action(self.xfn)
 
 
 class eigendecomposition_unittests(unittest.TestCase):
