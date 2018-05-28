@@ -83,8 +83,6 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
                             "relative_tolerance":5.0e-3,
                             "convergence_criterion":"incremental",
                             "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
-
-
             }
 
     mdl = model.model(mesh,mask, param)

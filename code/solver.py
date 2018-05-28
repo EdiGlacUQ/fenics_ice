@@ -11,8 +11,7 @@ import os
 import timeit
 import time
 from IPython import embed
-import eigendecomposition
-import eigenfunc
+
 
 
 
@@ -612,7 +611,6 @@ class ssa_solver:
 
     def set_hessian_action(self, cntrl):
         if type(cntrl) is not list: cntrl = [cntrl]
-
         fopts = {'alpha': self.forward_alpha, 'beta': self.forward_beta, 'dual': self.forward_dual}
         forward = fopts['dual'] if len(cntrl) > 1 else fopts[cntrl[0].name()]
 

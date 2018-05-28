@@ -1,20 +1,23 @@
 #!/usr/bin/env python
 import sys
 sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
+sys.path.insert(0,'../code/')
+
 import os
 import argparse
 from fenics import *
 from tlm_adjoint import *
 import pickle
 from IPython import embed
-sys.path.insert(0,'../code/')
 import model
 import solver
-import eigendecomposition
 import datetime
 import numpy as np
+from eigendecomposition_custom import *
+import matplotlib.pyplot as plt
 
-def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
+
+def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd):
 
     #Load parameters of run
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
@@ -27,23 +30,16 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
                 "convergence_criterion":"incremental",
                 "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
-
-
     if msft_flag:
         tmp = param['rc_inv']
         tmp[1:] = [0 for i in tmp[1:]]
         param['rc_inv'] = tmp
 
-    #Complete Mesh and data mask
-    #data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
-    #M_dm = FunctionSpace(data_mesh,'DG',0)
-    #data_mask = Function(M_dm,os.path.join(dd,'data_mask.xml'))
 
     #Ice only mesh
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
     #Set up Function spaces
-
     if not param['periodic_bc']:
        V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
     else:
@@ -87,74 +83,116 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd):
     #Setup our solver object
     slvr = solver.ssa_solver(mdl)
 
-    #Solve for velocities
-    #slvr.def_mom_eq()
-    #slvr.solve_mom_eq()
+    opts = {'0': slvr.alpha, '1': [slvr.beta], '2': [slvr.alpha,slvr.beta]}
+    cntrl = opts[str(pflag)]
 
-    #Set the inversion cost functional, and the Hessian w.r.t parameter
-    #slvr.set_J_inv()
     slvr.set_hessian_action(slvr.alpha)
 
-    #Determine eigenvalues with slepsc using the interfacing script written by James Maddison
+    A_action =  slvr.ddJ.action_fn(cntrl)
+    space = slvr.alpha.function_space()
+
+    xg,xb = Function(space), Function(space)
+    test, trial = TestFunction(space), TrialFunction(space)
+    mass = assemble(inner(test,trial)*slvr.dx)
+    mass_solver = KrylovSolver("cg", "sor")
+    mass_solver.parameters.update({"absolute_tolerance":1.0e-32,
+                               "relative_tolerance":1.0e-14})
+    mass_solver.set_operator(mass)
+
+    def gnhep_action(x):
+        x = function_copy(x, static = True)
+        _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
+        mass_solver.solve(xg.vector(), ddJ_val.vector())
+        return function_get_values(xg)
+
+
+
     timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
-    A = eigendecomposition.HessWrapper(slvr.ddJ.action_fn(slvr.alpha),slvr.alpha)
 
     if slepsc_flag:
-        lam, v = eigendecomposition.slepsceig(A.xfn.vector().local_size(), A.apply, hermitian = True, N_eigenvalues = num_eig)
+        lam, [vr, vi] = eigendecompose(space, gnhep_action, tolerance = 1.0e-2, N_eigenvalues = num_eig)
         fo = 'slepceig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
+
+        vtkfile = File(os.path.join(outdir,'vr.pvd'))
+        for v in vr:
+            v.rename('v', v.label())
+            vtkfile << v
+
+        vtkfile = File(os.path.join(outdir,'vi.pvd'))
+        for v in vi:
+            v.rename('v', v.label())
+            vtkfile << v
+
+        hdf5file = HDF5File(slvr.mesh.mpi_comm(), os.path.join(outdir, 'vr.h5'), 'w')
+        for i, v in enumerate(vr): hdf5file.write(v, 'v', i)
+
+        hdf5file = HDF5File(slvr.mesh.mpi_comm(), os.path.join(outdir, 'vi.h5'), 'w')
+        for i, v in enumerate(vi): hdf5file.write(v, 'v', i)
+
+
+
     else:
-        lam,v = eigendecomposition.randeig(A,k=num_eig,n_iter=n_iter)
+        lam,vv = randeig(space, A_action,k=num_eig,n_iter=n_iter)
         fo = 'randeig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
 
+
+
     pfile = open( os.path.join(outdir, fo), "wb" )
-    pickle.dump( [lam,v,num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], pfile)
+    pickle.dump( [lam, num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], pfile)
     pfile.close()
 
+    plt.semilogy(lam.real)
+    plt.savefig(os.path.join(outdir,'lambda.pdf'))
 
-    #Sanity checks on eigenvalues/eigenvectors.
-    neg_ind = np.nonzero(lam<0)[0]
-    print('Number of eigenvalues: {0}'.format(num_eig))
-    print('Number of negative eigenvalues: {0}'.format(len(neg_ind)))
-
-    cntr_nn = 0
-    cntr_np = 0
-
-    print('Checking negative eigenvalues...')
-    #For each negative eigenvalue, independently recalculate their value using its eigenvector
-    for i in neg_ind:
-        ev = v[:,i]
-        ll = lam[i]
-        ll2 = np.dot(ev, A.apply(ev)) / np.dot(ev,ev)
-
-        #Compare signs of the calculated eigenvals, increment correct counter
-        if np.sign(ll) == np.sign(ll2):
-            cntr_nn += 1
-        else:
-            cntr_np +=1
-            print('Eigenval {0} at index {1} is a false negative'.format(ll,i))
-
-    print('The number of verified negative eigenvals is {0}'.format(cntr_nn))
-    print('The sign of {0} eigenvals is not supported by independent calculation using its eigenvector'.format(cntr_np))
+    print('Finished')
 
 
-    print('Checking the accuracy of eigenval/eigenvec pairs...')
-
-    npair = min(num_eig, 10) #Select a maximum of 10 pairs
-    f = lambda m, n: [i*n//m + n//(2*m) for i in range(m)] #selector function
-    pind = f(npair,num_eig)
-
-    for i in pind:
-        ev = v[:,i]
-        ll = lam[i]
-        res = np.linalg.norm(A.apply(ev) - ll*ev)/ll
-        print('Residual of {0} at index {1}'.format(res, i))
-
-
-
-
+    #A = HessWrapper(A_action,space)
+    #
+    # #Sanity checks on eigenvalues/eigenvectors.
+    # neg_ind = np.nonzero(lam<0)[0]
+    # print('Number of eigenvalues: {0}'.format(num_eig))
+    # print('Number of negative eigenvalues: {0}'.format(len(neg_ind)))
+    #
+    # cntr_nn = 0
+    # cntr_np = 0
+    #
+    # print('Checking negative eigenvalues...')
+    # #For each negative eigenvalue, independently recalculate their value using its eigenvector
+    # for i in neg_ind:
+    #     ev = vv[:,i]
+    #     ll = lam[i]
+    #     ll2 = np.dot(ev, A.apply(ev)) / np.dot(ev,ev)
+    #
+    #     #Compare signs of the calculated eigenvals, increment correct counter
+    #     if np.sign(ll) == np.sign(ll2):
+    #         cntr_nn += 1
+    #     else:
+    #         cntr_np +=1
+    #         print('Eigenval {0} at index {1} is a false negative'.format(ll,i))
+    #
+    # print('The number of verified negative eigenvals is {0}'.format(cntr_nn))
+    # print('The sign of {0} eigenvals is not supported by independent calculation using its eigenvector'.format(cntr_np))
+    #
+    #
+    # print('Checking the accuracy of eigenval/eigenvec pairs...')
+    #
+    # npair = min(num_eig, 10) #Select a maximum of 10 pairs
+    # f = lambda m, n: [i*n//m + n//(2*m) for i in range(m)] #selector function
+    # pind = f(npair,num_eig)
+    #
+    # for i in pind:
+    #     ev = vv[:,i]
+    #     ll = lam[i]
+    #     res = np.linalg.norm(A.apply(ev) - ll*ev)/ll
+    #     print('Residual of {0} at index {1}'.format(res, i))
+    #
+    #
+    #
+    #
 
 if __name__ == "__main__":
-
+    stop_annotating()
 
 
     parser = argparse.ArgumentParser()
@@ -162,6 +200,7 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--niter', dest='n_iter', type=int, help='Number of power iterations for random algorithm')
     parser.add_argument('-s', '--slepsc', dest='slepsc_flag', action='store_true', help='Use slepsc instead of random algorithm')
     parser.add_argument('-m', '--msft_flag', dest='msft_flag', action='store_true', help='Consider only the misfit term of the cost function without regularization')
+    parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, required=True, help='Inversion parameters: alpha (0), beta (1), alpha and beta (2)')
 
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
@@ -173,6 +212,7 @@ if __name__ == "__main__":
     n_iter = args.n_iter
     slepsc_flag = args.slepsc_flag
     msft_flag = args.msft_flag
+    pflag = args.pflag
     outdir = args.outdir
     dd = args.dd
 
@@ -184,4 +224,4 @@ if __name__ == "__main__":
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
-    main(num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd)
+    main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd)
