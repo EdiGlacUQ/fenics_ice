@@ -1,8 +1,12 @@
 import sys
 sys.path.insert(0,'../code/')
+sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
+
 import os
 import argparse
-from fenics import *
+from dolfin import *
+from tlm_adjoint import *
+
 import model
 import solver
 import matplotlib.pyplot as plt
@@ -221,6 +225,8 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
     xmlfile << mdl.surf
 
 if __name__ == "__main__":
+    stop_annotating()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--maxiter', dest='maxiter', type=int, help='Maximum number of inversion iterations')
     parser.add_argument('-r', '--rc_inv', dest='rc_inv', nargs=5, type=float, required=True, help='Scaling Constants')

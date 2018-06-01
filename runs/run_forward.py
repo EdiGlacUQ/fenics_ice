@@ -1,9 +1,11 @@
 import sys
 import os
-import argparse
+sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
 sys.path.insert(0,'../code/')
+
+import argparse
 from fenics import *
-from dolfin import *
+from tlm_adjoint import *
 import model
 import solver
 import matplotlib.pyplot as plt
@@ -53,8 +55,7 @@ def main(n_steps,run_length,bflag, outdir, dd):
     u_std = Function(M,os.path.join(dd,'u_std.xml'))
     v_std = Function(M,os.path.join(dd,'v_std.xml'))
     uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
-    #Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
-    #B2 = Function(Q,os.path.join(dd,'B2.xml'))
+
 
 
     param['run_length'] =  run_length
@@ -72,12 +73,15 @@ def main(n_steps,run_length,bflag, outdir, dd):
     mdl.init_beta(beta)
     mdl.label_domain()
 
+    print('ad')
     #Solve
     slvr = solver.ssa_solver(mdl)
-    slvr.timestep(save=1, adjoint_flag=1)
 
-    slvr.set_J_vaf()
-    slvr.comp_dJ_vaf(mdl.alpha)
+
+    slvr.timestep(adjoint_flag=0)
+    embed()
+    
+    dJ = compute_gradient(slvr.forward_ts_alpha, slvr.alpha)
 
     #Output model variables in ParaView+Fenics friendly format
     outdir = mdl.param['outdir']
@@ -170,7 +174,7 @@ def main(n_steps,run_length,bflag, outdir, dd):
 
 
 if __name__ == "__main__":
-
+    stop_annotating()
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--time', dest='run_length', type=float, required=True, help='Number of years to run for')

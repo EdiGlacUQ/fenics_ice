@@ -1,6 +1,6 @@
 import sys
 sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
-from dolfin import *
+from fenics import *
 from tlm_adjoint import *
 #from dolfin_adjoint import *
 #from dolfin_adjoint_custom import EquationSolver
@@ -68,6 +68,7 @@ class ssa_solver:
         self.U_np = Function(self.V, name = "U_np")
         self.Phi = TestFunction(self.V)
         self.Ksi = TestFunction(self.M)
+        self.Tau = TestFunction(self.Q)
 
         self.trial_H = TrialFunction(self.M)
         self.H_nps = Function(self.M)
@@ -262,7 +263,9 @@ class ssa_solver:
         H_nps = self.H_nps
         self.save_H_init(H)
 
-        if adjoint_flag: configure_checkpointing("revolve", {"n_steps":n_steps + 1, "snaps_on_disk":40, "snaps_in_ram":1, "verbose":True, "format":"pickle"})
+        if adjoint_flag:
+            start_annotating()
+            configure_checkpointing("revolve", {"n_steps":n_steps + 1, "snaps_on_disk":40, "snaps_in_ram":1, "verbose":True, "format":"pickle"})
 
         self.def_thickadv_eq()
         self.def_mom_eq()
@@ -284,9 +287,8 @@ class ssa_solver:
             pvd_hts << (H_np, 0.0)
             pvd_uts << (U_np, 0.0)
 
+
         t=0.0
-
-
         for n in range(n_steps):
             begin("Starting timestep %i of %i, time = %.16e a" % (n + 1, n_steps, t))
 
@@ -313,6 +315,15 @@ class ssa_solver:
                 pvd_hts << (H_np, t)
                 pvd_uts << (U_np, t)
 
+
+    def forward_ts_alpha(self,aa):
+        clear_caches()
+        self.timestep()
+        new_block()
+        self.set_J_vaf()
+        J = Functional()
+        J.assign(self.J_vaf)
+        return J
 
     def forward_alpha(self, aa):
         clear_caches()
@@ -359,6 +370,7 @@ class ssa_solver:
             clear_caches()
             start_annotating()
             J = forward(cntrl)
+            #J = self.forward_alpha(self.alpha)
             stop_annotating()
 
             #dJ = compute_gradient(J, self.alpha)
@@ -523,6 +535,7 @@ class ssa_solver:
         alpha = self.alpha
         beta = self.beta
         beta_bgd = self.beta_bgd
+        betadiff = beta-beta_bgd
 
         dIce = self.dIce
         dIce_gnd = self.dIce_gnd
@@ -537,22 +550,38 @@ class ssa_solver:
 
         J_ls = gamma_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*(v-v_obs)**2.0)*self.dObs
 
+        f = TrialFunction(self.Q)
+        f_alpha = Function(self.Q)
+        f_beta = Function(self.Q)
 
-        grad_alpha = grad(alpha)
-        grad_alpha_ = project(grad_alpha, self.RT)
-        lap_alpha = div(grad_alpha_)
+        a = f*self.Tau*dIce
+        L = (lambda_a * alpha * self.Tau - delta_a*inner(grad(alpha), grad(self.Tau)))*dIce
+        solve(a == L, f_alpha )
 
-        betadiff = beta-beta_bgd
+        L = (lambda_b * betadiff * self.Tau - delta_b*inner(grad(betadiff), grad(self.Tau)))*dIce
+        solve(a == L, f_beta )
 
-        grad_betadiff = grad(betadiff)
-        grad_betadiff_ = project(grad_betadiff, self.RT)
-        lap_beta = div(grad_betadiff_)
+        # 
+        # grad_alpha = grad(alpha)
+        # grad_alpha_ = project(grad_alpha, self.RT)
+        # lap_alpha = div(grad_alpha_)
+        #
+        #
+        #
+        # grad_betadiff = grad(betadiff)
+        # grad_betadiff_ = project(grad_betadiff, self.RT)
+        # lap_beta = div(grad_betadiff_)
+        #
+        # reg_a = lambda_a * alpha - delta_a*lap_alpha
+        # reg_b = lambda_b * betadiff - delta_b*lap_beta
+        #
+        # J_reg_alpha = inner(reg_a,reg_a)*dIce_gnd
+        # J_reg_beta = inner(reg_b,reg_b)*dIce
 
-        reg_a = lambda_a * alpha - delta_a*lap_alpha
-        reg_b = lambda_b * betadiff - delta_b*lap_beta
+        embed()
 
-        J_reg_alpha = inner(reg_a,reg_a)*dIce_gnd
-        J_reg_beta = inner(reg_b,reg_b)*dIce
+        J_reg_alpha = inner(f_alpha,f_alpha)*dIce_gnd
+        J_reg_beta = inner(f_beta,f_beta)*dIce
 
         J = J_ls + J_reg_alpha + J_reg_beta
 

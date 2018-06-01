@@ -105,6 +105,7 @@ def main(outdir, dd, bflag, nx, ny):
 
 
 
+
     #Output model variables in ParaView+Fenics friendly format
     outdir = mdl.param['outdir']
     pickle.dump( mdl.param, open( os.path.join(outdir,'param.p'), "wb" ) )
