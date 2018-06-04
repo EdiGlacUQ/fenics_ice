@@ -65,8 +65,8 @@ class model:
         param['newton_params'] = {"nonlinear_solver":"newton",
                     "newton_solver":{"linear_solver":"umfpack",
                     "maximum_iterations":20,
-                    "absolute_tolerance":1.0e-8,
-                    "relative_tolerance":1.0e-8,
+                    "absolute_tolerance":1.0e-12,
+                    "relative_tolerance":1.0e-12,
                     "convergence_criterion":"incremental",
                     "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 

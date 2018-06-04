@@ -249,7 +249,11 @@ class ssa_solver:
         a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
         solve(a==L,H_nps, bcs = self.H_bcs)
 
-    def timestep(self, save = 1, adjoint_flag=1):
+    def timestep(self, cntrl = None, save = 1, adjoint_flag=1):
+
+        if not cntrl is None:
+            old_alpha = self.alpha
+            self.alpha = cntrl
 
         n_steps = self.param['n_steps']
         dt = self.dt
@@ -261,11 +265,14 @@ class ssa_solver:
         H_np = self.H_np
         H_s = self.H_s
         H_nps = self.H_nps
-        self.save_H_init(H)
+        embed()
+        self.save_ts_zero()
 
         if adjoint_flag:
+            reset()
             start_annotating()
-            configure_checkpointing("revolve", {"n_steps":n_steps + 1, "snaps_on_disk":40, "snaps_in_ram":1, "verbose":True, "format":"pickle"})
+#            configure_checkpointing("periodic_disk", {'period': 2, "format":"pickle"})
+            configure_checkpointing("revolve", {"blocks":n_steps, "snaps_on_disk":40, "snaps_in_ram":1, "verbose":True, "format":"pickle"})
 
         self.def_thickadv_eq()
         self.def_mom_eq()
@@ -304,7 +311,7 @@ class ssa_solver:
             n += 1
             t = n * float(dt)
 
-            if n_steps < n_steps - 1 and adjoint_flag:
+            if n < n_steps - 1 and adjoint_flag:
                 new_block()
 
             #Record
@@ -316,6 +323,15 @@ class ssa_solver:
                 pvd_uts << (U_np, t)
 
 
+        if not cntrl is None:
+            self.alpha = old_alpha
+
+        self.set_J_vaf()
+        J = Functional()
+        J.assign(self.J_vaf)
+        return J
+
+
     def forward_ts_alpha(self,aa):
         clear_caches()
         self.timestep()
@@ -325,9 +341,9 @@ class ssa_solver:
         J.assign(self.J_vaf)
         return J
 
-    def forward_alpha(self, aa):
+    def forward_alpha(self, f):
         clear_caches()
-        self.alpha = aa
+        self.alpha = f
         self.def_mom_eq()
         self.solve_mom_eq()
         self.set_J_inv(verbose=False)
@@ -335,9 +351,9 @@ class ssa_solver:
         J.assign(self.J_inv)
         return J
 
-    def forward_beta(self, bb):
+    def forward_beta(self, f):
         clear_caches()
-        self.beta = bb
+        self.beta = f
         self.def_mom_eq()
         self.solve_mom_eq()
         self.set_J_inv(verbose=False)
@@ -561,7 +577,7 @@ class ssa_solver:
         L = (lambda_b * betadiff * self.Tau - delta_b*inner(grad(betadiff), grad(self.Tau)))*dIce
         solve(a == L, f_beta )
 
-        # 
+        #
         # grad_alpha = grad(alpha)
         # grad_alpha_ = project(grad_alpha, self.RT)
         # lap_alpha = div(grad_alpha_)
@@ -577,8 +593,6 @@ class ssa_solver:
         #
         # J_reg_alpha = inner(reg_a,reg_a)*dIce_gnd
         # J_reg_beta = inner(reg_b,reg_b)*dIce
-
-        embed()
 
         J_reg_alpha = inner(f_alpha,f_alpha)*dIce_gnd
         J_reg_beta = inner(f_beta,f_beta)*dIce
@@ -652,8 +666,12 @@ class ssa_solver:
         self.set_J_inv()
         return assemble(self.J_inv)
 
-    def save_H_init(self,H):
-        self.H_init = H
+    def save_ts_zero(self):
+        self.H_init = Function(self.H_np.function_space())
+        self.U_init = Function(self.U.function_space())
+
+        self.H_init.assign(self.H, annotate=False)
+        self.U_init.assign(self.U, annotate=False)
 
     def taylor_ver_vaf(self,alpha_in, adjoint_flag=0):
         self.alpha = alpha_in
@@ -714,6 +732,7 @@ class MomentumSolver(EquationSolver):
           deps = self.dependencies()
           replace_deps = lambda form : form
         else:
+          from collections import OrderedDict
           replace_map = OrderedDict(zip(self.dependencies(), deps))
           replace_map[self.x()] = x
           replace_deps = lambda form : replace(form, replace_map)

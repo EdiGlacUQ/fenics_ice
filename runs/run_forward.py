@@ -16,6 +16,8 @@ import datetime
 import pickle
 from IPython import embed
 
+np.random.seed(10)
+
 def main(n_steps,run_length,bflag, outdir, dd):
 
     #Load Data
@@ -35,53 +37,61 @@ def main(n_steps,run_length,bflag, outdir, dd):
 
 
 
-
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
     V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
     Q = FunctionSpace(mesh,'Lagrange',1)
     M = FunctionSpace(mesh,'DG',0)
 
-    U = Function(V,os.path.join(dd,'U.xml'))
-    alpha = Function(Q,os.path.join(dd,'alpha.xml'))
-    beta = Function(Q,os.path.join(dd,'beta.xml'))
-    bed = Function(Q,os.path.join(dd,'bed.xml'))
-    surf = Function(Q,os.path.join(dd,'surf.xml'))
-    thick = Function(M,os.path.join(dd,'thick.xml'))
-    mask = Function(M,os.path.join(dd,'mask.xml'))
-    mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
-    u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
-    v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
-    u_std = Function(M,os.path.join(dd,'u_std.xml'))
-    v_std = Function(M,os.path.join(dd,'v_std.xml'))
-    uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
+    def forward(alpha_val = None):
+        U = Function(V,os.path.join(dd,'U.xml'))
+        alpha = Function(Q,os.path.join(dd,'alpha.xml'))
+        beta = Function(Q,os.path.join(dd,'beta.xml'))
+        bed = Function(Q,os.path.join(dd,'bed.xml'))
+        surf = Function(Q,os.path.join(dd,'surf.xml'))
+        thick = Function(M,os.path.join(dd,'thick.xml'))
+        mask = Function(M,os.path.join(dd,'mask.xml'))
+        mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
+        u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
+        v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
+        u_std = Function(M,os.path.join(dd,'u_std.xml'))
+        v_std = Function(M,os.path.join(dd,'v_std.xml'))
+        uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
 
 
 
-    param['run_length'] =  run_length
-    param['n_steps'] = n_steps
+        param['run_length'] =  run_length
+        param['n_steps'] = n_steps
 
-    mdl = model.model(mesh,mask, param)
-    mdl.init_bed(bed)
-    mdl.init_thick(thick)
-    mdl.gen_surf()
-    mdl.init_mask(mask)
-    mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
-    mdl.init_lat_dirichletbc()
-    mdl.init_bmelt(Constant(0.0))
-    mdl.init_alpha(alpha)
-    mdl.init_beta(beta)
-    mdl.label_domain()
+        mdl = model.model(mesh,mask, param)
+        mdl.init_bed(bed)
+        mdl.init_thick(thick)
+        mdl.gen_surf()
+        mdl.init_mask(mask)
+        mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
+        mdl.init_lat_dirichletbc()
+        mdl.init_bmelt(Constant(0.0))
+        if alpha_val is None:
+            mdl.init_alpha(alpha)
+        else:
+            mdl.alpha = alpha_val
+        mdl.init_beta(beta)
+        mdl.label_domain()
 
-    print('ad')
-    #Solve
-    slvr = solver.ssa_solver(mdl)
+        print('ad')
+        #Solve
+        slvr = solver.ssa_solver(mdl)
 
 
-    slvr.timestep(adjoint_flag=0)
-    embed()
-    
-    dJ = compute_gradient(slvr.forward_ts_alpha, slvr.alpha)
+        return mdl.alpha, slvr.timestep(adjoint_flag=1)
+
+    alpha_J, J = forward()
+    dJ = compute_gradient(J, alpha_J)
+    #manager_info()
+
+    min_order = taylor_test(lambda alpha : forward(alpha_val = alpha)[1], alpha_J,
+      J_val = J.value(), dJ = dJ, seed = 1e0, size = 6)
+    sys.exit(os.EX_OK)
 
     #Output model variables in ParaView+Fenics friendly format
     outdir = mdl.param['outdir']
