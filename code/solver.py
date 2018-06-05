@@ -265,8 +265,6 @@ class ssa_solver:
         H_np = self.H_np
         H_s = self.H_s
         H_nps = self.H_nps
-        embed()
-        self.save_ts_zero()
 
         if adjoint_flag:
             reset()
@@ -672,6 +670,14 @@ class ssa_solver:
 
         self.H_init.assign(self.H, annotate=False)
         self.U_init.assign(self.U, annotate=False)
+
+    def reset_ts_zero(self):
+        self.U.assign(self.U_init, annotate=False)
+        self.U_np.assign(self.U_init, annotate=False)
+        self.H_np.assign(self.H_init, annotate=False)
+        self.H_s.assign(self.H_init, annotate=False)
+        self.H_nps.assign(self.H_init, annotate=False)
+        self.H = 0.5*(self.H_np + self.H_s)
 
     def taylor_ver_vaf(self,alpha_in, adjoint_flag=0):
         self.alpha = alpha_in
