@@ -249,11 +249,7 @@ class ssa_solver:
         a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
         solve(a==L,H_nps, bcs = self.H_bcs)
 
-    def timestep(self, cntrl = None, save = 1, adjoint_flag=1):
-
-        if not cntrl is None:
-            old_alpha = self.alpha
-            self.alpha = cntrl
+    def timestep(self, save = 1, adjoint_flag=1):
 
         n_steps = self.param['n_steps']
         dt = self.dt
@@ -320,9 +316,6 @@ class ssa_solver:
                 pvd_hts << (H_np, t)
                 pvd_uts << (U_np, t)
 
-
-        if not cntrl is None:
-            self.model.alpha = old_alpha
 
         self.set_J_vaf()
         J = Functional()
@@ -638,9 +631,8 @@ class ssa_solver:
         self.J_vaf = HAF * dIce_gnd
 
     def comp_dJ_vaf(self, cntrl):
-        J = Functional(self.J_vaf)
-        control = Control(cntrl)
-        dJ = compute_gradient(J, control, forget = False)
+        J = self.timestep(adjoint_flag=1)
+        dJ = compute_gradient(J, cntrl)
         self.dJ_vaf = dJ
 
     def comp_dJ_inv(self, cntrl):

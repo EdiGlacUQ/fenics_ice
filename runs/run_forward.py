@@ -72,43 +72,32 @@ def main(n_steps,run_length,bflag, outdir, dd):
     mdl.init_lat_dirichletbc()
     mdl.init_bmelt(Constant(0.0))
     mdl.init_alpha(alpha)
-    # if alpha_val is None:
-    #     mdl.init_alpha(alpha)
-    # else:
-    #     mdl.alpha = alpha_val
     mdl.init_beta(beta)
     mdl.label_domain()
 
     #Solve
     slvr = solver.ssa_solver(mdl)
-
-
-    #return mdl.alpha, slvr.timestep(adjoint_flag=1)
-
-    #alpha_J, J = forward()
-    #dJ = compute_gradient(J, alpha_J)
-    #manager_info()
-
     slvr.save_ts_zero()
-    def forward_ts(alpha_val=None):
-        slvr.reset_ts_zero()
-        if alpha_val:
-            mdl.alpha = alpha_val
-        return slvr.timestep(adjoint_flag=1)
+    slvr.comp_dJ_vaf(slvr.alpha)
 
+    #J = slvr.timestep(adjoint_flag=1)
+    #dJ = compute_gradient(J, slvr.alpha)
 
-    alphaJ = Function(mdl.alpha.function_space())
-    alphaJ.assign(mdl.alpha, annotate=False)
-    J = forward_ts(alphaJ)
-    dJ = compute_gradient(J, slvr.alpha)
-
-    min_order = taylor_test(lambda alpha : forward_ts(alpha_val = alpha), alphaJ,
-      J_val = J.value(), dJ = dJ, seed = 1e0, size = 6)
-    sys.exit(os.EX_OK)
-
-    # min_order = taylor_test(lambda alpha : forward_ts(alpha_val = alpha)[1], alpha_J,
+    # #Uncomment for Taylor Verification, Comment out slvr.comp_dJ_vaf
+    # J = slvr.timestep(adjoint_flag=1)
+    # dJ = compute_gradient(J, slvr.alpha)
+    #
+    # def forward_ts(alpha_val=None):
+    #     slvr.reset_ts_zero()
+    #     if alpha_val:
+    #         slvr.alpha = alpha_val
+    #     return slvr.timestep(adjoint_flag=1)
+    #
+    #
+    # min_order = taylor_test(lambda alpha : forward_ts(alpha_val = alpha), slvr.alpha,
     #   J_val = J.value(), dJ = dJ, seed = 1e0, size = 6)
     # sys.exit(os.EX_OK)
+
 
     #Output model variables in ParaView+Fenics friendly format
     outdir = mdl.param['outdir']
