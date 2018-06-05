@@ -322,7 +322,7 @@ class ssa_solver:
 
 
         if not cntrl is None:
-            self.alpha = old_alpha
+            self.model.alpha = old_alpha
 
         self.set_J_vaf()
         J = Functional()

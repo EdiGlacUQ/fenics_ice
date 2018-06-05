@@ -93,7 +93,7 @@ def main(n_steps,run_length,bflag, outdir, dd):
     def forward_ts(alpha_val=None):
         slvr.reset_ts_zero()
         if alpha_val:
-            slvr.alpha = alpha_val
+            mdl.alpha = alpha_val
         return slvr.timestep(adjoint_flag=1)
 
 
