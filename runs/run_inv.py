@@ -99,13 +99,9 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
     mdl.init_bmelt(bmelt)
     mdl.label_domain()
 
-    if os.path.isfile(os.path.join(dd,'alpha.xml')):
-        alpha = Function(Q,os.path.join(dd,'alpha.xml'))
-        mdl.init_alpha(alpha)
-    else:
-        mdl.gen_alpha()
 
 
+    mdl.gen_alpha()
     #mdl.init_alpha(Constant(1000.0))
     mdl.init_beta(mdl.apply_prmz(Bglen))            #Comment to use uniform Bglen
 
@@ -199,12 +195,12 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
 
     vtkfile = File(os.path.join(outdir,'alpha.pvd'))
     xmlfile = File(os.path.join(outdir,'alpha.xml'))
-    vtkfile << mdl.alpha
-    xmlfile << mdl.alpha
+    vtkfile << slvr.alpha
+    xmlfile << slvr.alpha
 
     vtkfile = File(os.path.join(outdir,'Bglen.pvd'))
     xmlfile = File(os.path.join(outdir,'Bglen.xml'))
-    Bglen = project(mdl.rev_prmz(mdl.beta),mdl.M)
+    Bglen = project(mdl.rev_prmz(slvr.beta),mdl.M)
     vtkfile << Bglen
     xmlfile << Bglen
 

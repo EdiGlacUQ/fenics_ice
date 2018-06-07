@@ -20,11 +20,16 @@ class model:
         self.gen_domain()
         self.nm = FacetNormal(self.mesh)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
+
         self.M = FunctionSpace(self.mesh,'DG',0)
         self.RT = FunctionSpace(self.mesh,'RT',1)
+
+        #Based on IsmipC: alpha, beta, and U are periodic.
         if not self.param['periodic_bc']:
+            self.Qp = self.Q
             self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         else:
+            self.Qp = FunctionSpace(self.mesh,'Lagrange',1,constrained_domain=PeriodicBoundary(self.param['periodic_bc']))
             self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2,constrained_domain=PeriodicBoundary(self.param['periodic_bc']))
 
         #Default velocity mask and Beta fields
@@ -65,8 +70,8 @@ class model:
         param['newton_params'] = {"nonlinear_solver":"newton",
                     "newton_solver":{"linear_solver":"umfpack",
                     "maximum_iterations":20,
-                    "absolute_tolerance":1.0e-12,
-                    "relative_tolerance":1.0e-12,
+                    "absolute_tolerance":1.0e-8,
+                    "relative_tolerance":1.0e-8,
                     "convergence_criterion":"incremental",
                     "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
@@ -94,8 +99,8 @@ class model:
     def def_B_field(self):
         A = self.param['A']
         n = self.param['n']
-        self.beta = project(sqrt(A**(-1.0/n)), self.Q)
-        self.beta_bgd = project(sqrt(A**(-1.0/n)), self.Q)
+        self.beta = project(sqrt(A**(-1.0/n)), self.Qp)
+        self.beta_bgd = project(sqrt(A**(-1.0/n)), self.Qp)
         self.beta.rename('beta', self.beta.label())
 
     def def_lat_dirichletbc(self):
@@ -113,17 +118,18 @@ class model:
         self.H = 0.5*(self.H_np + self.H_s)
 
     def init_alpha(self,alpha):
-        self.alpha = project(alpha,self.Q)
+        self.alpha = project(alpha,self.Qp)
         self.alpha.rename('alpha', self.alpha.label())
 
     def init_beta(self,beta, pert= True):
-        self.beta_bgd = project(beta,self.Q)
-        self.beta = project(beta,self.Q)
+        self.beta_bgd = project(beta,self.Qp)
+        self.beta = project(beta,self.Qp)
         if pert:
             #Perturbed field for nonzero gradient at first step of inversion
             bv = self.beta.vector().array()
             pert_vec = 0.001*bv*randn(bv.size)
             self.beta.vector().set_local(bv + pert_vec)
+            self.beta.vector().apply('insert')
 
         self.beta.rename('beta', self.beta.label())
 
@@ -209,7 +215,7 @@ class model:
         alpha_tmp1 = Max(alpha_, a_lb)
         alpha_tmp2 = Min(alpha_tmp1, a_ub)
         alpha = self.apply_prmz(alpha_tmp2)
-        self.alpha = project(alpha,self.Q)
+        self.alpha = project(alpha,self.Qp)
         self.alpha.rename('alpha', self.alpha.label())
 
 
@@ -345,7 +351,7 @@ class PeriodicBoundary(SubDomain):
 
     # Left boundary is "target domain" G
     def inside(self, x, on_boundary):
-        # return True if on left or bottom boundary AND NOT on one of the two corners (0, 1) and (1, 0)
+        # return True if on left or bottom boundary AND NOT on one of the two corners (0, L) and (L, 0)
         return bool((near(x[0], 0) or near(x[1], 0)) and
                 (not ((near(x[0], 0) and near(x[1], self.L)) or
                         (near(x[0], self.L) and near(x[1], 0)))) and on_boundary)
@@ -357,6 +363,6 @@ class PeriodicBoundary(SubDomain):
         elif near(x[0], self.L):
             y[0] = x[0] - self.L
             y[1] = x[1]
-        else:   # near(x[1], 1)
+        else:   # near(x[1], L)
             y[0] = x[0]
             y[1] = x[1] - self.L

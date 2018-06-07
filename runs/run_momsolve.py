@@ -12,7 +12,7 @@ import pickle
 from IPython import embed
 
 
-def main(outdir, dd, bflag, nx, ny):
+def main(outdir, dd, periodic_bc, nx, ny):
 
     #Load Data
     data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
@@ -20,6 +20,7 @@ def main(outdir, dd, bflag, nx, ny):
 
     M = FunctionSpace(data_mesh, 'DG', 0)
     Q = FunctionSpace(data_mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
+    Qp = Q
 
     bed = Function(Q,os.path.join(dd,'bed.xml'))
     Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
@@ -44,16 +45,19 @@ def main(outdir, dd, bflag, nx, ny):
         mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
     else:
         print('Identified as previous run, reusing mesh')
+        assert(not nx), 'Cannot change mesh resolution from previous run'
+        assert(not ny), 'Cannot change mesh resolution from previous run'
 
-    if bflag:
+    if periodic_bc:
+        Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
         if os.path.isfile(os.path.join(dd,'param.p')):
-            bflag = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
-            assert(bflag), 'Need to run periodic bc using original files'
+            periodic_bc = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
+            assert(periodic_bc), 'Need to run periodic bc using original files'
         else:
             L1 = xlim[-1] - xlim[0]
             L2 = ylim[-1] - ylim[0]
             assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
-            bflag = L1
+            periodic_bc = L1
 
 
 
@@ -61,7 +65,7 @@ def main(outdir, dd, bflag, nx, ny):
     #Initialize Model
     param = {
             'outdir' : outdir,
-            'periodic_bc': bflag
+            'periodic_bc': periodic_bc
             }
 
 
@@ -74,7 +78,7 @@ def main(outdir, dd, bflag, nx, ny):
     mdl.label_domain()
 
     if os.path.isfile(os.path.join(dd,'alpha.xml')):
-        alpha = Function(Q,os.path.join(dd,'alpha.xml'))
+        alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
         mdl.init_alpha(alpha)
 
     elif os.path.isfile(os.path.join(dd,'B2.xml')):
@@ -86,7 +90,7 @@ def main(outdir, dd, bflag, nx, ny):
         sys.exit()
 
     if os.path.isfile(os.path.join(dd,'beta.xml')):
-        beta = Function(Q,os.path.join(dd,'beta.xml'))
+        beta = Function(Qp,os.path.join(dd,'beta.xml'))
         mdl.init_beta(beta)
 
     elif os.path.isfile(os.path.join(dd,'Bglen.xml')):
@@ -181,16 +185,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
-    parser.add_argument('-b', '--boundaries', dest='bflag', action='store_true', help='Periodic boundary conditions')
+    parser.add_argument('-b', '--boundaries', dest='periodic_bc', action='store_true', help='Periodic boundary conditions')
     parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction (defaults to data resolution)')
     parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction (defaults to data resolution)')
 
-    parser.set_defaults(bflag=False,nx=False,ny=False)
+    parser.set_defaults(periodic_bc=False,nx=False,ny=False)
     args = parser.parse_args()
 
     outdir = args.outdir
     dd = args.dd
-    bflag = args.bflag
+    periodic_bc = args.periodic_bc
     nx = args.nx
     ny = args.ny
 
@@ -204,4 +208,4 @@ if __name__ == "__main__":
 
 
 
-    main(outdir, dd, bflag, nx, ny)
+    main(outdir, dd, periodic_bc, nx, ny)

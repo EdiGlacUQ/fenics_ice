@@ -174,8 +174,8 @@ def main(n_steps,run_length,bflag, outdir, dd):
 
     vtkfile = File(os.path.join(outdir,'alpha.pvd'))
     xmlfile = File(os.path.join(outdir,'alpha.xml'))
-    vtkfile << mdl.alpha
-    xmlfile << mdl.alpha
+    vtkfile << slvr.alpha
+    xmlfile << slvr.alpha
 
     vtkfile = File(os.path.join(outdir,'Bglen.pvd'))
     xmlfile = File(os.path.join(outdir,'Bglen.xml'))

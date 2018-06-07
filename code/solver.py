@@ -2,6 +2,7 @@ import sys
 sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
 from fenics import *
 from tlm_adjoint import *
+from tlm_adjoint.hessian_optimization import *
 #from dolfin_adjoint import *
 #from dolfin_adjoint_custom import EquationSolver
 import moola
@@ -60,6 +61,7 @@ class ssa_solver:
         self.mesh = model.mesh
         self.V = model.V
         self.Q = model.Q
+        self.Qp = model.Qp
         self.M = model.M
         self.RT = model.RT
 
@@ -68,7 +70,7 @@ class ssa_solver:
         self.U_np = Function(self.V, name = "U_np")
         self.Phi = TestFunction(self.V)
         self.Ksi = TestFunction(self.M)
-        self.Tau = TestFunction(self.Q)
+        self.pTau = TestFunction(self.Qp)
 
         self.trial_H = TrialFunction(self.M)
         self.H_nps = Function(self.M)
@@ -249,7 +251,9 @@ class ssa_solver:
         a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
         solve(a==L,H_nps, bcs = self.H_bcs)
 
-    def timestep(self, save = 1, adjoint_flag=1):
+    def timestep(self, save = 1, adjoint_flag=1, cst_func= lambda: 0.0 ):
+
+        self.J_ts = []
 
         n_steps = self.param['n_steps']
         dt = self.dt
@@ -272,6 +276,9 @@ class ssa_solver:
         self.def_mom_eq()
         self.solve_mom_eq()
         U_np.assign(U)
+
+        self.J_ts.append(cst_func())
+
         if adjoint_flag: new_block()
 
 
@@ -287,6 +294,7 @@ class ssa_solver:
 
             pvd_hts << (H_np, 0.0)
             pvd_uts << (U_np, 0.0)
+
 
 
         t=0.0
@@ -309,6 +317,9 @@ class ssa_solver:
                 new_block()
 
             #Record
+            cst = cst_func()
+            self.J_ts.append()
+
             if save:
                 hdf_hts.write(H_np, 'H', t)
                 hdf_uts.write(U_np, 'U', t)
@@ -317,9 +328,9 @@ class ssa_solver:
                 pvd_uts << (U_np, t)
 
 
-        self.set_J_vaf()
+        pickle.dump( self.J_ts, open( "J_ts.p", "wb" ) )
         J = Functional()
-        J.assign(self.J_vaf)
+        J.assign(cst)
         return J
 
 
@@ -365,6 +376,8 @@ class ssa_solver:
 
 
     def inversion(self, cntrl_input):
+
+
         nparam = len(cntrl_input)
         num_iter = self.param['altiter']*nparam if nparam > 1 else nparam
 
@@ -549,23 +562,23 @@ class ssa_solver:
         ds = self.ds
         nm = self.nm
 
-        gamma_a = self.param['rc_inv'][0]
-        lambda_a = self.param['rc_inv'][1]
-        lambda_b = self.param['rc_inv'][2]
-        delta_a = self.param['rc_inv'][3]
-        delta_b = self.param['rc_inv'][4]
+        lambda_a = self.param['rc_inv'][0]
+        delta_a = self.param['rc_inv'][1]
+        delta_b = self.param['rc_inv'][2]
+        gamma_a = self.param['rc_inv'][3]
+        gamma_b = self.param['rc_inv'][4]
 
-        J_ls = gamma_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*(v-v_obs)**2.0)*self.dObs
+        J_ls = lambda_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*(v-v_obs)**2.0)*self.dObs
 
-        f = TrialFunction(self.Q)
-        f_alpha = Function(self.Q)
-        f_beta = Function(self.Q)
+        f = TrialFunction(self.Qp)
+        f_alpha = Function(self.Qp)
+        f_beta = Function(self.Qp)
 
-        a = f*self.Tau*dIce
-        L = (lambda_a * alpha * self.Tau - delta_a*inner(grad(alpha), grad(self.Tau)))*dIce
+        a = f*self.pTau*dIce
+        L = (delta_a * alpha * self.pTau - gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
         solve(a == L, f_alpha )
 
-        L = (lambda_b * betadiff * self.Tau - delta_b*inner(grad(betadiff), grad(self.Tau)))*dIce
+        L = (delta_b * betadiff * self.pTau - gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
         solve(a == L, f_beta )
 
         #
@@ -579,13 +592,13 @@ class ssa_solver:
         # grad_betadiff_ = project(grad_betadiff, self.RT)
         # lap_beta = div(grad_betadiff_)
         #
-        # reg_a = lambda_a * alpha - delta_a*lap_alpha
-        # reg_b = lambda_b * betadiff - delta_b*lap_beta
+        # reg_a = delta_a * alpha - gamma_a*lap_alpha
+        # reg_b = delta_b * betadiff - gamma_b*lap_beta
         #
         # J_reg_alpha = inner(reg_a,reg_a)*dIce_gnd
         # J_reg_beta = inner(reg_b,reg_b)*dIce
 
-        J_reg_alpha = inner(f_alpha,f_alpha)*dIce_gnd
+        J_reg_alpha = inner(f_alpha,f_alpha)*dIce
         J_reg_beta = inner(f_beta,f_beta)*dIce
 
         J = J_ls + J_reg_alpha + J_reg_beta
@@ -602,10 +615,10 @@ class ssa_solver:
 
 
             print('Inversion Details')
-            print('lambda_a: %.2e' % lambda_a)
-            print('lambda_b: %.2e' % lambda_b)
             print('delta_a: %.2e' % delta_a)
             print('delta_b: %.2e' % delta_b)
+            print('gamma_a: %.2e' % gamma_a)
+            print('gamma_b: %.2e' % gamma_b)
             print('J: %.2e' % J1)
             print('J_ls: %.2e' % J2)
             print('J_reg: %.2e' % sum([J3,J4]))
@@ -627,11 +640,17 @@ class ssa_solver:
         b_ex = conditional(B < 0.0, 1.0, 0.0)
 
         HAF = b_ex * (H + rhow/rhoi*B) + (1-b_ex)*(H)
+        J_vaf = HAF * dIce_gnd
 
-        self.J_vaf = HAF * dIce_gnd
+        if verbose: print('J_vaf: {0}'.format(J_vaf))
+
+        self.J_vaf = J_vaf
+        return J_vaf
 
     def comp_dJ_vaf(self, cntrl):
-        J = self.timestep(adjoint_flag=1)
+        J_vaf = self.timestep(adjoint_flag=1)
+        J = Functional()
+        J.assign(J_vaf)
         dJ = compute_gradient(J, cntrl)
         self.dJ_vaf = dJ
 

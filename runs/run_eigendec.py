@@ -15,6 +15,7 @@ import datetime
 import numpy as np
 from eigendecomposition_custom import *
 import matplotlib.pyplot as plt
+import prior
 
 
 def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd):
@@ -30,29 +31,36 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd):
                 "convergence_criterion":"incremental",
                 "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
+    rc_inv = param['rc_inv']
     if msft_flag:
-        tmp = param['rc_inv']
-        tmp[1:] = [0 for i in tmp[1:]]
+        #Set delta, gamma to machine preciscion (not zero!)
+        tmp = list(rc_inv) #deepcopy
+        tmp[1:] = [1e-15 for i in rc_inv[1:]]
         param['rc_inv'] = tmp
+
 
 
     #Ice only mesh
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
     #Set up Function spaces
+    Q = FunctionSpace(mesh,'Lagrange',1)
+
     if not param['periodic_bc']:
+       Qp = Q
        V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
     else:
-       V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(self.param['periodic_bc']))
+       Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
+       V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
 
-    Q = FunctionSpace(mesh,'Lagrange',1)
+
     M = FunctionSpace(mesh,'DG',0)
 
     #Load fields
     U = Function(V,os.path.join(dd,'U.xml'))
 
-    alpha = Function(Q,os.path.join(dd,'alpha.xml'))
-    beta = Function(Q,os.path.join(dd,'beta.xml'))
+    alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
+    beta = Function(Qp,os.path.join(dd,'beta.xml'))
     bed = Function(Q,os.path.join(dd,'bed.xml'))
 
     thick = Function(M,os.path.join(dd,'thick.xml'))
@@ -99,18 +107,34 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd):
                                "relative_tolerance":1.0e-14})
     mass_solver.set_operator(mass)
 
-    def gnhep_action(x):
+    delta = rc_inv[1]
+    gamma = rc_inv[3]
+    reg_op = prior.laplacian(delta,gamma, slvr.alpha.function_space())
+
+
+
+    def hep_action(x):
+        x = function_copy(x, static = True)
+        _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
+        return function_get_values(ddJ_val)
+
+    def gnhep_mass_action(x):
         x = function_copy(x, static = True)
         _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
         mass_solver.solve(xg.vector(), ddJ_val.vector())
         return function_get_values(xg)
 
+    def gnhep_prior_action(x):
+        x = function_copy(x, static = True)
+        _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
+        reg_op.inv_action(ddJ_val.vector(), xg.vector())
+        return function_get_values(xg)
 
 
     timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
 
     if slepsc_flag:
-        lam, [vr, vi] = eigendecompose(space, gnhep_action, tolerance = 1.0e-2, N_eigenvalues = num_eig)
+        lam, [vr, vi] = eigendecompose(space, gnhep_prior_action, tolerance = 1.0e-2, N_eigenvalues = num_eig)
         fo = 'slepceig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
 
         vtkfile = File(os.path.join(outdir,'vr.pvd'))
@@ -196,7 +220,7 @@ if __name__ == "__main__":
 
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-n', '--numeig', dest='num_eig', type=int, required=True, help='Number of eigenvalues to find')
+    parser.add_argument('-n', '--numeig', dest='num_eig', type=int, help='Number of eigenvalues to find (default is all)')
     parser.add_argument('-i', '--niter', dest='n_iter', type=int, help='Number of power iterations for random algorithm')
     parser.add_argument('-s', '--slepsc', dest='slepsc_flag', action='store_true', help='Use slepsc instead of random algorithm')
     parser.add_argument('-m', '--msft_flag', dest='msft_flag', action='store_true', help='Consider only the misfit term of the cost function without regularization')
@@ -205,7 +229,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
 
-    parser.set_defaults(n_iter=1, slepsc_flag=False, msft_flag=False, outdir=False)
+    parser.set_defaults(n_iter=1, num_eig = None, slepsc_flag=False, msft_flag=False, outdir=False)
     args = parser.parse_args()
 
     num_eig = args.num_eig
