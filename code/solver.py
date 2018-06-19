@@ -236,7 +236,7 @@ class ssa_solver:
 
         self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
 
-        bc0 = DirichletBC(self.M, self.H, self.ff, self.GAMMA_LAT)
+        bc0 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_LAT)
         bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
         self.H_bcs = [bc0, bc1]
 
@@ -253,11 +253,23 @@ class ssa_solver:
 
     def timestep(self, save = 1, adjoint_flag=1, cst_func= lambda: 0.0 ):
 
-        self.J_ts = []
+        t = 0.0
 
         n_steps = self.param['n_steps']
-        dt = self.dt
+        dt = self.param['dt']
+        run_length = self.param['run_length']
+        num_sens = self.param['num_sens']
+
+
+        t_sens = run_length if num_sens == 1 else np.linspace(0.0, run_length, num_sens)
+        n_sens = np.round(t_sens/dt)
+
+
         outdir = self.param['outdir']
+
+        self.Jval_ts = np.zeros(n_steps+1)
+        J = Functional()
+        J_is = []
 
         U = self.U
         U_np = self.U_np
@@ -270,16 +282,24 @@ class ssa_solver:
             reset()
             start_annotating()
 #            configure_checkpointing("periodic_disk", {'period': 2, "format":"pickle"})
-            configure_checkpointing("revolve", {"blocks":n_steps, "snaps_on_disk":40, "snaps_in_ram":1, "verbose":True, "format":"pickle"})
+            configure_checkpointing("revolve", {"blocks":n_steps, "snaps_on_disk":400, "snaps_in_ram":5, "verbose":True, "format":"pickle"})
 
         self.def_thickadv_eq()
         self.def_mom_eq()
         self.solve_mom_eq()
         U_np.assign(U)
 
-        self.J_ts.append(cst_func())
+        cst = cst_func()
+        self.Jval_ts[0] = assemble(cst)
 
-        if adjoint_flag: new_block()
+        if adjoint_flag:
+            if 0.0 in n_sens:
+                J_i = Functional()
+                J_i.assign(cst)
+                J_is.append(J_i)
+                J.addto(J_i.fn())
+
+            new_block()
 
 
         if save:
@@ -297,7 +317,6 @@ class ssa_solver:
 
 
 
-        t=0.0
         for n in range(n_steps):
             begin("Starting timestep %i of %i, time = %.16e a" % (n + 1, n_steps, t))
 
@@ -318,7 +337,16 @@ class ssa_solver:
 
             #Record
             cst = cst_func()
-            self.J_ts.append()
+            self.Jval_ts[n] = assemble(cst)
+
+            if adjoint_flag:
+                if n in n_sens:
+                    J_i = Functional()
+                    J_i.assign(cst)
+                    J_is.append(J_i)
+                    J.addto(J_i.fn())
+                else:
+                    J.addto()
 
             if save:
                 hdf_hts.write(H_np, 'H', t)
@@ -328,17 +356,14 @@ class ssa_solver:
                 pvd_uts << (U_np, t)
 
 
-        pickle.dump( self.J_ts, open( "J_ts.p", "wb" ) )
-        J = Functional()
-        J.assign(cst)
-        return J
+        return J_is
 
 
     def forward_ts_alpha(self,aa):
         clear_caches()
         self.timestep()
         new_block()
-        self.set_J_vaf()
+        self.J_vaf = self.comp_J_vaf()
         J = Functional()
         J.assign(self.J_vaf)
         return J
@@ -348,7 +373,7 @@ class ssa_solver:
         self.alpha = f
         self.def_mom_eq()
         self.solve_mom_eq()
-        self.set_J_inv(verbose=False)
+        self.J_inv = self.comp_J_inv()
         J = Functional()
         J.assign(self.J_inv)
         return J
@@ -358,7 +383,7 @@ class ssa_solver:
         self.beta = f
         self.def_mom_eq()
         self.solve_mom_eq()
-        self.set_J_inv(verbose=False)
+        self.J_inv = self.comp_J_inv()
         J = Functional()
         J.assign(self.J_inv)
         return J
@@ -369,7 +394,7 @@ class ssa_solver:
         self.beta = dd[1]
         self.def_mom_eq()
         self.solve_mom_eq()
-        self.set_J_inv(verbose=False)
+        self.J_inv = self.comp_J_inv()
         J = Functional()
         J.assign(self.J_inv)
         return J
@@ -414,7 +439,7 @@ class ssa_solver:
         stop_annotating()
 
         #Print out inversion results/parameter values
-        self.set_J_inv(verbose = True)
+        self.J_inv = self.comp_J_inv(verbose=True)
 
 
         #
@@ -453,7 +478,7 @@ class ssa_solver:
         #         adj_reset() #Reset adjoint tape. Emprically necessary
         #         self.def_mom_eq()
         #         self.solve_mom_eq()
-        #         self.set_J_inv(verbose=False)
+        #         self.J_inv = self.comp_J_inv()
         #
         #     Hinit = Hinit_gen(p_scale)
         #
@@ -509,7 +534,7 @@ class ssa_solver:
         # stop_annotating()
         #
         # #Print out inversion results/parameter values
-        # self.set_J_inv(verbose = True)
+        # self.J_inv = self.comp_J_inv(verbose=True)
 
     def epsilon(self, U):
         """
@@ -543,7 +568,7 @@ class ssa_solver:
 
         return nu
 
-    def set_J_inv(self, verbose=False):
+    def comp_J_inv(self, verbose=False):
 
         u,v = split(self.U)
 
@@ -603,7 +628,7 @@ class ssa_solver:
 
         J = J_ls + J_reg_alpha + J_reg_beta
 
-        self.J_inv = J
+        return J
 
 
         if verbose:
@@ -626,7 +651,7 @@ class ssa_solver:
             print('J_reg_beta: %.2e' % J4)
             print('J_reg/J_cst: %.2e' % ((J3+J4)/(J2)))
 
-    def set_J_vaf(self, verbose=False):
+    def comp_J_vaf(self, verbose=False):
         H = self.H_nps
         #B stands in for self.bed, which leads to a taping error
         B = Function(self.M)
@@ -638,27 +663,36 @@ class ssa_solver:
         dt = self.dt
 
         b_ex = conditional(B < 0.0, 1.0, 0.0)
-
         HAF = b_ex * (H + rhow/rhoi*B) + (1-b_ex)*(H)
         J_vaf = HAF * dIce_gnd
 
         if verbose: print('J_vaf: {0}'.format(J_vaf))
 
-        self.J_vaf = J_vaf
         return J_vaf
 
-    def comp_dJ_vaf(self, cntrl):
-        J_vaf = self.timestep(adjoint_flag=1)
-        J = Functional()
-        J.assign(J_vaf)
-        dJ = compute_gradient(J, cntrl)
-        self.dJ_vaf = dJ
+    def comp_J_h2(self,verbose=False):
 
-    def comp_dJ_inv(self, cntrl):
-        J = Functional(self.J_inv)
-        control = [Control(x) for x in cntrl] if type(cntrl) is list else Control(cntrl)
-        dJ = compute_gradient(J, control, forget = False)
-        self.dJ_inv = dJ
+        J_h2 = self.H_np*self.H_np*self.dIce
+        if verbose: print('J_h2: {0}'.format(J_h2))
+
+        return J_h2
+
+
+    def set_dJ_vaf(self, cntrl):
+        J = self.timestep(adjoint_flag=1, cst_func=self.comp_J_vaf)
+        dJ = compute_gradient(J, cntrl)
+        self.dJ_ts = dJ
+
+    def set_dJ_h2(self, cntrl):
+        J = self.timestep(adjoint_flag=1, cst_func=self.comp_J_h2)
+        dJ = compute_gradient(J, cntrl)
+        self.dJ_ts = dJ
+
+    # def set_dJ_inv(self, cntrl):
+    #     J = Functional(self.J_inv)
+    #     control = [Control(x) for x in cntrl] if type(cntrl) is list else Control(cntrl)
+    #     dJ = compute_gradient(J, control, forget = False)
+    #     self.dJ_inv = dJ
 
 
     def set_hessian_action(self, cntrl):
@@ -666,13 +700,19 @@ class ssa_solver:
         fopts = {'alpha': self.forward_alpha, 'beta': self.forward_beta, 'dual': self.forward_dual}
         forward = fopts['dual'] if len(cntrl) > 1 else fopts[cntrl[0].name()]
 
-        self.ddJ = Hessian(forward)
+        reset()
+        clear_caches()
+        start_manager()
+        J = forward(*cntrl)
+        stop_manager()
+
+        self.ddJ = SingleBlockHessian(J)
 
     def taylor_ver_inv(self,alpha_in):
         self.alpha = alpha_in
         self.def_mom_eq()
         self.solve_mom_eq()
-        self.set_J_inv()
+        self.J_inv = self.comp_J_inv()
         return assemble(self.J_inv)
 
     def save_ts_zero(self):
@@ -690,14 +730,14 @@ class ssa_solver:
         self.H_nps.assign(self.H_init, annotate=False)
         self.H = 0.5*(self.H_np + self.H_s)
 
-    def taylor_ver_vaf(self,alpha_in, adjoint_flag=0):
-        self.alpha = alpha_in
-        self.H = self.H_init.copy(deepcopy=True)
-        self.H_s = self.H_init.copy(deepcopy=True)
-        self.H_np = self.H_init.copy(deepcopy=True)
-        self.timestep(save=0, adjoint_flag=adjoint_flag)
-        self.set_J_vaf()
-        return assemble(self.J_vaf)
+    # def taylor_ver_vaf(self,alpha_in, adjoint_flag=0):
+    #     self.alpha = alpha_in
+    #     self.H = self.H_init.copy(deepcopy=True)
+    #     self.H_s = self.H_init.copy(deepcopy=True)
+    #     self.H_np = self.H_init.copy(deepcopy=True)
+    #     self.timestep(save=0, adjoint_flag=adjoint_flag)
+    #     self.set_J_vaf()
+    #     return assemble(self.J_vaf)
 
 
 class ddJ_wrapper(object):

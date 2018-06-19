@@ -7,8 +7,8 @@ import os
 
 
 #Number of cells in grid
-nx = 20;
-ny = 20;
+nx = 100;
+ny = 100;
 
 #Length of domain
 L = 40e3

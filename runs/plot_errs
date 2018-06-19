@@ -1,0 +1,37 @@
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+
+run_folder = './ismipC_perbc_inv1'
+
+Jfile = 'Jval_ts.p'
+sigmafile = 'sigma.p'
+sigmapriorfile = 'sigma_prior.p'
+
+pd = pickle.load(open(os.path.join(run_folder, Jfile), 'rb'))
+dJ_vals = pd[0]
+dJ_t = pd[1]
+
+pd = pickle.load(open(os.path.join(run_folder, sigmafile), 'rb'))
+sigma_vals = pd[0]
+sigma_t = pd[1]
+
+pd = pickle.load(open(os.path.join(run_folder, sigmapriorfile), 'rb'))
+sigma_prior_vals = pd[0]
+
+sigma_interp = np.interp(dJ_t, sigma_t, sigma_vals)
+sigma_prior_interp = np.interp(dJ_t, sigma_t, sigma_prior_vals)
+
+x = dJ_t
+y = dJ_vals
+s = sigma_interp
+sp = sigma_prior_interp
+
+plt.figure()
+plt.plot(x, y, 'k')
+plt.fill_between(x, y-sp, y+sp)
+plt.fill_between(x, y-s, y+s)
+plt.xlabel('Time (yrs)')
+plt.ylabel('J')
+plt.show()

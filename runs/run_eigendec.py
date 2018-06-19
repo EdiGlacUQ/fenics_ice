@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import prior
 
 
-def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd):
+def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd, fileout):
 
     #Load parameters of run
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
@@ -32,20 +32,22 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd):
                 "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
     rc_inv = param['rc_inv']
+
     if msft_flag:
-        #Set delta, gamma to machine preciscion (not zero!)
+        #Set delta, gamma to machine preciscion (not zero!) in param[];
+        #rc_inv contains original values for computing preconditioner
         tmp = list(rc_inv) #deepcopy
         tmp[1:] = [1e-15 for i in rc_inv[1:]]
         param['rc_inv'] = tmp
-
-
 
     #Ice only mesh
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
     #Set up Function spaces
     Q = FunctionSpace(mesh,'Lagrange',1)
+    M = FunctionSpace(mesh,'DG',0)
 
+    #Handle function with optional periodic boundary conditions
     if not param['periodic_bc']:
        Qp = Q
        V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
@@ -53,15 +55,14 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd):
        Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
        V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
 
-
-    M = FunctionSpace(mesh,'DG',0)
-
     #Load fields
+
     U = Function(V,os.path.join(dd,'U.xml'))
 
     alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
     beta = Function(Qp,os.path.join(dd,'beta.xml'))
     bed = Function(Q,os.path.join(dd,'bed.xml'))
+
 
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
@@ -87,18 +88,18 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd):
     mdl.init_beta(beta)
     mdl.label_domain()
 
-
     #Setup our solver object
     slvr = solver.ssa_solver(mdl)
 
     opts = {'0': slvr.alpha, '1': [slvr.beta], '2': [slvr.alpha,slvr.beta]}
     cntrl = opts[str(pflag)]
-
-    slvr.set_hessian_action(slvr.alpha)
-
-    A_action =  slvr.ddJ.action_fn(cntrl)
     space = slvr.alpha.function_space()
 
+
+    #Hessian Action
+    slvr.set_hessian_action(slvr.alpha)
+
+    #Mass matrix solver
     xg,xb = Function(space), Function(space)
     test, trial = TestFunction(space), TrialFunction(space)
     mass = assemble(inner(test,trial)*slvr.dx)
@@ -107,36 +108,51 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd):
                                "relative_tolerance":1.0e-14})
     mass_solver.set_operator(mass)
 
+    #Regularization operator using inversion delta/gamma values
     delta = rc_inv[1]
     gamma = rc_inv[3]
     reg_op = prior.laplacian(delta,gamma, slvr.alpha.function_space())
 
 
+    #Counter for hessian action -- list rather than float/int necessary
+    num_action_calls = [0]
 
     def hep_action(x):
-        x = function_copy(x, static = True)
+        num_action_calls[0] += 1
+        info("hep_action call %i" % num_action_calls[0])
         _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
         return function_get_values(ddJ_val)
 
     def gnhep_mass_action(x):
-        x = function_copy(x, static = True)
+        num_action_calls[0] += 1
+        info("gnhep_mass_action call %i" % num_action_calls[0])
         _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
         mass_solver.solve(xg.vector(), ddJ_val.vector())
         return function_get_values(xg)
 
     def gnhep_prior_action(x):
-        x = function_copy(x, static = True)
+        num_action_calls[0] += 1
+        info("gnhep_prior_action call %i" % num_action_calls[0])
         _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
         reg_op.inv_action(ddJ_val.vector(), xg.vector())
         return function_get_values(xg)
 
+    def gnhep_prior_mass_action(x):
+        num_action_calls[0] += 1
+        info("gnhep_prior_mass_action call %i" % num_action_calls[0])
+        _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
+        mass_solver.solve(xb.vector(), ddJ_val.vector())
+        reg_op.inv_action(xb.vector(), xg.vector())
+        return function_get_values(xg)
 
-    timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
 
+    #Hessian eigendecomposition using SLEPSC
     if slepsc_flag:
-        lam, [vr, vi] = eigendecompose(space, gnhep_prior_action, tolerance = 1.0e-2, N_eigenvalues = num_eig)
-        fo = 'slepceig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
 
+        #Eigendecomposition
+        lam, [vr, vi] = eigendecompose(space, gnhep_prior_mass_action, tolerance = 1.0e-4, N_eigenvalues = num_eig)
+
+        #Save eigenfunctions
         vtkfile = File(os.path.join(outdir,'vr.pvd'))
         for v in vr:
             v.rename('v', v.label())
@@ -153,67 +169,24 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd):
         hdf5file = HDF5File(slvr.mesh.mpi_comm(), os.path.join(outdir, 'vi.h5'), 'w')
         for i, v in enumerate(vi): hdf5file.write(v, 'v', i)
 
-
-
     else:
         lam,vv = randeig(space, A_action,k=num_eig,n_iter=n_iter)
-        fo = 'randeig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
 
 
-
-    pfile = open( os.path.join(outdir, fo), "wb" )
+    #Save eigenvals and some associated info
+    pfile = open( os.path.join(outdir, fileout), "wb" )
     pickle.dump( [lam, num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], pfile)
     pfile.close()
 
-    plt.semilogy(lam.real)
+    #Plot of eigenvals
+    lamr = lam.real
+    lpos = np.argwhere(lamr > 0)
+    lneg = np.argwhere(lamr < 0)
+    lind = np.arange(0,len(lamr))
+    plt.semilogy(lind[lpos], lamr[lpos], '.')
+    plt.semilogy(lind[lneg], np.abs(lamr[lneg]), '.')
     plt.savefig(os.path.join(outdir,'lambda.pdf'))
 
-    print('Finished')
-
-
-    #A = HessWrapper(A_action,space)
-    #
-    # #Sanity checks on eigenvalues/eigenvectors.
-    # neg_ind = np.nonzero(lam<0)[0]
-    # print('Number of eigenvalues: {0}'.format(num_eig))
-    # print('Number of negative eigenvalues: {0}'.format(len(neg_ind)))
-    #
-    # cntr_nn = 0
-    # cntr_np = 0
-    #
-    # print('Checking negative eigenvalues...')
-    # #For each negative eigenvalue, independently recalculate their value using its eigenvector
-    # for i in neg_ind:
-    #     ev = vv[:,i]
-    #     ll = lam[i]
-    #     ll2 = np.dot(ev, A.apply(ev)) / np.dot(ev,ev)
-    #
-    #     #Compare signs of the calculated eigenvals, increment correct counter
-    #     if np.sign(ll) == np.sign(ll2):
-    #         cntr_nn += 1
-    #     else:
-    #         cntr_np +=1
-    #         print('Eigenval {0} at index {1} is a false negative'.format(ll,i))
-    #
-    # print('The number of verified negative eigenvals is {0}'.format(cntr_nn))
-    # print('The sign of {0} eigenvals is not supported by independent calculation using its eigenvector'.format(cntr_np))
-    #
-    #
-    # print('Checking the accuracy of eigenval/eigenvec pairs...')
-    #
-    # npair = min(num_eig, 10) #Select a maximum of 10 pairs
-    # f = lambda m, n: [i*n//m + n//(2*m) for i in range(m)] #selector function
-    # pind = f(npair,num_eig)
-    #
-    # for i in pind:
-    #     ev = vv[:,i]
-    #     ll = lam[i]
-    #     res = np.linalg.norm(A.apply(ev) - ll*ev)/ll
-    #     print('Residual of {0} at index {1}'.format(res, i))
-    #
-    #
-    #
-    #
 
 if __name__ == "__main__":
     stop_annotating()
@@ -228,8 +201,9 @@ if __name__ == "__main__":
 
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
+    parser.add_argument('-f', '--fileout', dest='fileout', type=str, help='File to store eigenvalues')
 
-    parser.set_defaults(n_iter=1, num_eig = None, slepsc_flag=False, msft_flag=False, outdir=False)
+    parser.set_defaults(n_iter=1, num_eig = None, slepsc_flag=False, msft_flag=False, outdir=False, fileout=False)
     args = parser.parse_args()
 
     num_eig = args.num_eig
@@ -239,6 +213,7 @@ if __name__ == "__main__":
     pflag = args.pflag
     outdir = args.outdir
     dd = args.dd
+    fileout = args.fileout
 
     if not outdir:
         outdir = ''.join(['./run_eigendec_', datetime.datetime.now().strftime("%m%d%H%M%S")])
@@ -248,4 +223,8 @@ if __name__ == "__main__":
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
-    main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd)
+    if not fileout:
+        if slepsc_flag: fileout = 'slepceig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
+        else: fileout = 'randeig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
+
+    main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd, fileout)

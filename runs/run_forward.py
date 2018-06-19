@@ -18,7 +18,7 @@ from IPython import embed
 
 np.random.seed(10)
 
-def main(n_steps,run_length,bflag, outdir, dd):
+def main(n_steps,run_length,bflag, outdir, dd, num_sens):
 
     #Load Data
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
@@ -26,10 +26,11 @@ def main(n_steps,run_length,bflag, outdir, dd):
     param['outdir'] = outdir
     param['picard_params'] = {"nonlinear_solver":"newton",
                 "newton_solver":{"linear_solver":"umfpack",
-                "maximum_iterations":200,
-                "absolute_tolerance":1.0e-8,
-                "relative_tolerance":5.0e-3,
+                "maximum_iterations":25,
+                "absolute_tolerance":1.0e-3,
+                "relative_tolerance":5.0e-2,
                 "convergence_criterion":"incremental",
+                "error_on_nonconvergence":False,
                 "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
 
@@ -39,16 +40,26 @@ def main(n_steps,run_length,bflag, outdir, dd):
 
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
-    V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
+
+    #Set up Function spaces
     Q = FunctionSpace(mesh,'Lagrange',1)
     M = FunctionSpace(mesh,'DG',0)
 
-    #def forward(alpha_val = None):
+    if not param['periodic_bc']:
+       Qp = Q
+       V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
+    else:
+       Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
+       V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
+
+
+    #Load fields
     U = Function(V,os.path.join(dd,'U.xml'))
-    alpha = Function(Q,os.path.join(dd,'alpha.xml'))
-    beta = Function(Q,os.path.join(dd,'beta.xml'))
+
+    alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
+    beta = Function(Qp,os.path.join(dd,'beta.xml'))
     bed = Function(Q,os.path.join(dd,'bed.xml'))
-    surf = Function(Q,os.path.join(dd,'surf.xml'))
+
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
     mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
@@ -57,11 +68,11 @@ def main(n_steps,run_length,bflag, outdir, dd):
     u_std = Function(M,os.path.join(dd,'u_std.xml'))
     v_std = Function(M,os.path.join(dd,'v_std.xml'))
     uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
-
-
+    Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
 
     param['run_length'] =  run_length
     param['n_steps'] = n_steps
+    param['num_sens'] = num_sens
 
     mdl = model.model(mesh,mask, param)
     mdl.init_bed(bed)
@@ -78,13 +89,15 @@ def main(n_steps,run_length,bflag, outdir, dd):
     #Solve
     slvr = solver.ssa_solver(mdl)
     slvr.save_ts_zero()
-    slvr.comp_dJ_vaf(slvr.alpha)
+
+    J = slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_J_h2)
+    dJ_ts = compute_gradient(J, slvr.alpha)
 
     #J = slvr.timestep(adjoint_flag=1)
     #dJ = compute_gradient(J, slvr.alpha)
 
     # #Uncomment for Taylor Verification, Comment out slvr.comp_dJ_vaf
-    # J = slvr.timestep(adjoint_flag=1)
+    # J = slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_J_vaf)
     # dJ = compute_gradient(J, slvr.alpha)
     #
     # def forward_ts(alpha_val=None):
@@ -98,17 +111,28 @@ def main(n_steps,run_length,bflag, outdir, dd):
     #   J_val = J.value(), dJ = dJ, seed = 1e0, size = 6)
     # sys.exit(os.EX_OK)
 
-
     #Output model variables in ParaView+Fenics friendly format
     outdir = mdl.param['outdir']
     pickle.dump( mdl.param, open( os.path.join(outdir,'param.p'), "wb" ) )
 
     File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
 
-    vtkfile = File(os.path.join(outdir,'dJ_vaf.pvd'))
-    xmlfile = File(os.path.join(outdir,'dJ_vaf.xml'))
-    vtkfile << slvr.dJ_vaf
-    xmlfile << slvr.dJ_vaf
+    ts = np.linspace(0,run_length,n_steps+1)
+    pickle.dump([slvr.Jval_ts, ts], open( os.path.join(outdir,'Jval_ts.p'), "wb" ) )
+
+
+    vtkfile = File(os.path.join(outdir,'dJ_ts.pvd'))
+    hdf5out = HDF5File(mpi_comm_world(), os.path.join(outdir, 'dJ_ts.h5'), 'w')
+    n=0.0
+
+    for j in dJ_ts:
+        j.rename('dJ', 'dJ')
+        vtkfile << j
+        hdf5out.write(j, 'dJ', n)
+        n += 1.0
+
+    hdf5out.close()
+
 
     vtkfile = File(os.path.join(outdir,'U.pvd'))
     xmlfile = File(os.path.join(outdir,'U.xml'))
@@ -198,8 +222,9 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--boundaries', dest='bflag', action='store_true', help='Periodic boundary conditions')
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
+    parser.add_argument('-s', '--num_sens', dest='num_sens', type=int, help='Number of samples of cost function')
 
-    parser.set_defaults(bflag = False, outdir=False)
+    parser.set_defaults(bflag = False, outdir=False, num_sens = 1.0)
     args = parser.parse_args()
 
     n_steps = args.n_steps
@@ -207,6 +232,8 @@ if __name__ == "__main__":
     bflag = args.bflag
     outdir = args.outdir
     dd = args.dd
+    num_sens = args.num_sens
+
 
     if not outdir:
         outdir = ''.join(['./run_forward_', datetime.datetime.now().strftime("%m%d%H%M%S")])
@@ -216,4 +243,4 @@ if __name__ == "__main__":
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
-    main(n_steps,run_length,bflag, outdir, dd)
+    main(n_steps,run_length,bflag, outdir, dd, num_sens)

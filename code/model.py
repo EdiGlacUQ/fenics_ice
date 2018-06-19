@@ -61,7 +61,7 @@ class model:
         #Solver options
         param['picard_params'] = {"nonlinear_solver":"newton",
                     "newton_solver":{"linear_solver":"umfpack",
-                    "maximum_iterations":200,
+                    "maximum_iterations":25,
                     "absolute_tolerance":1.0e-8,
                     "relative_tolerance":5.0e-2,
                     "convergence_criterion":"incremental",
@@ -69,10 +69,11 @@ class model:
 
         param['newton_params'] = {"nonlinear_solver":"newton",
                     "newton_solver":{"linear_solver":"umfpack",
-                    "maximum_iterations":20,
+                    "maximum_iterations":25,
                     "absolute_tolerance":1.0e-8,
                     "relative_tolerance":1.0e-8,
                     "convergence_criterion":"incremental",
+                    "error_on_nonconvergence":False,
                     "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
         #Boundary Conditions

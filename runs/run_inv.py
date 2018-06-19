@@ -79,13 +79,14 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
             'sim_flag': sim_flag,
             'periodic_bc': bflag,
             'altiter': altiter,
-            'inv_options': {'maxiter': maxiter, 'disp': True},
+            'inv_options': {'maxiter': maxiter, 'disp': True, 'ftol': 1e-4},
             'picard_params': {"nonlinear_solver":"newton",
                             "newton_solver":{"linear_solver":"umfpack",
                             "maximum_iterations":200,
                             "absolute_tolerance":1.0e-8,
                             "relative_tolerance":5.0e-3,
                             "convergence_criterion":"incremental",
+                            "error_on_nonconvergence":False,
                             "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
             }
 
@@ -102,7 +103,6 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
 
 
     mdl.gen_alpha()
-    #mdl.init_alpha(Constant(1000.0))
     mdl.init_beta(mdl.apply_prmz(Bglen))            #Comment to use uniform Bglen
 
     #Inversion

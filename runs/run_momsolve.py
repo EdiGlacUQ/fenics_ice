@@ -49,7 +49,6 @@ def main(outdir, dd, periodic_bc, nx, ny):
         assert(not ny), 'Cannot change mesh resolution from previous run'
 
     if periodic_bc:
-        Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
         if os.path.isfile(os.path.join(dd,'param.p')):
             periodic_bc = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
             assert(periodic_bc), 'Need to run periodic bc using original files'
@@ -59,6 +58,7 @@ def main(outdir, dd, periodic_bc, nx, ny):
             assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
             periodic_bc = L1
 
+        Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(periodic_bc))
 
 
 
