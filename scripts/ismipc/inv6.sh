@@ -5,7 +5,7 @@ BASE_DIR=/Users/conradkoziol/Documents/Python/fenics/fenics_ice
 RUN_DIR=$BASE_DIR/runs
 
 INPUT_DIR=$BASE_DIR/input/ismipC
-OUTPUT_DIR=$BASE_DIR/output/ismipC/ismipC_inv6_perbc_20x20
+OUTPUT_DIR=$BASE_DIR/output/ismipC/ismipC_inv6_perbc_20x20_gnhep_prior
 EIGENDECOMP_DIR=$OUTPUT_DIR/run_forward
 FORWARD_DIR=$OUTPUT_DIR/run_forward
 

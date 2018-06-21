@@ -133,7 +133,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile):
         P2 = x.vector().array()
 
         P = P2-P1
-        variance = np.dot(dJ_cntrl.vector().array(), P2)
+        variance = np.dot(dJ_cntrl.vector().array(), P)
         sigma[j] = np.sqrt(variance)
 
 
@@ -146,7 +146,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile):
 
 
     #Output model variables in ParaView+Fenics friendly format
-    pickle.dump( [sigma, t_sens], open( os.path.join(outdir,'sigma_prior.p'), "wb" ) )
+    pickle.dump( [sigma, t_sens], open( os.path.join(outdir,'sigma.p'), "wb" ) )
 
 
 

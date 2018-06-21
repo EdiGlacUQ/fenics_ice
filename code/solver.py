@@ -176,15 +176,6 @@ class ssa_solver:
                 #Boundary condition
                 + inner(Phi * sigma_n, self.nm) * self.ds )
 
-        #self.mom_Jac_p = replace(derivative(self.mom_F, self.U), {U_marker:self.U})
-        #test = TestFunction(self.U.function_space())
-        #c = Constant(0.0)
-        # self.mom_F = inner(test, self.U) * dx \
-        #   + inner(split(test)[0], c * split(self.U)[0] * split(self.U)[0]) * dx \
-        #   - inner(split(test)[0], self.alpha) * dx#
-        # self.mom_F =  replace(self.mom_F, {U_marker:self.U})
-        # self.mom_Jac = derivative(self.mom_F, self.U)#derivative(self.mom_F, self.U)
-        # self.mom_Jac_p = self.mom_Jac
 
         self.mom_Jac_p = replace(derivative(self.mom_F, self.U), {U_marker:self.U})
         self.mom_F = replace(self.mom_F, {U_marker:self.U})

@@ -150,7 +150,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd, fileout):
     if slepsc_flag:
 
         #Eigendecomposition
-        lam, [vr, vi] = eigendecompose(space, gnhep_prior_mass_action, tolerance = 1.0e-4, N_eigenvalues = num_eig)
+        lam, [vr, vi] = eigendecompose(space, gnhep_prior_action, tolerance = 1.0e-2, N_eigenvalues = num_eig)
 
         #Save eigenfunctions
         vtkfile = File(os.path.join(outdir,'vr.pvd'))
