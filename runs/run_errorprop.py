@@ -93,10 +93,6 @@ def main(outdir, dd, eigendir, lamfile, vecfile):
         lam = eigendata[0].real.astype(np.float64)
         nlam = len(lam)
 
-    lam = np.maximum(lam,0)
-    D = np.diag(lam / (lam + 1))
-
-
 
     W = np.zeros((x.vector().size(),nlam))
     with HDF5File(mpi_comm_world(), os.path.join(eigendir, vecfile), 'r') as hdf5data:
@@ -110,6 +106,13 @@ def main(outdir, dd, eigendir, lamfile, vecfile):
             sc = np.sqrt(np.dot(v,tmp))
             W[:,i] = v/sc
 
+
+
+    pind = np.flatnonzero(lam>1e-2)
+    lam = lam[pind]
+    W = W[:,pind]
+
+    D = np.diag(lam / (lam + 1))
 
     hdf5data = HDF5File(mpi_comm_world(), os.path.join(dd, 'dJ_ts.h5'), 'r')
 

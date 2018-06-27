@@ -37,7 +37,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd, fileout):
         #Set delta, gamma to machine preciscion (not zero!) in param[];
         #rc_inv contains original values for computing preconditioner
         tmp = list(rc_inv) #deepcopy
-        tmp[1:] = [1e-15 for i in rc_inv[1:]]
+        tmp[1:] = [1e-30 for i in rc_inv[1:]]
         param['rc_inv'] = tmp
 
     #Ice only mesh
@@ -150,7 +150,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd, fileout):
     if slepsc_flag:
 
         #Eigendecomposition
-        lam, [vr, vi] = eigendecompose(space, gnhep_prior_action, tolerance = 1.0e-2, N_eigenvalues = num_eig)
+        lam, [vr, vi] = eigendecompose(space, gnhep_prior_action, tolerance = 1.0e-10, N_eigenvalues = num_eig)
 
         #Save eigenfunctions
         vtkfile = File(os.path.join(outdir,'vr.pvd'))

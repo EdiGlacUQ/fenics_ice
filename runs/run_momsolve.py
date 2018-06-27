@@ -19,6 +19,7 @@ def main(outdir, dd, periodic_bc, nx, ny):
     mesh = data_mesh
 
     M = FunctionSpace(data_mesh, 'DG', 0)
+    Mp = M
     Q = FunctionSpace(data_mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
     Qp = Q
 

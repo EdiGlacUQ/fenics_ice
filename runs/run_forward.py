@@ -90,25 +90,25 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens):
     slvr = solver.ssa_solver(mdl)
     slvr.save_ts_zero()
 
-    J = slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_J_h2)
-    dJ_ts = compute_gradient(J, slvr.alpha)
+    Q = slvr.timestep(adjoint_flag=1, qoi_func=slvr.comp_J_h2)
+    dQ_ts = compute_gradient(Q, slvr.alpha)
 
-    #J = slvr.timestep(adjoint_flag=1)
-    #dJ = compute_gradient(J, slvr.alpha)
 
-    # #Uncomment for Taylor Verification, Comment out slvr.comp_dJ_vaf
+    #Uncomment for Taylor Verification, Comment above two lines
+    # param['num_sens'] = 1
     # J = slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_J_vaf)
     # dJ = compute_gradient(J, slvr.alpha)
+    #
     #
     # def forward_ts(alpha_val=None):
     #     slvr.reset_ts_zero()
     #     if alpha_val:
     #         slvr.alpha = alpha_val
-    #     return slvr.timestep(adjoint_flag=1)
+    #     return slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_J_vaf)
     #
     #
     # min_order = taylor_test(lambda alpha : forward_ts(alpha_val = alpha), slvr.alpha,
-    #   J_val = J.value(), dJ = dJ, seed = 1e0, size = 6)
+    #   J_val = J.value(), dJ = dJ, seed = 1e-2, size = 6)
     # sys.exit(os.EX_OK)
 
     #Output model variables in ParaView+Fenics friendly format
@@ -121,11 +121,11 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens):
     pickle.dump([slvr.Jval_ts, ts], open( os.path.join(outdir,'Jval_ts.p'), "wb" ) )
 
 
-    vtkfile = File(os.path.join(outdir,'dJ_ts.pvd'))
-    hdf5out = HDF5File(mpi_comm_world(), os.path.join(outdir, 'dJ_ts.h5'), 'w')
+    vtkfile = File(os.path.join(outdir,'dQ_ts.pvd'))
+    hdf5out = HDF5File(mpi_comm_world(), os.path.join(outdir, 'dQ_ts.h5'), 'w')
     n=0.0
 
-    for j in dJ_ts:
+    for j in dQ_ts:
         j.rename('dJ', 'dJ')
         vtkfile << j
         hdf5out.write(j, 'dJ', n)
