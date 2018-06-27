@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import prior
 
 
-def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd, fileout):
+def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, fileout):
 
     #Load parameters of run
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
@@ -91,13 +91,13 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd, fileout):
     #Setup our solver object
     slvr = solver.ssa_solver(mdl)
 
-    opts = {'0': slvr.alpha, '1': [slvr.beta], '2': [slvr.alpha,slvr.beta]}
+    opts = {'0': slvr.alpha, '1': slvr.beta, '2': [slvr.alpha,slvr.beta]}
     cntrl = opts[str(pflag)]
-    space = slvr.alpha.function_space()
+    space = cntrl.function_space()
 
 
     #Hessian Action
-    slvr.set_hessian_action(slvr.alpha)
+    slvr.set_hessian_action(cntrl)
 
     #Mass matrix solver
     xg,xb = Function(space), Function(space)
@@ -111,24 +111,11 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd, fileout):
     #Regularization operator using inversion delta/gamma values
     delta = rc_inv[1]
     gamma = rc_inv[3]
-    reg_op = prior.laplacian(delta,gamma, slvr.alpha.function_space())
+    reg_op = prior.laplacian(delta,gamma, space)
 
 
     #Counter for hessian action -- list rather than float/int necessary
     num_action_calls = [0]
-
-    def hep_action(x):
-        num_action_calls[0] += 1
-        info("hep_action call %i" % num_action_calls[0])
-        _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
-        return function_get_values(ddJ_val)
-
-    def gnhep_mass_action(x):
-        num_action_calls[0] += 1
-        info("gnhep_mass_action call %i" % num_action_calls[0])
-        _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
-        mass_solver.solve(xg.vector(), ddJ_val.vector())
-        return function_get_values(xg)
 
     def gnhep_prior_action(x):
         num_action_calls[0] += 1
@@ -136,21 +123,23 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd, fileout):
         _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
         reg_op.inv_action(ddJ_val.vector(), xg.vector())
         return function_get_values(xg)
-
-    def gnhep_prior_mass_action(x):
+        
+    def gnhep_mass_action(x):
         num_action_calls[0] += 1
-        info("gnhep_prior_mass_action call %i" % num_action_calls[0])
+        info("gnhep_mass_action call %i" % num_action_calls[0])
         _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
-        mass_solver.solve(xb.vector(), ddJ_val.vector())
-        reg_op.inv_action(xb.vector(), xg.vector())
+        mass_solver.solve(xg.vector(), ddJ_val.vector())
         return function_get_values(xg)
 
+
+    opts = {'0': gnhep_prior_action, '1': gnhep_mass_action}
+    gnhep_func = opts[str(gnhep)]
 
     #Hessian eigendecomposition using SLEPSC
     if slepsc_flag:
 
         #Eigendecomposition
-        lam, [vr, vi] = eigendecompose(space, gnhep_prior_action, tolerance = 1.0e-10, N_eigenvalues = num_eig)
+        lam, [vr, vi] = eigendecompose(space, gnhep_func, tolerance = 1.0e-10, N_eigenvalues = num_eig)
 
         #Save eigenfunctions
         vtkfile = File(os.path.join(outdir,'vr.pvd'))
@@ -169,8 +158,6 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd, fileout):
         hdf5file = HDF5File(slvr.mesh.mpi_comm(), os.path.join(outdir, 'vi.h5'), 'w')
         for i, v in enumerate(vi): hdf5file.write(v, 'v', i)
 
-    else:
-        lam,vv = randeig(space, A_action,k=num_eig,n_iter=n_iter)
 
 
     #Save eigenvals and some associated info
@@ -198,12 +185,13 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--slepsc', dest='slepsc_flag', action='store_true', help='Use slepsc instead of random algorithm')
     parser.add_argument('-m', '--msft_flag', dest='msft_flag', action='store_true', help='Consider only the misfit term of the cost function without regularization')
     parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, required=True, help='Inversion parameters: alpha (0), beta (1), alpha and beta (2)')
+    parser.add_argument('-g', '--gnhep', dest='gnhep', choices=[0, 1], type=int, help='Eigenvalue problem to solve: 0: prior preconditioned hessian (default); 1: inverse mass matrix preconditioned hessian')
 
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
     parser.add_argument('-f', '--fileout', dest='fileout', type=str, help='File to store eigenvalues')
 
-    parser.set_defaults(n_iter=1, num_eig = None, slepsc_flag=False, msft_flag=False, outdir=False, fileout=False)
+    parser.set_defaults(n_iter=1, num_eig = None, slepsc_flag=False, msft_flag=False, outdir=False, fileout=False, gnhep=0)
     args = parser.parse_args()
 
     num_eig = args.num_eig
@@ -211,6 +199,7 @@ if __name__ == "__main__":
     slepsc_flag = args.slepsc_flag
     msft_flag = args.msft_flag
     pflag = args.pflag
+    gnhep = args.gnhep
     outdir = args.outdir
     dd = args.dd
     fileout = args.fileout
@@ -227,4 +216,4 @@ if __name__ == "__main__":
         if slepsc_flag: fileout = 'slepceig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
         else: fileout = 'randeig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
 
-    main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, outdir, dd, fileout)
+    main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, fileout)

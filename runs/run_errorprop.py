@@ -21,7 +21,7 @@ from petsc4py import PETSc
 from IPython import embed
 
 
-def main(outdir, dd, eigendir, lamfile, vecfile):
+def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
 
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
 
@@ -108,7 +108,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile):
 
 
 
-    pind = np.flatnonzero(lam>1e-2)
+    pind = np.flatnonzero(lam>threshlam)
     lam = lam[pind]
     W = W[:,pind]
 
@@ -163,8 +163,9 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--lamfile', dest='lamfile', type=str, required=True, help = 'Pickle storing eigenvals')
     parser.add_argument('-k', '--vecfile', dest='vecfile', type=str, help = 'Hd5 File storing eigenvecs')
     parser.add_argument('-e', '--eigdir', dest='eigendir', type=str, required=True, help = 'Directory storing eigenpars')
+    parser.add_argument('-c', '--threshlam', dest='threshlam', type=float,  help = 'Threshold eigenvalue value for cutoff')
 
-    parser.set_defaults(outdir=False, vecfile = 'vr.h5')
+    parser.set_defaults(outdir=False, threshlam = 1e-1, vecfile = 'vr.h5')
     args = parser.parse_args()
 
     pflag = args.pflag
@@ -173,6 +174,7 @@ if __name__ == "__main__":
     eigendir = args.eigendir
     vecfile = args.vecfile
     lamfile = args.lamfile
+    threshlam = args.threshlam
 
     if not outdir:
         outdir = ''.join(['./run_tmp_', datetime.datetime.now().strftime("%m%d%H%M%S")])
@@ -184,4 +186,4 @@ if __name__ == "__main__":
 
 
 
-    main(outdir, dd, eigendir, lamfile, vecfile)
+    main(outdir, dd, eigendir, lamfile, vecfile, threshlam)
