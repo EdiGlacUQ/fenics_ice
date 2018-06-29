@@ -645,6 +645,7 @@ class ssa_solver:
             info('J_reg_alpha: %.2e' % J3)
             info('J_reg_beta: %.2e' % J4)
             info('J_reg/J_cst: %.2e' % ((J3+J4)/(J2)))
+            info('')
 
         return J
 
