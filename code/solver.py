@@ -435,9 +435,7 @@ class ssa_solver:
         self.solve_mom_eq()
         stop_annotating()
 
-        print('test1')
-        info('test2')
-        sys.stdout.flush()
+
         #Print out inversion results/parameter values
         self.J_inv = self.comp_J_inv(verbose=True)
 
@@ -628,9 +626,6 @@ class ssa_solver:
 
         J = J_ls + J_reg_alpha + J_reg_beta
 
-        return J
-
-
         if verbose:
             #Print out results
             J1 = assemble(J)
@@ -650,6 +645,9 @@ class ssa_solver:
             print('J_reg_alpha: %.2e' % J3)
             print('J_reg_beta: %.2e' % J4)
             print('J_reg/J_cst: %.2e' % ((J3+J4)/(J2)))
+
+
+            return J
 
     def comp_J_vaf(self, verbose=False):
         H = self.H_nps
