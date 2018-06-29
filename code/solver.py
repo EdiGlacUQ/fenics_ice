@@ -437,6 +437,7 @@ class ssa_solver:
 
         print('test1')
         info('test2')
+        sys.stdout.flush()
         #Print out inversion results/parameter values
         self.J_inv = self.comp_J_inv(verbose=True)
 
