@@ -18,7 +18,7 @@ from IPython import embed
 
 np.random.seed(10)
 
-def main(n_steps,run_length,bflag, outdir, dd, num_sens):
+def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag):
 
     #Load Data
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
@@ -90,8 +90,11 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens):
     slvr = solver.ssa_solver(mdl)
     slvr.save_ts_zero()
 
+    opts = {'0': slvr.alpha, '1': slvr.beta, '2': [slvr.alpha,slvr.beta]}
+    cntrl = opts[str(pflag)]
+
     Q = slvr.timestep(adjoint_flag=1, qoi_func=slvr.comp_J_h2)
-    dQ_ts = compute_gradient(Q, slvr.alpha)
+    dQ_ts = compute_gradient(Q, cntrl)
 
 
     #Uncomment for Taylor Verification, Comment above two lines
@@ -118,7 +121,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens):
     File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
 
     ts = np.linspace(0,run_length,n_steps+1)
-    pickle.dump([slvr.Jval_ts, ts], open( os.path.join(outdir,'Jval_ts.p'), "wb" ) )
+    pickle.dump([slvr.Qval_ts, ts], open( os.path.join(outdir,'Qval_ts.p'), "wb" ) )
 
 
     vtkfile = File(os.path.join(outdir,'dQ_ts.pvd'))
@@ -126,9 +129,9 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens):
     n=0.0
 
     for j in dQ_ts:
-        j.rename('dJ', 'dJ')
+        j.rename('dQ', 'dQ')
         vtkfile << j
-        hdf5out.write(j, 'dJ', n)
+        hdf5out.write(j, 'dQ', n)
         n += 1.0
 
     hdf5out.close()
@@ -223,8 +226,8 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
     parser.add_argument('-s', '--num_sens', dest='num_sens', type=int, help='Number of samples of cost function')
-
-    parser.set_defaults(bflag = False, outdir=False, num_sens = 1.0)
+    parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, help='Parameter to calculate sensitivity to: alpha (0), beta (1), alpha and beta (2)')
+    parser.set_defaults(bflag = False, outdir=False, num_sens = 1.0, pflag=0)
     args = parser.parse_args()
 
     n_steps = args.n_steps
@@ -233,6 +236,7 @@ if __name__ == "__main__":
     outdir = args.outdir
     dd = args.dd
     num_sens = args.num_sens
+    pflag = args.pflag
 
 
     if not outdir:
@@ -243,4 +247,4 @@ if __name__ == "__main__":
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
-    main(n_steps,run_length,bflag, outdir, dd, num_sens)
+    main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag)

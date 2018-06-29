@@ -22,8 +22,8 @@ Lx = xlim[1] - xlim[0]
 Ly = ylim[1] - ylim[0]
 
 #Number of cells
-nx = Lx/1e3
-ny = Ly/1e3
+nx = Lx/500
+ny = Ly/500
 
 #Density of ice and water
 rhoi = 917.0

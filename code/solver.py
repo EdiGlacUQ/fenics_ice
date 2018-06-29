@@ -5,7 +5,6 @@ from tlm_adjoint import *
 from tlm_adjoint.hessian_optimization import *
 #from dolfin_adjoint import *
 #from dolfin_adjoint_custom import EquationSolver
-import moola
 import numpy as np
 import ufl
 import os
@@ -293,7 +292,7 @@ class ssa_solver:
         if adjoint_flag:
             if 0.0 in n_sens:
                 Q_i = Functional()
-                Q_i.assign(cst)
+                Q_i.assign(qoi)
                 Q_is.append(Q_i)
                 Q.addto(Q_i.fn())
 
@@ -341,7 +340,7 @@ class ssa_solver:
             if adjoint_flag:
                 if n in n_sens:
                     Q_i = Functional()
-                    Q_i.assign(cst)
+                    Q_i.assign(qoi)
                     Q_is.append(Q_i)
                     Q.addto(Q_i.fn())
                 else:
@@ -354,7 +353,7 @@ class ssa_solver:
                 pvd_hts << (H_np, t)
                 pvd_uts << (U_np, t)
 
-        return Q_is[0] if qoi_func is not None else None
+        return Q_is if qoi_func is not None else None
 
 
     def forward_ts_alpha(self,aa):
@@ -637,17 +636,17 @@ class ssa_solver:
             J4 = assemble(J_reg_beta)
 
 
-            print('Inversion Details')
-            print('delta_a: %.2e' % delta_a)
-            print('delta_b: %.2e' % delta_b)
-            print('gamma_a: %.2e' % gamma_a)
-            print('gamma_b: %.2e' % gamma_b)
-            print('J: %.2e' % J1)
-            print('J_ls: %.2e' % J2)
-            print('J_reg: %.2e' % sum([J3,J4]))
-            print('J_reg_alpha: %.2e' % J3)
-            print('J_reg_beta: %.2e' % J4)
-            print('J_reg/J_cst: %.2e' % ((J3+J4)/(J2)))
+            info('Inversion Details')
+            info('delta_a: %.2e' % delta_a)
+            info('delta_b: %.2e' % delta_b)
+            info('gamma_a: %.2e' % gamma_a)
+            info('gamma_b: %.2e' % gamma_b)
+            info('J: %.2e' % J1)
+            info('J_ls: %.2e' % J2)
+            info('J_reg: %.2e' % sum([J3,J4]))
+            info('J_reg_alpha: %.2e' % J3)
+            info('J_reg_beta: %.2e' % J4)
+            info('J_reg/J_cst: %.2e' % ((J3+J4)/(J2)))
 
     def comp_J_vaf(self, verbose=False):
         H = self.H_nps
@@ -677,14 +676,14 @@ class ssa_solver:
 
 
     def set_dQ_vaf(self, cntrl):
-        J = self.timestep(adjoint_flag=1, qoi_func=self.comp_J_vaf)
-        dJ = compute_gradient(J, cntrl)
-        self.dQ_ts = dJ
+        Q = self.timestep(adjoint_flag=1, qoi_func=self.comp_J_vaf)
+        dQ = compute_gradient(Q, cntrl)
+        self.dQ_ts = dQ
 
     def set_dQ_h2(self, cntrl):
-        J = self.timestep(adjoint_flag=1, qoi_func=self.comp_J_h2)
-        dJ = compute_gradient(J, cntrl)
-        self.dQ_ts = dJ
+        Q = self.timestep(adjoint_flag=1, qoi_func=self.comp_J_h2)
+        dQ = compute_gradient(Q, cntrl)
+        self.dQ_ts = dQ
 
     # def set_dJ_inv(self, cntrl):
     #     J = Functional(self.J_inv)
