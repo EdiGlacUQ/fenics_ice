@@ -636,17 +636,17 @@ class ssa_solver:
             J4 = assemble(J_reg_beta)
 
 
-            info('Inversion Details')
-            info('delta_a: %.2e' % delta_a)
-            info('delta_b: %.2e' % delta_b)
-            info('gamma_a: %.2e' % gamma_a)
-            info('gamma_b: %.2e' % gamma_b)
-            info('J: %.2e' % J1)
-            info('J_ls: %.2e' % J2)
-            info('J_reg: %.2e' % sum([J3,J4]))
-            info('J_reg_alpha: %.2e' % J3)
-            info('J_reg_beta: %.2e' % J4)
-            info('J_reg/J_cst: %.2e' % ((J3+J4)/(J2)))
+            print('Inversion Details')
+            print('delta_a: %.2e' % delta_a)
+            print('delta_b: %.2e' % delta_b)
+            print('gamma_a: %.2e' % gamma_a)
+            print('gamma_b: %.2e' % gamma_b)
+            print('J: %.2e' % J1)
+            print('J_ls: %.2e' % J2)
+            print('J_reg: %.2e' % sum([J3,J4]))
+            print('J_reg_alpha: %.2e' % J3)
+            print('J_reg_beta: %.2e' % J4)
+            print('J_reg/J_cst: %.2e' % ((J3+J4)/(J2)))
 
     def comp_J_vaf(self, verbose=False):
         H = self.H_nps
