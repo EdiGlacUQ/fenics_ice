@@ -435,6 +435,8 @@ class ssa_solver:
         self.solve_mom_eq()
         stop_annotating()
 
+        print('test1')
+        info('test2')
         #Print out inversion results/parameter values
         self.J_inv = self.comp_J_inv(verbose=True)
 
