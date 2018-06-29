@@ -403,6 +403,7 @@ class ssa_solver:
         nparam = len(cntrl_input)
         num_iter = self.param['altiter']*nparam if nparam > 1 else nparam
 
+
         for j in range(num_iter):
 
             cntrl = cntrl_input[j % nparam]
@@ -426,7 +427,6 @@ class ssa_solver:
             cntrl = cntrl_opt
 
         self.def_mom_eq()
-
 
         #Re-compute velocities with inversion results
         reset()

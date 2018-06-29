@@ -79,7 +79,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
             'sim_flag': sim_flag,
             'periodic_bc': bflag,
             'altiter': altiter,
-            'inv_options': {'maxiter': 200, 'disp': True, 'ftol': 1e-4},
+            'inv_options': {'maxiter': maxiter, 'disp': True, 'ftol': 1e-4},
             'picard_params': {"nonlinear_solver":"newton",
                             "newton_solver":{"linear_solver":"umfpack",
                             "maximum_iterations":200,
