@@ -202,7 +202,7 @@ class ssa_solver:
         MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, J_p=J_p, picard_params = picard_params, solver_parameters = newton_params).solve(annotate=annotate_flag)
 
         t1 = time.time()
-        print("Time for solve: ", t1-t0)
+        info("Time for solve: ", t1-t0)
 
 
     def def_thickadv_eq(self):
