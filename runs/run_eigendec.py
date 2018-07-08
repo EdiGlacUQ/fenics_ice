@@ -123,7 +123,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, file
         _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
         reg_op.inv_action(ddJ_val.vector(), xg.vector())
         return function_get_values(xg)
-        
+
     def gnhep_mass_action(x):
         num_action_calls[0] += 1
         info("gnhep_mass_action call %i" % num_action_calls[0])
@@ -141,16 +141,17 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, file
         #Eigendecomposition
         lam, [vr, vi] = eigendecompose(space, gnhep_func, tolerance = 1.0e-10, N_eigenvalues = num_eig)
 
-        #Save eigenfunctions
-        vtkfile = File(os.path.join(outdir,'vr.pvd'))
-        for v in vr:
-            v.rename('v', v.label())
-            vtkfile << v
-
-        vtkfile = File(os.path.join(outdir,'vi.pvd'))
-        for v in vi:
-            v.rename('v', v.label())
-            vtkfile << v
+        # Uses extreme amounts of disk space; suitable for ismipc only
+        # #Save eigenfunctions
+        # vtkfile = File(os.path.join(outdir,'vr.pvd'))
+        # for v in vr:
+        #     v.rename('v', v.label())
+        #     vtkfile << v
+        #
+        # vtkfile = File(os.path.join(outdir,'vi.pvd'))
+        # for v in vi:
+        #     v.rename('v', v.label())
+        #     vtkfile << v
 
         hdf5file = HDF5File(slvr.mesh.mpi_comm(), os.path.join(outdir, 'vr.h5'), 'w')
         for i, v in enumerate(vr): hdf5file.write(v, 'v', i)
