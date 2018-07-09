@@ -117,14 +117,14 @@ def main(dd, outdir, run_length, n_steps, init_yr):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-r', '--runlength', dest='run_length', type=float, help='Length of forward run in years')
-    parser.add_argument('-n', '--nsteps', dest='n_steps', type=int, help='Number of model timesteps')
-    parser.add_argument('-y', '--yearinitial', dest='init_yr', type=int, help='The initial year to difference final model results with to calculate balance melt rates')
+    parser.add_argument('-r', '--runlength', dest='run_length', type=float, help='Length of forward run in years (Default 10yrs)')
+    parser.add_argument('-n', '--nsteps', dest='n_steps', type=int, help='Number of model timesteps (Default 240)')
+    parser.add_argument('-y', '--yearinitial', dest='init_yr', type=int, help='The initial year to difference final model results with to calculate balance melt rates (Default 5yrs)')
 
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
 
-    parser.set_defaults(run_length=10.0, n_steps=120, init_yr=5, outdir=False)
+    parser.set_defaults(run_length=10.0, n_steps=240, init_yr=5, outdir=False)
     args = parser.parse_args()
 
     run_length = args.run_length
