@@ -83,7 +83,8 @@ def main(dd, outdir, run_length, n_steps, init_yr):
 
     #Solve
     slvr = solver.ssa_solver(mdl)
-    Q = slvr.timestep(save = 1, adjoint_flag=0)
+    slvr.save_ts_zero()
+    slvr.timestep(save = 1, adjoint_flag=0)
 
     #Balance melt rates
 
