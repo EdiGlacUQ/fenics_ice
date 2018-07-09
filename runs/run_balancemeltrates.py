@@ -68,7 +68,6 @@ def main(dd, outdir, run_length, n_steps, init_yr):
 
     param['run_length'] =  run_length
     param['n_steps'] = n_steps
-    param['num_sens'] = num_sens
 
     mdl = model.model(mesh,mask, param)
     mdl.init_bed(bed)
