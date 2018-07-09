@@ -17,11 +17,23 @@ from IPython import embed
 
 def main(dd, outdir, run_length, n_steps, init_yr):
 
-
-
     #Load Data
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
+
     param['outdir'] = outdir
+    param['picard_params'] = {"nonlinear_solver":"newton",
+                "newton_solver":{"linear_solver":"umfpack",
+                "maximum_iterations":25,
+                "absolute_tolerance":1.0e-3,
+                "relative_tolerance":5.0e-2,
+                "convergence_criterion":"incremental",
+                "error_on_nonconvergence":False,
+                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+
+
+
+
+
 
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
@@ -38,11 +50,14 @@ def main(dd, outdir, run_length, n_steps, init_yr):
        V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
 
 
+    #Load fields
     U = Function(V,os.path.join(dd,'U.xml'))
-    alpha = Function(Q,os.path.join(dd,'alpha.xml'))
-    beta = Function(Q,os.path.join(dd,'beta.xml'))
+
+    alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
+    beta = Function(Qp,os.path.join(dd,'beta.xml'))
     bed = Function(Q,os.path.join(dd,'bed.xml'))
-    surf = Function(Q,os.path.join(dd,'surf.xml'))
+
+    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
     mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
@@ -51,12 +66,10 @@ def main(dd, outdir, run_length, n_steps, init_yr):
     u_std = Function(M,os.path.join(dd,'u_std.xml'))
     v_std = Function(M,os.path.join(dd,'v_std.xml'))
     uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
-    Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
-    B2 = Function(Q,os.path.join(dd,'B2.xml'))
-
 
     param['run_length'] =  run_length
     param['n_steps'] = n_steps
+    param['num_sens'] = num_sens
 
     mdl = model.model(mesh,mask, param)
     mdl.init_bed(bed)
@@ -65,7 +78,7 @@ def main(dd, outdir, run_length, n_steps, init_yr):
     mdl.init_mask(mask)
     mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
     mdl.init_lat_dirichletbc()
-    mdl.init_bmelt(Constant(0.0))
+    mdl.init_bmelt(bmelt)
     mdl.init_alpha(alpha)
     mdl.init_beta(beta)
     mdl.label_domain()
