@@ -84,7 +84,7 @@ def main(dd, outdir, run_length, n_steps, init_yr):
     #model time step
     dt= param['run_length']/param['n_steps']
 
-    #Model uterations to difference between
+    #Model iterations to difference between
     iter_s = np.ceil(init_yr/dt)  #Iteration closest to 5yr
     iter_f = nsteps - 1         #Final iteration
     dT = dt*(iter_f - iter_s) #Time diff in years between iterations
@@ -99,8 +99,8 @@ def main(dd, outdir, run_length, n_steps, init_yr):
     H_s = -param['rhow']/param['rhoi'] * bed
     fl_ex = conditional(slvr.H_init <= H_s, Constant(1.0), Constant(0.0))
 
-    #Calculate dHdT
-    dHdT = project(fl_ex*(HF - HS)/dT, slvr.M)
+    #Calculate bmelt
+    bmelt = project(max(fl_ex*(HF - HS)/dT, Constant(0.0)), slvr.M)
 
     #Output model variables in ParaView+Fenics friendly format
     outdir = mdl.param['outdir']
@@ -108,10 +108,10 @@ def main(dd, outdir, run_length, n_steps, init_yr):
 
     File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
 
-    vtkfile = File(os.path.join(outdir,'dHdT.pvd'))
-    xmlfile = File(os.path.join(outdir,'dHdT.xml'))
-    vtkfile << dHdT
-    xmlfile << dHdT
+    vtkfile = File(os.path.join(outdir,'bmelt.pvd'))
+    xmlfile = File(os.path.join(outdir,'bmelt.xml'))
+    vtkfile << bmelt
+    xmlfile << bmelt
 
 
 

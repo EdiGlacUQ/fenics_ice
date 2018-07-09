@@ -212,8 +212,8 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
 
     vtkfile = File(os.path.join(outdir,'bmelt.pvd'))
     xmlfile = File(os.path.join(outdir,'bmelt.xml'))
-    vtkfile << B2
-    xmlfile << B2
+    vtkfile << bmelt
+    xmlfile << bmelt
 
     vtkfile = File(os.path.join(outdir,'surf.pvd'))
     xmlfile = File(os.path.join(outdir,'surf.xml'))
