@@ -30,13 +30,7 @@ def main(dd, outdir, run_length, n_steps, init_yr):
                 "error_on_nonconvergence":False,
                 "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
-
-
-
-
-
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
-
 
     #Set up Function spaces
     Q = FunctionSpace(mesh,'Lagrange',1)

@@ -179,6 +179,25 @@ vstd = np.sqrt(vstd__**2 + regE**2)
 
 mask_vel = ~(np.isclose(uvel,0) & np.isclose(vvel,0))
 
+#Fill in missing values, set mask_vel to constant of 1
+xx, yy = np.meshgrid(xcoord_ms, ycoord_ms)
+
+xnz = xx[mask_vel] #correspond to nonzero measurements values
+ynz = yy[mask_vel]
+
+uvel = interp.griddata((xnz, ynz), uvel[mask_vel],
+                          (xx, yy),
+                             method='nearest')
+vvel = interp.griddata((xnz, ynz), vvel[mask_vel],
+                          (xx, yy),
+                             method='nearest')
+
+#Assign low confidence to interpolated values.
+ustd[~mask_vel] = np.sqrt((0.25 * np.abs(uvel[~mask_vel]))**2 + 25.0*25.0)
+vstd[~mask_vel] = np.sqrt((0.25 * np.abs(vvel[~mask_vel]))**2 + 25.0*25.0)
+
+
+mask_vel[:] = 1.0
 
 ###############
 #Depth Integrated Ice Creep
