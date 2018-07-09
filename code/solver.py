@@ -407,7 +407,7 @@ class ssa_solver:
 
 
         for j in range(num_iter):
-            print('Inversion iteration: {0}'.format(j))
+            print('Inversion iteration: {0}/{1}'.format(j+1,num_iter) )
 
             cntrl = cntrl_input[j % nparam]
             if cntrl.name() == 'alpha':
