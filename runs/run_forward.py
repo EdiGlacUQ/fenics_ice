@@ -60,6 +60,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag):
     beta = Function(Qp,os.path.join(dd,'beta.xml'))
     bed = Function(Q,os.path.join(dd,'bed.xml'))
 
+    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
     mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
@@ -68,7 +69,6 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag):
     u_std = Function(M,os.path.join(dd,'u_std.xml'))
     v_std = Function(M,os.path.join(dd,'v_std.xml'))
     uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
-    Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
 
     param['run_length'] =  run_length
     param['n_steps'] = n_steps
@@ -81,7 +81,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag):
     mdl.init_mask(mask)
     mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
     mdl.init_lat_dirichletbc()
-    mdl.init_bmelt(Constant(0.0))
+    mdl.init_bmelt(bmelt)
     mdl.init_alpha(alpha)
     mdl.init_beta(beta)
     mdl.label_domain()
@@ -204,11 +204,6 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag):
     vtkfile << slvr.alpha
     xmlfile << slvr.alpha
 
-    vtkfile = File(os.path.join(outdir,'Bglen.pvd'))
-    xmlfile = File(os.path.join(outdir,'Bglen.xml'))
-    Bglen = project(exp(mdl.beta),mdl.M)
-    vtkfile << Bglen
-    xmlfile << Bglen
 
     vtkfile = File(os.path.join(outdir,'surf.pvd'))
     xmlfile = File(os.path.join(outdir,'surf.xml'))
