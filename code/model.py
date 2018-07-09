@@ -56,7 +56,8 @@ class model:
 
         #Timestepping
         param['run_length'] = 1.0
-        param['n_steps'] = 20
+        param['n_steps'] = 24
+        param['num_sens'] = 0.0
 
         #Solver options
         param['picard_params'] = {"nonlinear_solver":"newton",
@@ -79,11 +80,11 @@ class model:
         #Boundary Conditions
         param['periodic_bc'] = False
 
+        #Inversion options
         param['inv_options'] = {'disp': True, 'maxiter': 5}
 
         #Update default values based on input
         param.update(param_in)
-
         param['dt'] = param['run_length']/param['n_steps']
 
         self.param = param

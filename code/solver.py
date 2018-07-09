@@ -257,11 +257,6 @@ class ssa_solver:
         n_steps = self.param['n_steps']
         dt = self.param['dt']
         run_length = self.param['run_length']
-        num_sens = self.param['num_sens']
-
-
-        t_sens = np.array([run_length]) if num_sens == 1 else np.linspace(0.0, run_length, num_sens)
-        n_sens = np.round(t_sens/dt)
 
         outdir = self.param['outdir']
 
@@ -278,6 +273,10 @@ class ssa_solver:
 
 
         if adjoint_flag:
+            num_sens = self.param['num_sens']
+            t_sens = np.array([run_length]) if num_sens == 1 else np.linspace(0.0, run_length, num_sens)
+            n_sens = np.round(t_sens/dt)
+
             reset()
             start_annotating()
 #            configure_checkpointing("periodic_disk", {'period': 2, "format":"pickle"})
