@@ -409,24 +409,29 @@ class ssa_solver:
         for j in range(num_iter):
 
             cntrl = cntrl_input[j % nparam]
-            forward = self.forward_alpha if cntrl.name() == 'alpha' else self.forward_beta
+            if cntrl.name() == 'alpha':
+                cc = self.alpha
+                forward = self.forward_alpha
+
+            else:
+                cc = self.beta
+                forward = self.forward_beta
 
             reset()
             clear_caches()
             start_annotating()
-            J = forward(cntrl)
-            #J = self.forward_alpha(self.alpha)
+            J = forward(cc)
             stop_annotating()
 
             #dJ = compute_gradient(J, self.alpha)
             #ddJ = Hessian(forward)
             #min_order = taylor_test(forward, self.alpha, J_val = J.value(), dJ = dJ, ddJ=ddJ, seed = 1.0e-6)
 
-            cntrl_opt, result = minimize_scipy(forward, cntrl, J, method = 'L-BFGS-B',
+            cntrl_opt, result = minimize_scipy(forward, cc, J, method = 'L-BFGS-B',
                 options = self.param['inv_options'])
               #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
 
-            cntrl = cntrl_opt
+            cc.assign(cntrl_opt)
 
         self.def_mom_eq()
 
