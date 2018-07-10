@@ -228,7 +228,7 @@ class ssa_solver:
         + inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)) * ds)
         + conditional(dot(U_np, nm) > 0, inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)), 0.0)*ds #Outflow
         + conditional(dot(U_np, nm) < 0, inner(Ksi, dot(U_np * 0.5 * H_init, nm)), 0.0)*ds   #Inflow
-        - bmelt*dIce_flt #basal melting
+        - bmelt*Ksi*dIce_flt #basal melting
 
 
         self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
