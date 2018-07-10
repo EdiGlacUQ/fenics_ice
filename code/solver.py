@@ -235,8 +235,9 @@ class ssa_solver:
 
         #bc0 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_LAT)
         #bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
+        bc2 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_NF)
         #self.H_bcs = [bc0, bc1]
-        self.H_bcs = []
+        self.H_bcs = [bc2]
 
     def solve_thickadv_eq(self):
 

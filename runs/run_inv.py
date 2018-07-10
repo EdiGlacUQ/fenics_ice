@@ -33,7 +33,6 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
         Mdata = FunctionSpace(data_mesh, 'DG', 0)
         data_mask = Function(Mdata, os.path.join(dd,'data_mask.xml'))
     else:
-        data_mesh = mesh
         data_mask = mask
 
 
@@ -99,7 +98,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
                             "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
             }
 
-    mdl = model.model(data_mesh,data_mask, param)
+    mdl = model.model(mesh,data_mask, param)
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
