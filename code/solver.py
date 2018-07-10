@@ -219,7 +219,6 @@ class ssa_solver:
         nm = self.nm
         dIce = self.dIce
         dIce_flt = self.dIce_flt
-        GAMMA_LAT = self.GAMMA_LAT
         ds = self.ds
         dS = self.dS
 
@@ -227,17 +226,17 @@ class ssa_solver:
         - inner(grad(Ksi), U_np * 0.5 * (trial_H + H_np)) * dIce
         + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * 0.5 * (trial_H + H_np))) * dS
         + inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)) * ds)
-        + conditional(dot(U_np, nm) > 0, inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)), 0.0)*GAMMA_LAT #Outflow
-        + conditional(dot(U_np, nm) < 0, inner(Ksi, dot(U_np * 0.5 * H_init, nm)), 0.0)*GAMMA_LAT   #Inflow
+        + conditional(dot(U_np, nm) > 0, inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)), 0.0)*ds #Outflow
+        + conditional(dot(U_np, nm) < 0, inner(Ksi, dot(U_np * 0.5 * H_init, nm)), 0.0)*ds   #Inflow
         - bmelt*dIce_flt #basal melting
 
 
         self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
 
-        #bc0 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_LAT)
-        #bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
-        #self.H_bcs = [bc0, bc1]
-        self.H_bcs = []
+        bc0 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_LAT)
+        bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
+        self.H_bcs = [bc0, bc1]
+        #self.H_bcs = [bc1]
 
     def solve_thickadv_eq(self):
 
