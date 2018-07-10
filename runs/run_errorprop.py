@@ -55,7 +55,6 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     u_std = Function(M,os.path.join(dd,'u_std.xml'))
     v_std = Function(M,os.path.join(dd,'v_std.xml'))
     uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
-    Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
 
 
     mdl = model.model(mesh,mask, param)
@@ -114,10 +113,10 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
 
     D = np.diag(lam / (lam + 1))
 
-    hdf5data = HDF5File(mpi_comm_world(), os.path.join(dd, 'dJ_ts.h5'), 'r')
+    hdf5data = HDF5File(mpi_comm_world(), os.path.join(dd, 'dQ_ts.h5'), 'r')
 
 
-    dJ_cntrl = Function(space)
+    dQ_cntrl = Function(space)
 
     run_length = param['run_length']
     num_sens = param['num_sens']
@@ -126,17 +125,17 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
 
 
     for j in range(num_sens):
-        hdf5data.read(dJ_cntrl, f'dJ/vector_{j}')
+        hdf5data.read(dQ_cntrl, f'dQ/vector_{j}')
 
-        tmp1 = np.dot(W.T,dJ_cntrl.vector().array())
+        tmp1 = np.dot(W.T,dQ_cntrl.vector().array())
         tmp2 = np.dot(D,tmp1 )
         P1 = np.dot(W,tmp2)
 
-        reg_op.inv_action(dJ_cntrl.vector(),x.vector())
+        reg_op.inv_action(dQ_cntrl.vector(),x.vector())
         P2 = x.vector().array()
 
         P = P2-P1
-        variance = np.dot(dJ_cntrl.vector().array(), P)
+        variance = np.dot(dQ_cntrl.vector().array(), P)
         sigma[j] = np.sqrt(variance)
 
 

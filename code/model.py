@@ -140,7 +140,7 @@ class model:
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.M)
 
-    def init_vel_obs(self, u, v, mv, ustd=1.0, vstd=1.0):
+    def init_vel_obs(self, u, v, mv, ustd=Constant(1.0), vstd=Constant(1.0)):
         self.u_obs = project(u,self.M)
         self.v_obs = project(v,self.M)
         self.mask_vel = project(mv,self.M)

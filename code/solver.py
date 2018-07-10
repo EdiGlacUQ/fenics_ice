@@ -189,7 +189,6 @@ class ssa_solver:
             ff_array = self.ff.array()
             bc0 = DirichletBC(self.V, self.latbc, self.ff, self.GAMMA_LAT) if self.GAMMA_LAT in ff_array else False
             bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF) if self.GAMMA_NF in ff_array else False
-            embed()
 
             for j in [bc0,bc1]:
                 if j: self.bcs.append(j)
@@ -226,10 +225,12 @@ class ssa_solver:
         self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
         - inner(grad(Ksi), U_np * 0.5 * (trial_H + H_np)) * dIce
         + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * 0.5 * (trial_H + H_np))) * dS
-        + inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)) * ds)
-        + conditional(dot(U_np, nm) > 0, inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)), 0.0)*ds #Outflow
-        + conditional(dot(U_np, nm) < 0, inner(Ksi, dot(U_np * H_init, nm)), 0.0)*ds   #Inflow
-        - bmelt*Ksi*dIce_flt #basal melting
+        #+ inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)) * ds #inflow/outflow
+        #+ bmelt*Ksi*dIce_flt ) #basal melting
+        + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm))*ds #Outflow
+        + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
+        + bmelt*Ksi*dIce_flt) #basal melting
+
 
 
         self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})

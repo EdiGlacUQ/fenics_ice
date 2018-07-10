@@ -1,0 +1,53 @@
+Solving nonlinear variational problem.
+  Newton iteration 0: r (abs) = 3.130e+02 (tol = 1.000e-08) r (rel) = 1.000e+00 (tol = 5.000e-03)
+  Newton iteration 1: r (abs) = 2.263e+01 (tol = 1.000e-08) r (rel) = 7.229e-02 (tol = 5.000e-03)
+  Newton iteration 2: r (abs) = 2.667e+01 (tol = 1.000e-08) r (rel) = 8.522e-02 (tol = 5.000e-03)
+  Newton iteration 3: r (abs) = 1.977e+01 (tol = 1.000e-08) r (rel) = 6.316e-02 (tol = 5.000e-03)
+  Newton iteration 4: r (abs) = 1.212e+01 (tol = 1.000e-08) r (rel) = 3.872e-02 (tol = 5.000e-03)
+  Newton iteration 5: r (abs) = 6.978e+00 (tol = 1.000e-08) r (rel) = 2.230e-02 (tol = 5.000e-03)
+  Newton iteration 6: r (abs) = 3.934e+00 (tol = 1.000e-08) r (rel) = 1.257e-02 (tol = 5.000e-03)
+  Newton iteration 7: r (abs) = 2.204e+00 (tol = 1.000e-08) r (rel) = 7.042e-03 (tol = 5.000e-03)
+  Newton iteration 8: r (abs) = 1.236e+00 (tol = 1.000e-08) r (rel) = 3.949e-03 (tol = 5.000e-03)
+  Newton solver finished in 9 iterations and 9 linear solver iterations.
+Solving nonlinear variational problem.
+  Newton iteration 0: r (abs) = 1.598e+00 (tol = 1.000e-08) r (rel) = 1.000e+00 (tol = 1.000e-08)
+  Newton iteration 1: r (abs) = 1.674e-02 (tol = 1.000e-08) r (rel) = 1.048e-02 (tol = 1.000e-08)
+  Newton iteration 2: r (abs) = 3.196e-06 (tol = 1.000e-08) r (rel) = 2.000e-06 (tol = 1.000e-08)
+  Newton iteration 3: r (abs) = 1.270e-12 (tol = 1.000e-08) r (rel) = 7.948e-13 (tol = 1.000e-08)
+  Newton solver finished in 4 iterations and 4 linear solver iterations.
+Time for solve: 0.24739503860473633
+Solving linear variational problem.
+Solving linear variational problem.
+gnhep_prior_action call 1
+gnhep_prior_action call 2
+gnhep_prior_action call 3
+gnhep_prior_action call 4
+gnhep_prior_action call 5
+gnhep_prior_action call 6
+gnhep_prior_action call 7
+gnhep_prior_action call 8
+gnhep_prior_action call 9
+gnhep_prior_action call 10
+gnhep_prior_action call 11
+gnhep_prior_action call 12
+gnhep_prior_action call 13
+gnhep_prior_action call 14
+gnhep_prior_action call 15
+gnhep_prior_action call 16
+gnhep_prior_action call 17
+gnhep_prior_action call 18
+gnhep_prior_action call 19
+gnhep_prior_action call 20
+gnhep_prior_action call 21
+gnhep_prior_action call 22
+gnhep_prior_action call 23
+gnhep_prior_action call 24
+gnhep_prior_action call 25
+gnhep_prior_action call 26
+gnhep_prior_action call 27
+gnhep_prior_action call 28
+gnhep_prior_action call 29
+gnhep_prior_action call 30
+gnhep_prior_action call 31
+gnhep_prior_action call 32
+gnhep_prior_action call 33

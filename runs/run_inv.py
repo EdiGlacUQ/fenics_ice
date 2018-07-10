@@ -33,6 +33,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
         Mdata = FunctionSpace(data_mesh, 'DG', 0)
         data_mask = Function(Mdata, os.path.join(dd,'data_mask.xml'))
     else:
+        data_mesh = mesh
         data_mask = mask
 
 
