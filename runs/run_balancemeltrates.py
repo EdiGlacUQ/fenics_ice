@@ -72,7 +72,7 @@ def main(dd, outdir, run_length, n_steps, init_yr):
     param['run_length'] =  run_length
     param['n_steps'] = n_steps
 
-    mdl = model.model(data_mesh,data_mask, param)
+    mdl = model.model(mesh,data_mask, param)
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
