@@ -233,10 +233,10 @@ class ssa_solver:
 
         self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
 
-        bc0 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_LAT)
-        bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
-        self.H_bcs = [bc0, bc1]
-        #self.H_bcs = [bc1]
+        #bc0 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_LAT)
+        #bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
+        #self.H_bcs = [bc0, bc1]
+        self.H_bcs = []
 
     def solve_thickadv_eq(self):
 

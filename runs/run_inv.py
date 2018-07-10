@@ -21,16 +21,22 @@ from IPython import embed
 def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
 
     #Load Data
-    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
-    mesh = data_mesh
+    mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    mask = Function(M,os.path.join(dd,'mask.xml'))
 
-    M = FunctionSpace(data_mesh, 'DG', 0)
-    Q = FunctionSpace(data_mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
+    if os.path.isfile(os.path.join(dd,'data_mesh.xml')):
+        data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
+        data_mask = Mesh(os.path.join(dd,'data_mask.xml'))
+    else:
+        data_mesh = mesh
+        data_mask = mask
+
+    M = FunctionSpace(mesh, 'DG', 0)
+    Q = FunctionSpace(mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
 
     bed = Function(Q,os.path.join(dd,'bed.xml'))
 
     thick = Function(M,os.path.join(dd,'thick.xml'))
-    mask = Function(M,os.path.join(dd,'mask.xml'))
     u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
     v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
     u_std = Function(M,os.path.join(dd,'u_std.xml'))
@@ -90,7 +96,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
                             "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
             }
 
-    mdl = model.model(mesh,mask, param)
+    mdl = model.model(data_mesh,data_mask, param)
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()

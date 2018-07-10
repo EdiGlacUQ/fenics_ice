@@ -30,7 +30,16 @@ def main(dd, outdir, run_length, n_steps, init_yr):
                 "error_on_nonconvergence":False,
                 "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
+    #Load Data
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    mask = Function(M,os.path.join(dd,'mask.xml'))
+
+    if os.path.isfile(os.path.join(dd,'data_mesh.xml')):
+        data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
+        data_mask = Mesh(os.path.join(dd,'data_mask.xml'))
+    else:
+        data_mesh = mesh
+        data_mask = mask
 
     #Set up Function spaces
     Q = FunctionSpace(mesh,'Lagrange',1)
@@ -52,7 +61,6 @@ def main(dd, outdir, run_length, n_steps, init_yr):
     bed = Function(Q,os.path.join(dd,'bed.xml'))
 
     thick = Function(M,os.path.join(dd,'thick.xml'))
-    mask = Function(M,os.path.join(dd,'mask.xml'))
     mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
     u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
     v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
@@ -63,7 +71,7 @@ def main(dd, outdir, run_length, n_steps, init_yr):
     param['run_length'] =  run_length
     param['n_steps'] = n_steps
 
-    mdl = model.model(mesh,mask, param)
+    mdl = model.model(data_mesh,data_mesh, param)
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
