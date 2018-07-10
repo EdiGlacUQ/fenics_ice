@@ -70,7 +70,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag):
     beta = Function(Qp,os.path.join(dd,'beta.xml'))
     bed = Function(Q,os.path.join(dd,'bed.xml'))
 
-    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
+    #bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
     mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
@@ -91,7 +91,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag):
     mdl.init_mask(mask)
     mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
     mdl.init_lat_dirichletbc()
-    mdl.init_bmelt(bmelt)
+    mdl.init_bmelt(Constant(0.0))
     mdl.init_alpha(alpha)
     mdl.init_beta(beta)
     mdl.label_domain()
