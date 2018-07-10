@@ -38,12 +38,22 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag):
 
 
 
+    #Load Data
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
+    M = FunctionSpace(mesh, 'DG', 0)
+    Q = FunctionSpace(mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
 
-    #Set up Function spaces
-    Q = FunctionSpace(mesh,'Lagrange',1)
-    M = FunctionSpace(mesh,'DG',0)
+    mask = Function(M,os.path.join(dd,'mask.xml'))
+
+    if os.path.isfile(os.path.join(dd,'data_mesh.xml')):
+        data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
+        Mdata = FunctionSpace(data_mesh, 'DG', 0)
+        data_mask = Function(Mdata, os.path.join(dd,'data_mask.xml'))
+    else:
+        data_mesh = mesh
+        data_mask = mask
+
 
     if not param['periodic_bc']:
        Qp = Q
@@ -74,7 +84,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag):
     param['n_steps'] = n_steps
     param['num_sens'] = num_sens
 
-    mdl = model.model(mesh,mask, param)
+    mdl = model.model(mesh,data_mask, param)
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
