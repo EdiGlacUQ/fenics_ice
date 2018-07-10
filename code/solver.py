@@ -227,7 +227,7 @@ class ssa_solver:
         + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * 0.5 * (trial_H + H_np))) * dS
         + inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)) * ds)
         + conditional(dot(U_np, nm) > 0, inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)), 0.0)*ds #Outflow
-        + conditional(dot(U_np, nm) < 0, inner(Ksi, dot(U_np * 0.5 * H_init, nm)), 0.0)*ds   #Inflow
+        + conditional(dot(U_np, nm) < 0, inner(Ksi, dot(U_np * H_init, nm)), 0.0)*ds   #Inflow
         - bmelt*Ksi*dIce_flt #basal melting
 
 
