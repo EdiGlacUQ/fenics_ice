@@ -103,7 +103,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag):
     opts = {'0': slvr.alpha, '1': slvr.beta, '2': [slvr.alpha,slvr.beta]}
     cntrl = opts[str(pflag)]
 
-    Q = slvr.timestep(adjoint_flag=1, qoi_func=slvr.comp_J_h2)
+    Q = slvr.timestep(adjoint_flag=0, qoi_func=slvr.comp_J_h2)
     dQ_ts = compute_gradient(Q, cntrl)
 
 
