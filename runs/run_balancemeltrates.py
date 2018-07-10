@@ -36,12 +36,13 @@ def main(dd, outdir, run_length, n_steps, init_yr):
     M = FunctionSpace(mesh, 'DG', 0)
     Q = FunctionSpace(mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
 
+    mask = Function(M,os.path.join(dd,'mask.xml'))
+
     if os.path.isfile(os.path.join(dd,'data_mesh.xml')):
         data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
         Mdata = FunctionSpace(data_mesh, 'DG', 0)
         data_mask = Function(Mdata, os.path.join(dd,'data_mask.xml'))
     else:
-        mask = Function(M,os.path.join(dd,'mask.xml'))
         data_mesh = mesh
         data_mask = mask
 
