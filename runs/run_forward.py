@@ -34,7 +34,14 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag):
                 "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
 
-
+    param['newton_params'] = {"nonlinear_solver":"newton",
+                "newton_solver":{"linear_solver":"umfpack",
+                "maximum_iterations":25,
+                "absolute_tolerance":1.0e-10,
+                "relative_tolerance":1.0e-10,
+                "convergence_criterion":"incremental",
+                "error_on_nonconvergence":False,
+                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
 
 
