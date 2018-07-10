@@ -234,9 +234,9 @@ class ssa_solver:
         self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
 
         #bc0 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_LAT)
-        #bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
+        bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
         #self.H_bcs = [bc0, bc1]
-        self.H_bcs = []
+        self.H_bcs = [bc1]
 
     def solve_thickadv_eq(self):
 
@@ -407,7 +407,7 @@ class ssa_solver:
 
 
         for j in range(num_iter):
-            print('Inversion iteration: {0}/{1}'.format(j+1,num_iter) )
+            info('Inversion iteration: {0}/{1}'.format(j+1,num_iter) )
 
             cntrl = cntrl_input[j % nparam]
             if cntrl.name() == 'alpha':
