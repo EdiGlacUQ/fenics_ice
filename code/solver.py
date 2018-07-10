@@ -335,19 +335,19 @@ class ssa_solver:
             if n < n_steps - 1 and adjoint_flag:
                 new_block()
 
-            #Record
-        if qoi_func is not None:
-            qoi = qoi_func()
-            self.Qval_ts[0] = assemble(qoi)
+                #Record
+            if qoi_func is not None:
+                qoi = qoi_func()
+                self.Qval_ts[0] = assemble(qoi)
 
-            if adjoint_flag:
-                if n in n_sens:
-                    Q_i = Functional()
-                    Q_i.assign(qoi)
-                    Q_is.append(Q_i)
-                    Q.addto(Q_i.fn())
-                else:
-                    Q.addto()
+                if adjoint_flag:
+                    if n in n_sens:
+                        Q_i = Functional()
+                        Q_i.assign(qoi)
+                        Q_is.append(Q_i)
+                        Q.addto(Q_i.fn())
+                    else:
+                        Q.addto()
 
             if save:
                 hdf_hts.write(H_np, 'H', t)
