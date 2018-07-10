@@ -189,6 +189,7 @@ class ssa_solver:
             ff_array = self.ff.array()
             bc0 = DirichletBC(self.V, self.latbc, self.ff, self.GAMMA_LAT) if self.GAMMA_LAT in ff_array else False
             bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF) if self.GAMMA_NF in ff_array else False
+            embed()
 
             for j in [bc0,bc1]:
                 if j: self.bcs.append(j)
@@ -233,10 +234,10 @@ class ssa_solver:
 
         self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
 
-        bc0 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_LAT)
-        bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
-        bc2 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_NF)
-        self.H_bcs = [bc0, bc1,bc2]
+        #bc0 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_LAT)
+        #bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
+        #bc2 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_NF)
+        self.H_bcs = []
         #self.H_bcs = [bc2]
 
     def solve_thickadv_eq(self):
