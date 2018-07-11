@@ -80,8 +80,6 @@ def main(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
     x, y = Function(space), Function(space)
     z = Function(space)
 
-    embed()
-
     reg_op = prior.laplacian(delta, gamma, space)
 
 
@@ -152,7 +150,7 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, required=True, help='Inversion parameters: alpha (0), beta (1), alpha and beta (2)')
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
-    parser.add_argument('-l', '--lamfile', dest='lamfile', type=str, required=True, help = 'Pickle storing eigenvals')
+    parser.add_argument('-l', '--lamfile', dest='lamfile', type=str, required=True, help = 'Pickle file storing eigenvals')
     parser.add_argument('-k', '--vecfile', dest='vecfile', type=str, help = 'Hd5 File storing eigenvecs')
     parser.add_argument('-e', '--eigdir', dest='eigendir', type=str, required=True, help = 'Directory storing eigenpars')
     parser.add_argument('-c', '--threshlam', dest='threshlam', type=float, help = 'Threshold eigenvalue value for cutoff')

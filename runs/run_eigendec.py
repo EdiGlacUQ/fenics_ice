@@ -34,7 +34,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, file
     rc_inv = param['rc_inv']
 
     if msft_flag:
-        #Set delta, gamma to machine preciscion (not zero!) in param[];
+        #Set delta, gamma to << 1 (not zero!) in param[];
         #rc_inv contains original values for computing preconditioner
         tmp = list(rc_inv) #deepcopy
         tmp[1:] = [1e-30 for i in rc_inv[1:]]
@@ -109,8 +109,13 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, file
     mass_solver.set_operator(mass)
 
     #Regularization operator using inversion delta/gamma values
-    delta = rc_inv[1]
-    gamma = rc_inv[3]
+    if pflag == 0:
+        delta = rc_inv[1]
+        gamma = rc_inv[3]
+    elif pflag == 1:
+        delta = rc_inv[2]
+        gamma = rc_inv[4]
+
     reg_op = prior.laplacian(delta,gamma, space)
 
 

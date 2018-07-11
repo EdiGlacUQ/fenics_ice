@@ -112,7 +112,6 @@ class ssa_solver:
         #Simplify accessing fields and parameters
         bed = self.bed
         H = self.H
-        #surf = self.surf
         mask = self.mask
         alpha = self.alpha
 
@@ -142,7 +141,6 @@ class ssa_solver:
         nu = self.viscosity(U_marker)
 
         #Sliding law
-        #B2 = exp(alpha)
         B2 = self.rev_prmz(alpha)
 
         #Switch parameters
@@ -340,7 +338,7 @@ class ssa_solver:
                 #Record
             if qoi_func is not None:
                 qoi = qoi_func()
-                self.Qval_ts[0] = assemble(qoi)
+                self.Qval_ts[n] = assemble(qoi)
 
                 if adjoint_flag:
                     if n in n_sens:
