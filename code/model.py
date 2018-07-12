@@ -101,10 +101,10 @@ class model:
 
 
     def alpha_to_b2(self,x):
-        if param['sliding_law'] == 0:
+        if self.param['sliding_law'] == 0:
             return x*x
 
-        elif param['sliding_law'] == 1.0:
+        elif self.param['sliding_law'] == 1.0:
             rhoi = self.param['rhoi']
             rhow = self.param['rhow']
             g = self.param['g']
@@ -125,10 +125,10 @@ class model:
 
 
     def b2_to_alpha(self,x):
-        if param['sliding_law'] == 0:
+        if self.param['sliding_law'] == 0:
             return sqrt(x)
 
-        elif param['sliding_law'] == 1.0:
+        elif self.param['sliding_law'] == 1.0:
             rhoi = self.param['rhoi']
             rhow = self.param['rhow']
             g = self.param['g']
