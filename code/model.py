@@ -117,7 +117,8 @@ class model:
             fl_ex = conditional(H <= H_s, 1.0, 0.0)
 
             N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
-            u,v = self.U.split()
+            u = self.u_obs
+            v = self.v_obs
             U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
 
             B2 = (1-fl_ex)*(x*x * N**(1.0/3.0) * U_mag**(-2.0/3.0))
@@ -141,7 +142,8 @@ class model:
             fl_ex = conditional(H <= H_s, 1.0, 0.0)
 
             N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
-            u,v = self.U.split()
+            u = self.u_obs
+            v = self.v_obs
             U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
             alpha = (x * N**(-1.0/3.0) * U_mag**(2.0/3.0))**(1.0/2.0)
 

@@ -44,10 +44,6 @@ class ssa_solver:
         self.bglen_to_beta = model.bglen_to_beta
         self.beta_to_bglen = model.beta_to_bglen
 
-        self.b2_to_alpha = model.b2_to_alpha
-        self.alpha_to_b2 = model.alpha_to_b2
-
-
         #Facet normals
         self.nm = model.nm
 
@@ -740,6 +736,52 @@ class ssa_solver:
         self.H_s.assign(self.H_init, annotate=False)
         self.H_nps.assign(self.H_init, annotate=False)
         self.H = 0.5*(self.H_np + self.H_s)
+
+    def alpha_to_b2(self,x):
+        if self.param['sliding_law'] == 0:
+            return x*x
+
+        elif self.param['sliding_law'] == 1.0:
+            rhoi = self.param['rhoi']
+            rhow = self.param['rhow']
+            g = self.param['g']
+            vel_rp = self.param['vel_rp']
+
+            H = self.H
+            bed = self.bed
+
+            H_s = -rhow/rhoi * bed
+            fl_ex = conditional(H <= H_s, 1.0, 0.0)
+
+            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+            u,v = self.U.split()
+            U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
+
+            B2 = (1-fl_ex)*(x*x * N**(1.0/3.0) * U_mag**(-2.0/3.0))
+            return B2
+
+    def b2_to_alpha(self,x):
+        if self.param['sliding_law'] == 0:
+            return sqrt(x)
+
+        elif self.param['sliding_law'] == 1.0:
+            rhoi = self.param['rhoi']
+            rhow = self.param['rhow']
+            g = self.param['g']
+            vel_rp = self.param['vel_rp']
+
+            H = self.H
+            bed = self.bed
+
+            H_s = -rhow/rhoi * bed
+            fl_ex = conditional(H <= H_s, 1.0, 0.0)
+
+            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+            u,v = self.U.split()
+            U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
+            alpha = (x * N**(-1.0/3.0) * U_mag**(2.0/3.0))**(1.0/2.0)
+
+            return alpha
 
     # def taylor_ver_vaf(self,alpha_in, adjoint_flag=0):
     #     self.alpha = alpha_in
