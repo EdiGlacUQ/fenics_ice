@@ -202,13 +202,13 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
 
     vtkfile = File(os.path.join(outdir,'Bglen.pvd'))
     xmlfile = File(os.path.join(outdir,'Bglen.xml'))
-    Bglen = project(mdl.beta_to_bglen(slvr.beta),mdl.M)
+    Bglen = project(slvr.beta_to_bglen(slvr.beta),mdl.M)
     vtkfile << Bglen
     xmlfile << Bglen
 
     vtkfile = File(os.path.join(outdir,'B2.pvd'))
     xmlfile = File(os.path.join(outdir,'B2.xml'))
-    B2 = project(mdl.alpha_to_b2(slvr.alpha),mdl.M)
+    B2 = project(slvr.alpha_to_b2(slvr.alpha),mdl.M)
     vtkfile << B2
     xmlfile << B2
 
