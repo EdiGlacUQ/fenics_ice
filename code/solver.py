@@ -165,7 +165,7 @@ class ssa_solver:
                 - inner(grad(Phi_y), H * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x])) * self.dIce
 
                 #Basal Drag
-                - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u,v])) * self.dIce
+                - inner(Phi, (1.0 - fl_ex) * inner(B2 , as_vector([u,v]))) * self.dIce
 
                 #Driving Stress
                 + ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
