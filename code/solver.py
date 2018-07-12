@@ -41,8 +41,12 @@ class ssa_solver:
         self.latbc = model.latbc
 
         #Parameterization of alpha/beta
-        self.apply_prmz = model.apply_prmz
-        self.rev_prmz = model.rev_prmz
+        self.bglen_to_beta = model.bglen_to_beta
+        self.beta_to_bglen = model.beta_to_bglen
+
+        self.b2_to_alpha = model.b2_to_alpha
+        self.alpha_to_b2 = model.alpha_to_b2
+
 
         #Facet normals
         self.nm = model.nm
@@ -141,7 +145,7 @@ class ssa_solver:
         nu = self.viscosity(U_marker)
 
         #Sliding law
-        B2 = self.rev_prmz(alpha)
+        B2 = self.alpha_to_b2(alpha)
 
         #Switch parameters
         H_s = -rhow/rhoi * bed
@@ -566,7 +570,7 @@ class ssa_solver:
         return eps_2
 
     def viscosity(self,U):
-        B = self.rev_prmz(self.beta)
+        B = self.beta_to_bglen(self.beta)
         n = self.param['n']
 
         eps_2 = self.effective_strain_rate(U)

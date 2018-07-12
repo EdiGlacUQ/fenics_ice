@@ -18,7 +18,7 @@ import pickle
 from IPython import embed
 
 
-def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
+def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, sl):
 
     #Load Data
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
@@ -88,6 +88,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
             'sim_flag': sim_flag,
             'periodic_bc': bflag,
             'altiter': altiter,
+            'sliding_law': sl,
             'inv_options': {'maxiter': maxiter, 'disp': True, 'ftol': 1e-4},
             'picard_params': {"nonlinear_solver":"newton",
                             "newton_solver":{"linear_solver":"umfpack",
@@ -112,21 +113,13 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
 
 
     mdl.gen_alpha()
-    mdl.init_beta(mdl.apply_prmz(Bglen))            #Comment to use uniform Bglen
+    mdl.init_beta(mdl.bglen_to_beta(Bglen))            #Comment to use uniform Bglen
 
     #Inversion
     slvr = solver.ssa_solver(mdl)
 
     opts = {'0': [slvr.alpha], '1': [slvr.beta], '2': [slvr.alpha,slvr.beta]}
     slvr.inversion(opts[str(pflag)])
-
-    #Plots for quick output evaluation
-    #B2 = project(mdl.rev_prmz(slvr.alpha),mdl.M)
-    #F_vals = slvr.F_vals
-
-    #fu.plot_variable(B2, 'B2', mdl.param['outdir'])
-    #fu.plot_inv_conv(F_vals, 'convergence', mdl.param['outdir'])
-
 
     #Output model variables in ParaView+Fenics friendly format
     outdir = mdl.param['outdir']
@@ -209,13 +202,13 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter):
 
     vtkfile = File(os.path.join(outdir,'Bglen.pvd'))
     xmlfile = File(os.path.join(outdir,'Bglen.xml'))
-    Bglen = project(mdl.rev_prmz(slvr.beta),mdl.M)
+    Bglen = project(mdl.beta_to_bglen(slvr.beta),mdl.M)
     vtkfile << Bglen
     xmlfile << Bglen
 
     vtkfile = File(os.path.join(outdir,'B2.pvd'))
     xmlfile = File(os.path.join(outdir,'B2.xml'))
-    B2 = project(mdl.rev_prmz(slvr.alpha),mdl.M)
+    B2 = project(mdl.alpha_to_b2(slvr.alpha),mdl.M)
     vtkfile << B2
     xmlfile << B2
 
@@ -243,8 +236,9 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--boundaries', dest='bflag', action='store_true', help='Periodic boundary conditions')
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
+    parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
 
-    parser.set_defaults(maxiter=15,nx=False,ny=False,sim_flag=False, bflag = False, altiter=2)
+    parser.set_defaults(maxiter=15,nx=False,ny=False,sim_flag=False, bflag = False, altiter=2, sl=0)
     args = parser.parse_args()
 
     maxiter = args.maxiter
@@ -257,6 +251,7 @@ if __name__ == "__main__":
     sim_flag = args.sim_flag
     bflag = args.bflag
     altiter = args.altiter
+    sl = args.sl
 
     if not outdir:
         outdir = ''.join(['./run_inv_', datetime.datetime.now().strftime("%m%d%H%M%S")])
@@ -268,4 +263,4 @@ if __name__ == "__main__":
 
 
 
-    main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter)
+    main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, sl)

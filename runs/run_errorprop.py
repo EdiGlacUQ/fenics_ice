@@ -68,8 +68,12 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     mdl.init_alpha(alpha)
 
 
-    delta = param['rc_inv'][1]
-    gamma = param['rc_inv'][3]
+    if pflag == 0:
+        delta = rc_inv[1]
+        gamma = rc_inv[3]
+    elif pflag == 1:
+        delta = rc_inv[2]
+        gamma = rc_inv[4]
 
     reg_op = prior.laplacian(delta, gamma, alpha.function_space())
 
@@ -174,6 +178,7 @@ if __name__ == "__main__":
     vecfile = args.vecfile
     lamfile = args.lamfile
     threshlam = args.threshlam
+    sl = args.sl
 
     if not outdir:
         outdir = ''.join(['./run_tmp_', datetime.datetime.now().strftime("%m%d%H%M%S")])

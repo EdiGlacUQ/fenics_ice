@@ -47,9 +47,13 @@ class model:
         param['g'] =  9.81           #acceleration due to gravity
         param['n'] =  3.0            #glen's flow law exponent
         param['eps_rp'] =  1e-5      #effective strain regularization
+        param['vel_rp'] =  1e-2      #velocity regularization parameter
         param['A'] =  3.5e-25 * param['ty']     #Creep paramater
         param['tol'] =  1e-6         #Tolerance for tests
         param['rc_inv'] =  [0.0]       #regularization constants for inversion
+
+        #Sliding law
+        param['sliding_law'] =  1.0  #Alternatively 'weertman'
 
         #Output
         param['outdir'] = './output/'
@@ -89,11 +93,60 @@ class model:
 
         self.param = param
 
-    def apply_prmz(self, x):
+    def bglen_to_beta(self,x):
         return sqrt(x)
 
-    def rev_prmz(self, x):
+    def beta_to_bglen(self,x):
         return x*x
+
+
+    def alpha_to_b2(self,x):
+        if param['sliding_law'] == 0:
+            return x*x
+
+        elif param['sliding_law'] == 1.0:
+            rhoi = self.param['rhoi']
+            rhow = self.param['rhow']
+            g = self.param['g']
+            vel_rp = self.param['vel_rp']
+
+            H = self.H
+            bed = self.bed
+
+            H_s = -rhow/rhoi * bed
+            fl_ex = conditional(H <= H_s, 1.0, 0.0)
+
+            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+            u,v = self.U.split()
+            U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
+
+            B2 = (1-fl_ex)*(x*x * N**(1.0/3.0) * U_mag**(-2.0/3.0)
+            return B2
+
+
+    def b2_to_alpha(self,x):
+        if param['sliding_law'] == 0:
+            return sqrt(x)
+
+        elif param['sliding_law'] == 1.0:
+            rhoi = self.param['rhoi']
+            rhow = self.param['rhow']
+            g = self.param['g']
+            vel_rp = self.param['vel_rp']
+
+            H = self.H
+            bed = self.bed
+
+            H_s = -rhow/rhoi * bed
+            fl_ex = conditional(H <= H_s, 1.0, 0.0)
+
+            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+            u,v = self.U.split()
+            U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
+            alpha = (x * N**(-1.0/3.0) * U_mag**(2.0/3.0))**(1.0/2.0)
+
+            return alpha
+
 
     def def_vel_mask(self):
         self.mask_vel = project(Constant(0.0), self.M)
@@ -101,8 +154,8 @@ class model:
     def def_B_field(self):
         A = self.param['A']
         n = self.param['n']
-        self.beta = project(sqrt(A**(-1.0/n)), self.Qp)
-        self.beta_bgd = project(sqrt(A**(-1.0/n)), self.Qp)
+        self.beta = project(self.b2_to_beta(A**(-1.0/n)), self.Qp)
+        self.beta_bgd = project(self.b2_to_beta(A**(-1.0/n)), self.Qp)
         self.beta.rename('beta', self.beta.label())
 
     def def_lat_dirichletbc(self):
@@ -210,13 +263,13 @@ class model:
         grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
 
         #Calculate alpha, apply background, apply bound
-        alpha_ = ( (1.0 - fl_ex) *rhoi*g*H*grads/U
+        B2_ = ( (1.0 - fl_ex) *rhoi*g*H*grads/U
            + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
 
 
-        alpha_tmp1 = Max(alpha_, a_lb)
-        alpha_tmp2 = Min(alpha_tmp1, a_ub)
-        alpha = self.apply_prmz(alpha_tmp2)
+        B2_tmp1 = Max(B2_, a_lb)
+        B2_tmp2 = Min(B2_tmp1, a_ub)
+        alpha = self.b2_to_alpha(B2_tmp2)
         self.alpha = project(alpha,self.Qp)
         self.alpha.rename('alpha', self.alpha.label())
 

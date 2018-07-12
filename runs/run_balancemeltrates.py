@@ -15,12 +15,13 @@ import datetime
 import pickle
 from IPython import embed
 
-def main(dd, outdir, run_length, n_steps, init_yr):
+def main(dd, outdir, run_length, n_steps, init_yr, sl):
 
     #Load Data
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
 
     param['outdir'] = outdir
+    param['sliding_law'] = sl
     param['picard_params'] = {"nonlinear_solver":"newton",
                 "newton_solver":{"linear_solver":"umfpack",
                 "maximum_iterations":25,
@@ -135,11 +136,12 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--runlength', dest='run_length', type=float, help='Length of forward run in years (Default 10yrs)')
     parser.add_argument('-n', '--nsteps', dest='n_steps', type=int, help='Number of model timesteps (Default 240)')
     parser.add_argument('-y', '--yearinitial', dest='init_yr', type=int, help='The initial year to difference final model results with to calculate balance melt rates (Default 5yrs)')
+    parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
 
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
 
-    parser.set_defaults(run_length=10.0, n_steps=240, init_yr=5, outdir=False)
+    parser.set_defaults(run_length=10.0, n_steps=240, init_yr=5, outdir=False, sl=0)
     args = parser.parse_args()
 
     run_length = args.run_length
@@ -147,6 +149,7 @@ if __name__ == "__main__":
     init_yr = args.init_yr
     outdir = args.outdir
     dd = args.dd
+    sl = args.sl
 
 
     if init_yr >= run_length:
@@ -166,4 +169,4 @@ if __name__ == "__main__":
         print('Init year must less than the run length')
         sys.exit(2)
 
-    main(dd, outdir, run_length, n_steps, init_yr)
+    main(dd, outdir, run_length, n_steps, init_yr, sl)

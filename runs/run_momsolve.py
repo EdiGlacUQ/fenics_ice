@@ -12,7 +12,7 @@ import pickle
 from IPython import embed
 
 
-def main(outdir, dd, periodic_bc, nx, ny):
+def main(outdir, dd, periodic_bc, nx, ny, sl):
 
     #Load Data
     data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
@@ -66,7 +66,8 @@ def main(outdir, dd, periodic_bc, nx, ny):
     #Initialize Model
     param = {
             'outdir' : outdir,
-            'periodic_bc': periodic_bc
+            'periodic_bc': periodic_bc,
+            'sliding_law': sl
             }
 
 
@@ -84,7 +85,7 @@ def main(outdir, dd, periodic_bc, nx, ny):
 
     elif os.path.isfile(os.path.join(dd,'B2.xml')):
         B2 = Function(M,os.path.join(dd,'B2.xml'))
-        mdl.init_alpha(mdl.apply_prmz(B2))
+        mdl.init_alpha(mdl.b2_to_alpha(B2))
 
     else:
         print('Model requires basal drag')
@@ -96,7 +97,7 @@ def main(outdir, dd, periodic_bc, nx, ny):
 
     elif os.path.isfile(os.path.join(dd,'Bglen.xml')):
         Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
-        mdl.init_beta(mdl.apply_prmz(Bglen))
+        mdl.init_beta(mdl.bglen_to_beta(Bglen))
 
     else:
         print('Using default bglen (constant)')
@@ -162,13 +163,13 @@ def main(outdir, dd, periodic_bc, nx, ny):
 
     vtkfile = File(os.path.join(outdir,'Bglen.pvd'))
     xmlfile = File(os.path.join(outdir,'Bglen.xml'))
-    Bglen = project(mdl.rev_prmz(mdl.beta),mdl.M)
+    Bglen = project(mdl.beta_to_bglen(slvr.beta),mdl.M)
     vtkfile << Bglen
     xmlfile << Bglen
 
     vtkfile = File(os.path.join(outdir,'B2.pvd'))
     xmlfile = File(os.path.join(outdir,'B2.xml'))
-    B2 = project(mdl.rev_prmz(mdl.alpha), mdl.M)
+    B2 = project(mdl.alpha_to_b2(slvr.alpha),mdl.M)
     vtkfile << B2
     xmlfile << B2
 
@@ -189,8 +190,10 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--boundaries', dest='periodic_bc', action='store_true', help='Periodic boundary conditions')
     parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction (defaults to data resolution)')
     parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction (defaults to data resolution)')
+    parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
 
-    parser.set_defaults(periodic_bc=False,nx=False,ny=False)
+
+    parser.set_defaults(periodic_bc=False,nx=False,ny=False, sl=0)
     args = parser.parse_args()
 
     outdir = args.outdir
@@ -198,6 +201,7 @@ if __name__ == "__main__":
     periodic_bc = args.periodic_bc
     nx = args.nx
     ny = args.ny
+    sl = args.sl
 
     if not outdir:
         outdir = ''.join(['./run_momsolve_', datetime.datetime.now().strftime("%m%d%H%M%S")])
@@ -209,4 +213,4 @@ if __name__ == "__main__":
 
 
 
-    main(outdir, dd, periodic_bc, nx, ny)
+    main(outdir, dd, periodic_bc, nx, ny, sl)
