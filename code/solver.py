@@ -370,7 +370,7 @@ class ssa_solver:
 
     def forward_alpha(self, f):
         clear_caches()
-        self.alpha = f
+        self.alpha = f[0]
         self.def_mom_eq()
         self.solve_mom_eq()
         self.J_inv = self.comp_J_inv()
@@ -380,7 +380,7 @@ class ssa_solver:
 
     def forward_beta(self, f):
         clear_caches()
-        self.beta = f
+        self.beta = f[0]
         self.def_mom_eq()
         self.solve_mom_eq()
         self.J_inv = self.comp_J_inv()
@@ -388,10 +388,10 @@ class ssa_solver:
         J.assign(self.J_inv)
         return J
 
-    def forward_dual(self, dd):
+    def forward_dual(self, f):
         clear_caches()
-        self.alpha = dd[0]
-        self.beta = dd[1]
+        self.alpha = f[0]
+        self.beta = f[1]
         self.def_mom_eq()
         self.solve_mom_eq()
         self.J_inv = self.comp_J_inv()
@@ -422,7 +422,7 @@ class ssa_solver:
             reset()
             clear_caches()
             start_annotating()
-            J = forward(cc)
+            J = forward([cc])
             stop_annotating()
 
             #dJ = compute_gradient(J, self.alpha)
@@ -710,7 +710,7 @@ class ssa_solver:
         reset()
         clear_caches()
         start_manager()
-        J = forward(*cntrl)
+        J = forward(cntrl)
         stop_manager()
 
         self.ddJ = SingleBlockHessian(J)

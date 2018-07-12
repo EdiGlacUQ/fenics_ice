@@ -109,6 +109,7 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, file
     mass_solver.set_operator(mass)
 
     #Regularization operator using inversion delta/gamma values
+
     if pflag == 0:
         delta = rc_inv[1]
         gamma = rc_inv[3]
@@ -117,7 +118,6 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, file
         gamma = rc_inv[4]
 
     reg_op = prior.laplacian(delta,gamma, space)
-
 
     #Counter for hessian action -- list rather than float/int necessary
     num_action_calls = [0]
