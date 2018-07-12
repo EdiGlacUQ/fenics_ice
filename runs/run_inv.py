@@ -119,7 +119,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     slvr = solver.ssa_solver(mdl)
 
     opts = {'0': [slvr.alpha], '1': [slvr.beta], '2': [slvr.alpha,slvr.beta]}
-    slvr.inversion(opts[str(pflag)])
+    #slvr.inversion(opts[str(pflag)])
 
     #Output model variables in ParaView+Fenics friendly format
     outdir = mdl.param['outdir']
