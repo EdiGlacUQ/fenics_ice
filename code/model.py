@@ -154,8 +154,8 @@ class model:
     def def_B_field(self):
         A = self.param['A']
         n = self.param['n']
-        self.beta = project(self.b2_to_beta(A**(-1.0/n)), self.Qp)
-        self.beta_bgd = project(self.b2_to_beta(A**(-1.0/n)), self.Qp)
+        self.beta = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
+        self.beta_bgd = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
         self.beta.rename('beta', self.beta.label())
 
     def def_lat_dirichletbc(self):
