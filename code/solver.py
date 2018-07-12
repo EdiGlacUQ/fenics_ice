@@ -281,7 +281,7 @@ class ssa_solver:
             reset()
             start_annotating()
 #            configure_checkpointing("periodic_disk", {'period': 2, "format":"pickle"})
-            configure_checkpointing("revolve", {"blocks":n_steps, "snaps_on_disk":400, "snaps_in_ram":5, "verbose":True, "format":"pickle"})
+            configure_checkpointing("revolve", {"blocks":n_steps, "snaps_on_disk":4000, "snaps_in_ram":10, "verbose":True, "format":"pickle"})
 
         self.def_thickadv_eq()
         self.def_mom_eq()
