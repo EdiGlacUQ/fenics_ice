@@ -92,7 +92,7 @@ def main(dd, outdir, run_length, n_steps, init_yr):
     #Balance melt rates
 
     #Load time series of ice thicknesses
-    hdf = HDF5File(slvr.mesh.mpi_comm(), param['outdir'] + 'H_ts.h5', "r")
+    hdf = HDF5File(slvr.mesh.mpi_comm(), os.path.join(param['outdir'], 'H_ts.h5'), "r")
     attr = hdf.attributes("H")
     nsteps = attr['count']
 
