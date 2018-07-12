@@ -120,7 +120,7 @@ class model:
             u,v = self.U.split()
             U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
 
-            B2 = (1-fl_ex)*(x*x * N**(1.0/3.0) * U_mag**(-2.0/3.0)
+            B2 = (1-fl_ex)*(x*x * N**(1.0/3.0) * U_mag**(-2.0/3.0))
             return B2
 
 
