@@ -115,7 +115,7 @@ def main(dd, outdir, run_length, n_steps, init_yr):
     fl_ex = conditional(slvr.H_init <= H_s, Constant(1.0), Constant(0.0))
 
     #Calculate bmelt
-    bmelt = project(max(fl_ex*(HF - HS)/dT, Constant(0.0)), slvr.M)
+    bmelt = project(Max(fl_ex*(HF - HS)/dT, Constant(0.0)), slvr.M)
 
     #Output model variables in ParaView+Fenics friendly format
     outdir = mdl.param['outdir']
