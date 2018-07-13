@@ -24,10 +24,10 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
     Qp = Q
 
     bed = Function(Q,os.path.join(dd,'bed.xml'))
-    Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
     bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
+    alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
 
 
     if not os.path.isfile(os.path.join(dd,'param.p')):
@@ -77,25 +77,11 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
     mdl.gen_surf()
     mdl.init_mask(mask)
     mdl.init_bmelt(bmelt)
+    mdl.init_alpha(alpha)
     mdl.label_domain()
 
-    if os.path.isfile(os.path.join(dd,'alpha.xml')):
-        alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
-        mdl.init_alpha(alpha)
 
-    elif os.path.isfile(os.path.join(dd,'B2.xml')):
-        B2 = Function(M,os.path.join(dd,'B2.xml'))
-        mdl.init_alpha(mdl.b2_to_alpha(B2))
-
-    else:
-        print('Model requires basal drag')
-        sys.exit()
-
-    if os.path.isfile(os.path.join(dd,'beta.xml')):
-        beta = Function(Qp,os.path.join(dd,'beta.xml'))
-        mdl.init_beta(beta)
-
-    elif os.path.isfile(os.path.join(dd,'Bglen.xml')):
+    if os.path.isfile(os.path.join(dd,'Bglen.xml')):
         Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
         mdl.init_beta(mdl.bglen_to_beta(Bglen))
 
@@ -158,8 +144,8 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
 
     vtkfile = File(os.path.join(outdir,'alpha.pvd'))
     xmlfile = File(os.path.join(outdir,'alpha.xml'))
-    vtkfile << mdl.alpha
-    xmlfile << mdl.alpha
+    vtkfile << slvr.alpha
+    xmlfile << slvr.alpha
 
     vtkfile = File(os.path.join(outdir,'Bglen.pvd'))
     xmlfile = File(os.path.join(outdir,'Bglen.xml'))

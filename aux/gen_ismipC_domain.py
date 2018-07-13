@@ -74,5 +74,8 @@ File(os.path.join(dd,'bmelt.xml')) <<  v
 v.vector()[:] = B2.flatten()
 File(os.path.join(dd,'B2.xml')) <<  v
 
+v.vector()[:] = np.sqrt(B2.flatten())
+File(os.path.join(dd,'alpha.xml')) <<  v
+
 v.vector()[:] = Bglen.flatten()
 File(os.path.join(dd,'Bglen.xml')) <<  v

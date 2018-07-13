@@ -124,6 +124,8 @@ class ssa_solver:
         tol = self.param['tol']
         dIce = self.dIce
         ds = self.ds
+        sl = self.param['sliding_law']
+        vel_rp = self.param['vel_rp']
 
         #Vector components of trial function
         u, v = split(self.U)
@@ -140,12 +142,24 @@ class ssa_solver:
         U_marker = Function(self.U.function_space(), name = "%s_marker" % self.U.name())
         nu = self.viscosity(U_marker)
 
-        #Sliding law
-        B2 = self.alpha_to_b2(alpha)
 
         #Switch parameters
         H_s = -rhow/rhoi * bed
         fl_ex = ufl.operators.Conditional(H <= H_s, Constant(1.0), Constant(0.0))
+
+
+        #Sliding law
+        C = alpha*alpha
+
+        if sl == 0:
+            B2 = C
+        elif sl == 1:
+            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+            U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
+            B2 = (1-fl_ex)*(C * N**(1.0/3.0) * U_mag**(-2.0/3.0))
+
+
+
 
         #Driving stress quantities
         F = (1 - fl_ex) * 0.5*rhoi*g*H**2 + \
@@ -370,7 +384,7 @@ class ssa_solver:
 
     def forward_alpha(self, f):
         clear_caches()
-        self.alpha = f[0]
+        self.alpha = f
         self.def_mom_eq()
         self.solve_mom_eq()
         self.J_inv = self.comp_J_inv()
@@ -380,7 +394,7 @@ class ssa_solver:
 
     def forward_beta(self, f):
         clear_caches()
-        self.beta = f[0]
+        self.beta = f
         self.def_mom_eq()
         self.solve_mom_eq()
         self.J_inv = self.comp_J_inv()
@@ -422,7 +436,7 @@ class ssa_solver:
             reset()
             clear_caches()
             start_annotating()
-            J = forward([cc])
+            J = forward(cc)
             stop_annotating()
 
             #dJ = compute_gradient(J, self.alpha)
@@ -737,51 +751,51 @@ class ssa_solver:
         self.H_nps.assign(self.H_init, annotate=False)
         self.H = 0.5*(self.H_np + self.H_s)
 
-    def alpha_to_b2(self,x):
-        if self.param['sliding_law'] == 0:
-            return x*x
+    # def alpha_to_b2(self,x):
+    #     if self.param['sliding_law'] == 0:
+    #         return x*x
+    #
+    #     elif self.param['sliding_law'] == 1.0:
+    #         rhoi = self.param['rhoi']
+    #         rhow = self.param['rhow']
+    #         g = self.param['g']
+    #         vel_rp = self.param['vel_rp']
+    #
+    #         H = self.H
+    #         bed = self.bed
+    #
+    #         H_s = -rhow/rhoi * bed
+    #         fl_ex = conditional(H <= H_s, 1.0, 0.0)
+    #
+    #         N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+    #         #u,v = self.U.split()
+    #         U_mag = Constant(100.0)#(u**2 + v**2 + vel_rp**2)**(1.0/2.0)
+    #
+    #         B2 = (1-fl_ex)*(x*x * N**(1.0/3.0) * U_mag**(-2.0/3.0))
+    #         return B2
 
-        elif self.param['sliding_law'] == 1.0:
-            rhoi = self.param['rhoi']
-            rhow = self.param['rhow']
-            g = self.param['g']
-            vel_rp = self.param['vel_rp']
-
-            H = self.H
-            bed = self.bed
-
-            H_s = -rhow/rhoi * bed
-            fl_ex = conditional(H <= H_s, 1.0, 0.0)
-
-            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
-            u,v = self.U.split()
-            U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
-
-            B2 = (1-fl_ex)*(x*x * N**(1.0/3.0) * U_mag**(-2.0/3.0))
-            return B2
-
-    def b2_to_alpha(self,x):
-        if self.param['sliding_law'] == 0:
-            return sqrt(x)
-
-        elif self.param['sliding_law'] == 1.0:
-            rhoi = self.param['rhoi']
-            rhow = self.param['rhow']
-            g = self.param['g']
-            vel_rp = self.param['vel_rp']
-
-            H = self.H
-            bed = self.bed
-
-            H_s = -rhow/rhoi * bed
-            fl_ex = conditional(H <= H_s, 1.0, 0.0)
-
-            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
-            u,v = self.U.split()
-            U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
-            alpha = (x * N**(-1.0/3.0) * U_mag**(2.0/3.0))**(1.0/2.0)
-
-            return alpha
+    # def b2_to_alpha(self,x):
+    #     if self.param['sliding_law'] == 0:
+    #         return sqrt(x)
+    #
+    #     elif self.param['sliding_law'] == 1.0:
+    #         rhoi = self.param['rhoi']
+    #         rhow = self.param['rhow']
+    #         g = self.param['g']
+    #         vel_rp = self.param['vel_rp']
+    #
+    #         H = self.H
+    #         bed = self.bed
+    #
+    #         H_s = -rhow/rhoi * bed
+    #         fl_ex = conditional(H <= H_s, 1.0, 0.0)
+    #
+    #         N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+    #         u,v = self.U.split()
+    #         U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
+    #         alpha = (x * N**(-1.0/3.0) * U_mag**(2.0/3.0))**(1.0/2.0)
+    #
+    #         return alpha
 
     # def taylor_ver_vaf(self,alpha_in, adjoint_flag=0):
     #     self.alpha = alpha_in

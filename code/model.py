@@ -75,10 +75,10 @@ class model:
         param['newton_params'] = {"nonlinear_solver":"newton",
                     "newton_solver":{"linear_solver":"umfpack",
                     "maximum_iterations":25,
-                    "absolute_tolerance":1.0e-8,
-                    "relative_tolerance":1.0e-8,
+                    "absolute_tolerance":1.0e-5,
+                    "relative_tolerance":1.0e-5,
                     "convergence_criterion":"incremental",
-                    "error_on_nonconvergence":False,
+                    "error_on_nonconvergence":True,
                     "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
         #Boundary Conditions
@@ -100,54 +100,54 @@ class model:
         return x*x
 
 
-    def alpha_to_b2(self,x):
-        if self.param['sliding_law'] == 0:
-            return x*x
-
-        elif self.param['sliding_law'] == 1.0:
-            rhoi = self.param['rhoi']
-            rhow = self.param['rhow']
-            g = self.param['g']
-            vel_rp = self.param['vel_rp']
-
-            H = self.H
-            bed = self.bed
-
-            H_s = -rhow/rhoi * bed
-            fl_ex = conditional(H <= H_s, 1.0, 0.0)
-
-            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
-            u = self.u_obs
-            v = self.v_obs
-            U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
-
-            B2 = (1-fl_ex)*(x*x * N**(1.0/3.0) * U_mag**(-2.0/3.0))
-            return B2
-
-
-    def b2_to_alpha(self,x):
-        if self.param['sliding_law'] == 0:
-            return sqrt(x)
-
-        elif self.param['sliding_law'] == 1.0:
-            rhoi = self.param['rhoi']
-            rhow = self.param['rhow']
-            g = self.param['g']
-            vel_rp = self.param['vel_rp']
-
-            H = self.H
-            bed = self.bed
-
-            H_s = -rhow/rhoi * bed
-            fl_ex = conditional(H <= H_s, 1.0, 0.0)
-
-            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
-            u = self.u_obs
-            v = self.v_obs
-            U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
-            alpha = (x * N**(-1.0/3.0) * U_mag**(2.0/3.0))**(1.0/2.0)
-
-            return alpha
+    # def alpha_to_b2(self,x):
+    #     if self.param['sliding_law'] == 0:
+    #         return x*x
+    #
+    #     elif self.param['sliding_law'] == 1.0:
+    #         rhoi = self.param['rhoi']
+    #         rhow = self.param['rhow']
+    #         g = self.param['g']
+    #         vel_rp = self.param['vel_rp']
+    #
+    #         H = self.H
+    #         bed = self.bed
+    #
+    #         H_s = -rhow/rhoi * bed
+    #         fl_ex = conditional(H <= H_s, 1.0, 0.0)
+    #
+    #         N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+    #         u = self.u_obs
+    #         v = self.v_obs
+    #         U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
+    #
+    #         B2 = (1-fl_ex)*(x*x * N**(1.0/3.0) * U_mag**(-2.0/3.0))
+    #         return B2
+    #
+    #
+    # def b2_to_alpha(self,x):
+    #     if self.param['sliding_law'] == 0:
+    #         return sqrt(x)
+    #
+    #     elif self.param['sliding_law'] == 1.0:
+    #         rhoi = self.param['rhoi']
+    #         rhow = self.param['rhow']
+    #         g = self.param['g']
+    #         vel_rp = self.param['vel_rp']
+    #
+    #         H = self.H
+    #         bed = self.bed
+    #
+    #         H_s = -rhow/rhoi * bed
+    #         fl_ex = conditional(H <= H_s, 1.0, 0.0)
+    #
+    #         N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+    #         u = self.u_obs
+    #         v = self.v_obs
+    #         U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
+    #         alpha = (x * N**(-1.0/3.0) * U_mag**(2.0/3.0))**(1.0/2.0)
+    #
+    #         return alpha
 
 
     def def_vel_mask(self):
@@ -247,6 +247,8 @@ class model:
         rhow = self.param['rhow']
         u_obs = self.u_obs
         v_obs = self.v_obs
+        vel_rp = self.param['vel_rp']
+
         U = Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
         #Flotation Criterion
@@ -271,7 +273,14 @@ class model:
 
         B2_tmp1 = Max(B2_, a_lb)
         B2_tmp2 = Min(B2_tmp1, a_ub)
-        alpha = self.b2_to_alpha(B2_tmp2)
+
+        if self.param['sliding_law'] == 0:
+            alpha = sqrt(B2_tmp2)
+        elif self.param['sliding_law'] == 1:
+            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+            U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
+            alpha = sqrt(x * N**(-1.0/3.0) * U_mag**(2.0/3.0))
+
         self.alpha = project(alpha,self.Qp)
         self.alpha.rename('alpha', self.alpha.label())
 

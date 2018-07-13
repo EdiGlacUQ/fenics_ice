@@ -206,11 +206,11 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     vtkfile << Bglen
     xmlfile << Bglen
 
-    vtkfile = File(os.path.join(outdir,'B2.pvd'))
-    xmlfile = File(os.path.join(outdir,'B2.xml'))
-    B2 = project(slvr.alpha_to_b2(slvr.alpha),mdl.M)
-    vtkfile << B2
-    xmlfile << B2
+    # vtkfile = File(os.path.join(outdir,'B2.pvd'))
+    # xmlfile = File(os.path.join(outdir,'B2.xml'))
+    # B2 = project(slvr.alpha_to_b2(slvr.alpha),mdl.M)
+    # vtkfile << B2
+    # xmlfile << B2
 
     vtkfile = File(os.path.join(outdir,'bmelt.pvd'))
     xmlfile = File(os.path.join(outdir,'bmelt.xml'))
