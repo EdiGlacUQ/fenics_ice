@@ -68,6 +68,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     mdl.init_alpha(alpha)
 
 
+    rc_inv = param['rc_inv']
     if pflag == 0:
         delta = rc_inv[1]
         gamma = rc_inv[3]
@@ -103,8 +104,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
             hdf5data.read(x, f'v/vector_{i}')
             v = x.vector().array()
             reg_op.action(x.vector(), y.vector())
-            #mass.mult(y.vector(), z.vector())
-            #tmp = z.vector.array()
+
             tmp = y.vector().array()
             sc = np.sqrt(np.dot(v,tmp))
             W[:,i] = v/sc
@@ -154,7 +154,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     #Output model variables in ParaView+Fenics friendly format
     pickle.dump( [sigma, t_sens], open( os.path.join(outdir,'sigma.p'), "wb" ) )
 
-
+    print(param['sliding_law'])
 
 if __name__ == "__main__":
     stop_annotating()
@@ -178,7 +178,6 @@ if __name__ == "__main__":
     vecfile = args.vecfile
     lamfile = args.lamfile
     threshlam = args.threshlam
-    sl = args.sl
 
     if not outdir:
         outdir = ''.join(['./run_tmp_', datetime.datetime.now().strftime("%m%d%H%M%S")])

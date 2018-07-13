@@ -99,57 +99,6 @@ class model:
     def beta_to_bglen(self,x):
         return x*x
 
-
-    # def alpha_to_b2(self,x):
-    #     if self.param['sliding_law'] == 0:
-    #         return x*x
-    #
-    #     elif self.param['sliding_law'] == 1.0:
-    #         rhoi = self.param['rhoi']
-    #         rhow = self.param['rhow']
-    #         g = self.param['g']
-    #         vel_rp = self.param['vel_rp']
-    #
-    #         H = self.H
-    #         bed = self.bed
-    #
-    #         H_s = -rhow/rhoi * bed
-    #         fl_ex = conditional(H <= H_s, 1.0, 0.0)
-    #
-    #         N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
-    #         u = self.u_obs
-    #         v = self.v_obs
-    #         U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
-    #
-    #         B2 = (1-fl_ex)*(x*x * N**(1.0/3.0) * U_mag**(-2.0/3.0))
-    #         return B2
-    #
-    #
-    # def b2_to_alpha(self,x):
-    #     if self.param['sliding_law'] == 0:
-    #         return sqrt(x)
-    #
-    #     elif self.param['sliding_law'] == 1.0:
-    #         rhoi = self.param['rhoi']
-    #         rhow = self.param['rhow']
-    #         g = self.param['g']
-    #         vel_rp = self.param['vel_rp']
-    #
-    #         H = self.H
-    #         bed = self.bed
-    #
-    #         H_s = -rhow/rhoi * bed
-    #         fl_ex = conditional(H <= H_s, 1.0, 0.0)
-    #
-    #         N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
-    #         u = self.u_obs
-    #         v = self.v_obs
-    #         U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
-    #         alpha = (x * N**(-1.0/3.0) * U_mag**(2.0/3.0))**(1.0/2.0)
-    #
-    #         return alpha
-
-
     def def_vel_mask(self):
         self.mask_vel = project(Constant(0.0), self.M)
 
@@ -279,7 +228,7 @@ class model:
         elif self.param['sliding_law'] == 1:
             N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
             U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
-            alpha = sqrt(x * N**(-1.0/3.0) * U_mag**(2.0/3.0))
+            alpha = (1-fl_ex)*sqrt(B2_tmp2 * Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
 
         self.alpha = project(alpha,self.Qp)
         self.alpha.rename('alpha', self.alpha.label())

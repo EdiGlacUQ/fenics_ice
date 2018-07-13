@@ -147,19 +147,7 @@ class ssa_solver:
         H_s = -rhow/rhoi * bed
         fl_ex = ufl.operators.Conditional(H <= H_s, Constant(1.0), Constant(0.0))
 
-
-        #Sliding law
-        C = alpha*alpha
-
-        if sl == 0:
-            B2 = C
-        elif sl == 1:
-            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
-            U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
-            B2 = (1-fl_ex)*(C * N**(1.0/3.0) * U_mag**(-2.0/3.0))
-
-
-
+        B2 = self.sliding_law(alpha,U_marker)
 
         #Driving stress quantities
         F = (1 - fl_ex) * 0.5*rhoi*g*H**2 + \
@@ -191,6 +179,31 @@ class ssa_solver:
         self.mom_Jac_p = replace(derivative(self.mom_F, self.U), {U_marker:self.U})
         self.mom_F = replace(self.mom_F, {U_marker:self.U})
         self.mom_Jac = derivative(self.mom_F, self.U)
+
+    def sliding_law(self,alpha,U):
+        bed = self.bed
+        H = self.H
+        rhoi = self.param['rhoi']
+        rhow = self.param['rhow']
+        g = self.param['g']
+        sl = self.param['sliding_law']
+        vel_rp = self.param['vel_rp']
+
+        H_s = -rhow/rhoi * bed
+        fl_ex = ufl.operators.Conditional(H <= H_s, Constant(1.0), Constant(0.0))
+
+        C = alpha*alpha
+        u,v = split(U)
+
+        if sl == 0:
+            B2 = C
+
+        elif sl == 1:
+            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+            U_mag = sqrt(U[0]**2 + U[1]**2 + vel_rp**2)
+            B2 = (1-fl_ex)*(C * N**(1.0/3.0) * U_mag**(-2.0/3.0))
+
+        return B2
 
     def solve_mom_eq(self, annotate_flag=None):
         #Dirichlet Boundary Conditons: Zero flow
@@ -247,11 +260,7 @@ class ssa_solver:
 
         self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
 
-        #bc0 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_LAT)
-        #bc1 = DirichletBC(self.M, (0.0), self.ff, self.GAMMA_TMN)
-        #bc2 = DirichletBC(self.M, self.H_init, self.ff, self.GAMMA_NF)
         self.H_bcs = []
-        #self.H_bcs = [bc2]
 
     def solve_thickadv_eq(self):
 
@@ -462,100 +471,6 @@ class ssa_solver:
         self.J_inv = self.comp_J_inv(verbose=True)
 
 
-        #
-        #
-        # if type(cntrl_input) is not list:
-        #     cc = Control(cntrl_input)
-        #     rf = ReducedFunctional(J, cc, derivative_cb_post = derivative_cb)
-        #
-        #     ccm = moola.DolfinPrimalVector(cntrl_input)
-        #     problem = MoolaOptimizationProblem(rf)
-        #     solver = moola.BFGS(problem, ccm, options={'maxiter': self.param['inv_options']['maxiter']})
-        #
-        #     sol = solver.solve()
-        #     opt_var = sol['control']
-        #     cntrl_input.vector().set_local(opt_var.array())
-        #
-        #
-        # elif self.param['sim_flag']:
-        #
-        #     #Control parameters and functional problem
-        #     cc = [Control(x) for x in cntrl_input]
-        #     rf = ReducedFunctional(J, cc, derivative_cb_post = derivative_cb)
-        #
-        #     ccm = moola.DolfinPrimalVectorSet([moola.DolfinPrimalVector(x) for x in cntrl_input])
-        #
-        #     p_scale = []
-        #     for i, c in enumerate(cntrl_input):
-        #         t0 = time.time()
-        #         self.set_hessian_action(c)
-        #         A = eigenfunc.HessWrapper(self.ddJ,c)
-        #         [lam,v] = eigenfunc.eigens(A,k=10,n_iter=2)
-        #         p_scale.append(lam[0])
-        #         t1 = time.time()
-        #         print("{0}s to determine lead eigenvalue of paramater {1}".format(t1-t0, i))
-        #         print('Value: {0}'.format(lam[0]))
-        #         adj_reset() #Reset adjoint tape. Emprically necessary
-        #         self.def_mom_eq()
-        #         self.solve_mom_eq()
-        #         self.J_inv = self.comp_J_inv()
-        #
-        #     Hinit = Hinit_gen(p_scale)
-        #
-        #     problem = MoolaOptimizationProblem(rf)
-        #     solver = moola.BFGS(problem, ccm, options={'jtol': 1e-4,
-        #                                            'gtol': 1e-9,
-        #                                            'line_search_options' : {"ftol": 1e-4, "gtol": 0.9, "xtol": 1e-1, "start_stp": 1},
-        #                                            'Hinit': Hinit,
-        #                                            'maxiter': self.param['inv_options']['maxiter'],
-        #                                            'mem_lim': 10})
-        #
-        #     sol = solver.solve()
-        #     opt_var = sol['control']
-        #
-        #
-        #     list(map(lambda x: x[0].vector().set_local(x[1].array()), list(zip(cntrl,opt_var))))
-        #
-        # else:
-        #     altiter = self.param['altiter']
-        #     nparam = len(cntrl_input)
-        #
-        #     for j in range(altiter*nparam):
-        #         cntrl = cntrl_input[j % nparam]
-        #
-        #         #Control parameters and functional problem
-        #         cc = Control(cntrl)
-        #         rf = ReducedFunctional(J, cc, derivative_cb_post = derivative_cb)
-        #
-        #         ccm  = moola.DolfinPrimalVector(cntrl)
-        #
-        #
-        #         problem = MoolaOptimizationProblem(rf)
-        #         solver = moola.BFGS(problem, ccm, options={'jtol': 1e-4,
-        #                                                'gtol': 1e-9,
-        #                                                'line_search_options' : {"ftol": 1e-4, "gtol": 0.9, "xtol": 1e-1, "start_stp": 1},
-        #                                                'maxiter': self.param['inv_options']['maxiter'],
-        #                                                'mem_lim': 10})
-        #
-        #         sol = solver.solve()
-        #         opt_var = sol['control']
-        #         cntrl.vector().set_local(opt_var.array())
-
-
-        #Scipy Optimization routine
-        #opt_var = minimize(rf, method = 'L-BFGS-B', options = self.param['inv_options'])
-        #map(lambda x: x[0].assign(x[1]), zip(cntrl,opt_var)) if type(cntrl) is list else cntrl.assign(opt_var)
-
-        #Re-compute velocities with inversion results
-        # reset()
-        # clear_caches()
-        # start_annotating()
-        # self.solve_mom_eq()
-        # stop_annotating()
-        #
-        # #Print out inversion results/parameter values
-        # self.J_inv = self.comp_J_inv(verbose=True)
-
     def epsilon(self, U):
         """
         return the strain-rate tensor of self.U.
@@ -626,23 +541,6 @@ class ssa_solver:
         L = (delta_b * betadiff * self.pTau - gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
         solve(a == L, f_beta )
 
-        #
-        # grad_alpha = grad(alpha)
-        # grad_alpha_ = project(grad_alpha, self.RT)
-        # lap_alpha = div(grad_alpha_)
-        #
-        #
-        #
-        # grad_betadiff = grad(betadiff)
-        # grad_betadiff_ = project(grad_betadiff, self.RT)
-        # lap_beta = div(grad_betadiff_)
-        #
-        # reg_a = delta_a * alpha - gamma_a*lap_alpha
-        # reg_b = delta_b * betadiff - gamma_b*lap_beta
-        #
-        # J_reg_alpha = inner(reg_a,reg_a)*dIce_gnd
-        # J_reg_beta = inner(reg_b,reg_b)*dIce
-
         J_reg_alpha = inner(f_alpha,f_alpha)*dIce
         J_reg_beta = inner(f_beta,f_beta)*dIce
 
@@ -709,12 +607,6 @@ class ssa_solver:
         dQ = compute_gradient(Q, cntrl)
         self.dQ_ts = dQ
 
-    # def set_dJ_inv(self, cntrl):
-    #     J = Functional(self.J_inv)
-    #     control = [Control(x) for x in cntrl] if type(cntrl) is list else Control(cntrl)
-    #     dJ = compute_gradient(J, control, forget = False)
-    #     self.dJ_inv = dJ
-
 
     def set_hessian_action(self, cntrl):
         if type(cntrl) is not list: cntrl = [cntrl]
@@ -724,17 +616,11 @@ class ssa_solver:
         reset()
         clear_caches()
         start_manager()
-        J = forward(cntrl)
+        J = forward(cntrl[0])
         stop_manager()
 
         self.ddJ = SingleBlockHessian(J)
 
-    def taylor_ver_inv(self,alpha_in):
-        self.alpha = alpha_in
-        self.def_mom_eq()
-        self.solve_mom_eq()
-        self.J_inv = self.comp_J_inv()
-        return assemble(self.J_inv)
 
     def save_ts_zero(self):
         self.H_init = Function(self.H_np.function_space())
@@ -751,62 +637,6 @@ class ssa_solver:
         self.H_nps.assign(self.H_init, annotate=False)
         self.H = 0.5*(self.H_np + self.H_s)
 
-    # def alpha_to_b2(self,x):
-    #     if self.param['sliding_law'] == 0:
-    #         return x*x
-    #
-    #     elif self.param['sliding_law'] == 1.0:
-    #         rhoi = self.param['rhoi']
-    #         rhow = self.param['rhow']
-    #         g = self.param['g']
-    #         vel_rp = self.param['vel_rp']
-    #
-    #         H = self.H
-    #         bed = self.bed
-    #
-    #         H_s = -rhow/rhoi * bed
-    #         fl_ex = conditional(H <= H_s, 1.0, 0.0)
-    #
-    #         N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
-    #         #u,v = self.U.split()
-    #         U_mag = Constant(100.0)#(u**2 + v**2 + vel_rp**2)**(1.0/2.0)
-    #
-    #         B2 = (1-fl_ex)*(x*x * N**(1.0/3.0) * U_mag**(-2.0/3.0))
-    #         return B2
-
-    # def b2_to_alpha(self,x):
-    #     if self.param['sliding_law'] == 0:
-    #         return sqrt(x)
-    #
-    #     elif self.param['sliding_law'] == 1.0:
-    #         rhoi = self.param['rhoi']
-    #         rhow = self.param['rhow']
-    #         g = self.param['g']
-    #         vel_rp = self.param['vel_rp']
-    #
-    #         H = self.H
-    #         bed = self.bed
-    #
-    #         H_s = -rhow/rhoi * bed
-    #         fl_ex = conditional(H <= H_s, 1.0, 0.0)
-    #
-    #         N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
-    #         u,v = self.U.split()
-    #         U_mag = (u**2 + v**2 + vel_rp**2)**(1.0/2.0)
-    #         alpha = (x * N**(-1.0/3.0) * U_mag**(2.0/3.0))**(1.0/2.0)
-    #
-    #         return alpha
-
-    # def taylor_ver_vaf(self,alpha_in, adjoint_flag=0):
-    #     self.alpha = alpha_in
-    #     self.H = self.H_init.copy(deepcopy=True)
-    #     self.H_s = self.H_init.copy(deepcopy=True)
-    #     self.H_np = self.H_init.copy(deepcopy=True)
-    #     self.timestep(save=0, adjoint_flag=adjoint_flag)
-    #     self.set_J_vaf()
-    #     return assemble(self.J_vaf)
-
-
 class ddJ_wrapper(object):
     def __init__(self, ddJ_action, cntrl):
         self.ddJ_action = ddJ_action
@@ -816,32 +646,6 @@ class ddJ_wrapper(object):
         self.ddJ_F.vector().set_local(x.getArray())
         self.ddJ_F.vector().apply('insert')
         return self.ddJ_action(self.ddJ_F).vector().get_local()
-
-
-# class MomentumSolver(EquationSolver):
-#
-#     def __init__(self, *args, **kwargs):
-#         self.picard_params = kwargs.pop("picard_params", None)
-#         self.J_p = kwargs.pop("J_p", None)
-#         super(MomentumSolver, self).__init__(*args, **kwargs)
-#
-#     def forward_solve(self, x, deps):
-#         #replace_map = dict(zip(self._EquationSolver__deps, deps))
-#         replace_map = dict(list(zip(self.dependencies(), deps)))
-#
-#         if not self._EquationSolver__initial_guess is None:
-#           x.assign(replace_map[self._EquationSolver__initial_guess])
-#         replace_map[self.x()] = x
-#
-#         lhs = replace(self._EquationSolver__lhs, replace_map)
-#         rhs = 0 if self._EquationSolver__rhs == 0 else replace(self._EquationSolver__rhs, replace_map)
-#         J = replace(self._EquationSolver__J, replace_map)
-#
-#         solve(lhs == rhs, x, self._EquationSolver__bcs, J = replace(self.J_p, replace_map), form_compiler_parameters = self._EquationSolver__form_compiler_parameters, solver_parameters = self.picard_params)
-#         solve(lhs == rhs, x, self._EquationSolver__bcs, J = J, form_compiler_parameters = self._EquationSolver__form_compiler_parameters, solver_parameters = self._EquationSolver__solver_parameters)
-#
-#         return
-
 
 
 class MomentumSolver(EquationSolver):
@@ -869,25 +673,3 @@ class MomentumSolver(EquationSolver):
         J = replace_deps(self._J)
         solve(lhs == rhs, x, self._bcs, J = self.J_p, form_compiler_parameters = self._form_compiler_parameters, solver_parameters = self.picard_params)
         solve(lhs == rhs, x, self._bcs, J = J, form_compiler_parameters = self._form_compiler_parameters, solver_parameters = self._solver_parameters)
-
-
-
-
-def Hinit_gen(p_scale):
-    def Hinit(x):
-        """ Returns the primal representation. """
-        #p_scale = [2.3e+08,10000.0]
-        y = x.copy()
-        for v,s in zip(y.vector_list,p_scale):
-            v.data.vector().set_local(v.array()/s)
-
-        if x.riesz_map.inner_product == "l2":
-            return moola.DolfinPrimalVectorSet([vec.primal() for vec in y.vector_list],
-            riesz_map = y.riesz_map)
-        else:
-            primal_vecs = zeros(len(y), dtype = "object")
-            primal_vecs[:] = [v.primal() for v in y.vector_list]
-            return moola.DolfinPrimalVectorSet(y.riesz_map.riesz_inv * primal_vecs,
-            riesz_map = y.riesz_map)
-
-    return Hinit

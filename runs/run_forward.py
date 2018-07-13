@@ -22,6 +22,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl):
 
     #Load Data
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
+    param['sliding_law'] = sl
 
     param['outdir'] = outdir
     param['picard_params'] = {"nonlinear_solver":"newton",
@@ -43,7 +44,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl):
                 "error_on_nonconvergence":True,
                 "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
-    param['sliding_law'] = sl
+
 
     #Load Data
     mesh = Mesh(os.path.join(dd,'mesh.xml'))
@@ -240,7 +241,7 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, help='Parameter to calculate sensitivity to: alpha (0), beta (1), alpha and beta (2)')
     parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
 
-    parser.set_defaults(bflag = False, outdir=False, num_sens = 1.0, pflag=0)
+    parser.set_defaults(bflag = False, outdir=False, num_sens = 1.0, pflag=0,sl=0)
     args = parser.parse_args()
 
     n_steps = args.n_steps

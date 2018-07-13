@@ -110,8 +110,6 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     mdl.init_bmelt(bmelt)
     mdl.label_domain()
 
-
-
     mdl.gen_alpha()
     mdl.init_beta(mdl.bglen_to_beta(Bglen))            #Comment to use uniform Bglen
 
@@ -121,12 +119,14 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     opts = {'0': [slvr.alpha], '1': [slvr.beta], '2': [slvr.alpha,slvr.beta]}
     slvr.inversion(opts[str(pflag)])
 
+
     #Output model variables in ParaView+Fenics friendly format
     outdir = mdl.param['outdir']
     pickle.dump( mdl.param, open( os.path.join(outdir,'param.p'), "wb" ) )
 
     File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
     File(os.path.join(outdir,'data_mesh.xml')) << data_mesh
+
 
     vtkfile = File(os.path.join(outdir,'U.pvd'))
     xmlfile = File(os.path.join(outdir,'U.xml'))
@@ -205,12 +205,6 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     Bglen = project(slvr.beta_to_bglen(slvr.beta),mdl.M)
     vtkfile << Bglen
     xmlfile << Bglen
-
-    # vtkfile = File(os.path.join(outdir,'B2.pvd'))
-    # xmlfile = File(os.path.join(outdir,'B2.xml'))
-    # B2 = project(slvr.alpha_to_b2(slvr.alpha),mdl.M)
-    # vtkfile << B2
-    # xmlfile << B2
 
     vtkfile = File(os.path.join(outdir,'bmelt.pvd'))
     xmlfile = File(os.path.join(outdir,'bmelt.xml'))
