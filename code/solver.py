@@ -255,13 +255,13 @@ class ssa_solver:
         + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
         + bmelt*Ksi*dIce_flt) #basal melting
 
-        # #Backward Euler
-        # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
-        # - inner(grad(Ksi), U_np * trial_H) * dIce
-        # + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * trial_H)) * dS
-        # + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * trial_H, nm))*ds #Outflow
-        # + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
-        # + bmelt*Ksi*dIce_flt) #basal melting
+        #Backward Euler
+        self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
+        - inner(grad(Ksi), U_np * trial_H) * dIce
+        + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * trial_H)) * dS
+        + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * trial_H, nm))*ds #Outflow
+        + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
+        + bmelt*Ksi*dIce_flt) #basal melting
 
         # #Forward euler
         # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
@@ -359,19 +359,19 @@ class ssa_solver:
             # Solve
 
             # # Operator splitting
-            # self.solve_thickadv_eq()
-            # self.solve_mom_eq()
-            # self.solve_thickadv_split_eq()
-            #
-            # U_np.assign(U)
-            # H_np.assign(H_nps)
+            self.solve_thickadv_eq()
+            self.solve_mom_eq()
+            self.solve_thickadv_split_eq()
+
+            U_np.assign(U)
+            H_np.assign(H_nps)
 
             # Simple backward Euler
-            self.solve_thickadv_eq()
-            H_np.assign(H_s)
-
-            self.solve_mom_eq()
-            U_np.assign(U)
+            # self.solve_thickadv_eq()
+            # H_np.assign(H_s)
+            #
+            # self.solve_mom_eq()
+            # U_np.assign(U)
 
 
 
