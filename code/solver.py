@@ -264,12 +264,12 @@ class ssa_solver:
         # + bmelt*Ksi*dIce_flt) #basal melting
 
         # #Forward euler
-        self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
-        - inner(grad(Ksi), U_np * H_np) * dIce
-        + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * H_np)) * dS
-        + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * H_np, nm))*ds #Outflow
-        + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
-        + bmelt*Ksi*dIce_flt) #basal melting
+        # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
+        # - inner(grad(Ksi), U_np * H_np) * dIce
+        # + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * H_np)) * dS
+        # + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * H_np, nm))*ds #Outflow
+        # + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
+        # + bmelt*Ksi*dIce_flt) #basal melting
 
         self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
 
@@ -366,7 +366,7 @@ class ssa_solver:
             U_np.assign(U)
             H_np.assign(H_nps)
 
-            # Simple backward Euler
+            # Simpler Scheme
             # self.solve_thickadv_eq()
             # H_np.assign(H_s)
             #
