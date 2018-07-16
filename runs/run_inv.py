@@ -97,8 +97,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
                             "relative_tolerance":5.0e-5,
                             "convergence_criterion":"incremental",
                             "error_on_nonconvergence":False,
-                            "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
-
+                            "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}},
             'newton_params': {"nonlinear_solver":"newton",
                             "newton_solver":{"linear_solver":"umfpack",
                             "maximum_iterations":25,
