@@ -406,14 +406,14 @@ class ssa_solver:
         return Q_is if qoi_func is not None else None
 
 
-    def forward_ts_alpha(self,aa):
-        clear_caches()
-        self.timestep()
-        new_block()
-        self. = self.comp_Q_vaf()
-        Q = Functional()
-        Q.assign(self.Q_vaf)
-        return Q
+    # def forward_ts_alpha(self,aa):
+    #     clear_caches()
+    #     self.timestep()
+    #     new_block()
+    #     self.Q_vaf = self.comp_Q_vaf()
+    #     Q_vaf = Functional()
+    #     Q_vaf.assign(self.Q_vaf)
+    #     return Q_vaf
 
     def forward_alpha(self, f):
         clear_caches()
