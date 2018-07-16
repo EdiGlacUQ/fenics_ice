@@ -250,13 +250,16 @@ class ssa_solver:
         self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
         - inner(grad(Ksi), U_np * 0.5 * (trial_H + H_np)) * dIce
         + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * 0.5 * (trial_H + H_np))) * dS
-        #+ inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm)) * ds #inflow/outflow
-        #+ bmelt*Ksi*dIce_flt ) #basal melting
         + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm))*ds #Outflow
         + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
         + bmelt*Ksi*dIce_flt) #basal melting
 
-
+        self.thickadv_simple = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
+        - inner(grad(Ksi), U_np * trial_H) * dIce
+        + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * trial_H)) * dS
+        + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * trial_H, nm))*ds #Outflow
+        + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
+        + bmelt*Ksi*dIce_flt) #basal melting
 
         self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
 
@@ -344,12 +347,23 @@ class ssa_solver:
             begin("Starting timestep %i of %i, time = %.16e a" % (n + 1, n_steps, t))
 
             # Solve
-            self.solve_thickadv_eq()
-            self.solve_mom_eq()
-            self.solve_thickadv_split_eq()
 
+            # # Operator splitting
+            # self.solve_thickadv_eq()
+            # self.solve_mom_eq()
+            # self.solve_thickadv_split_eq()
+            #
+            # U_np.assign(U)
+            # H_np.assign(H_nps)
+
+            # Simple backward Euler
+            self.solve_thickadv_eq()
+            H_np.assign(H_s)
+
+            self.solve_mom_eq()
             U_np.assign(U)
-            H_np.assign(H_nps)
+
+
 
             #Increment time
             n += 1
