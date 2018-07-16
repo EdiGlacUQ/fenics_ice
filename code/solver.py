@@ -247,13 +247,13 @@ class ssa_solver:
         ds = self.ds
         dS = self.dS
 
-        #Operator splitting
-        self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
-        - inner(grad(Ksi), U_np * 0.5 * (trial_H + H_np)) * dIce
-        + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * 0.5 * (trial_H + H_np))) * dS
-        + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm))*ds #Outflow
-        + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
-        + bmelt*Ksi*dIce_flt) #basal melting
+        #Crank Nicholson
+        # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
+        # - inner(grad(Ksi), U_np * 0.5 * (trial_H + H_np)) * dIce
+        # + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * 0.5 * (trial_H + H_np))) * dS
+        # + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm))*ds #Outflow
+        # + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
+        # + bmelt*Ksi*dIce_flt) #basal melting
 
         #Backward Euler
         self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
@@ -342,14 +342,14 @@ class ssa_solver:
             hdf_hts = HDF5File(self.mesh.mpi_comm(), os.path.join(outdir, 'H_ts.h5'), 'w')
             hdf_uts = HDF5File(self.mesh.mpi_comm(), os.path.join(outdir, 'U_ts.h5'), 'w')
 
-            pvd_hts = File(os.path.join(outdir, "H_ts.pvd"), "compressed")
-            pvd_uts = File(os.path.join(outdir, "U_ts.pvd"), "compressed")
+            #pvd_hts = File(os.path.join(outdir, "H_ts.pvd"), "compressed")
+            #pvd_uts = File(os.path.join(outdir, "U_ts.pvd"), "compressed")
 
             hdf_hts.write(H_np, 'H', 0.0)
             hdf_uts.write(U_np, 'U', 0.0)
 
-            pvd_hts << (H_np, 0.0)
-            pvd_uts << (U_np, 0.0)
+            #pvd_hts << (H_np, 0.0)
+            #pvd_uts << (U_np, 0.0)
 
 
 
@@ -358,7 +358,7 @@ class ssa_solver:
 
             # Solve
 
-            # # Operator splitting
+            #Operator splitting
             self.solve_thickadv_eq()
             self.solve_mom_eq()
             self.solve_thickadv_split_eq()
@@ -366,7 +366,7 @@ class ssa_solver:
             U_np.assign(U)
             H_np.assign(H_nps)
 
-            # Simpler Scheme
+            # Simple Scheme
             # self.solve_thickadv_eq()
             # H_np.assign(H_s)
             #
@@ -400,8 +400,8 @@ class ssa_solver:
                 hdf_hts.write(H_np, 'H', t)
                 hdf_uts.write(U_np, 'U', t)
 
-                pvd_hts << (H_np, t)
-                pvd_uts << (U_np, t)
+                #pvd_hts << (H_np, t)
+                #pvd_uts << (U_np, t)
 
         return Q_is if qoi_func is not None else None
 
@@ -410,10 +410,10 @@ class ssa_solver:
         clear_caches()
         self.timestep()
         new_block()
-        self.J_vaf = self.comp_J_vaf()
-        J = Functional()
-        J.assign(self.J_vaf)
-        return J
+        self. = self.comp_Q_vaf()
+        Q = Functional()
+        Q.assign(self.Q_vaf)
+        return Q
 
     def forward_alpha(self, f):
         clear_caches()
@@ -594,7 +594,7 @@ class ssa_solver:
 
         return J
 
-    def comp_J_vaf(self, verbose=False):
+    def comp_Q_vaf(self, verbose=False):
         H = self.H_nps
         #B stands in for self.bed, which leads to a taping error
         B = Function(self.M)
@@ -607,28 +607,28 @@ class ssa_solver:
 
         b_ex = conditional(B < 0.0, 1.0, 0.0)
         HAF = b_ex * (H + rhow/rhoi*B) + (1-b_ex)*(H)
-        J_vaf = HAF * dIce_gnd
+        Q_vaf = HAF * dIce_gnd
 
-        if verbose: print('J_vaf: {0}'.format(J_vaf))
+        if verbose: print('Q_vaf: {0}'.format(Q_vaf))
 
-        return J_vaf
+        return Q_vaf
 
-    def comp_J_h2(self,verbose=False):
+    def comp_Q_h2(self,verbose=False):
 
-        J_h2 = self.H_np*self.H_np*self.dIce
-        if verbose: print('J_h2: {0}'.format(J_h2))
+        Q_h2 = self.H_np*self.H_np*self.dIce
+        if verbose: print('Q_h2: {0}'.format(Q_h2))
 
-        return J_h2
+        return Q_h2
 
 
     def set_dQ_vaf(self, cntrl):
-        Q = self.timestep(adjoint_flag=1, qoi_func=self.comp_J_vaf)
-        dQ = compute_gradient(Q, cntrl)
+        Q_vaf = self.timestep(adjoint_flag=1, qoi_func=self.comp_Q_vaf)
+        dQ = compute_gradient(Q_vaf, cntrl)
         self.dQ_ts = dQ
 
     def set_dQ_h2(self, cntrl):
-        Q = self.timestep(adjoint_flag=1, qoi_func=self.comp_J_h2)
-        dQ = compute_gradient(Q, cntrl)
+        Q_h2 = self.timestep(adjoint_flag=1, qoi_func=self.comp_Q_h2)
+        dQ = compute_gradient(Q_h2, cntrl)
         self.dQ_ts = dQ
 
 

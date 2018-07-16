@@ -16,6 +16,7 @@ import datetime
 import pickle
 from IPython import embed
 
+stop_annotating()
 np.random.seed(10)
 
 def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl):
@@ -111,12 +112,12 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl):
     opts = {'0': slvr.alpha, '1': slvr.beta, '2': [slvr.alpha,slvr.beta]}
     cntrl = opts[str(pflag)]
 
-    Q = slvr.timestep(adjoint_flag=1, qoi_func=slvr.comp_J_h2)
+    Q = slvr.timestep(adjoint_flag=1, qoi_func=slvr.comp_Q_vaf)
     dQ_ts = compute_gradient(Q, cntrl)
 
     #Uncomment for Taylor Verification, Comment above two lines
     # param['num_sens'] = 1
-    # J = slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_J_vaf)
+    # J = slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_Q_vaf)
     # dJ = compute_gradient(J, slvr.alpha)
     #
     #
@@ -124,7 +125,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl):
     #     slvr.reset_ts_zero()
     #     if alpha_val:
     #         slvr.alpha = alpha_val
-    #     return slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_J_vaf)
+    #     return slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_Q_vaf)
     #
     #
     # min_order = taylor_test(lambda alpha : forward_ts(alpha_val = alpha), slvr.alpha,
