@@ -23,13 +23,41 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, file
     #Load parameters of run
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
 
-    param['picard_params'] = {"nonlinear_solver":"newton",
-                "newton_solver":{"linear_solver":"umfpack",
-                "maximum_iterations":200,
-                "absolute_tolerance":1.0e-8,
-                "relative_tolerance":5.0e-3,
-                "convergence_criterion":"incremental",
-                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+    if pflag == 0:
+        param['picard_params'] =  {"nonlinear_solver":"newton",
+                                "newton_solver":{"linear_solver":"umfpack",
+                                "maximum_iterations":200,
+                                "absolute_tolerance":1.0e-0,
+                                "relative_tolerance":1.0e-5,
+                                "convergence_criterion":"incremental",
+                                "error_on_nonconvergence":False,
+                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+        param['newton_params'] =  {"nonlinear_solver":"newton",
+                                "newton_solver":{"linear_solver":"umfpack",
+                                "maximum_iterations":25,
+                                "absolute_tolerance":1.0e-7,
+                                "relative_tolerance":1.0e-8,
+                                "convergence_criterion":"incremental",
+                                "error_on_nonconvergence":True,
+                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+
+    elif pflag == 1:
+        param['picard_params'] =  {"nonlinear_solver":"newton",
+                                "newton_solver":{"linear_solver":"umfpack",
+                                "maximum_iterations":200,
+                                "absolute_tolerance":1.0e-4,
+                                "relative_tolerance":1.0e-10,
+                                "convergence_criterion":"incremental",
+                                "error_on_nonconvergence":False,
+                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+        param['newton_params'] =  {"nonlinear_solver":"newton",
+                                "newton_solver":{"linear_solver":"umfpack",
+                                "maximum_iterations":25,
+                                "absolute_tolerance":1.0e-4,
+                                "relative_tolerance":1.0e-5,
+                                "convergence_criterion":"incremental",
+                                "error_on_nonconvergence":True,
+                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
     rc_inv = param['rc_inv']
 
