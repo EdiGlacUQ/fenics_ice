@@ -403,6 +403,10 @@ class ssa_solver:
                 #pvd_hts << (H_np, t)
                 #pvd_uts << (U_np, t)
 
+        if save:
+            hdf_hts.close()
+            hdf_uts.close()      
+
         return Q_is if qoi_func is not None else None
 
 
