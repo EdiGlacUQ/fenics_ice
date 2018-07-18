@@ -89,24 +89,44 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
             'periodic_bc': bflag,
             'altiter': altiter,
             'sliding_law': sl,
-            'inv_options': {'maxiter': maxiter, 'disp': True, 'ftol': 1e-4},
-            'picard_params': {"nonlinear_solver":"newton",
-                            "newton_solver":{"linear_solver":"umfpack",
-                            "maximum_iterations":200,
-                            "absolute_tolerance":1.0e-4,
-                            "relative_tolerance":1.0e-10,
-                            "convergence_criterion":"incremental",
-                            "error_on_nonconvergence":False,
-                            "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}},
-            'newton_params': {"nonlinear_solver":"newton",
-                            "newton_solver":{"linear_solver":"umfpack",
-                            "maximum_iterations":25,
-                            "absolute_tolerance":1.0e-4,
-                            "relative_tolerance":1.0e-5,
-                            "convergence_criterion":"incremental",
-                            "error_on_nonconvergence":True,
-                            "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
-            }
+            'inv_options': {'maxiter': maxiter, 'disp': True, 'ftol': 1e-4}}
+
+    if pflag == 0:
+        param['picard_params'] =  {"nonlinear_solver":"newton",
+                                "newton_solver":{"linear_solver":"umfpack",
+                                "maximum_iterations":200,
+                                "absolute_tolerance":1.0e-0,
+                                "relative_tolerance":1.0e-3,
+                                "convergence_criterion":"incremental",
+                                "error_on_nonconvergence":False,
+                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+        param['newton_params'] =  {"nonlinear_solver":"newton",
+                                "newton_solver":{"linear_solver":"umfpack",
+                                "maximum_iterations":25,
+                                "absolute_tolerance":1.0e-7,
+                                "relative_tolerance":1.0e-8,
+                                "convergence_criterion":"incremental",
+                                "error_on_nonconvergence":True,
+                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+
+    elif pflag == 1:
+        param['picard_params'] =  {"nonlinear_solver":"newton",
+                                "newton_solver":{"linear_solver":"umfpack",
+                                "maximum_iterations":200,
+                                "absolute_tolerance":1.0e-4,
+                                "relative_tolerance":1.0e-10,
+                                "convergence_criterion":"incremental",
+                                "error_on_nonconvergence":False,
+                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+        param['newton_params'] =  {"nonlinear_solver":"newton",
+                                "newton_solver":{"linear_solver":"umfpack",
+                                "maximum_iterations":25,
+                                "absolute_tolerance":1.0e-4,
+                                "relative_tolerance":1.0e-5,
+                                "convergence_criterion":"incremental",
+                                "error_on_nonconvergence":True,
+                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+
 
     mdl = model.model(mesh,data_mask, param)
     mdl.init_bed(bed)
