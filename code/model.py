@@ -53,7 +53,7 @@ class model:
         param['rc_inv'] =  [0.0]       #regularization constants for inversion
 
         #Sliding law
-        param['sliding_law'] =  1.0  #Alternatively 'weertman'
+        param['sliding_law'] =  0.0  #Alternatively 'weertman'
 
         #Output
         param['outdir'] = './output/'
