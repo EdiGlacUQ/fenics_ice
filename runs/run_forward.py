@@ -26,7 +26,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl):
     param['sliding_law'] = sl
 
     param['outdir'] = outdir
-    if pflag == 0:
+    if sl == 0:
         param['picard_params'] =  {"nonlinear_solver":"newton",
                                 "newton_solver":{"linear_solver":"umfpack",
                                 "maximum_iterations":200,
@@ -44,7 +44,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl):
                                 "error_on_nonconvergence":True,
                                 "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
-    elif pflag == 1:
+    elif sl == 1:
         param['picard_params'] =  {"nonlinear_solver":"newton",
                                 "newton_solver":{"linear_solver":"umfpack",
                                 "maximum_iterations":200,

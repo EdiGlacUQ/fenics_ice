@@ -91,7 +91,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
             'sliding_law': sl,
             'inv_options': {'maxiter': maxiter, 'disp': True, 'ftol': 1e-4}}
 
-    if pflag == 0:
+    if sl == 0:
         param['picard_params'] =  {"nonlinear_solver":"newton",
                                 "newton_solver":{"linear_solver":"umfpack",
                                 "maximum_iterations":200,
@@ -109,7 +109,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
                                 "error_on_nonconvergence":True,
                                 "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
 
-    elif pflag == 1:
+    elif sl == 1:
         param['picard_params'] =  {"nonlinear_solver":"newton",
                                 "newton_solver":{"linear_solver":"umfpack",
                                 "maximum_iterations":200,
