@@ -24,6 +24,8 @@ xcoord_ms = npzfile['xcoord_ms']
 ycoord_ms = npzfile['ycoord_ms']
 xcoord_di = npzfile['xcoord_di']
 ycoord_di = npzfile['ycoord_di']
+xcoord_smb = npzfile['xcoord_smb']
+ycoord_smb = npzfile['ycoord_smb']
 bed = npzfile['bed']
 thick = npzfile['thick']
 mask = npzfile['mask']
@@ -33,6 +35,7 @@ ustd = npzfile['ustd']
 vstd = npzfile['vstd']
 mask_vel = npzfile['mask_vel']
 B_mod = npzfile['B']
+smb = npzfile['smb']
 
 #Fenics mesh
 mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
@@ -50,6 +53,8 @@ dof_y = dof_coordinates[:, 1]
 xycoord_bm = (xcoord_bm, np.flipud(ycoord_bm))
 xycoord_ms = (xcoord_ms, np.flipud(ycoord_ms))
 xycoord_di = (xcoord_di, np.flipud(ycoord_di))
+xycoord_smb = (xcoord_smb, np.flipud(ycoord_smb))
+
 
 #Data is not stored in an ordered manner on the fencis mesh;
 #using interpolation function to get correct grid ordering
@@ -69,6 +74,7 @@ vstd_interp = interp.RegularGridInterpolator(xycoord_ms, list(zip(*vstd[::-1])))
 mask_vel_interp = interp.RegularGridInterpolator(xycoord_ms, list(zip(*mask_vel[::-1])), method='nearest')
 
 B_interp = interp.RegularGridInterpolator(xycoord_di, list(zip(*B_mod[::-1])))
+smb_interp = interp.RegularGridInterpolator(xycoord_smb, list(zip(*smb[::-1])))
 
 #Coordinates of DOFS of fenics mesh in order data is stored
 dof_xy = (dof_x, dof_y)
@@ -88,6 +94,8 @@ mask_vel = np.logical_and(mask, mask_vel_ )
 
 B_ = B_interp(dof_xy)
 B_mod = np.array([0.0 if np.isclose(mn,0) else b/ml for ml,mn,b in zip(maskl,maskn,B_)])
+
+smb = smb_interp(dof_xy)
 
 
 #Save mesh and data points at coordinates
@@ -121,6 +129,9 @@ File(''.join([dd,'mask_vel.xml'])) <<  v
 
 v.vector()[:] = B_mod.flatten()
 File(''.join([dd,'Bglen.xml'])) <<  v
+
+v.vector()[:] = smb.flatten()
+File(''.join([dd,'smb.xml'])) <<  v
 
 v.vector()[:] = 0.0
 File(''.join([dd,'bmelt.xml'])) <<  v

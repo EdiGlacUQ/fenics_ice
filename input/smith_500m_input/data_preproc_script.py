@@ -200,7 +200,7 @@ vstd[~mask_vel] = np.sqrt((0.25 * np.abs(vvel[~mask_vel]))**2 + 25.0*25.0)
 mask_vel[:] = 1.0
 
 ###############
-#Depth Integrated Ice Creep
+#Depth Integrated Ice Creep Parameter
 #################
 
 data_dir = '/Users/conradkoziol/Documents/Glaciology/Data/Pattyn_Temp/'
@@ -225,16 +225,23 @@ di_B[np.isnan(di_B)] = 0.0 #Replace nan with zeros for extrap at edge
 B_ = di_B[ym3,:]
 B = B_[:,xm3]
 
+###############
+#Surface Mass Balance
+#################
 
+xcoord_smb = xcoord_di
+ycoord_smb = ycoord_di
+smb = 0.38*np.ones(B.shape) #Constant, personal communiation from Dan Goldberg
 
 outfile = 'grid_data'
 np.savez(outfile,nx=nx,ny=ny,xlim=xlim,ylim=ylim, Lx=Lx, Ly=Ly,
             xcoord_bm=xcoord_bm,ycoord_bm=ycoord_bm,
             xcoord_ms=xcoord_ms,ycoord_ms=ycoord_ms,
             xcoord_di=xcoord_di,ycoord_di=ycoord_di,
+            xcoord_smb=xcoord_smb,ycoord_smb=ycoord_smb,
             bed=bed, thick=thick, mask=mask,
             uvel=uvel, vvel=vvel, ustd=ustd, vstd=vstd,
-            mask_vel=mask_vel, B=B)
+            mask_vel=mask_vel, smb=smb,B=B)
 
 
 

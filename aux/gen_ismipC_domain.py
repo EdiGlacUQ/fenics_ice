@@ -39,6 +39,7 @@ xycoord = (xcoord, ycoord)
 bed_interp = interp.RegularGridInterpolator(xycoord, domain.bed)
 height_interp = interp.RegularGridInterpolator(xycoord, domain.thick)
 bmelt_interp = interp.RegularGridInterpolator(xycoord, domain.bmelt)
+smb_interp = interp.RegularGridInterpolator(xycoord, domain.smb)
 mask_interp = interp.RegularGridInterpolator(xycoord, domain.mask)
 B2_interp = interp.RegularGridInterpolator(xycoord, domain.B2)
 Bglen_interp = interp.RegularGridInterpolator(xycoord, domain.Bglen)
@@ -48,6 +49,7 @@ dof_xy = (dof_x, dof_y)
 bed = bed_interp(dof_xy)
 height = height_interp(dof_xy)
 bmelt = bmelt_interp(dof_xy)
+smb = bmelt_interp(dof_xy)
 mask = mask_interp(dof_xy)
 B2 = B2_interp(dof_xy)
 Bglen = Bglen_interp(dof_xy)
@@ -70,6 +72,9 @@ File(os.path.join(dd,'mask.xml')) <<  v
 
 v.vector()[:] = bmelt.flatten()
 File(os.path.join(dd,'bmelt.xml')) <<  v
+
+v.vector()[:] = smb.flatten()
+File(os.path.join(dd,'smb.xml')) <<  v
 
 v.vector()[:] = B2.flatten()
 File(os.path.join(dd,'B2.xml')) <<  v

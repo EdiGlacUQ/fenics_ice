@@ -13,7 +13,6 @@ import model
 import solver
 import datetime
 import numpy as np
-from eigendecomposition_custom import *
 import matplotlib.pyplot as plt
 import prior
 
@@ -65,6 +64,8 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, file
     uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
     Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
 
+    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
+    smb = Function(M,os.path.join(dd,'smb.xml'))
 
     #Initialize our model object
     mdl = model.model(mesh,mask, param)
@@ -74,7 +75,8 @@ def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, file
     mdl.init_mask(mask)
     mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
     mdl.init_lat_dirichletbc()
-    mdl.init_bmelt(Constant(0.0))
+    mdl.init_bmelt(bmelt)
+    mdl.init_smb(smb)
     mdl.init_alpha(alpha)
     mdl.init_beta(beta)
     mdl.label_domain()

@@ -140,9 +140,11 @@ class model:
         self.beta.rename('beta', self.beta.label())
 
 
-
     def init_bmelt(self,bmelt):
         self.bmelt = project(bmelt,self.M)
+
+    def init_smb(self,smb):
+        self.smb = project(smb,self.M)
 
     def init_vel_obs(self, u, v, mv, ustd=Constant(1.0), vstd=Constant(1.0)):
         self.u_obs = project(u,self.M)

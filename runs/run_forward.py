@@ -19,7 +19,7 @@ from IPython import embed
 stop_annotating()
 np.random.seed(10)
 
-def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl):
+def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl, qoi):
 
     #Load Data
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
@@ -97,6 +97,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl):
     bed = Function(Q,os.path.join(dd,'bed.xml'))
 
     bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
+    smb = Function(M,os.path.join(dd,'smb.xml'))
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
     mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
@@ -118,6 +119,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl):
     mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
     mdl.init_lat_dirichletbc()
     mdl.init_bmelt(bmelt)
+    mdl.init_smb(smb)
     mdl.init_alpha(alpha)
     mdl.init_beta(beta)
     mdl.label_domain()
@@ -129,7 +131,8 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl):
     opts = {'0': slvr.alpha, '1': slvr.beta, '2': [slvr.alpha,slvr.beta]}
     cntrl = opts[str(pflag)]
 
-    Q = slvr.timestep(adjoint_flag=1, qoi_func=slvr.comp_Q_vaf)
+    qoi_func =  slvr.comp_Q_h2 if qoi == 1 else slvr.comp_Q_vaf
+    Q = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)
     dQ_ts = compute_gradient(Q, cntrl)
 
     #Uncomment for Taylor Verification, Comment above two lines
@@ -258,8 +261,9 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--num_sens', dest='num_sens', type=int, help='Number of samples of cost function')
     parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, help='Parameter to calculate sensitivity to: alpha (0), beta (1), alpha and beta (2)')
     parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
+    parser.add_argument('-i', '--quantity_of_interest', dest='qoi', type=float,  help = 'Quantity of interest (0: VAF (default), 1: H^2 (for ISMIPC))')
 
-    parser.set_defaults(bflag = False, outdir=False, num_sens = 1.0, pflag=0,sl=0)
+    parser.set_defaults(bflag = False, outdir=False, num_sens = 1.0, pflag=0,sl=0, qoi=0)
     args = parser.parse_args()
 
     n_steps = args.n_steps
@@ -270,7 +274,7 @@ if __name__ == "__main__":
     num_sens = args.num_sens
     pflag = args.pflag
     sl = args.sl
-
+    qoi = args.qoi
 
     if not outdir:
         outdir = ''.join(['./run_forward_', datetime.datetime.now().strftime("%m%d%H%M%S")])
@@ -280,4 +284,4 @@ if __name__ == "__main__":
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
-    main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl)
+    main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl, qoi)

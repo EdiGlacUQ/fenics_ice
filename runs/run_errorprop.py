@@ -154,7 +154,6 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     #Output model variables in ParaView+Fenics friendly format
     pickle.dump( [sigma, t_sens], open( os.path.join(outdir,'sigma.p'), "wb" ) )
 
-    print(param['sliding_law'])
 
 if __name__ == "__main__":
     stop_annotating()

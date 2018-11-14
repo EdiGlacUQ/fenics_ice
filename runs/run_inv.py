@@ -47,6 +47,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
     Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
     bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
+    smb = Function(M,os.path.join(dd,'smb.xml'))
 
     if not os.path.isfile(os.path.join(dd,'param.p')):
         print('Generating new mesh')
@@ -136,6 +137,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
     mdl.init_lat_dirichletbc()
     mdl.init_bmelt(bmelt)
+    mdl.init_smb(smb)
     mdl.label_domain()
 
     mdl.gen_alpha()
@@ -238,6 +240,11 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     xmlfile = File(os.path.join(outdir,'bmelt.xml'))
     vtkfile << slvr.bmelt
     xmlfile << slvr.bmelt
+
+    vtkfile = File(os.path.join(outdir,'smb.pvd'))
+    xmlfile = File(os.path.join(outdir,'smb.xml'))
+    vtkfile << slvr.smb
+    xmlfile << slvr.smb
 
     vtkfile = File(os.path.join(outdir,'surf.pvd'))
     xmlfile = File(os.path.join(outdir,'surf.xml'))

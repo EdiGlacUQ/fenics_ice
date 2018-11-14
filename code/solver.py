@@ -38,6 +38,7 @@ class ssa_solver:
         self.mask = model.mask
         self.alpha = model.alpha
         self.bmelt = model.bmelt
+        self.smb = model.smb
         self.latbc = model.latbc
 
         #Parameterization of alpha/beta
@@ -240,6 +241,7 @@ class ssa_solver:
         H = self.H
         H_init = self.H_init
         bmelt = self.bmelt
+        smb = self.smb
         dt = self.dt
         nm = self.nm
         dIce = self.dIce
@@ -259,9 +261,10 @@ class ssa_solver:
         self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
         - inner(grad(Ksi), U_np * trial_H) * dIce
         + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * trial_H)) * dS
-        + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * trial_H, nm))*ds #Outflow
-        + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
-        + bmelt*Ksi*dIce_flt) #basal melting
+        + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * trial_H, nm))*ds #Outflow at boundaries
+        + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow at boundaries
+        + bmelt*Ksi*dIce_flt #basal melting
+        - smb*Ksi*dIce) #surface mass balance
 
         # #Forward euler
         # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce

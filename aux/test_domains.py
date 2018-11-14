@@ -4,6 +4,11 @@ from IPython import embed
 class gldbg2013:
 
     def __init__(self, nx=151, ny=151):
+        ''' Create the test domain detailed in Goldberg (2013)
+        nx -- number of grid cells in x direction
+        ny -- number of grid cell in y direction
+        '''
+
         self.x = np.linspace(0,150e3, num=nx)
         self.y = np.linspace(0,150e3, num=ny)
 
@@ -13,6 +18,8 @@ class gldbg2013:
 
         self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
+        self.init_smb(self.x,self.y)
+
 
     def Rx(self,x):
         '''Return x component of bedrock topography function
@@ -70,13 +77,17 @@ class gldbg2013:
 
 
     def init_surf(self,x,y):
-
+        '''Return ice sheet surface elevation in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
         self.surf = self.bed + 2000.0*np.ones([y.size, x.size])
         self.surf[:,-1] = self.bed[:,-1];
 
 
     def init_B2(self,x,y):
-        '''Return bedrock topography in metres
+        '''Return basal drag coefficient B^2 for linear sliding law
         Input:
         x -- x coordinates in metres as a numpy array
         y -- y coordinates in metres as a numpy array
@@ -95,7 +106,7 @@ class gldbg2013:
 
 
     def init_bmelt(self,x,y):
-        '''Return bedrock topography in metres
+        '''Return basal melt rate
         Input:
         x -- x coordinates in metres as a numpy array
         y -- y coordinates in metres as a numpy array
@@ -104,72 +115,24 @@ class gldbg2013:
 
         self.bmelt = 1.0*np.ones(yy.shape)
 
-
-class grnld_margin:
-
-    def __init__(self, nx=151, ny=151, li = -4):
-        self.x = np.linspace(0,150e3, num=nx)
-        self.y = np.linspace(0,150e3, num=ny)
-        self.li = li
-
-        self.init_bed(self.x,self.y)
-        self.init_surf(self.x,self.y)
-        self.thick = self.surf - self.bed;
-
-        self.init_B2(self.x,self.y)
-        self.init_bmelt(self.x,self.y)
-
-
-    def init_bed(self,x,y):
-        '''Return bedrock topography in metres
-        Input:
-        x -- x coordinates in metres as a numpy array
-        y -- y coordinates in metres as a numpy array
-        '''
-        #Create bed topography in metres
-        self.bed = np.zeros([y.size,x.size])
-
-
-    def init_surf(self,x,y):
-        H0 = 2000.0
-        li = self.li
-        xx = np.meshgrid(x, y)[0]
-        self.surf = np.zeros(xx.shape)
-        self.surf[:,0:li] = H0*np.sqrt(1.0-(xx[:,0:li])/max(x[0:li]))
-
-    def init_B2(self,x,y):
-        '''Return bedrock topography in metres
-        Input:
-        x -- x coordinates in metres as a numpy array
-        y -- y coordinates in metres as a numpy array
-        '''
-        x = x/1000.0
-        y = y/1000.0
-
-        #Determine area of enhanced basal drag
-        yy = np.meshgrid(x,y)[1]
-        p1 = np.logical_and(50 <= yy, yy <= 100)
-
-        #Assign basal drag
-        #self.B2 = 9*np.sqrt(30)*np.ones(yy.shape)
-        #self.B2[p1] = np.sqrt(30)
-        self.B2 = (2000)*np.ones(yy.shape)
-        self.B2[p1] = (1500)
-
-
-    def init_bmelt(self,x,y):
-        '''Return bedrock topography in metres
+    def init_smb(self,x,y):
+        '''Return surface mass balance (m/yr)
         Input:
         x -- x coordinates in metres as a numpy array
         y -- y coordinates in metres as a numpy array
         '''
         yy = np.meshgrid(x,y)[1]
 
-        self.bmelt = 1.0*np.ones(yy.shape)
+        self.smb = 0.0*np.ones(yy.shape)
 
 class ismipC:
 
     def __init__(self, L, nx=151, ny=151, tiles=1.0):
+        ''' Create the ISMIP-Hom Experiment C domain
+        nx -- number of grid cells in x direction
+        ny -- number of grid cell in y direction
+        tiles -- tile the domain to allow the use of no flow boundary conditions
+        '''
         self.L = L
         self.tiles = tiles
         self.x = np.linspace(0, L, num=nx)
@@ -183,26 +146,42 @@ class ismipC:
 
         self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
+        self.init_smb(self.x,self.y)
         self.init_Bglen(self.x,self.y)
 
         self.init_mask(self.x,self.y)
 
     def init_surf(self,x,y):
+        '''Return ice sheet surface elevation in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
         xx = np.meshgrid(x, y)[0]
         self.surf = 1e4 -xx*np.tan(0.1*np.pi/180.0)
 
     def init_bed(self,x,y):
+        '''Return bedrock topography in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
         #Create bed topography in metres
         self.bed = self.surf - 1000.0
 
     def init_B2(self,x,y):
+        '''Return basal drag coefficient B^2 for linear sliding law
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
         w = 2.0*np.pi/self.L
         xx,yy = np.meshgrid(x,y)
         self.B2 = (1000.0 + 1000.0*np.sin(self.tiles*w*xx)*np.sin(self.tiles*w*yy))
 
 
     def init_bmelt(self,x,y):
-        '''Return bedrock topography in metres
+        '''Return basal melt rate beneath floating ice (m/yr)
         Input:
         x -- x coordinates in metres as a numpy array
         y -- y coordinates in metres as a numpy array
@@ -211,8 +190,18 @@ class ismipC:
 
         self.bmelt = 0.0*np.ones(yy.shape)
 
+    def init_smb(self,x,y):
+        '''Return surface mass balance (m/yr)
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        yy = np.meshgrid(x,y)[1]
+
+        self.smb = 0.0*np.ones(yy.shape)
+
     def init_Bglen(self,x,y):
-        '''Return bedrock topography in metres
+        '''Return Bglen for Nye's flow law
         Input:
         x -- x coordinates in metres as a numpy array
         y -- y coordinates in metres as a numpy array
@@ -235,6 +224,11 @@ class ismipC:
 class analytical1:
 
     def __init__(self, L, nx=151, ny=151):
+        ''' Incline slab test domain
+        L -- length of domain in metres
+        nx -- number of grid cells in x direction
+        ny -- number of grid cell in y direction
+        '''
         self.L = L
         self.x = np.linspace(0, L, num=nx)
         self.y = np.linspace(0, L, num=ny)
@@ -245,6 +239,8 @@ class analytical1:
 
         self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
+        self.init_smb(self.x,self.y)
+
 
 
     def init_bed(self,x,y):
@@ -259,11 +255,16 @@ class analytical1:
 
 
     def init_surf(self,x,y):
+        '''Return ice sheet surface elevation in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
         xx = np.meshgrid(x, y)[0]
         self.surf = 1e4 -xx*np.tan(0.1*np.pi/180.0)
 
     def init_B2(self,x,y):
-        '''Return bedrock topography in metres
+        '''Return basal drag coefficient B^2 for linear sliding law
         Input:
         x -- x coordinates in metres as a numpy array
         y -- y coordinates in metres as a numpy array
@@ -284,11 +285,28 @@ class analytical1:
 
         self.bmelt = 1.0*np.ones(yy.shape)
 
+    def init_smb(self,x,y):
+        '''Return surface mass balance (m/yr)
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        yy = np.meshgrid(x,y)[1]
+
+        self.smb = 0.0*np.ones(yy.shape)
+
 
 
 class analytical2:
 
     def __init__(self, Lx, Ly, nx=151, ny=151, li = -4):
+        ''' Floating test domain
+        Lx -- length of domain (metres) in x direction
+        Ly -- length of domain (metres) in y direction
+        nx -- number of grid cells in x direction
+        ny -- number of grid cell in y direction
+        li -- number of buffer cells at leading margin
+        '''
 
         self.x = np.linspace(0, Lx, num=nx)
         self.y = np.linspace(0, Ly, num=ny)
@@ -301,6 +319,8 @@ class analytical2:
 
         self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
+        self.init_smb(self.x,self.y)
+
 
 
     def init_bed(self,x,y):
@@ -313,11 +333,21 @@ class analytical2:
         self.bed = -1000.0*(np.ones([x.size, y.size]))
 
     def init_thick(self,x,y):
+        '''Return ice thickness in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
         li = self.li
         self.thick = 1000.0*(np.ones([x.size, y.size]))
         self.thick[li:,] = 0.0
 
     def init_surf(self,x,y):
+        '''Return ice sheet surface elevation in metres
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
         rhoi = 917.0
         rhow = 1000.0
         self.surf = (1-rhoi/rhow) * self.thick
@@ -336,7 +366,7 @@ class analytical2:
         self.mask[li:,] = 0.0
 
     def init_B2(self,x,y):
-        '''Return bedrock topography in metres
+        '''Return basal drag coefficient B^2 for linear sliding law
         Input:
         x -- x coordinates in metres as a numpy array
         y -- y coordinates in metres as a numpy array
@@ -344,7 +374,7 @@ class analytical2:
         self.B2 = 1e3*(np.ones([x.size, y.size]))
 
     def init_bmelt(self,x,y):
-        '''Return bedrock topography in metres
+        '''Return basal melt rate beneath floating ice (m/yr)
         Input:
         x -- x coordinates in metres as a numpy array
         y -- y coordinates in metres as a numpy array
@@ -352,3 +382,13 @@ class analytical2:
         yy = np.meshgrid(x,y)[1]
 
         self.bmelt = 0.0*(np.ones([x.size, y.size]))
+
+    def init_smb(self,x,y):
+        '''Return surface mass balance (m/yr)
+        Input:
+        x -- x coordinates in metres as a numpy array
+        y -- y coordinates in metres as a numpy array
+        '''
+        yy = np.meshgrid(x,y)[1]
+
+        self.smb = 0.0*np.ones(yy.shape)
