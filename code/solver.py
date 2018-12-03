@@ -409,7 +409,7 @@ class ssa_solver:
         if save:
             hdf_hts.close()
             hdf_uts.close()
-
+        manager_info()
         return Q_is if qoi_func is not None else None
 
 
@@ -686,6 +686,10 @@ class MomentumSolver(EquationSolver):
         self.J_p = kwargs.pop("J_p", None)
         super(MomentumSolver, self).__init__(*args, **kwargs)
 
+    def replace(self, replace_map):
+        super(MomentumSolver, self).replace(replace_map)
+        self.J_p = replace(self.J_p, replace_map)
+
     def forward_solve(self, x, deps = None):
         if deps is None:
           deps = self.dependencies()
@@ -696,15 +700,22 @@ class MomentumSolver(EquationSolver):
           replace_map[self.x()] = x
           replace_deps = lambda form : replace(form, replace_map)
         for i, (dep_x, dep) in enumerate(zip(self.dependencies(), deps)):
-            info("%i %s %.16e" % (i, dep_x.name(), dep.vector().norm("l2")))
+          info("%i %s %.16e" % (i, dep_x.name(), dep.vector().norm("l2")))
         if not self._initial_guess_index is None:
           function_assign(x, deps[self._initial_guess_index])
+
+        for i, bc in enumerate(self._bcs):
+          keys, values = bc.get_boundary_values().keys(), bc.get_boundary_values().items()
+          keys = list(keys)
+          import numpy
+          values = numpy.array(list(values))
+          info("BC %i %i %.16e" % (i, len(keys), (values * values).sum()))
 
         lhs = replace_deps(self._lhs)
         rhs = 0 if self._rhs == 0 else replace_deps(self._rhs)
         J_p = replace_deps(self.J_p)
         J = replace_deps(self._J)
-        solve(lhs == rhs, x, self._bcs, J = self.J_p, form_compiler_parameters = self._form_compiler_parameters, solver_parameters = self.picard_params)
+        solve(lhs == rhs, x, self._bcs, J = J_p, form_compiler_parameters = self._form_compiler_parameters, solver_parameters = self.picard_params)
         end()
         solve(lhs == rhs, x, self._bcs, J = J, form_compiler_parameters = self._form_compiler_parameters, solver_parameters = self._solver_parameters)
         end()
