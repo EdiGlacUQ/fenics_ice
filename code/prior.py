@@ -1,6 +1,6 @@
 import sys
 sys.path.insert(0,'../code/')
-sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
+sys.path.insert(0,'../../tlm_adjoint/python/')
 
 from dolfin import *
 from tlm_adjoint import *
@@ -44,12 +44,12 @@ class laplacian(object):
         self.A.mult(x, self.tmp1)
         self.M_solver.solve(self.tmp2, self.tmp1)
         self.A.mult(self.tmp2,self.tmp1)
-        y.set_local(self.tmp1.array())
+        y.set_local(self.tmp1.get_local())
         y.apply("insert")
 
     def inv_action(self, x, y):
         self.A_solver.solve(self.tmp1, x)
         self.M.mult(self.tmp1, self.tmp2)
         self.A_solver.solve(self.tmp1, self.tmp2)
-        y.set_local(self.tmp1.array())
+        y.set_local(self.tmp1.get_local())
         y.apply("insert")

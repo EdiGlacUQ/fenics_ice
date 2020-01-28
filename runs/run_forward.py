@@ -1,11 +1,12 @@
 import sys
 import os
-sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
 sys.path.insert(0,'../code/')
+sys.path.insert(0,'../../tlm_adjoint/python/')
+
 
 import argparse
 from fenics import *
-from tlm_adjoint import *
+from tlm_adjoint_fenics import *
 import model
 import solver
 import matplotlib.pyplot as plt
@@ -34,7 +35,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl, qoi):
                                 "relative_tolerance":1.0e-3,
                                 "convergence_criterion":"incremental",
                                 "error_on_nonconvergence":False,
-                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+                                }}
         param['newton_params'] =  {"nonlinear_solver":"newton",
                                 "newton_solver":{"linear_solver":"umfpack",
                                 "maximum_iterations":25,
@@ -42,7 +43,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl, qoi):
                                 "relative_tolerance":1.0e-8,
                                 "convergence_criterion":"incremental",
                                 "error_on_nonconvergence":True,
-                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+                                }}
 
     elif sl == 1:
         param['picard_params'] =  {"nonlinear_solver":"newton",
@@ -163,7 +164,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl, qoi):
 
 
     vtkfile = File(os.path.join(outdir,'dQ_ts.pvd'))
-    hdf5out = HDF5File(mpi_comm_world(), os.path.join(outdir, 'dQ_ts.h5'), 'w')
+    hdf5out = HDF5File(MPI.comm_world, os.path.join(outdir, 'dQ_ts.h5'), 'w')
     n=0.0
 
     for j in dQ_ts:

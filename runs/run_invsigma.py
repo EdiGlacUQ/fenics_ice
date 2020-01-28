@@ -1,6 +1,6 @@
 import sys
 sys.path.insert(0,'../code/')
-sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
+sys.path.insert(0,'../../tlm_adjoint/python/')
 
 import os
 import argparse
@@ -102,7 +102,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
 
 
     W = np.zeros((x.vector().size(),nlam))
-    with HDF5File(mpi_comm_world(), os.path.join(eigendir, vecfile), 'r') as hdf5data:
+    with HDF5File(MPI.comm_world, os.path.join(eigendir, vecfile), 'r') as hdf5data:
         for i in range(nlam):
             hdf5data.read(x, f'v/vector_{i}')
             v = x.vector().array()

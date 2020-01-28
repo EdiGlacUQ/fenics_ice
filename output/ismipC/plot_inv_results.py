@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0,'/Users/conradkoziol/Documents/Python/fenics/fenics_ice/code')
+sys.path.insert(0,'/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/code')
 
 import pickle
 import numpy as np
@@ -14,7 +14,7 @@ import model
 cmap='Blues'
 cmap_div='RdBu'
 numlev = 20
-dd = './ismipC_inv6_perbc_20x20_gnhep_prior/'
+dd = './ismipC_inv4_perbc_20x20_gnhep_prior/'
 tick_options = {'axis':'both','which':'both','bottom':False,
     'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
 

@@ -1,11 +1,11 @@
 import sys
 sys.path.insert(0,'../code/')
-sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
+sys.path.insert(0,'../../tlm_adjoint/python/')
 
 import os
 import argparse
 from dolfin import *
-from tlm_adjoint import *
+from tlm_adjoint_fenics import *
 
 import model
 import solver
@@ -99,16 +99,16 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
                                 "absolute_tolerance":1.0e-0,
                                 "relative_tolerance":1.0e-3,
                                 "convergence_criterion":"incremental",
-                                "error_on_nonconvergence":False,
-                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+                                "error_on_nonconvergence": False
+                                }}
         param['newton_params'] =  {"nonlinear_solver":"newton",
                                 "newton_solver":{"linear_solver":"umfpack",
                                 "maximum_iterations":25,
                                 "absolute_tolerance":1.0e-7,
                                 "relative_tolerance":1.0e-8,
                                 "convergence_criterion":"incremental",
-                                "error_on_nonconvergence":True,
-                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+                                "error_on_nonconvergence":True
+                                }}
 
     elif sl == 1:
         param['picard_params'] =  {"nonlinear_solver":"newton",

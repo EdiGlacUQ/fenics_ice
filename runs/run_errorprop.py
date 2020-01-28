@@ -1,6 +1,6 @@
 import sys
 sys.path.insert(0,'../code/')
-sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
+sys.path.insert(0,'../../tlm_adjoint/python/')
 
 import os
 import argparse
@@ -99,13 +99,13 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
 
 
     W = np.zeros((x.vector().size(),nlam))
-    with HDF5File(mpi_comm_world(), os.path.join(eigendir, vecfile), 'r') as hdf5data:
+    with HDF5File(MPI.comm_world, os.path.join(eigendir, vecfile), 'r') as hdf5data:
         for i in range(nlam):
             hdf5data.read(x, f'v/vector_{i}')
-            v = x.vector().array()
+            v = x.vector().get_local()
             reg_op.action(x.vector(), y.vector())
 
-            tmp = y.vector().array()
+            tmp = y.vector().get_local()
             sc = np.sqrt(np.dot(v,tmp))
             W[:,i] = v/sc
 
@@ -117,7 +117,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
 
     D = np.diag(lam / (lam + 1))
 
-    hdf5data = HDF5File(mpi_comm_world(), os.path.join(dd, 'dQ_ts.h5'), 'r')
+    hdf5data = HDF5File(MPI.comm_world, os.path.join(dd, 'dQ_ts.h5'), 'r')
 
 
     dQ_cntrl = Function(space)
@@ -131,15 +131,15 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     for j in range(num_sens):
         hdf5data.read(dQ_cntrl, f'dQ/vector_{j}')
 
-        tmp1 = np.dot(W.T,dQ_cntrl.vector().array())
+        tmp1 = np.dot(W.T,dQ_cntrl.vector().get_local())
         tmp2 = np.dot(D,tmp1 )
         P1 = np.dot(W,tmp2)
 
         reg_op.inv_action(dQ_cntrl.vector(),x.vector())
-        P2 = x.vector().array()
+        P2 = x.vector().get_local()
 
         P = P2-P1
-        variance = np.dot(dQ_cntrl.vector().array(), P)
+        variance = np.dot(dQ_cntrl.vector().get_local(), P)
         sigma[j] = np.sqrt(variance)
 
 
@@ -148,7 +148,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     # y.vector().apply('insert')
     # reg_op.action(y.vector(), x.vector())
     # #mass.mult(x.vector(),z.vector())
-    # q = np.dot(y.vector().array(),x.vector().array())
+    # q = np.dot(y.vector().get_local(),x.vector().get_local())
 
 
     #Output model variables in ParaView+Fenics friendly format

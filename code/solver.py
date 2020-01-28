@@ -1,8 +1,8 @@
 import sys
-sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
+
 from fenics import *
-from tlm_adjoint import *
-from tlm_adjoint.hessian_optimization import *
+from tlm_adjoint_fenics import *
+from tlm_adjoint_fenics.hessian_optimization import *
 #from dolfin_adjoint import *
 #from dolfin_adjoint_custom import EquationSolver
 import numpy as np
@@ -94,7 +94,7 @@ class ssa_solver:
         #Measures
         self.dx = Measure('dx', domain=self.mesh, subdomain_data=self.cf)
         self.dS = Measure('dS', domain=self.mesh, subdomain_data=self.ff)
-        self.ds = dolfin.ds
+        self.ds = ufl.ds
 
         self.dIce = self.dx
         self.dIce_flt = self.dx(self.OMEGA_ICE_FLT) + self.dx(self.OMEGA_ICE_FLT_OBS)
@@ -177,8 +177,8 @@ class ssa_solver:
                 + inner(Phi * sigma_n, self.nm) * self.ds )
 
 
-        self.mom_Jac_p = replace(derivative(self.mom_F, self.U), {U_marker:self.U})
-        self.mom_F = replace(self.mom_F, {U_marker:self.U})
+        self.mom_Jac_p = ufl.replace(derivative(self.mom_F, self.U), {U_marker:self.U})
+        self.mom_F =ufl.replace(self.mom_F, {U_marker:self.U})
         self.mom_Jac = derivative(self.mom_F, self.U)
 
     def sliding_law(self,alpha,U):
@@ -274,7 +274,7 @@ class ssa_solver:
         # + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow
         # + bmelt*Ksi*dIce_flt) #basal melting
 
-        self.thickadv_split = replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
+        self.thickadv_split = ufl.replace(self.thickadv, {U_np:0.5 * (self.U + self.U_np)})
 
         self.H_bcs = []
 
@@ -320,7 +320,7 @@ class ssa_solver:
             reset()
             start_annotating()
 #            configure_checkpointing("periodic_disk", {'period': 2, "format":"pickle"})
-            configure_checkpointing("revolve", {"blocks":n_steps, "snaps_on_disk":4000, "snaps_in_ram":10, "verbose":True, "format":"pickle"})
+            configure_checkpointing("multistage", {"blocks":n_steps, "snaps_on_disk":4000, "snaps_in_ram":10, "verbose":True, "format":"pickle"})
 
         self.def_thickadv_eq()
         self.def_mom_eq()
@@ -688,7 +688,7 @@ class MomentumSolver(EquationSolver):
 
     def replace(self, replace_map):
         super(MomentumSolver, self).replace(replace_map)
-        self.J_p = replace(self.J_p, replace_map)
+        self.J_p = ufl.replace(self.J_p, replace_map)
 
     def forward_solve(self, x, deps = None):
         if deps is None:
@@ -698,9 +698,9 @@ class MomentumSolver(EquationSolver):
           from collections import OrderedDict
           replace_map = OrderedDict(zip(self.dependencies(), deps))
           replace_map[self.x()] = x
-          replace_deps = lambda form : replace(form, replace_map)
-        for i, (dep_x, dep) in enumerate(zip(self.dependencies(), deps)):
-          info("%i %s %.16e" % (i, dep_x.name(), dep.vector().norm("l2")))
+          replace_deps = lambda form : ufl.replace(form, replace_map)
+        #for i, (dep_x, dep) in enumerate(zip(self.dependencies(), deps)):
+          #info("%i %s %.16e" % (i, dep_x.name(), dep.vector().norm("l2")))
         if not self._initial_guess_index is None:
           function_assign(x, deps[self._initial_guess_index])
 

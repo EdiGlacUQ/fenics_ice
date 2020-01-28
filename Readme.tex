@@ -25,45 +25,48 @@
 This document briefly outlines how to get started with the Fenics ice sheet model. 
 
 
-\section{Installing Fenics + dolfin-adjoint}
+\section{Installing Fenics and tlm\_adjoint}
 
-The ice sheet mdoel is built using the open source Python finite element software Fenics, and depends on the package dolfin-adjoint for implementing inversion and error propagation capabilities. The simplest way to install Fenics and dolfin-adjoint is to use a pre-built docker image. Installation instructions are available online via the Fenics website at: http://fenics.readthedocs.io/projects/containers/en/latest/.
+The ice sheet mdoel is built using the open source Python finite element software Fenics, and depends on the package tlm-adjoint for implementing inversion and error propagation capabilities. The simplest way to install Fenics and tlm-adjoint is to create a conda environment. 
 
-\subsection{Eddie}
-On Eddie, the following procedure was used succssfully:
-
-1. Login into Eddie, go onto worker node. It was recommended to specify the memory usage:\\
- \verb!qlogin -pe interactivemem 4 -l h_vmem=4G!
+\subsection{Installing Fenics}
  
-2. Install Anaconda. This can be either Anaconda itself, or miniconda, which is a stripped down version. I went for the latter, Python 2.7.
-https://conda.io/miniconda.html for the link, or
+1. Install Anaconda. This can be either Anaconda itself, or miniconda, which is a stripped down version. Ensure the Python version is greater than 3.6. Installer can be found here: https://www.anaconda.com/distribution/
 
- \verb!wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh!
+2. Create a new conda environment. \\
+conda create -n fenics -c conda-forge fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl
 
-3. It takes up a little space, so I installed it in the iceocean group directory: \\
- \verb!/exports/csce/eddie/geos/groups/geos_iceocean/ckoziol!
+3. Enter the conda environment: \\
+source activate fenics
 
-4. During the install it asks whether you want to change the pythonpath, I said no. 
+4. Make sure tp to date the pip package manager: \\
+pip install --upgrade pip
 
-5. At the end it gives you an export command, I added this to my .bashrc
-\begin{verbatim}
-export PATH=/exports/csce/eddie/geos/groups/...
-geos_iceocean/ckoziol/miniconda2/bin:\$PATH
-\end{verbatim}
+5. Install the following packages: \\
+pip install matplotlib numpy ipython scipy
 
-6. Installing dolfin adjoint: \\
- \verb!conda create -n dolfinproject -c conda-forge dolfin-adjoint=2016.2.0!
+6. Install hdf5 for python: \\
+http://docs.h5py.org/en/latest/index.html
+pip install h5py
 
-Note, I couldnt get the latest version 2017.1.0 to work. 
+7. Install pyrevolve: \\
+https://github.com/opesci/pyrevolve
 
-This creates an environment 'dolfinproject' which will contain dolfin/fenics. (note can use a different name).
+git clone https://github.com/opesci/pyrevolve.git
+cd pyrevolve/
+python setup.py install
 
-7. to enter the environment, we use
-\verb!source activate dolfinproject!
+8. Install mpi4py: \\
+http://mpi4py.scipy.org/docs/
+pip install mpi4py
 
+9. To enter this environment: \\
+source activate fenics
 
-8. then you can type \verb!python!, and \verb!from dolfin_adjoint import *!
+10. To exit: \\
+source deactivate fenics
 
+\subsection{Installing tlm\_adjoint}
 
 \section{Program structure}
 

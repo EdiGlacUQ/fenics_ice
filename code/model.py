@@ -1,5 +1,6 @@
 from fenics import *
-#from dolfin import *
+from dolfin import *
+import ufl
 import numpy as np
 import timeit
 from IPython import embed
@@ -107,7 +108,7 @@ class model:
         n = self.param['n']
         self.beta = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
         self.beta_bgd = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
-        self.beta.rename('beta', self.beta.label())
+        self.beta.rename('beta', 'a Function')
 
     def def_lat_dirichletbc(self):
         self.latbc = Constant([0.0,0.0])
@@ -125,19 +126,19 @@ class model:
 
     def init_alpha(self,alpha):
         self.alpha = project(alpha,self.Qp)
-        self.alpha.rename('alpha', self.alpha.label())
+        self.alpha.rename('alpha', 'a Function')
 
     def init_beta(self,beta, pert= True):
         self.beta_bgd = project(beta,self.Qp)
         self.beta = project(beta,self.Qp)
         if pert:
             #Perturbed field for nonzero gradient at first step of inversion
-            bv = self.beta.vector().array()
+            bv = self.beta.vector().get_local()
             pert_vec = 0.001*bv*randn(bv.size)
             self.beta.vector().set_local(bv + pert_vec)
             self.beta.vector().apply('insert')
 
-        self.beta.rename('beta', self.beta.label())
+        self.beta.rename('beta', 'a Function')
 
 
     def init_bmelt(self,bmelt):
@@ -200,7 +201,7 @@ class model:
         v_obs = self.v_obs
         vel_rp = self.param['vel_rp']
 
-        U = Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
+        U = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
         #Flotation Criterion
         H_s = -rhow/rhoi * bed
@@ -213,7 +214,7 @@ class model:
         R_f = ((1.0 - fl_ex) * bed
                + (fl_ex) * (-rhoi / rhow) * H)
 
-        s_ = Max(H + R_f,0)
+        s_ = ufl.Max(H + R_f,0)
         s = project(s_,self.Q)
         grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
 
@@ -222,23 +223,23 @@ class model:
            + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
 
 
-        B2_tmp1 = Max(B2_, a_lb)
-        B2_tmp2 = Min(B2_tmp1, a_ub)
+        B2_tmp1 = ufl.Max(B2_, a_lb)
+        B2_tmp2 = ufl.Min(B2_tmp1, a_ub)
 
         if self.param['sliding_law'] == 0:
             alpha = sqrt(B2_tmp2)
         elif self.param['sliding_law'] == 1:
-            N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
+            N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed,0.0)*rhow*g)
             U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
-            alpha = (1-fl_ex)*sqrt(B2_tmp2 * Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
+            alpha = (1-fl_ex)*sqrt(B2_tmp2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
 
         self.alpha = project(alpha,self.Qp)
-        self.alpha.rename('alpha', self.alpha.label())
+        self.alpha.rename('alpha', 'a Function')
 
 
     def gen_domain(self):
         tol = self.param['tol']
-        cf_mask = CellFunction('size_t',  self.mesh_ext)
+        cf_mask = MeshFunction('size_t',  self.mesh_ext, self.mesh_ext.geometric_dimension())
 
         for c in cells(self.mesh_ext):
             x_m       = c.midpoint().x()
@@ -287,8 +288,8 @@ class model:
 
 
         #Cell and Facet Markers
-        self.cf      = CellFunction('size_t',  self.mesh)
-        self.ff      = FacetFunction('size_t', self.mesh)
+        self.cf      = MeshFunction('size_t',  self.mesh, self.mesh.geometric_dimension())
+        self.ff      = MeshFunction('size_t', self.mesh, self.mesh.geometric_dimension() - 1)
 
 
         #Initialize Values

@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 import sys
-sys.path.insert(0,'../../dolfin_adjoint_custom/python/')
+sys.path.insert(0,'../../tlm_adjoint/python/')
 sys.path.insert(0,'../code/')
 
 import os
 import argparse
 from fenics import *
-from tlm_adjoint import *
+from tlm_adjoint_fenics import *
 import pickle
 from IPython import embed
 import model
