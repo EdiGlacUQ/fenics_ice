@@ -8,4 +8,6 @@
 *.h5
 *.pyc
 *.swp
-scripts/
+**/.DS_Store
+scripts/*
+!scripts/ismipc
