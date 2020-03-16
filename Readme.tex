@@ -127,7 +127,23 @@ The {\tt /aux} folder contains auxillary files; in here, the file {\tt gen\_ismi
 
 \section{Tutorial: A walkthrough IsmipC}
 
+Begin by navigating to the {\tt /fenics\_ice} directory. Activate the fenics conda environment.
+
+\begin{verbatim}
+> source activate fenics 
+\end{verbatim}
+
+
 \subsection{Generate synthetic domain}
+
+
+\begin{verbatim}
+> cd aux 
+> python gen_ismipC_domain.py -o ../input/ismipC -L 40000 -nx 100 -ny 100 
+
+> ls ../input/ismipC
+B2.xml  Bglen.xml  alpha.xml  bed.xml  bmelt.xml  grid_data.npz  mask.xml  mesh.xml  smb.xml  thick.xml 
+\end{verbatim}
 
 
 
