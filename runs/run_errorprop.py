@@ -1,6 +1,4 @@
 import sys
-sys.path.insert(0,'../code/')
-sys.path.insert(0,'../../tlm_adjoint/python/')
 
 import os
 import argparse
@@ -126,6 +124,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     num_sens = param['num_sens']
     t_sens = run_length if num_sens == 1 else np.linspace(0, run_length,num_sens)
     sigma = np.zeros(num_sens)
+    sigma_prior = np.zeros(num_sens)
 
 
     for j in range(num_sens):
@@ -142,6 +141,10 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
         variance = np.dot(dQ_cntrl.vector().get_local(), P)
         sigma[j] = np.sqrt(variance)
 
+        #Prior only
+        variance_prior = np.dot(dQ_cntrl.vector().get_local(), P2)
+        sigma_prior[j] = np.sqrt(variance_prior)
+
 
     #Test that eigenvectors are prior inverse orthogonal
     # y.vector().set_local(W[:,398])
@@ -153,6 +156,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
 
     #Output model variables in ParaView+Fenics friendly format
     pickle.dump( [sigma, t_sens], open( os.path.join(outdir,'sigma.p'), "wb" ) )
+    pickle.dump( [sigma_prior, t_sens], open( os.path.join(outdir,'sigma_prior.p'), "wb" ) )
 
 
 if __name__ == "__main__":

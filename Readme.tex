@@ -11,7 +11,11 @@
 \usepackage{amsmath}
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\Rho}{\mathrm{P}}
+\usepackage{hyperref}
 \usepackage{parskip}
+\usepackage{verbatim}
+\usepackage{dirtree}
+
 \DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
 
 
@@ -25,13 +29,13 @@
 This document briefly outlines how to get started with the Fenics ice sheet model. 
 
 
-\section{Installing Fenics and tlm\_adjoint}
+\section{Installation}
 
 The ice sheet mdoel is built using the open source Python finite element software Fenics, and depends on the package tlm-adjoint for implementing inversion and error propagation capabilities. The simplest way to install Fenics and tlm-adjoint is to create a conda environment. 
 
 \subsection{Installing Fenics}
  
-1. Install Anaconda. This can be either Anaconda itself, or miniconda, which is a stripped down version. Ensure the Python version is greater than 3.6. Installer can be found here: https://www.anaconda.com/distribution/
+1. Install Anaconda. This can be either Anaconda itself, or miniconda, which is a stripped down version. Ensure the Python version is greater than 3.6. Installer can be found here: https://www.anaconda.com/distribution/ 
 
 2. Create a new conda environment. \\
 conda create -n fenics -c conda-forge fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl
@@ -39,25 +43,26 @@ conda create -n fenics -c conda-forge fenics fenics-dijitso fenics-dolfin fenics
 3. Enter the conda environment: \\
 source activate fenics
 
-4. Make sure tp to date the pip package manager: \\
-pip install --upgrade pip
+4. Make sure the pip package manager is up to date: \\
+pip install -{}-upgrade pip
 
 5. Install the following packages: \\
-pip install matplotlib numpy ipython scipy
+conda install matplotlib numpy ipython scipy 
 
 6. Install hdf5 for python: \\
-http://docs.h5py.org/en/latest/index.html
+\url{http://docs.h5py.org/en/latest/index.html} \\
 pip install h5py
 
 7. Install pyrevolve: \\
-https://github.com/opesci/pyrevolve
+\url{https://github.com/opesci/pyrevolve}
 
-git clone https://github.com/opesci/pyrevolve.git
-cd pyrevolve/
+Change to directory where you would like to download pyrevolve to. You can delete the pyrevolve directory after finishing this step. \\ \\
+git clone \url{https://github.com/opesci/pyrevolve.git} \\
+cd pyrevolve/ \\
 python setup.py install
 
 8. Install mpi4py: \\
-http://mpi4py.scipy.org/docs/
+\url{http://mpi4py.scipy.org/docs/} \\
 pip install mpi4py
 
 9. To enter this environment: \\
@@ -66,14 +71,63 @@ source activate fenics
 10. To exit: \\
 source deactivate fenics
 
-\subsection{Installing tlm\_adjoint}
+\subsection{tlm\_adjoint}
+
+1. Clone the git repository to the local drive where you want it to live:\\
+git clone \url{https://github.com/jrmaddison/tlm_adjoint.git}
+
+\subsection{Fenics ICE}
+
+1. Clone the git repository to the local drive where you want it to live: \\
+git clone \url{https://github.com/cpk26/fenics_ice.git}
+
+\subsection{Modifying the Python Path}
+
+Modify the default paths python looks for modules to include tlm\_adjoint and fenics ice. Add to the end of .bashrc: \\
+PYTHONPATH=\"\$\{PYTHONPATH\}:/PATH/TO/tlm\_adjoint/python:/PATH/TO/fenics\_ice/code\" \\
+export PYTHONPATH
 
 \section{Program structure}
 
-The core of the ice sheet model is in two files: {\tt /code/model.py} and {\tt /code/solver.py}. Each simulation then has its own main routine located in the {\tt /runs } folder. The run routine loads any necessary data specific to your simulation, and is where you can specify the parameters of your run. These data and parameters are then used to create a model object (via a class defined in {\tt model.py}), which contains all the necessary data for a simulation, such as topography, constants, and velocity observations for inversions. The ice sheet physics/inversion code is contained within in {\tt solver.py}, which contains the code to create a solver object. The model object created in your run file is then passed as a parameter to your solver object. This object then allows you to solve the SSA equations on your domain, as well perform an inversion. 
+\subsection{Directory Structure}
 
-For an example of a run file, see {\tt /runs/run\_inv\_smith.py}. This is under development, and is the most up to date at present.
+\dirtree{%
+.1 fenics\_ice.
+.2 code.
+.3 model.py.
+.3 solver.py.
+.2 runs.
+.3 process\_eigendec.py.
+.3 run\_balancemeltrates.py.                                                                                              
+.3 run\_eigendec.py.                                                                                                      
+.3 run\_errorprop.py.                                                                                                      
+.3 run\_forward.py.                                                                                                        
+.3 run\_inv.py.                                                                                                  
+.3 run\_invsigma.py.                                                                                                    
+.3 run\_momsolve.py.
+.2 scripts.
+.3 ismipc.
+.2 aux.
+.3 gen\_ismipC\_domain.py.
+.3 test\_domains.py.
+.2 input.
+.3 ismipc.
+.2 output.
+.3 ismipc.
+}
 
+\subsection{Overview}
+
+The core of the ice sheet model is in two files: {\tt /code/model.py} and {\tt /code/solver.py}. These are utilized by the python scripts in the {\tt /runs} folder, which execute specific parts of a simulation. The scripts there are generic to any simulation. Each specific simulation then has its own primary folder in the {\tt /scripts} folder, which will call program files in {tt /runs} with specific parameters and data files.
+
+The bash scripts in {\tt /scripts} are where parameters and data file locations are specified. The data and parameters are used by the program files in {\tt /runs} to create a model object (via a class defined in {\tt model.py}) and subsequently a solver object (via a class defined in {\tt solver.py}). The model object contains all the necessary data for a simulation, such as topography, constants, and velocity observations for inversions. The solver object contains the ice sheet physics/inversion code. The model object is passed as a parameter to your solver object. This object then allows you to solve the SSA equations on your domain, invert for basal drag or $B_{glen}$, and perform uncertainty quantification. 
+
+
+The {\tt /aux} folder contains auxillary files; in here, the file {\tt gen\_ismipC\_domain.py} generates the ismipC domain,  based off definitions in {\tt test\_domains.py}. The {\tt /input} folder is where input files, such as topography and ice thickness, for specific simulations are located. Similarily, the {\tt /output} folder is where output is stored from specific simulations.
+
+\section{Tutorial: A walkthrough IsmipC}
+
+\subsection{Generate synthetic domain}
 
 
 

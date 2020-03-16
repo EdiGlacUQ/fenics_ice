@@ -1,6 +1,16 @@
-import sys
-sys.path.insert(0,'/Users/conradkoziol/Documents/Python/fenics/fenics_ice/code')
+# Plot four eigenfunctions. Defaults to leading four
 
+# Parameters:
+e_offset = 0    #Offset from first eigenvalue (0 results in leading four)
+
+run_folders = [
+    './ismipC_inv4_perbc_20x20_gnhep_prior/run_forward',
+    './ismipC_inv6_perbc_20x20_gnhep_prior/run_forward',]
+
+#########################
+
+
+import sys
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,10 +28,6 @@ tick_options = {'axis':'both','which':'both','bottom':False,
     'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
 labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
-
-run_folders = [
-    './ismipC_inv4_perbc_20x20_gnhep_prior/run_forward',
-    './ismipC_inv6_perbc_20x20_gnhep_prior/run_forward',]
 
 fig = plt.figure()
 fig.tight_layout()
@@ -46,8 +52,8 @@ for i, rf in enumerate(run_folders):
     t    = mesh.cells()
 
     for j in range(4):
-        k = j + 0
-        hdf5data = HDF5File(mpi_comm_world(), os.path.join(rf, 'vr.h5'), 'r')
+        k = j + e_offset
+        hdf5data = HDF5File(MPI.comm_world, os.path.join(rf, 'vr.h5'), 'r')
         hdf5data.read(eigenfunc, f'v/vector_{k}')
 
         sind = j+1+i*4
@@ -67,3 +73,4 @@ for i, rf in enumerate(run_folders):
         cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="vertical")
 
 plt.show()
+plt.savefig('leading_eigenvalues.pdf')

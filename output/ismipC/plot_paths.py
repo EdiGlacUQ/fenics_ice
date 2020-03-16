@@ -1,3 +1,11 @@
+# Plot model paths and uncertainties 
+
+run_folders = [
+    './ismipC_inv4_perbc_20x20_gnhep_prior/run_forward',
+    './ismipC_inv6_perbc_20x20_gnhep_prior/run_forward',]
+
+#########################
+
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
@@ -53,3 +61,4 @@ fontsize=13, fontweight='bold', va='top')
 axarr[1].text(0.05, 0.95, 'b', transform=axarr[1].transAxes,
 fontsize=13, fontweight='bold', va='top')
 plt.show()
+plt.savefig('run_paths.pdf')

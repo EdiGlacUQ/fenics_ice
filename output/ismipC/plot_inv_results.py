@@ -1,12 +1,20 @@
-import sys
-sys.path.insert(0,'/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/code')
+# Plot the result of an inversion. This shows:
+# 1. The inverted value of B2; It is explicitly assumed that B2 = alpha**2
+# 2. The the standard deviation of alpha.
+# 3. The resulting forward model output.
+# 4. The difference between observed and modelled velocities
 
+# Parameters:
+dd = './ismipC_inv4_perbc_20x20_gnhep_prior/'
+
+#########################
+
+import sys
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import os
-
 from fenics import *
 import model
 
@@ -14,7 +22,6 @@ import model
 cmap='Blues'
 cmap_div='RdBu'
 numlev = 20
-dd = './ismipC_inv4_perbc_20x20_gnhep_prior/'
 tick_options = {'axis':'both','which':'both','bottom':False,
     'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
 
@@ -36,7 +43,7 @@ U = Function(V,os.path.join(dd,'U.xml'))
 alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
 uv_obs = Function(M, os.path.join(dd,'uv_obs.xml'))
 alpha_sigma = Function(Qp, os.path.join(dd,'run_forward/alpha_sigma.xml'))
-B2 = Function(M, os.path.join(dd,'B2.xml'))
+# B2 = Function(M, os.path.join(dd,'B2.xml'))
 
 u, v = U.split()
 uv = project(sqrt(u*u + v*v), Q)
@@ -49,7 +56,7 @@ y    = mesh.coordinates()[:,1]
 t    = mesh.cells()
 
 
-fig = plt.figure(figsize=(5,5))
+fig = plt.figure(figsize=(10,5))
 
 
 ax  = fig.add_subplot(141)
@@ -106,4 +113,6 @@ c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
 cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
 cbar.ax.set_xlabel(r'$U-U_{obs}$ (m $yr^{-1}$)')
 
+plt.tight_layout(2.0)
+plt.savefig('inv_results.pdf')
 plt.show()

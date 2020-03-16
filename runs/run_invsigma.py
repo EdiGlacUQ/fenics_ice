@@ -1,6 +1,4 @@
 import sys
-sys.path.insert(0,'../code/')
-sys.path.insert(0,'../../tlm_adjoint/python/')
 
 import os
 import argparse
@@ -68,7 +66,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
     mdl.label_domain()
     mdl.init_alpha(alpha)
 
-
+    rc_inv = param['rc_inv']
     if pflag == 0:
         delta = rc_inv[1]
         gamma = rc_inv[3]
@@ -105,9 +103,9 @@ def main(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
     with HDF5File(MPI.comm_world, os.path.join(eigendir, vecfile), 'r') as hdf5data:
         for i in range(nlam):
             hdf5data.read(x, f'v/vector_{i}')
-            v = x.vector().array()
+            v = x.vector().get_local()
             reg_op.action(x.vector(), y.vector())
-            tmp = y.vector().array()
+            tmp = y.vector().get_local()
             sc = np.sqrt(np.dot(v,tmp))
             W[:,i] = v/sc
 
@@ -119,10 +117,10 @@ def main(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
     D = np.diag(lam / (lam + 1))
 
 
-    sigma_array = np.zeros(space.dim())
+    sigma_get_local = np.zeros(space.dim())
     ivec = np.zeros(space.dim())
 
-    for j in range(sigma_array.size):
+    for j in range(sigma_get_local.size):
 
         ivec.fill(0)
         ivec[j] = 1.0
@@ -134,12 +132,12 @@ def main(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
         P1 = np.dot(W,tmp2)
 
         reg_op.inv_action(y.vector(),x.vector())
-        P2 = x.vector().array()
+        P2 = x.vector().get_local()
 
         P = P2-P1
-        sigma_array[j] = np.sqrt(np.dot(ivec, P))
+        sigma_get_local[j] = np.sqrt(np.dot(ivec, P))
 
-    sigma.vector().set_local(sigma_array)
+    sigma.vector().set_local(sigma_get_local)
     sigma.vector().apply('insert')
 
     vtkfile = File(os.path.join(outdir,'{0}_sigma.pvd'.format(cntrl.name()) ))
@@ -152,7 +150,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, required=True, help='Inversion parameters: alpha (0), beta (1), alpha and beta (2)')
-    parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
+    parser.add_argument('-o', '--outdir', dest='outdir', type=str, required=True, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
     parser.add_argument('-l', '--lamfile', dest='lamfile', type=str, required=True, help = 'Pickle file storing eigenvals')
     parser.add_argument('-k', '--vecfile', dest='vecfile', type=str, help = 'Hd5 File storing eigenvecs')

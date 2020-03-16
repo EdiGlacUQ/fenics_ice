@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 import sys
-sys.path.insert(0,'../../tlm_adjoint/python/')
-sys.path.insert(0,'../code/')
 
 import os
 import argparse
