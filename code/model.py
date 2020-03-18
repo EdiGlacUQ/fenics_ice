@@ -70,8 +70,7 @@ class model:
                     "maximum_iterations":25,
                     "absolute_tolerance":1.0e-8,
                     "relative_tolerance":5.0e-2,
-                    "convergence_criterion":"incremental",
-                    "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+                    "convergence_criterion":"incremental",}}
 
         param['newton_params'] = {"nonlinear_solver":"newton",
                     "newton_solver":{"linear_solver":"umfpack",
@@ -79,8 +78,7 @@ class model:
                     "absolute_tolerance":1.0e-5,
                     "relative_tolerance":1.0e-5,
                     "convergence_criterion":"incremental",
-                    "error_on_nonconvergence":True,
-                    "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+                    "error_on_nonconvergence":True,}}
 
         #Boundary Conditions
         param['periodic_bc'] = False

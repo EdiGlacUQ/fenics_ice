@@ -25,6 +25,7 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
 
     bed = Function(Q,os.path.join(dd,'bed.xml'))
     bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
+    smb = Function(M,os.path.join(dd,'smb.xml'))
     thick = Function(M,os.path.join(dd,'thick.xml'))
     mask = Function(M,os.path.join(dd,'mask.xml'))
     alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
@@ -77,6 +78,7 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
     mdl.gen_surf()
     mdl.init_mask(mask)
     mdl.init_bmelt(bmelt)
+    mdl.init_smb(smb)
     mdl.init_alpha(alpha)
     mdl.label_domain()
 
@@ -90,7 +92,7 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
 
 
 
-    #Inversion
+    #Forward Solve
     slvr = solver.ssa_solver(mdl)
     slvr.def_mom_eq()
     slvr.solve_mom_eq()
@@ -152,7 +154,6 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
     Bglen = project(slvr.beta_to_bglen(slvr.beta),mdl.M)
     vtkfile << Bglen
     xmlfile << Bglen
-``
 
     vtkfile = File(os.path.join(outdir,'surf.pvd'))
     xmlfile = File(os.path.join(outdir,'surf.xml'))
@@ -164,15 +165,19 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
     vtkfile << mdl.bmelt
     xmlfile << mdl.bmelt
 
+    print(outdir)
+    print('Done')
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
-    parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
     parser.add_argument('-b', '--boundaries', dest='periodic_bc', action='store_true', help='Periodic boundary conditions')
     parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction (defaults to data resolution)')
     parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction (defaults to data resolution)')
-    parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
-
+    parser.add_argument('-q', '--slidinglaw', dest='sl', type=int,  help = 'Sliding Law (0: linear (default), 1: weertman)')
+    
+    parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
+    parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
+   
 
     parser.set_defaults(periodic_bc=False,nx=False,ny=False, sl=0)
     args = parser.parse_args()

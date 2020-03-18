@@ -6,7 +6,7 @@ import test_domains
 import os
 import argparse
 
-def main(dd, L, nx, ny):
+def main(outdir, L, nx, ny):
 
     #Fenics mesh
     mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
@@ -41,7 +41,7 @@ def main(dd, L, nx, ny):
     bed = bed_interp(dof_xy)
     height = height_interp(dof_xy)
     bmelt = bmelt_interp(dof_xy)
-    smb = bmelt_interp(dof_xy)
+    smb = smb_interp(dof_xy)
     mask = mask_interp(dof_xy)
     B2 = B2_interp(dof_xy)
     Bglen = Bglen_interp(dof_xy)
@@ -49,33 +49,33 @@ def main(dd, L, nx, ny):
 
 
     outfile = 'grid_data'
-    np.savez(os.path.join(dd,outfile),nx=nx,ny=ny,xlim=[0,L],ylim=[0,L], Lx=L, Ly=L)
+    np.savez(os.path.join(outdir,outfile),nx=nx,ny=ny,xlim=[0,L],ylim=[0,L], Lx=L, Ly=L)
 
-    File(os.path.join(dd,'mesh.xml')) << mesh
+    File(os.path.join(outdir,'mesh.xml')) << mesh
 
     v.vector()[:] = bed.flatten()
-    File(os.path.join(dd,'bed.xml')) <<  v
+    File(os.path.join(outdir,'bed.xml')) <<  v
 
     v.vector()[:] = height.flatten()
-    File(os.path.join(dd,'thick.xml')) <<  v
+    File(os.path.join(outdir,'thick.xml')) <<  v
 
     v.vector()[:] = mask.flatten()
-    File(os.path.join(dd,'mask.xml')) <<  v
+    File(os.path.join(outdir,'mask.xml')) <<  v
 
     v.vector()[:] = bmelt.flatten()
-    File(os.path.join(dd,'bmelt.xml')) <<  v
+    File(os.path.join(outdir,'bmelt.xml')) <<  v
 
     v.vector()[:] = smb.flatten()
-    File(os.path.join(dd,'smb.xml')) <<  v
+    File(os.path.join(outdir,'smb.xml')) <<  v
 
     v.vector()[:] = B2.flatten()
-    File(os.path.join(dd,'B2.xml')) <<  v
+    File(os.path.join(outdir,'B2.xml')) <<  v
 
     v.vector()[:] = np.sqrt(B2.flatten())
-    File(os.path.join(dd,'alpha.xml')) <<  v
+    File(os.path.join(outdir,'alpha.xml')) <<  v
 
     v.vector()[:] = Bglen.flatten()
-    File(os.path.join(dd,'Bglen.xml')) <<  v
+    File(os.path.join(outdir,'Bglen.xml')) <<  v
 
 
 

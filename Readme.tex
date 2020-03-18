@@ -81,6 +81,13 @@ git clone \url{https://github.com/jrmaddison/tlm_adjoint.git}
 1. Clone the git repository to the local drive where you want it to live: \\
 git clone \url{https://github.com/cpk26/fenics_ice.git}
 
+
+\subsection{Create environment variable}
+Create an environment variable storing the fenics\_ice base directory by adding the following to .bashrc, amending the path appropriately for your system. \\
+FENICS\_ICE\_BASE\_DIR="/XXXX/XXXX/XXXX/fenics\_ice" \\                                            
+export FENICS\_ICE\_BASE\_DIR   
+
+
 \subsection{Modifying the Python Path}
 
 Modify the default paths python looks for modules to include tlm\_adjoint and fenics ice. Add to the end of .bashrc: \\
@@ -138,14 +145,44 @@ Begin by navigating to the {\tt /fenics\_ice} directory. Activate the fenics con
 
 
 \begin{verbatim}
-> cd aux 
+> cd $FENICS_ICE_BASE_DIR/aux 
 > python gen_ismipC_domain.py -o ../input/ismipC -L 40000 -nx 100 -ny 100 
 
-> ls ../input/ismipC
+> ls $FENICS_ICE_BASE_DIR/input/ismipC
 B2.xml  Bglen.xml  alpha.xml  bed.xml  bmelt.xml  grid_data.npz  mask.xml  mesh.xml  smb.xml  thick.xml 
 \end{verbatim}
 
+\subsection{Solve the forward problem and generate observations}
 
+\begin{verbatim}
+> cd $FENICS_ICE_BASE_DIR/scripts/ismipc/ 
+> ./forward_solve.sh
+
+Generating new mesh                                                                                                                                              
+Building point search tree to accelerate distance queries.                                                                                                       
+Computed bounding box tree with 39999 nodes for 20000 points.                                                                                                    
+Solving nonlinear variational problem.                                                                                                                             
+Newton iteration 0: r (abs) = 1.585e+03 (tol = 1.000e-08) r (rel) = 1.000e+00 (tol = 5.000e-02)                                                                 
+Newton iteration 1: r (abs) = 1.139e+02 (tol = 1.000e-08) r (rel) = 7.186e-02 (tol = 5.000e-02)                                                                 
+Newton iteration 2: r (abs) = 1.307e+02 (tol = 1.000e-08) r (rel) = 8.248e-02 (tol = 5.000e-02)                                                                  
+Newton iteration 3: r (abs) = 9.443e+01 (tol = 1.000e-08) r (rel) = 5.958e-02 (tol = 5.000e-02)                                                                  
+Newton iteration 4: r (abs) = 5.682e+01 (tol = 1.000e-08) r (rel) = 3.585e-02 (tol = 5.000e-02)                                                                 
+Newton solver finished in 5 iterations and 5 linear solver iterations.                                                                                         
+Solving nonlinear variational problem.                                                                                                                          
+Newton iteration 0: r (abs) = 6.650e+01 (tol = 1.000e-05) r (rel) = 1.000e+00 (tol = 1.000e-05)                                                                 
+Newton iteration 1: r (abs) = 4.913e+00 (tol = 1.000e-05) r (rel) = 7.387e-02 (tol = 1.000e-05)                                                                  
+Newton iteration 2: r (abs) = 4.393e-02 (tol = 1.000e-05) r (rel) = 6.606e-04 (tol = 1.000e-05)                                                                 
+Newton iteration 3: r (abs) = 5.647e-06 (tol = 1.000e-05) r (rel) = 8.492e-08 (tol = 1.000e-05)                                                                 
+Newton solver finished in 4 iterations and 4 linear solver iterations.                                                                                           
+Time for solve: 4.667648553848267      
+
+ls $FENICS_ICE_BASE_DIR/input/ismipC
+...
+\end{verbatim}
+
+Notice that there are many more files in the directory now.
+
+Next we'll convert our modelled velocities into pseudo-observations. The script
 
 
 
