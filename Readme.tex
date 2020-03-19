@@ -13,22 +13,25 @@
 \newcommand{\Rho}{\mathrm{P}}
 \usepackage{hyperref}
 \usepackage{parskip}
-\usepackage{verbatim}
+\usepackage{spverbatim}
 \usepackage{dirtree}
+\usepackage{bm}
+\usepackage{siunitx}
 
 \DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
 
 
 
-\title{Fenics Ice Sheet Model Readme}
+\title{Fenics Ice Sheet Model User Guide}
 %\date{}                                           % Activate to display a given date or no date
 
 \begin{document}
+
 \maketitle
 
 This document briefly outlines how to get started with the Fenics ice sheet model. 
 
-
+\tableofcontents 
 \section{Installation}
 
 The ice sheet mdoel is built using the open source Python finite element software Fenics, and depends on the package tlm-adjoint for implementing inversion and error propagation capabilities. The simplest way to install Fenics and tlm-adjoint is to create a conda environment. 
@@ -71,18 +74,18 @@ source activate fenics
 10. To exit: \\
 source deactivate fenics
 
-\subsection{tlm\_adjoint}
+\subsection{Installing tlm\_adjoint}
 
 1. Clone the git repository to the local drive where you want it to live:\\
 git clone \url{https://github.com/jrmaddison/tlm_adjoint.git}
 
-\subsection{Fenics ICE}
+\subsection{Installing Fenics Ice}
 
 1. Clone the git repository to the local drive where you want it to live: \\
 git clone \url{https://github.com/cpk26/fenics_ice.git}
 
 
-\subsection{Create environment variable}
+\subsection{Creating environment variables}
 Create an environment variable storing the fenics\_ice base directory by adding the following to .bashrc, amending the path appropriately for your system. \\
 FENICS\_ICE\_BASE\_DIR="/XXXX/XXXX/XXXX/fenics\_ice" \\                                            
 export FENICS\_ICE\_BASE\_DIR   
@@ -125,36 +128,62 @@ export PYTHONPATH
 
 \subsection{Overview}
 
-The core of the ice sheet model is in two files: {\tt /code/model.py} and {\tt /code/solver.py}. These are utilized by the python scripts in the {\tt /runs} folder, which execute specific parts of a simulation. The scripts there are generic to any simulation. Each specific simulation then has its own primary folder in the {\tt /scripts} folder, which will call program files in {tt /runs} with specific parameters and data files.
+The core of the ice sheet model is in two files: {\tt /code/model.py} and {\tt /code/solver.py}. These are utilized by the python scripts in the {\tt /runs} folder, which execute specific parts of a simulation. The python scripts there are generic to any simulation. Each specific simulation then has its own primary folder in the {\tt /scripts} folder, with simple bash scripts which call program files in {\tt /runs} with specific parameters and data files.
 
-The bash scripts in {\tt /scripts} are where parameters and data file locations are specified. The data and parameters are used by the program files in {\tt /runs} to create a model object (via a class defined in {\tt model.py}) and subsequently a solver object (via a class defined in {\tt solver.py}). The model object contains all the necessary data for a simulation, such as topography, constants, and velocity observations for inversions. The solver object contains the ice sheet physics/inversion code. The model object is passed as a parameter to your solver object. This object then allows you to solve the SSA equations on your domain, invert for basal drag or $B_{glen}$, and perform uncertainty quantification. 
+The bash scripts in {\tt /scripts} are where parameters and data file locations are specified; these are bash simple wrapper scripts for calling python scripts in {\tt /runs}. The data and parameters are used by the program files in {\tt /runs} to create a model object (via a class defined in {\tt model.py}) and subsequently a solver object (via a class defined in {\tt solver.py}). The model object contains all the necessary data for a simulation, such as topography, constants, and velocity observations for inversions. The solver object contains the ice sheet physics/inversion code. The model object is passed as a parameter to your solver object. This object then allows you to solve the SSA equations on your domain, invert for basal drag or $B_{glen}$, and perform uncertainty quantification. The options of any python script in the {\tt /runs} folder can be viewed by typing 'python run\_xxx.py --help'.
 
 
 The {\tt /aux} folder contains auxillary files; in here, the file {\tt gen\_ismipC\_domain.py} generates the ismipC domain,  based off definitions in {\tt test\_domains.py}. The {\tt /input} folder is where input files, such as topography and ice thickness, for specific simulations are located. Similarily, the {\tt /output} folder is where output is stored from specific simulations.
 
-\section{Tutorial: A walkthrough IsmipC}
+\section{Tutorial: A Walkthrough of IsmipC}
 
-Begin by navigating to the {\tt /fenics\_ice} directory. Activate the fenics conda environment.
+The Ice Sheet Model Intercomparison Project for Higher-Order ice sheet Models (ISMIP) provides a standardized set of idealized tests for ice sheet models. In this walkthrough, we apply Fenics\_ice to the domain prescribed by experiment C (IsmipC). The original IsmipC is a static simulation, meaning time evolution is not considered. We'll extend it by running a dynamic simulation for the purposes of performing uncertainty quantification.
+
+\section{IsmipC}
+
+\subsection{Generating the Domain}
+
+Navigate to the {\tt /fenics\_ice} base directory. Activate the fenics conda environment.
 
 \begin{verbatim}
 > source activate fenics 
 \end{verbatim}
 
-
-\subsection{Generate synthetic domain}
-
+To begin, we'll generate the synthetic domain defined by the IsmipC experiment. The specifications are coded in the file {\tt /aux/test\_domains.py}. We'll use the python script 'gen\_ismipC\_domain.py' to create a domain with a given length and resolution.
 
 \begin{verbatim}
 > cd $FENICS_ICE_BASE_DIR/aux 
 > python gen_ismipC_domain.py -o ../input/ismipC -L 40000 -nx 100 -ny 100 
-
-> ls $FENICS_ICE_BASE_DIR/input/ismipC
-B2.xml  Bglen.xml  alpha.xml  bed.xml  bmelt.xml  grid_data.npz  mask.xml  mesh.xml  smb.xml  thick.xml 
 \end{verbatim}
 
-\subsection{Solve the forward problem and generate observations}
+This will generate a square domain with side-length 40\si{\kilo\metre}, at resolution of 100 x 100, placing the output in the folder {\tt input/ismipc}.
+Let's observe the files that are generated.
 
-\begin{verbatim}
+\begin{spverbatim}
+> ls $FENICS_ICE_BASE_DIR/input/ismipC
+B2.xml  Bglen.xml  alpha.xml  bed.xml  bmelt.xml  grid_data.npz  mask.xml  mesh.xml  smb.xml  thick.xml 
+\end{spverbatim}
+
+The .xml files contain discretized scalar fields over the IsmipC domain on a FEniCS mesh. The extension .npz indicates a numpy file format, and contains the domain resolution and length.
+
+\begin{itemize}
+\item B2.xml -- $\beta^2$ coefficient for linear sliding law $(\bm{\tau_b} = \beta^2 \bm{u})$;
+\item  Bglen.xml -- parameter in Glen's flow law
+\item alpha.xml -- variable in sliding law 
+\item bed.xml -- basal topography
+\item bmelt.xml -- basal melt. 
+\item mask.xml -- mask of our domain
+\item mesh.xml -- FEniCS mesh
+\item smb.xml -- surface mass balance
+\item thick.xml -- ice thickness
+
+\end{itemize}
+
+\subsection{Solving the Momentum Equations}
+
+Having generated the files which describe our domain, we can solve the SSA momentum equations to determine ice velocities. 
+
+\begin{spverbatim}
 > cd $FENICS_ICE_BASE_DIR/scripts/ismipc/ 
 > ./forward_solve.sh
 
@@ -176,14 +205,51 @@ Newton iteration 3: r (abs) = 5.647e-06 (tol = 1.000e-05) r (rel) = 8.492e-08 (t
 Newton solver finished in 4 iterations and 4 linear solver iterations.                                                                                           
 Time for solve: 4.667648553848267      
 
-ls $FENICS_ICE_BASE_DIR/input/ismipC
+ls $FENICS_ICE_BASE_DIR/input/ismipC/momsolve
 ...
+\end{spverbatim}
+
+The script automatically places the output in the subdirectory of {\tt input/} since we'll use the velocities we solved for in the next step, generating synthetic observations.
+
+Opening {\tt forward\_solve.sh} with any text editor, we can confirm that this is a simple wrapper script.
+
+\begin{spverbatim}
+#!/bin/bash
+set -e
+
+BASE_DIR=$FENICS_ICE_BASE_DIR
+RUN_DIR=$BASE_DIR/runs
+
+INPUT_DIR=$BASE_DIR/input/ismipC
+OUTPUT_DIR=$INPUT_DIR/momsolve
+
+cd $RUN_DIR
+
+python run_momsolve.py -b -q 0 -d $INPUT_DIR -o $OUTPUT_DIR
+\end{spverbatim}
+
+The bash script specifies key folders, that we are solving momentum equations on a domain with periodic boundary conditions (-b option), and that we are using a linear sliding law (-q 0).
+
+\subsection{Generating Synthetic Observations}
+
+IsmipC is a synthetic experiment, meaning we don't have observational data of ice velocities. We can generate pseudo-oberservations by adding gaussian noise to the solved velocities. This script assumes the noise is additive rather than a multiplicative factor. The python script 'Uobs\_from\_momsolve.py' takes the vector field in U.xml and generates the files: data\_mesh.xml, data\_mask.xml, u\_obs.xml, v\_obs.xml, u\_std.xml, and v\_std.xml. The first file contains the data mesh, the second identifies where velocity data is available, the next two files contain the pseudo-observations in the x and y directions, with the final two files containing the standard deviation of the gaussian noise applied. A data\_mask.xml and data\_mask.pvd file are generated by forward\_solve.sh since these are duplicates of the domain mask. 
+
+\begin{spverbatim}
+> cd $FENICS_ICE_BASE_DIR/aux/
+> python Uobs_from_momsolve.py -b -L 40000 -d $FENICS_ICE_BASE_DIR/input/ismipC/momsolve
+> find $FENICS_ICE_BASE_DIR/input/ismipC/momsolve -type f -regex '.*\(obs\|std\).xml'
+/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/input/ismipC/u_obs.xml
+/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/input/ismipC/u_std.xml
+/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/input/ismipC/v_obs.xml
+/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/input/ismipC/v_std.xml
+\end{spverbatim}
+
+Copy the five files generated into {\tt \$FENICS\_ICE\_BASE\_DIR/input/ismipC/}. A study site in Antarctica or Greenland would require generating these files and the data\_mask from a surface velocity dataset such as NSIDC MEaSUREs.
+
+\begin{verbatim}
+> cd $FENICS_ICE_BASE_DIR/input/ismipC/momsolve
+> cp data_mask.xml data_mesh.xml mask_vel.xml u_*.xml v_*.xml ..
 \end{verbatim}
-
-Notice that there are many more files in the directory now.
-
-Next we'll convert our modelled velocities into pseudo-observations. The script
-
 
 
 

@@ -138,6 +138,7 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
     vtkfile << mdl.mask
     xmlfile << mdl.mask
 
+    
     vtkfile = File(os.path.join(outdir,'data_mask.pvd'))
     xmlfile = File(os.path.join(outdir,'data_mask.xml'))
     vtkfile << mask
@@ -165,8 +166,6 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
     vtkfile << mdl.bmelt
     xmlfile << mdl.bmelt
 
-    print(outdir)
-    print('Done')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

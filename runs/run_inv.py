@@ -49,8 +49,9 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
     smb = Function(M,os.path.join(dd,'smb.xml'))
 
-    if not os.path.isfile(os.path.join(dd,'param.p')):
+    if nx and ny:
         print('Generating new mesh')
+
         #Generate model mesh
         gf = 'grid_data.npz'
         npzfile = np.load(os.path.join(dd,'grid_data.npz'))
@@ -63,8 +64,13 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
             ny = int(npzfile['ny'])
 
         mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
+
+    elif os.path.isfile(os.path.join(dd,'param.p')):
+        print('Identified as previous run, reusing previous mesh...')
+
     else:
-        print('Identified as previous run, reusing mesh')
+        print('Need to specify resolution or reuse previous mesh')
+        raise SystemExit
 
 
     if bflag:
