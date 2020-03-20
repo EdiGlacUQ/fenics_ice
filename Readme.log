@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019/W32TeX) (preloaded format=pdflatex 2020.1.21)  18 MAR 2020 21:27
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019/W32TeX) (preloaded format=pdflatex 2020.1.21)  18 MAR 2020 21:32
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -870,6 +870,22 @@ Overfull \hbox (6.89565pt too wide) in paragraph at lines 245--245
 ut/ismipC/v_std.xml[] 
  []
 
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 254.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `\beta' on input line 254.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `superscript' on input line 254.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 254.
+
 Package atveryend Info: Empty hook `BeforeClearDocument' on input line 257.
 [7]
 Package atveryend Info: Empty hook `AfterLastShipout' on input line 257.
@@ -877,32 +893,33 @@ Package atveryend Info: Empty hook `AfterLastShipout' on input line 257.
 Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 257.
 Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 257.
 Package rerunfilecheck Info: File `Readme.out' has not changed.
-(rerunfilecheck)             Checksum: 5184628E3BAA0BB93B3391797B585882;932.
+(rerunfilecheck)             Checksum: FCB1F224A93837FF00749A29C59EB327;997.
 Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 257.
  ) 
 Here is how much of TeX's memory you used:
- 19935 strings out of 492162
- 374156 string characters out of 6129077
+ 19937 strings out of 492162
+ 374186 string characters out of 6129077
  431741 words of memory out of 5000000
- 24075 multiletter control sequences out of 15000+600000
+ 24076 multiletter control sequences out of 15000+600000
  545010 words of font info for 71 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  44i,6n,67p,946b,836s stack positions out of 5000i,500n,10000p,200000b,80000s
 <c:/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb><c:/tex
 live/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb><c:/texlive/2019
 /texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><c:/texlive/2019/texmf-di
-st/fonts/type1/public/amsfonts/cm/cmmi8.pfb><c:/texlive/2019/texmf-dist/fonts/t
-ype1/public/amsfonts/cm/cmmib10.pfb><c:/texlive/2019/texmf-dist/fonts/type1/pub
-lic/amsfonts/cmextra/cmmib8.pfb><c:/texlive/2019/texmf-dist/fonts/type1/public/
-amsfonts/cm/cmr10.pfb><c:/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/c
-m/cmr12.pfb><c:/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pf
-b><c:/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb><c:/texli
-ve/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/texlive/2019/t
-exmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb>
-Output written on Readme.pdf (7 pages, 152295 bytes).
+st/fonts/type1/public/amsfonts/cm/cmmi12.pfb><c:/texlive/2019/texmf-dist/fonts/
+type1/public/amsfonts/cm/cmmi8.pfb><c:/texlive/2019/texmf-dist/fonts/type1/publ
+ic/amsfonts/cm/cmmib10.pfb><c:/texlive/2019/texmf-dist/fonts/type1/public/amsfo
+nts/cmextra/cmmib8.pfb><c:/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/
+cm/cmr10.pfb><c:/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.p
+fb><c:/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb><c:/tex
+live/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb><c:/texlive/2019/t
+exmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/texlive/2019/texmf-dist
+/fonts/type1/public/amsfonts/cm/cmtt10.pfb>
+Output written on Readme.pdf (7 pages, 159547 bytes).
 PDF statistics:
- 170 PDF objects out of 1000 (max. 8388607)
- 147 compressed objects within 2 object streams
- 23 named destinations out of 1000 (max. 500000)
- 113 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 179 PDF objects out of 1000 (max. 8388607)
+ 155 compressed objects within 2 object streams
+ 24 named destinations out of 1000 (max. 500000)
+ 121 words of extra memory for PDF output out of 10000 (max. 10000000)
 

@@ -10,4 +10,4 @@
 *.swp
 **/.DS_Store
 scripts/*
-!scripts/ismipc
+!scripts/ismipc/
