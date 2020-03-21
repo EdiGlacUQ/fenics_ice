@@ -37,23 +37,28 @@ The ice sheet mdoel is built using the open source Python finite element softwar
  
 1. Install Anaconda. This can be either Anaconda itself, or miniconda, which is a stripped down version. Ensure the Python version is greater than 3.6. Installer can be found here: https://www.anaconda.com/distribution/ 
 
-2. Create a new conda environment. \\
+2. Add the conda-forge channel and set channel_priority to strict:
+
+conda config --add channels conda-forge
+conda config --set channel_priority strict
+
+3. Create a new conda environment. \\
 conda create -n fenics -c conda-forge fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl
 
-3. Enter the conda environment: \\
+4. Enter the conda environment: \\
 source activate fenics
 
-4. Make sure the pip package manager is up to date: \\
+5. Make sure the pip package manager is up to date: \\
 pip install -{}-upgrade pip
 
-5. Install the following packages: \\
+6. Install the following packages: \\
 conda install matplotlib numpy ipython scipy 
 
-6. Install hdf5 for python: \\
+7. Install hdf5 for python: \\
 \url{http://docs.h5py.org/en/latest/index.html} \\
 pip install h5py
 
-7. Install pyrevolve: \\
+8. Install pyrevolve: \\
 \url{https://github.com/opesci/pyrevolve}
 
 Change to directory where you would like to download pyrevolve to. You can delete the pyrevolve directory after finishing this step. \\ \\
@@ -61,14 +66,14 @@ git clone \url{https://github.com/opesci/pyrevolve.git} \\
 cd pyrevolve/ \\
 python setup.py install
 
-8. Install mpi4py: \\
+9. Install mpi4py: \\
 \url{http://mpi4py.scipy.org/docs/} \\
 pip install mpi4py
 
-9. To enter this environment: \\
+10. To enter this environment: \\
 source activate fenics
 
-10. To exit: \\
+11. To exit: \\
 source deactivate fenics
 
 \subsection{tlm\_adjoint}
