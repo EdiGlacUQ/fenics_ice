@@ -260,7 +260,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
     parser.add_argument('-s', '--num_sens', dest='num_sens', type=int, help='Number of samples of cost function')
-    parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, help='Parameter to calculate sensitivity to: alpha (0), beta (1), alpha and beta (2)')
+    parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, help='Parameter to calculate sensitivity to: alpha (0), beta (1), [Future->] alpha and beta (2)')
     parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
     parser.add_argument('-i', '--quantity_of_interest', dest='qoi', type=float,  help = 'Quantity of interest (0: VAF (default), 1: H^2 (for ISMIPC))')
 

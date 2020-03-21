@@ -5,25 +5,25 @@ BASE_DIR=$FENICS_ICE_BASE_DIR
 RUN_DIR=$BASE_DIR/runs
 
 INPUT_DIR=$BASE_DIR/input/ismipC
-OUTPUT_DIR=$BASE_DIR/output/ismipC/ismipC_inv6_perbc_40x40_gnhep_prior
+OUTPUT_DIR=$BASE_DIR/output/ismipC/uq_30x30
 EIGENDECOMP_DIR=$OUTPUT_DIR/run_forward
 FORWARD_DIR=$OUTPUT_DIR/run_forward
 
-EIGFILE=slepceig_all.p
+EIGFILE=slepc_eig_all.p
 
 RC1=1.0
 RC2=1e-2
-RC3=1e-2
+RC3=1e-9
 RC4=1e6
-RC5=1e6
+RC5=1e-9
 
 
 T=15.0
 N=60
 S=5
 
-NX=40
-NY=40
+NX=30
+NY=30
 
 QOI=1
 
