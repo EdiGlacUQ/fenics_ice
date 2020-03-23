@@ -1,8 +1,5 @@
 import sys
 import os
-sys.path.insert(0,'../code/')
-sys.path.insert(0,'../../tlm_adjoint/python/')
-
 
 import argparse
 from fenics import *
@@ -134,7 +131,7 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl, qoi):
 
     qoi_func =  slvr.comp_Q_h2 if qoi == 1 else slvr.comp_Q_vaf
     Q = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)
-    dQ_ts = compute_gradient(Q, cntrl)
+    dQ_ts = compute_gradient(Q, cntrl) #Isaac 27
 
     #Uncomment for Taylor Verification, Comment above two lines
     # param['num_sens'] = 1

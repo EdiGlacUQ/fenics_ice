@@ -1,7 +1,4 @@
 import sys
-sys.path.insert(0,'../code/')
-sys.path.insert(0,'../../tlm_adjoint/python/')
-
 import os
 import argparse
 from dolfin import *
@@ -67,6 +64,12 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
         print('Identified as previous run, reusing mesh')
 
 
+    #Compute periodic BC length if required:
+    #---------------------------------------
+    #The flag 'bflag' starts as a logical (True if boundary is periodic)
+    #If True here, it changes to float, the length of the (square) periodic domain
+    #the model/solver param 'periodic_bc' then takes the value of bflag
+    #---------------------------------------
     if bflag:
         if os.path.isfile(os.path.join(dd,'param.p')):
             bflag = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
@@ -118,7 +121,10 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
                                 "relative_tolerance":1.0e-10,
                                 "convergence_criterion":"incremental",
                                 "error_on_nonconvergence":False,
-                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+                                "lu_solver":{"same_nonzero_pattern":False,
+                                             "symmetric":False,
+                                             "reuse_factorization":False}}}
+
         param['newton_params'] =  {"nonlinear_solver":"newton",
                                 "newton_solver":{"linear_solver":"umfpack",
                                 "maximum_iterations":25,
@@ -126,7 +132,9 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
                                 "relative_tolerance":1.0e-5,
                                 "convergence_criterion":"incremental",
                                 "error_on_nonconvergence":True,
-                                "lu_solver":{"same_nonzero_pattern":False, "symmetric":False, "reuse_factorization":False}}}
+                                "lu_solver":{"same_nonzero_pattern":False,
+                                             "symmetric":False,
+                                             "reuse_factorization":False}}}
 
 
     mdl = model.model(mesh,data_mask, param)

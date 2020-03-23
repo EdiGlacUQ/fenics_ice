@@ -66,6 +66,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     mdl.init_alpha(alpha)
 
 
+    #Construct Laplacian prior operator
     rc_inv = param['rc_inv']
     if pflag == 0:
         delta = rc_inv[1]
@@ -82,6 +83,8 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     z = Function(alpha.function_space())
 
 
+    #TODO: not convinced this does anything at present
+    #Was used to test that eigenvectors are prior inverse orthogonal
     test, trial = TestFunction(space), TrialFunction(space)
     mass = assemble(inner(test,trial)*dx)
     mass_solver = KrylovSolver("cg", "sor")
@@ -90,12 +93,13 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     mass_solver.set_operator(mass)
 
 
+    #Loads eigenvalues from slepceig_all.p
     with open(os.path.join(eigendir, lamfile), 'rb') as ff:
         eigendata = pickle.load(ff)
         lam = eigendata[0].real.astype(np.float64)
         nlam = len(lam)
 
-
+    #and eigenvectors from .h5 files
     W = np.zeros((x.vector().size(),nlam))
     with HDF5File(MPI.comm_world, os.path.join(eigendir, vecfile), 'r') as hdf5data:
         for i in range(nlam):
@@ -105,10 +109,12 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
 
             tmp = y.vector().get_local()
             sc = np.sqrt(np.dot(v,tmp))
+            #eigenvectors are scaled by something to do with the prior action...
             W[:,i] = v/sc
 
 
 
+    #Take only the largest eigenvalues
     pind = np.flatnonzero(lam>threshlam)
     lam = lam[pind]
     W = W[:,pind]

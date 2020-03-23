@@ -30,8 +30,10 @@ class model:
             self.Qp = self.Q
             self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         else:
-            self.Qp = FunctionSpace(self.mesh,'Lagrange',1,constrained_domain=PeriodicBoundary(self.param['periodic_bc']))
-            self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2,constrained_domain=PeriodicBoundary(self.param['periodic_bc']))
+            self.Qp = FunctionSpace(self.mesh,'Lagrange',1,
+                                    constrained_domain=PeriodicBoundary(self.param['periodic_bc']))
+            self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2,
+                                    constrained_domain=PeriodicBoundary(self.param['periodic_bc']))
 
         #Default velocity mask and Beta fields
         self.def_vel_mask()
@@ -39,6 +41,9 @@ class model:
         self.def_lat_dirichletbc()
 
     def init_param(self, param_in):
+        """
+        Sets parameter values to defaults, then overwrites with param_in
+        """
 
         #Constants for ice sheet modelling
         param = {}
@@ -155,6 +160,10 @@ class model:
         self.v_std = project(vstd,self.M)
 
     def init_lat_dirichletbc(self):
+        """
+        Set lateral vel BC from obs
+        """
+
         u_obs = project(self.u_obs,self.Q)
         v_obs = project(self.v_obs,self.Q)
 
@@ -191,6 +200,9 @@ class model:
         self.mask = project(conditional(gt(self.H,self.param['tol']),1,0), self.M)
 
     def gen_alpha(self, a_bgd=500.0, a_lb = 1e2, a_ub = 1e4):
+        """
+        Initial guess for alpha (slip coeff)
+        """
 
         bed = self.bed
         H = self.H

@@ -290,7 +290,10 @@ class ssa_solver:
         solve(a==L,H_nps, bcs = self.H_bcs)
 
     def timestep(self, save = 1, adjoint_flag=1, qoi_func= None ):
-
+        """
+        Time evolving model
+        Returns the QoI
+        """
 
         t = 0.0
 
@@ -320,7 +323,11 @@ class ssa_solver:
             reset()
             start_annotating()
 #            configure_checkpointing("periodic_disk", {'period': 2, "format":"pickle"})
-            configure_checkpointing("multistage", {"blocks":n_steps, "snaps_on_disk":4000, "snaps_in_ram":10, "verbose":True, "format":"pickle"})
+            configure_checkpointing("multistage", {"blocks":n_steps,
+                                                   "snaps_on_disk":4000,
+                                                   "snaps_in_ram":10,
+                                                   "verbose":True,
+                                                   "format":"pickle"})
 
         self.def_thickadv_eq()
         self.def_mom_eq()
@@ -356,6 +363,8 @@ class ssa_solver:
 
 
 
+        #Main timestepping loop
+        #=======================
         for n in range(n_steps):
             begin("Starting timestep %i of %i, time = %.16e a" % (n + 1, n_steps, t))
 
@@ -553,18 +562,22 @@ class ssa_solver:
         ds = self.ds
         nm = self.nm
 
+        #regularization parameters
         lambda_a = self.param['rc_inv'][0]
         delta_a = self.param['rc_inv'][1]
         delta_b = self.param['rc_inv'][2]
         gamma_a = self.param['rc_inv'][3]
         gamma_b = self.param['rc_inv'][4]
 
+        #data misfit component of J (Isaac 12), with diagonal noise covariance matrix
         J_ls = lambda_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*(v-v_obs)**2.0)*self.dObs
 
         f = TrialFunction(self.Qp)
         f_alpha = Function(self.Qp)
         f_beta = Function(self.Qp)
 
+        #cf. Isaac 5, delta component ensures invertiblity, gamma -> smoothness
+        #Why does this need to be 'solved' as opposed to simply computed?
         a = f*self.pTau*dIce
         L = (delta_a * alpha * self.pTau - gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
         solve(a == L, f_alpha )
@@ -602,6 +615,10 @@ class ssa_solver:
         return J
 
     def comp_Q_vaf(self, verbose=False):
+        """
+        QOI: Volume above flotation
+        """
+
         H = self.H_nps
         #B stands in for self.bed, which leads to a taping error
         B = Function(self.M)
@@ -621,6 +638,9 @@ class ssa_solver:
         return Q_vaf
 
     def comp_Q_h2(self,verbose=False):
+        """
+        QOI: Square integral of thickness
+        """
 
         Q_h2 = self.H_np*self.H_np*self.dIce
         if verbose: print('Q_h2: {0}'.format(Q_h2))

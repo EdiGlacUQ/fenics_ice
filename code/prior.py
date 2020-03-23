@@ -41,8 +41,8 @@ class laplacian(object):
 
 
     def action(self, x, y):
-        self.A.mult(x, self.tmp1)
-        self.M_solver.solve(self.tmp2, self.tmp1)
+        self.A.mult(x, self.tmp1) #tmp1 = Ax
+        self.M_solver.solve(self.tmp2, self.tmp1) #Atmp2 = tmp1
         self.A.mult(self.tmp2,self.tmp1)
         y.set_local(self.tmp1.get_local())
         y.apply("insert")

@@ -111,6 +111,10 @@ def binread(fn):
 
 
 def U2Uobs(dd,noise_sdev=1.0):
+    """
+    Takes a velocity field in 'U.xml' and adds normal noise
+    Output written to 'u_obs.xml' and 'v_obs.xml'
+    """
 
     data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
     V = VectorFunctionSpace(data_mesh, 'Lagrange', 1, dim=2, constrained_domain=model.PeriodicBoundary(40e3))
