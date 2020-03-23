@@ -24,8 +24,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
 
     #Load Data
-    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
-    mesh = data_mesh
+    mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
     #Set up Function spaces
     Q = FunctionSpace(mesh,'Lagrange',1)
@@ -79,6 +78,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
     space = cntrl.function_space()
 
     sigma = Function(space)
+    sigma_prior = Function(space)
     x, y = Function(space), Function(space)
     z = Function(space)
 
@@ -117,10 +117,13 @@ def main(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
     D = np.diag(lam / (lam + 1))
 
 
-    sigma_get_local = np.zeros(space.dim())
+    sigma_vector = np.zeros(space.dim())
+    sigma_prior_vector = np.zeros(space.dim())
     ivec = np.zeros(space.dim())
 
-    for j in range(sigma_get_local.size):
+    neg_flag = 0
+
+    for j in range(sigma_vector.size):
 
         ivec.fill(0)
         ivec[j] = 1.0
@@ -135,15 +138,38 @@ def main(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
         P2 = x.vector().get_local()
 
         P = P2-P1
-        sigma_get_local[j] = np.sqrt(np.dot(ivec, P))
+        dprod = np.dot(ivec, P)
+        dprod_prior = np.dot(ivec, P2)
 
-    sigma.vector().set_local(sigma_get_local)
+
+        if dprod < 0:
+            print(f'WARNING: Negative Sigma: {dprod}')
+            print(f'Setting as Zero and Continuing.')
+            neg_flag = 1
+            continue
+
+        sigma_vector[j] = np.sqrt(dprod)
+        sigma_prior_vector[j] = np.sqrt(dprod_prior)
+
+
+    if neg_flag:
+        print('Negative value(s) of sigma encountered. Examine the range of eigenvalues and check if the threshlam paramater is set appropriately.')
+    
+    sigma.vector().set_local(sigma_vector)
     sigma.vector().apply('insert')
+
+    sigma_prior.vector().set_local(sigma_prior_vector)
+    sigma_prior.vector().apply('insert')
 
     vtkfile = File(os.path.join(outdir,'{0}_sigma.pvd'.format(cntrl.name()) ))
     xmlfile = File(os.path.join(outdir,'{0}_sigma.xml'.format(cntrl.name()) ))
     vtkfile << sigma
     xmlfile << sigma
+
+    vtkfile = File(os.path.join(outdir,'{0}_sigma_prior.pvd'.format(cntrl.name()) ))
+    xmlfile = File(os.path.join(outdir,'{0}_sigma_prior.xml'.format(cntrl.name()) ))
+    vtkfile << sigma_prior
+    xmlfile << sigma_prior
 
 if __name__ == "__main__":
     stop_annotating()

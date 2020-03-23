@@ -1,15 +1,3 @@
-# Plot four eigenfunctions. Defaults to leading four
-
-# Parameters:
-e_offset = 0    #Offset from first eigenvalue (0 results in leading four)
-
-run_folders = [
-    './ismipC_inv4_perbc_20x20_gnhep_prior/run_forward',
-    './ismipC_inv6_perbc_20x20_gnhep_prior/run_forward',]
-
-#########################
-
-
 import sys
 import pickle
 import numpy as np
@@ -21,6 +9,32 @@ from fenics import *
 import model
 
 
+###########################################################
+# Plot four eigenfunctions. Defaults to leading four
+###########################################################
+# Parameters:
+
+#Offset from first eigenvector (0 results in leading four)
+e_offset = 30    
+
+base_folder = '/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/output/ismipC'
+
+# Simulation Directories: A list of one or more directories
+run_folders = [
+    'uq_rc_1e6/run_forward',
+    # 'uq_rc_1e4/run_forward',
+    ]
+
+#Figure size in inches (width, height). Passed to Pyplot figure();
+figsize = (18, 6)
+
+# Output Directory
+outdir = '/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/output/ismipC'
+
+#########################
+
+
+
 cmap='Blues'
 cmap_div='RdBu'
 numlev = 40
@@ -29,11 +43,11 @@ tick_options = {'axis':'both','which':'both','bottom':False,
 labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
 
-fig = plt.figure()
+fig = plt.figure(figsize=figsize)
 fig.tight_layout()
 
 for i, rf in enumerate(run_folders):
-    mesh = Mesh(os.path.join(rf,'mesh.xml'))
+    mesh = Mesh(os.path.join(base_folder, rf,'mesh.xml'))
     param = pickle.load( open( os.path.join(rf,'param.p'), "rb" ) )
 
     Q = FunctionSpace(mesh,'Lagrange',1)
@@ -73,4 +87,4 @@ for i, rf in enumerate(run_folders):
         cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="vertical")
 
 plt.show()
-plt.savefig('leading_eigenvalues.pdf')
+plt.savefig(os.path.join(outdir,'leading_eigenvectors.pdf'))

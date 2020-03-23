@@ -19,7 +19,7 @@
 \usepackage{siunitx}
 
 \DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
-
+\DeclareSIUnit\year{yr}
 
 
 \title{Fenics Ice Sheet Model User Guide}
@@ -141,7 +141,7 @@ The {\tt /aux} folder contains auxillary files; in here, the file {\tt gen\_ismi
 
 \section{Tutorial: A Walkthrough of IsmipC}
 
-The Ice Sheet Model Intercomparison Project for Higher-Order ice sheet Models (ISMIP) provides a standardized set of idealized tests for ice sheet models. In this walkthrough, we apply Fenics\_ice to the domain prescribed by experiment C (IsmipC). The original IsmipC is a static simulation, meaning time evolution is not considered. We'll extend it by running a dynamic simulation for the purposes of performing uncertainty quantification.
+The Ice Sheet Model Intercomparison Project for Higher-Order ice sheet Models (ISMIP-HOM) provides a standardized set of idealized tests for ice sheet models. In this walkthrough, we apply Fenics\_ice to the domain prescribed by experiment C (IsmipC). A description of IsmipC is provided in Section \ref{IsmipC} of this user guide. The original IsmipC is a static simulation, meaning time evolution is not considered. We'll extend it by running a dynamic simulation for the purposes of performing uncertainty quantification.
 
 
 \subsection{Generating the Domain}
@@ -302,7 +302,7 @@ real	\hspace{10mm} 8m27.972s \\
 user  \hspace{9mm}  32m10.906s \\
 sys    \hspace{11mm} 21m14.797s. \\
 
-Let's break down the contents of the {\tt uq\_rc\_1e6.sh} script.
+These can be obtained in linux shell by executing {\tt time ./uq\_rc\_1e6.sh}. Let's break down the contents of the {\tt uq\_rc\_1e6.sh} script.
 
 The script begins by defining the locations of inputs and outputs.
 
@@ -352,7 +352,7 @@ python run_eigendec.py -s -m -p 0   -d $OUTPUT_DIR -o $EIGENDECOMP_DIR -f $EIGFI
 python run_errorprop.py -p 0 -d $FORWARD_DIR -e $EIGENDECOMP_DIR -l $EIGFILE -o $FORWARD_DIR
 \end{spverbatim}
 
-The first python script {\tt run\_inv.py} performs the inversion. The {\tt -b} flag indicates that periodic boundary conditions should be applied at the domain boundary. Currently periodic boundary conditions cannot be specified on individual boundaries, but rather for the entire domain . Each of {\tt -x} and {\tt -y} specify the resolution in the number of cells in the x and y directions. At the present stage, resolution needs to be uniform in both axis. The {\tt -m} option specifies that a maximum of 200 iterations of gradient descent be performed to minimize the cost-function, while the input {-p 0} indicates we are optimizing basal drag. In the case of IsmipC, $B_{glen}$ is assigned a constant value. Scaling constants in the cost function for the inversion are specified by the {\tt -r} option. The first value scales the velocity misfit, RC2 and RC4 apply to the regularization of alpha, RC3 and RC4 apply to the regularization of beta. RC2 and RC3 specify the delta parameters in the cost function, and RC4 and RC5 specify the gamma parameters. The options {\tt -d} and {\tt -o} specify input and output directoies.
+The first python script {\tt run\_inv.py} performs the inversion. The {\tt -b} flag indicates that periodic boundary conditions should be applied at the domain boundary. Currently periodic boundary conditions cannot be specified on individual boundaries, but rather for the entire domain . Each of {\tt -x} and {\tt -y} specify the resolution in the number of cells in the x and y directions. At the present stage, resolution needs to be uniform in both axis. The {\tt -m} option specifies that a maximum of 200 iterations of gradient descent be performed to minimize the cost-function, while the input {-p 0} indicates we are optimizing basal drag. In the case of IsmipC, $B_{glen}$ is assigned a constant value. Scaling constants in the cost function for the inversion are specified by the {\tt -r} option. The first value scales the velocity misfit, RC2 and RC4 apply to the regularization of alpha, RC3 and RC5 apply to the regularization of beta. RC2 and RC3 specify the delta parameters in the cost function, and RC4 and RC5 specify the gamma parameters. The options {\tt -d} and {\tt -o} specify input and output directoies.
 
 The second python script {\tt run\_forward.py} numerically integrates the simulation forward in time and calculates the adjoint of the quantity of interest with respect to the specified variable. The {\tt -t} option determines the number years to run the simulation for, with {\tt -n} number of timesteps. The $-s$ parameter specifies the numer of sensitivities to calculate. If the value is 1, than the sensitivity at the last timestep is calculated. Otherwise they are calculated at np.linspace(0, run\_length, number\_of\_sensitivites). The sensitivities of a quantity of interest are calculated. Here, we specify the quantity of interest as the integral of the height squared with the {\tt -i 1} option, as the IsmipC simulation is mass-conserving due to the periodic-boundary conditions. The other available option, suitable to real life domains, is volume above floation. Again, the options {\tt -d} and {\tt -o} specify input and output directories.
 
@@ -361,7 +361,62 @@ The third python script {\tt run\_eigendec.py} eigendecomposes the Hessian of th
 Lastly, the fourth python script {\tt run\_errorprop.py} assembles the output of {\tt run\_forward.py} and {\tt run\_errorprop.py} to determine the standard deviation of the quantity of interest through time. The options for this script duplicate those above.
 
 \subsection{Plotting}
-real   \hspace{10mm}78m36.278s\\                                                                                                 
-user   \hspace{8mm} 337m34.531s\\                                                                                                    
-sys    \hspace{10mm} 214m18.828s\\
+
+This section will plot the results of the IsmipC experiments. It assumes you ran all the simulations in {\tt ismipc/scripts/}. If not, you'll need to execute {\tt run\_all.sh} in that folder. The timings on the same machine as previously are as follow:
+
+real    \hspace{10mm}91m2.137s           \\                                                                                            
+user   \hspace{8mm} 343m51.234s      \\                                                                                               
+sys     \hspace{11mm}218m52.578s    \\
+
+
+
+\section{IsmipC}\label{IsmipC}
+Ice Sheet Model Intercomparison Project for Higher-Order ice sheet Models (ISMIP-HOM) is a set of standardized simulations used in the glaciology community for model intercomparison. Due to its familiarity, and simple setup, Experiment C was selected for the tutorial in this user-guide. It allows many aspects of uncertainty quantification to be explored in a simple domain.
+
+The domain of Experiment C is a square domain with periodic boundary conditions on all four boundaries. The surface and basal topography are prescribed as:
+
+%
+\begin{equation}
+s(x,y) = -x \cdot tan(0.1\si{\degree})
+\label{eq:ismipCS}
+\end{equation} 
+%
+\begin{equation}
+b(x,y) = s(x,y) - 1000
+\label{eq:ismipCB}
+\end{equation} 
+%
+
+
+In Experiment C, basal drag is parameterized with a linear sliding law, with the drag coefficient prescribed as:
+%
+\begin{equation}
+\beta = [1000 + 1000sin(\omega x)cos(\omega y)] \cdot t_y^{-1}
+\label{eq:ismipCBD}
+\end{equation} 
+%
+where $t_y$ is the number of seconds in a year, converting $\beta$ to SI units.
+
+
+
+\begin{table}[]
+\centering
+\begin{tabular}{llll}
+\hline
+ Symbol & Constant  & Value  & Units   \\
+ \hline
+ A &  Ice-flow parameter &  $10^{-16}$ &  \si{\pascal\tothe{n}\per\year}  \\
+ $\rho_i$ & Ice Density &  910 &   \si{\kilo\gram\per\metre\cubed}   \\
+  g & Gravitational constant  & 9.81  & \si{\metre\per\second\squared}   \\
+  n & Exponent in Glen's Flow law  & 3  &   \\
+  $t_y$ & Seconds per year  & 31556926  & \si{\second\per\year}   \\
+ \hline
+\end{tabular}
+\caption[Constants for ISMIP-HOM experiments.]{Constants for ISMIP-HOM experiments}
+    \label{table:ISMIPparam}
+\end{table}
+
+
+
+
 \end{document}  

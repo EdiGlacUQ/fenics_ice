@@ -16,6 +16,10 @@ run_folders = [
     './ismipC_inv4_perbc_20x20_gnhep_prior/run_forward',
     './ismipC_inv6_perbc_20x20_gnhep_prior/run_forward',]
 
+run_folders = [
+'./uq_rc_1e4/run_forward',
+'./uq_rc_1e4/run_forward',]
+
 f, axarr = plt.subplots(1,2, sharex=True)
 
 for i, rf in enumerate(run_folders):

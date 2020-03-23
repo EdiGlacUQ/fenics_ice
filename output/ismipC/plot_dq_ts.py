@@ -1,4 +1,4 @@
-# Plots the sensitivity of the QOI to the parameter of interest. This sensitivity
+ # Plots the sensitivity of the QOI to the parameter of interest. This sensitivity
 # is determined by run_forward.py, either at only the final timestep, or at a given
 # interval. 
 
@@ -8,7 +8,7 @@
 # is the last timestep
  
 # Parameters:
-n_sens = 1
+n_sens = 4
 base_folder = '/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/output/ismipC'
 run_folders = [
     f'{base_folder}/ismipC_inv4_perbc_20x20_gnhep_prior/run_forward',]

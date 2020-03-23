@@ -24,8 +24,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
 
     #Load Data
-    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
-    mesh = data_mesh
+    mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
     #Set up Function spaces
     Q = FunctionSpace(mesh,'Lagrange',1)
