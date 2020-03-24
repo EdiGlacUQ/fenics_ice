@@ -82,15 +82,22 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, periodic_bc, alti
             mesh_length = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
             assert(mesh_length), 'Need to run periodic bc using original files'
 
+        # Assume we're on a data_mesh
+        else:
+            gf = 'grid_data.npz'
+            npzfile = np.load(os.path.join(dd,'grid_data.npz'))
+            xlim = npzfile['xlim']
+            ylim = npzfile['ylim']
+            L1 = xlim[-1] - xlim[0]
+            L2 = ylim[-1] - ylim[0]
+            assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
+            mesh_length = L1
 
-        Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(mesh_length))
+        Qp = FunctionSpace(data_mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(mesh_length))
     
 
 
     data_mask = Function(M,os.path.join(dd,data_mask_file))
-
-    #Q = FunctionSpace(mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
-
 
     bed = Function(Q,os.path.join(dd,'bed.xml'))
 
@@ -180,7 +187,6 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, periodic_bc, alti
     pickle.dump( mdl.param, open( os.path.join(outdir,'param.p'), "wb" ) )
 
     File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
-    File(os.path.join(outdir,'data_mesh.xml')) << data_mesh
 
 
     vtkfile = File(os.path.join(outdir,'U.pvd'))
@@ -281,8 +287,8 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, required=True, help='Inversion parameters: alpha (0), beta (1), alpha and beta (2)')
     parser.add_argument('-s', '--simultaneousmethod', dest='sim_flag', action='store_true', help='Dual parameter inversion for both parameters simultaneously (default is to alternative through parameters)')
     parser.add_argument('-a', '--altiter', dest='altiter', type=int, help='Number of times to iterate through parameters for inversions w/ more than one parameter (not applicable when conducting dual inversion)')
-    parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction (defaults to data resolution)')
-    parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction (defaults to data resolution)')
+    parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction')
+    parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction')
     parser.add_argument('-b', '--boundaries', dest='periodic_bc', action='store_true', help='Periodic boundary conditions')
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')

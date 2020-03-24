@@ -3,21 +3,25 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import seaborn as sns
 import os
 from fenics import *
 import model
+
+sns.set()
 
 ###########################################################
 # Plot the result of an inversion. This shows:
 # 1. The inverted value of B2; It is explicitly assumed that B2 = alpha**2
 # 2. The the standard deviation of alpha.
 # 3. The resulting velocities obtained by solving the momentum equations using the inverted value of B2.
-# 4. The difference between observed and modelled velocities
+# 4. The observed velocities
+# 5. The difference between observed and modelled velocities
 ###########################################################
 # Parameters:
 
 # Simulation Directory
-dd = '/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/output/ismipC/uq_rc_1e4'
+dd = os.path.join(os.environ['FENICS_ICE_BASE_DIR'],'output/ismipC/uq_rc_1e6')
 
 # Output Directory
 outdir = os.path.join(dd, 'plots')
@@ -68,7 +72,7 @@ t    = mesh.cells()
 fig = plt.figure(figsize=(10,5))
 
 
-ax  = fig.add_subplot(151)
+ax  = fig.add_subplot(231)
 ax.set_aspect('equal')
 v    = B2.compute_vertex_values(mesh)
 minv = np.min(v)
@@ -82,7 +86,7 @@ c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap))
 cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
 cbar.ax.set_xlabel(r'${B^2}$ (Pa $m^{-1}$ yr)')
 
-ax  = fig.add_subplot(152)
+ax  = fig.add_subplot(232)
 ax.set_aspect('equal')
 v    = alpha_sigma.compute_vertex_values(mesh)
 minv = np.min(v)
@@ -98,7 +102,7 @@ cbar.ax.xaxis.set_major_locator(ticker.LinearLocator(3))
 
 cbar.ax.set_xlabel(r'$\sigma$ ($Pa^{0.5}$ $m^{-0.5}$ $yr^{0.5}$)')
 
-ax  = fig.add_subplot(153)
+ax  = fig.add_subplot(233)
 ax.set_aspect('equal')
 v   = uv.compute_vertex_values(mesh)
 levels = np.linspace(10,30,numlev)
@@ -111,7 +115,7 @@ cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
 cbar.ax.set_xlabel(r'$U$ (m $yr^{-1}$)')
 
 
-ax  = fig.add_subplot(154)
+ax  = fig.add_subplot(234)
 ax.set_aspect('equal')
 v   = uv_obs.compute_vertex_values(mesh)
 levels = np.linspace(10,30,numlev)
@@ -123,7 +127,7 @@ c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap))
 cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
 cbar.ax.set_xlabel(r'$U_{obs}$ (m $yr^{-1}$)')
 
-ax  = fig.add_subplot(155)
+ax  = fig.add_subplot(235)
 ax.set_aspect('equal')
 v   = uv_diff.compute_vertex_values(mesh)
 max_diff = np.rint(np.max(np.abs(v)))

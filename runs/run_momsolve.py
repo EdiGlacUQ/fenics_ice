@@ -63,21 +63,32 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
 
     # Make necessary modification for periodic bc
     if periodic_bc:
+        mesh_length = np.NaN
 
-        #If we're on a new mesh
+        # If we're on a new mesh
         if nx and ny:
             L1 = xlim[-1] - xlim[0]
             L2 = ylim[-1] - ylim[0]
             assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
             mesh_length = L1
 
-        #If previous run   
+        # If previous run   
         elif os.path.isfile(os.path.join(dd,'param.p')):
             mesh_length = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
             assert(mesh_length), 'Need to run periodic bc using original files'
 
+        # Assume we're on a data_mesh
+        else:
+            gf = 'grid_data.npz'
+            npzfile = np.load(os.path.join(dd,'grid_data.npz'))
+            xlim = npzfile['xlim']
+            ylim = npzfile['ylim']
+            L1 = xlim[-1] - xlim[0]
+            L2 = ylim[-1] - ylim[0]
+            assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
+            mesh_length = L1
 
-        Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(mesh_length))
+        Qp = FunctionSpace(data_mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(mesh_length))
     
 
 
@@ -181,7 +192,6 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
     pickle.dump( mdl.param, open( os.path.join(outdir,'param.p'), "wb" ) )
 
     File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
-    File(os.path.join(outdir,'data_mesh.xml')) << data_mesh
 
     vtkfile = File(os.path.join(outdir,'U.pvd'))
     xmlfile = File(os.path.join(outdir,'U.xml'))
@@ -239,8 +249,8 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-b', '--boundaries', dest='periodic_bc', action='store_true', help='Periodic boundary conditions')
-    parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction (defaults to data resolution)')
-    parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction (defaults to data resolution)')
+    parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction')
+    parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction')
     parser.add_argument('-q', '--slidinglaw', dest='sl', type=int,  help = 'Sliding Law (0: linear (default), 1: weertman)')
     
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
