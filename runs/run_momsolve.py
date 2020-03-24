@@ -14,69 +14,145 @@ from IPython import embed
 
 def main(outdir, dd, periodic_bc, nx, ny, sl):
 
-    #Load Data
-    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
-    mesh = data_mesh
+    # Determine Mesh
 
-    M = FunctionSpace(data_mesh, 'DG', 0)
-    Mp = M
-    Q = FunctionSpace(data_mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
-    Qp = Q
+    # Create a new mesh with specific resolution
+    if nx and ny:
+        data_mesh_file = 'data_mesh.xml'
+        data_mask_file = 'data_mask.xml'
 
-    bed = Function(Q,os.path.join(dd,'bed.xml'))
-    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
-    smb = Function(M,os.path.join(dd,'smb.xml'))
-    thick = Function(M,os.path.join(dd,'thick.xml'))
-    mask = Function(M,os.path.join(dd,'mask.xml'))
-    alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
+        assert(os.path.isfile(os.path.join(dd,data_mesh_file))), 'Need data_mesh.xml to interpolate'
+        assert(os.path.isfile(os.path.join(dd,data_mask_file))), 'Need data_mask.xml to interpolate'
 
-
-    if not os.path.isfile(os.path.join(dd,'param.p')):
-        print('Generating new mesh')
         #Generate model mesh
+        print('Generating new mesh')
         gf = 'grid_data.npz'
         npzfile = np.load(os.path.join(dd,'grid_data.npz'))
         xlim = npzfile['xlim']
         ylim = npzfile['ylim']
 
-        if not nx:
-            nx = int(npzfile['nx'])
-        if not ny:
-            ny = int(npzfile['ny'])
-
         mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
-    else:
-        print('Identified as previous run, reusing mesh')
-        assert(not nx), 'Cannot change mesh resolution from previous run'
-        assert(not ny), 'Cannot change mesh resolution from previous run'
 
+    # Reuse a mesh; in this case, mesh and data_mesh will be identical
+
+    # Otherwise see if there is previous run
+    elif os.path.isfile(os.path.join(dd,'mesh.xml')):
+        data_mesh_file = 'mesh.xml'
+        data_mask_file = 'mask.xml'
+
+        mesh = Mesh(os.path.join(dd,data_mesh_file))
+    
+    # Mirror data files
+    elif os.path.isfile(os.path.join(dd,'data_mesh.xml')):
+        #Start from raw data
+        data_mesh_file = 'data_mesh.xml'
+        data_mask_file = 'data_mask.xml'
+
+        mesh = Mesh(os.path.join(dd,data_mesh_file))
+
+    else:
+        print('Need mesh and mask files')
+        raise SystemExit
+
+    data_mesh = Mesh(os.path.join(dd,data_mesh_file))
+    
+    # Define Function Spaces
+    M = FunctionSpace(data_mesh, 'DG', 0)
+    Q = FunctionSpace(data_mesh, 'Lagrange', 1)
+    Qp = Q
+
+    # Make necessary modification for periodic bc
     if periodic_bc:
-        if os.path.isfile(os.path.join(dd,'param.p')):
-            periodic_bc = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
-            assert(periodic_bc), 'Need to run periodic bc using original files'
-        else:
+
+        #If we're on a new mesh
+        if nx and ny:
             L1 = xlim[-1] - xlim[0]
             L2 = ylim[-1] - ylim[0]
             assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
-            periodic_bc = L1
+            mesh_length = L1
 
-        Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(periodic_bc))
+        #If previous run   
+        elif os.path.isfile(os.path.join(dd,'param.p')):
+            mesh_length = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
+            assert(mesh_length), 'Need to run periodic bc using original files'
 
+
+        Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(mesh_length))
+    
+
+
+    data_mask = Function(M,os.path.join(dd,data_mask_file))
+
+    bed = Function(Q,os.path.join(dd,'bed.xml'))
+    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
+    smb = Function(M,os.path.join(dd,'smb.xml'))
+    thick = Function(M,os.path.join(dd,'thick.xml'))
+    alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
+
+#############################
+    # #Load Data
+    # data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    # mesh = data_mesh
+
+    # M = FunctionSpace(data_mesh, 'DG', 0)
+    # Mp = M
+    # Q = FunctionSpace(data_mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
+    # Qp = Q
+
+    # bed = Function(Q,os.path.join(dd,'bed.xml'))
+    # bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
+    # smb = Function(M,os.path.join(dd,'smb.xml'))
+    # thick = Function(M,os.path.join(dd,'thick.xml'))
+    # mask = Function(M,os.path.join(dd,'mask.xml'))
+    # alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
+
+
+    # if not os.path.isfile(os.path.join(dd,'param.p')):
+    #     print('Generating new mesh')
+    #     #Generate model mesh
+    #     gf = 'grid_data.npz'
+    #     npzfile = np.load(os.path.join(dd,'grid_data.npz'))
+    #     xlim = npzfile['xlim']
+    #     ylim = npzfile['ylim']
+
+    #     if not nx:
+    #         nx = int(npzfile['nx'])
+    #     if not ny:
+    #         ny = int(npzfile['ny'])
+
+    #     mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
+    # else:
+    #     print('Identified as previous run, reusing mesh')
+    #     assert(not nx), 'Cannot change mesh resolution from previous run'
+    #     assert(not ny), 'Cannot change mesh resolution from previous run'
+
+    # if periodic_bc:
+    #     if os.path.isfile(os.path.join(dd,'param.p')):
+    #         periodic_bc = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
+    #         assert(periodic_bc), 'Need to run periodic bc using original files'
+    #     else:
+    #         L1 = xlim[-1] - xlim[0]
+    #         L2 = ylim[-1] - ylim[0]
+    #         assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
+    #         periodic_bc = L1
+
+    #     Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(periodic_bc))
+############################
 
 
     #Initialize Model
     param = {
             'outdir' : outdir,
-            'periodic_bc': periodic_bc,
+            'periodic_bc': mesh_length,
             'sliding_law': sl
             }
 
 
-    mdl = model.model(mesh,mask, param)
+    mdl = model.model(mesh,data_mask, param)
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
-    mdl.init_mask(mask)
+    mdl.init_mask(data_mask)
     mdl.init_bmelt(bmelt)
     mdl.init_smb(smb)
     mdl.init_alpha(alpha)
@@ -137,13 +213,6 @@ def main(outdir, dd, periodic_bc, nx, ny, sl):
     xmlfile = File(os.path.join(outdir,'mask.xml'))
     vtkfile << mdl.mask
     xmlfile << mdl.mask
-
-    
-    vtkfile = File(os.path.join(outdir,'data_mask.pvd'))
-    xmlfile = File(os.path.join(outdir,'data_mask.xml'))
-    vtkfile << mask
-    xmlfile << mask
-
 
     vtkfile = File(os.path.join(outdir,'alpha.pvd'))
     xmlfile = File(os.path.join(outdir,'alpha.xml'))
