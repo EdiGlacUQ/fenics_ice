@@ -103,7 +103,23 @@ export PYTHONPATH
 
 \section{Program structure}
 
+\subsection{Overview}
+
+The core of the ice sheet model is in two files: {\tt /code/model.py} and {\tt /code/solver.py}. These are utilized by the python scripts in the {\tt /runs} folder, which execute specific parts of a simulation. The python scripts there are generic to any simulation. Each new simulation then has its own primary folder in the {\tt /scripts} folder, with simple bash scripts which call program files in {\tt /runs} with specific parameters and data files.
+
+The bash scripts in {\tt /scripts} are where parameters and data file locations are specified; these are bash simple wrapper scripts for calling python scripts in {\tt /runs}. The data and parameters are used by the program files in {\tt /runs} to create a model object (via a class defined in {\tt model.py}) and subsequently a solver object (via a class defined in {\tt solver.py}). The model object contains all the necessary data for a simulation, such as topography, constants, and velocity observations for inversions. The solver object contains the ice sheet physics/inversion code. The model object is passed as a parameter to your solver object. This object then allows you to solve the SSA equations on your domain, invert for basal drag or $B_{glen}$, and perform uncertainty quantification. The options of any python script in the {\tt /runs} folder can be viewed by typing 'python run\_xxx.py --help'.
+
+
+The {\tt /aux} folder contains auxillary files; in here, the file {\tt gen\_ismipC\_domain.py} generates the ismipC domain,  based off definitions in {\tt test\_domains.py}. The {\tt /input} folder is where input files, such as topography and ice thickness, for specific simulations are located. Similarily, the {\tt /output} folder is where output is stored from specific simulations.
+
 \subsection{Directory Structure}
+
+The complete set of files and directories provided in the FenicsIce repository can be viewed online, using a file explorer, or with the following git command:
+\begin{spverbatim}
+>git ls-tree -r HEAD --name-only
+\end{spverbatim}
+
+The core structure and key files are: \\
 
 \dirtree{%
 .1 fenics\_ice.
@@ -121,27 +137,34 @@ export PYTHONPATH
 .3 run\_momsolve.py.
 .2 scripts.
 .3 ismipc.
+.4 forward\_solve.sh.
+.4 run\_all.sh.
+.4 uq\_30x30.sh.
+.4 uq\_40x40.sh.
+.4 uq\_rc\_1e4.sh.
+.4 uq\_rc\_1e6.sh.
 .2 aux.
 .3 gen\_ismipC\_domain.py.
 .3 test\_domains.py.
+.3 Uobs\_from\_momsolve.py.
 .2 input.
 .3 ismipc.
+.3 smith\_500m\_input.
 .2 output.
 .3 ismipc.
+.4 plot\_dq\_ts.py.
+.4 plot\_eigenvalue\_decay.py.
+.4 plot\_inv\_results.py.
+.4 plot\_leading\_eigenfuncs.py.
+.4 plot\_paths.py.
+.2 user\_guide.
+.3 user\_guide.pdf.
 }
 
-\subsection{Overview}
-
-The core of the ice sheet model is in two files: {\tt /code/model.py} and {\tt /code/solver.py}. These are utilized by the python scripts in the {\tt /runs} folder, which execute specific parts of a simulation. The python scripts there are generic to any simulation. Each new simulation then has its own primary folder in the {\tt /scripts} folder, with simple bash scripts which call program files in {\tt /runs} with specific parameters and data files.
-
-The bash scripts in {\tt /scripts} are where parameters and data file locations are specified; these are bash simple wrapper scripts for calling python scripts in {\tt /runs}. The data and parameters are used by the program files in {\tt /runs} to create a model object (via a class defined in {\tt model.py}) and subsequently a solver object (via a class defined in {\tt solver.py}). The model object contains all the necessary data for a simulation, such as topography, constants, and velocity observations for inversions. The solver object contains the ice sheet physics/inversion code. The model object is passed as a parameter to your solver object. This object then allows you to solve the SSA equations on your domain, invert for basal drag or $B_{glen}$, and perform uncertainty quantification. The options of any python script in the {\tt /runs} folder can be viewed by typing 'python run\_xxx.py --help'.
-
-
-The {\tt /aux} folder contains auxillary files; in here, the file {\tt gen\_ismipC\_domain.py} generates the ismipC domain,  based off definitions in {\tt test\_domains.py}. The {\tt /input} folder is where input files, such as topography and ice thickness, for specific simulations are located. Similarily, the {\tt /output} folder is where output is stored from specific simulations.
 
 \section{Tutorial: A Walkthrough of IsmipC}
 
-The Ice Sheet Model Intercomparison Project for Higher-Order ice sheet Models (ISMIP-HOM) provides a standardized set of idealized tests for ice sheet models. In this walkthrough, we apply Fenics\_ice to the domain prescribed by experiment C (IsmipC). A description of IsmipC is provided in Section \ref{IsmipC} of this user guide. The original IsmipC is a static simulation, meaning time evolution is not considered. We'll extend it by running a dynamic simulation for the purposes of performing uncertainty quantification.
+The Ice Sheet Model Intercomparison Project for Higher-Order ice sheet Models (ISMIP-HOM) provides a standardized set of idealized tests for ice sheet models. In this walkthrough, we apply FenicsIce to the domain prescribed by experiment C (IsmipC). A description of IsmipC is provided in Section \ref{IsmipC} of this user guide. The original IsmipC is a static simulation, meaning time evolution is not considered. We'll extend it by running a dynamic simulation for the purposes of performing uncertainty quantification.
 
 
 \subsection{Generating the Domain}
@@ -152,14 +175,14 @@ Navigate to the {\tt /fenics\_ice} base directory. Activate the fenics conda env
 > source activate fenics 
 \end{verbatim}
 
-To begin, we'll generate the synthetic domain defined by the IsmipC experiment. The specifications are coded in the file {\tt /aux/test\_domains.py}. We'll use the python script 'gen\_ismipC\_domain.py' to create a domain with a given length and resolution.
+To begin, we'll generate the synthetic domain defined by the IsmipC experiment. The specifications are coded in the file {\tt /aux/test\_domains.py}. We'll use the python script {\tt gen\_ismipC\_domain.py} to create a domain with a given length and resolution.
 
 \begin{verbatim}
 > cd $FENICS_ICE_BASE_DIR/aux 
 > python gen_ismipC_domain.py -o ../input/ismipC -L 40000 -nx 100 -ny 100 
 \end{verbatim}
 
-This will generate a square domain with side-length 40\si{\kilo\metre}, at resolution of 100 x 100, placing the output in the folder {\tt input/ismipc}.
+This will generate a square domain with side-length 40\si{\kilo\metre}, at a grid resolution of 100 x 100 cells, placing the output in the folder {\tt input/ismipc}.
 Let's observe the files that are generated.
 
 \begin{spverbatim}
@@ -170,7 +193,7 @@ B2.xml  Bglen.xml  alpha.xml  bed.xml  bmelt.xml  grid_data.npz  mask.xml  mesh.
 The .xml files contain discretized scalar fields over the IsmipC domain on a FEniCS mesh. The extension .npz indicates a numpy file format, and contains the domain resolution and length.
 
 \begin{itemize}
-\item B2.xml -- $\beta^2$ coefficient for linear sliding law $(\bm{\tau_b} = \beta^2 \bm{u})$;
+\item B2.xml -- $\beta^2$ coefficient for linear sliding law $(\bm{\tau_b} = \beta^2 \bm{u})$
 \item  Bglen.xml -- parameter in Glen's flow law
 \item alpha.xml -- variable in sliding law 
 \item bed.xml -- basal topography
@@ -212,7 +235,7 @@ ls $FENICS_ICE_BASE_DIR/input/ismipC/momsolve
 ...
 \end{spverbatim}
 
-The script automatically places the output in the subdirectory of {\tt input/} since we'll use the velocities we solved for in the next step, generating synthetic observations.
+The script automatically places the output in the subdirectory of {\tt input/}. We'll use the velocities we solved for in the next step, generating synthetic observations.
 
 Opening {\tt forward\_solve.sh} with any text editor, we can confirm that this is a simple wrapper script.
 
@@ -237,7 +260,7 @@ The bash script specifies key folders, that we are solving momentum equations on
 
 IsmipC is a synthetic experiment, meaning we don't have observational data of ice velocities. We can generate pseudo-oberservations by adding gaussian noise to the solved velocities. We'll assume the noise is additive rather than a multiplicative factor. 
 
-The python script 'Uobs\_from\_momsolve.py' takes the vector field in U.xml and generates the files: vel\_mask.xml, u\_obs.xml, v\_obs.xml, u\_std.xml, and v\_std.xml. The first file identifies where velocity data is available, the next two files contain the pseudo-observations in the x and y directions, with the final two files containing the standard deviation of the gaussian noise applied. 
+The python script {\tt Uobs\_from\_momsolve.py} takes the vector field in U.xml and generates the files: vel\_mask.xml, u\_obs.xml, v\_obs.xml, u\_std.xml, and v\_std.xml. The first file identifies where velocity data is available, the next two files contain the pseudo-observations in the x and y directions, with the final two files containing the standard deviation of the gaussian noise applied. In this case the standard deviatiation has a constant value of 1.0.
 
 \begin{spverbatim}
 > cd $FENICS_ICE_BASE_DIR/aux/
@@ -251,7 +274,7 @@ The python script 'Uobs\_from\_momsolve.py' takes the vector field in U.xml and 
 /mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/input/ismipC/v_std.xml
 \end{spverbatim}
 
-Copy the five files generated into {\tt \$FENICS\_ICE\_BASE\_DIR/input/ismipC/}. A study site in Antarctica or Greenland would require generating these files (except mesh.xml) from a surface velocity dataset such as NSIDC MEaSUREs.
+Copy the five files generated into {\tt \$FENICS\_ICE\_BASE\_DIR/input/ismipC/}. A study site in Antarctica or Greenland would require generating these files  from a surface velocity dataset such as NSIDC MEaSUREs.
 
 \begin{verbatim}
 > cd $FENICS_ICE_BASE_DIR/input/ismipC/momsolve
@@ -260,21 +283,22 @@ Copy the five files generated into {\tt \$FENICS\_ICE\_BASE\_DIR/input/ismipC/}.
 
 \subsection{Uncertainty Quantification}
 
-Fenics-ice is developed with a view of understanding uncertainty in ice sheet models. Because inversions for key ice-sheet model variables (basal drag and $B_{glen}$) solve under-determined systems of equations, the solutions may have large, and spatially varying error distributions. The novel capabality of fenics-ice is to propogate this uncertainty through a forward stepping simulation, allowing us to calculate the probability distribution of a quantity-of-interest through time, rather than a point estimate. 
+FenicsIce is developed with an aim of understanding uncertainty in ice sheet simulations. Because inversions for key ice-sheet model variables (basal drag and $B_{glen}$) solve under-determined systems of equations, the solutions may have large, and spatially varying error distributions. The novel capabality of FenicsIce is to propogate this uncertainty through a forward stepping simulation, allowing us to calculate the probability distribution of a quantity-of-interest through time, rather than a point estimate. 
 
-The bash scripts starting with the prefix 'uq\_' in {\tt scripts/ismipc} perform the uncertainty quantification process. The suffixes relate to various values of parameters. Uncertainty quantification can be seperated into four parts, corresponding to to different python scripts in the {\tt runs/} folder.
+The bash scripts starting with the prefix {\tt uq\_} in {\tt scripts/ismipc} perform the uncertainty quantification process. The suffixes relate to various values of parameters. Uncertainty quantification can be seperated into five parts, corresponding to to different python scripts in the {\tt runs/} folder.
 
 Beyond the specification of parameters and data sources, the uncertainty quantification scripts call the following (in order):
 
 \begin{enumerate}
 	\item {\tt run\_inv.py} -- Invert for basal drag
 	\item {\tt run\_forward.py} -- Timestep the simulation forward in time
-	\item {\tt run\_eigendec.py} -- Run the eigen-decomposition of the Hessian Matrix -- allowing us to multiply by the inverse of the covariance matrix of basal drag.
-	\item {\tt run\_errorprop.py} -- Run the errorpropogation code to calculate the uncertainty in a quantity of interest through time arising from uncertainty in the inverted values of basal drag
+	\item {\tt run\_eigendec.py} -- Run the eigen-decomposition of a hessian matrix -- allowing us to multiply by the inverse of the covariance matrix of basal drag.
+	\item {\tt run\_errorprop.py} -- Run the error-propogation code to calculate the uncertainty in a quantity of interest through time arising from uncertainty in the inverted values of basal drag
+	\item {\tt run\_invsigma.py} -- Calculate the spatial distribution of the standard deviation of the inverted quantity.
 \end{enumerate}
 
 
-Steps (2) and (3) are independent of each other, and only depend on step (1). Hence their order can be switched.
+Steps (2) and (3) are independent of each other, and only depend on step (1). Hence their order can be switched. Step (4) depends on (1)-(3), while step (5) depends on (1) and (2).
 
 There are five scripts pertaining to uncertainty quantification in {\tt scripts/imsipc/}.
 \begin{enumerate}
@@ -350,6 +374,8 @@ python run_inv.py -b -x $NX -y $NY -m 200 -p 0  -r $RC1 $RC2 $RC3 $RC4 $RC5 -d $
 python run_forward.py -t $T -n $N -s $S -i $QOI -d $OUTPUT_DIR -o $FORWARD_DIR
 python run_eigendec.py -s -m -p 0   -d $OUTPUT_DIR -o $EIGENDECOMP_DIR -f $EIGFILE
 python run_errorprop.py -p 0 -d $FORWARD_DIR -e $EIGENDECOMP_DIR -l $EIGFILE -o $FORWARD_DIR
+python run_invsigma.py -p 0 -d $FORWARD_DIR -e $EIGENDECOMP_DIR -k $EIGENVECTOR_FILE -l $EIGENVALUE_FILE -d $OUTPUT_DIR -o $FORWARD_DIR
+
 \end{spverbatim}
 
 The first python script {\tt run\_inv.py} performs the inversion. The {\tt -b} flag indicates that periodic boundary conditions should be applied at the domain boundary. Currently periodic boundary conditions cannot be specified on individual boundaries, but rather for the entire domain . Each of {\tt -x} and {\tt -y} specify the resolution in the number of cells in the x and y directions. At the present stage, resolution needs to be uniform in both axis. The {\tt -m} option specifies that a maximum of 200 iterations of gradient descent be performed to minimize the cost-function, while the input {-p 0} indicates we are optimizing basal drag. In the case of IsmipC, $B_{glen}$ is assigned a constant value. Scaling constants in the cost function for the inversion are specified by the {\tt -r} option. The first value scales the velocity misfit, RC2 and RC4 apply to the regularization of alpha, RC3 and RC5 apply to the regularization of beta. RC2 and RC3 specify the delta parameters in the cost function, and RC4 and RC5 specify the gamma parameters. The options {\tt -d} and {\tt -o} specify input and output directoies.
@@ -358,7 +384,9 @@ The second python script {\tt run\_forward.py} numerically integrates the simula
 
 The third python script {\tt run\_eigendec.py} eigendecomposes the Hessian of the inversion cost function. The {\tt -s} flag specifies that the SLEPc library should be used, presently the only functioning option. To consider only the velocity misfit portion of the cost function, we set the {\tt -m} flag. As for {\tt run\_inv.py}, we set {\tt -p 0} to consider only basal drag. The remaining options specify the input and output locations. 
 
-Lastly, the fourth python script {\tt run\_errorprop.py} assembles the output of {\tt run\_forward.py} and {\tt run\_errorprop.py} to determine the standard deviation of the quantity of interest through time. The options for this script duplicate those above.
+The fourth python script {\tt run\_errorprop.py} assembles the output of {\tt run\_forward.py} and {\tt run\_errorprop.py} to determine the standard deviation of the quantity of interest through time. The options for this script duplicate those above.
+
+Lastly, the fifth python script {\tt run\_invsigma.py} processes the output of {\tt run\_eigendec.py} to determine the standard deviation of the inverted value across the domain. The options for this script duplicate those above.
 
 \subsection{Plotting}
 
@@ -369,7 +397,7 @@ user   \hspace{8mm} 350m12.844s      \\
 sys     \hspace{11mm}215m26.250s    \\
 
 \subsubsection{Inversion Results}
-The first plot we'll create will allow us to examine the inversion results. We'll do this by running the python script {\tt plot\_inv\_results.py}. You can modify the simulation and output location at the top of the script. The default simulation is {\tt uq\_rc\_1e6} and the default output location is a the folder {\tt \$FENICS\_ICE\_BASE\_DIR/output/ismipC/uq\_rc\_1e6/plots}. The script will create the a file named {\tt inv\_results.pdf} there.
+The first plot we'll create allows us to examine the inversion results. We'll do this by running the python script {\tt plot\_inv\_results.py}. You can modify the simulation and output location at the top of the script. The default simulation is {\tt uq\_rc\_1e6} and the default output location is a the folder {\tt \$FENICS\_ICE\_BASE\_DIR/output/ismipC/uq\_rc\_1e6/plots}. The script will create the a file named {\tt inv\_results.pdf} there.
 
 \begin{spverbatim}
 >cd $FENICS_ICE_BASE_DIR/output/ismipC/
@@ -378,7 +406,7 @@ The first plot we'll create will allow us to examine the inversion results. We'l
 
 There are five panels in the output plot. The inverted basal drag from the inversion is shown in panel  \textbf{(a)}, and the uncertainty in panel  \textbf{(b)}. Panels  \textbf{(c)}-\textbf{(e)} visualize how well the inversion recreates the pseudo-observed velocities. 
 
-Figure \ref{fig:inv_results_rc1e6} displays the results with higher regularization (uq\_rc\_1e6) while Figure \ref{fig:inv_results_rc1e4} shows the results with lower regularization. Observe that less regularization results in higher frequencies in the pattern the basal drag coefficient.
+Figure \ref{fig:inv_results_rc1e6} displays the results with higher regularization ({\tt uq\_rc\_1e6}) while Figure \ref{fig:inv_results_rc1e4} shows the results with lower regularization. Observe that less regularization results in higher frequencies in the pattern the basal drag coefficient.
 
 \begin{figure}[!htbp]
   \centering
@@ -396,6 +424,14 @@ Figure \ref{fig:inv_results_rc1e6} displays the results with higher regularizati
 
 \subsubsection{Eigenvectors}
 
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=13cm]{./figures/leading_eigenvectors_0.pdf}
+  \caption[IsmipC Basal Drag Leading Eigenvectors.]{Leading four constrained modes of the inverted basal drag.}
+      \label{fig:leading_eigenvectors_0}
+\end{figure}
+
+
 Which modes of the basal drag are well constrained by the data? These are described the eigendecomposition we performed earlier. Let's plot them for experiments {\tt uq\_rc\_1e6} and {\tt uq\_rc\_1e4}. The command required is:
 
 \begin{spverbatim}
@@ -405,13 +441,6 @@ Which modes of the basal drag are well constrained by the data? These are descri
 At the top of the file you can specify the simulation folders and the output location. The default output folder is {\tt output/ismipC/plots}. Four eigenvectors are plotted by default, with the parameter {\tt e\_offset} specifying the first eigenvector to plot. The order of the eigenvectors corresponds to how well constrained they are. 
 
 Two figures are shown. In each figure, the top row correpsonds to simulation {\tt uq\_rc\_1e6}, and the bottom panel to simulation {\tt uq\_rc\_1e4}. The first four eigenvectors are shown in Figure \ref{fig:leading_eigenvectors_0}, while eigenvectors 30-33 are shown in Figure \ref{fig:leading_eigenvectors_30}. Observe that the top three constrained modes between simulations are nearly identical, with divergence beginning in the fourth mode. Also notice that well constrained modes correspond to lower frequencies.
-
-\begin{figure}[!htbp]
-  \centering
-  \includegraphics[width=13cm]{./figures/leading_eigenvectors_0.pdf}
-  \caption[IsmipC Basal Drag Leading Eigenvectors.]{Leading four constrained modes of the inverted basal drag.}
-      \label{fig:leading_eigenvectors_0}
-\end{figure}
 
 \begin{figure}[!htbp]
   \centering
@@ -439,7 +468,7 @@ Observe how the eigenvalues quickly drop-off in their magnitude, and overlay in 
 
 \subsubsection{Quantity of Interest Probability Distribution through time}
 
-The quantity of interest for IsmipC was defined as the integral of ice thickness squared over the domain. Using uncertainty quantification techniques, Fenics Ice determines not only a point estimate of the quantity of interest through time, but also a standard deviation (based on an assumption that it is distributed normally). Let's compare the results for simulations {\tt uq\_rc\_1e4} and {\tt uq\_rc\_1e6}:
+The quantity of interest for IsmipC was defined as the integral of ice thickness squared over the domain. Using uncertainty quantification techniques, FenicsIce determines not only a point estimate of the quantity of interest through time, but also a standard deviation (based on an assumption that it is distributed normally). Let's compare the results for simulations {\tt uq\_rc\_1e4} and {\tt uq\_rc\_1e6}:
 
 \begin{spverbatim}
 >python plot_eigenvalue_decay.py
@@ -456,7 +485,7 @@ The plots show the 2-sigma envelope if we consider only the prior (regularizatio
 
 \subsubsection{Quantity of Interest with respect to alpha}
 
-Fenics Ice can calculate how the quantity of interest at a given point in time depends on basal drag (parameterized by alpha) ($\frac{d QOI_{t}}{d \alpha}$). With this we can understand which parts of the basal drag field are the most important in determing the quantity of interest. To make this plot using the final timestep, run the following:
+FenicsIce can calculate how the quantity of interest at a given point in time depends on basal drag (parameterized by alpha) ($\frac{d QOI_{t}}{d \alpha}$). With this we can understand which parts of the basal drag field are the most important in determing the quantity of interest. To make this plot using the final timestep, run the following:
 
 \begin{spverbatim}
 >python plot_dq_ts.py
@@ -519,7 +548,8 @@ In Experiment C, basal drag is parameterized with a linear sliding law, with the
 %
 where $t_y$ is the number of seconds in a year, converting $\beta$ to SI units.
 
-
+\section{Publications}
+This section will be updated as publications with FenicsIce appear.
 
 
 
