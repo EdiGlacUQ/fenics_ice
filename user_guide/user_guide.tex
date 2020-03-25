@@ -376,12 +376,123 @@ The first plot we'll create will allow us to examine the inversion results. We'l
 >python plot_inv_results.py
 \end{spverbatim}
 
-There are size panels in the output plot.
+There are five panels in the output plot. The inverted basal drag from the inversion is shown in panel  \textbf{(a)}, and the uncertainty in panel  \textbf{(b)}. Panels  \textbf{(c)}-\textbf{(e)} visualize how well the inversion recreates the pseudo-observed velocities. 
+
+Figure \ref{fig:inv_results_rc1e6} displays the results with higher regularization (uq\_rc\_1e6) while Figure \ref{fig:inv_results_rc1e4} shows the results with lower regularization. Observe that less regularization results in higher frequencies in the pattern the basal drag coefficient.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=13cm]{./figures/inv_results_rc1e6.pdf}
+  \caption[IsmipC Inversion Results for High Regularization.]{IsmipC inversion results for higher regularization. \textbf{(a)} linear coefficient in basal sliding law;  \textbf{(b)} standard deviation of alpha (defined in this experiment as the square root of the linear drag coefficient);   \textbf{(c)} modelled ice velocities using inverted basal drag;  \textbf{(d)} pseudo-observed ice velocities, consisting of the solution to IsmipC and addtitive gaussian noise;  \textbf{(e)} difference between ice velocities using inverted basal drag and observed ice velocities; }
+      \label{fig:inv_results_rc1e6}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=13cm]{./figures/inv_results_rc1e4.pdf}
+  \caption[IsmipC Inversion Results for Low Regularization.]{IsmipC inversion results for lower regularization. Panels as above. }
+      \label{fig:inv_results_rc1e4}
+\end{figure}
+
+\subsubsection{Eigenvectors}
+
+Which modes of the basal drag are well constrained by the data? These are described the eigendecomposition we performed earlier. Let's plot them for experiments {\tt uq\_rc\_1e6} and {\tt uq\_rc\_1e4}. The command required is:
+
+\begin{spverbatim}
+>python plot_leading_eigenfuncs.py
+\end{spverbatim}
+
+At the top of the file you can specify the simulation folders and the output location. The default output folder is {\tt output/ismipC/plots}. Four eigenvectors are plotted by default, with the parameter {\tt e\_offset} specifying the first eigenvector to plot. The order of the eigenvectors corresponds to how well constrained they are. 
+
+Two figures are shown. In each figure, the top row correpsonds to simulation {\tt uq\_rc\_1e6}, and the bottom panel to simulation {\tt uq\_rc\_1e4}. The first four eigenvectors are shown in Figure \ref{fig:leading_eigenvectors_0}, while eigenvectors 30-33 are shown in Figure \ref{fig:leading_eigenvectors_30}. Observe that the top three constrained modes between simulations are nearly identical, with divergence beginning in the fourth mode. Also notice that well constrained modes correspond to lower frequencies.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=13cm]{./figures/leading_eigenvectors_0.pdf}
+  \caption[IsmipC Basal Drag Leading Eigenvectors.]{Leading four constrained modes of the inverted basal drag.}
+      \label{fig:leading_eigenvectors_0}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=13cm]{./figures/leading_eigenvectors_30.pdf}
+  \caption[IsmipC Basal Drag Eigenvectors 30-33.]{Eigenvectors 30-33, showing less well constrained modes of basal drag. }
+      \label{fig:leading_eigenvectors_30}
+\end{figure}
+
+\subsubsection{Eigenvalues}
+
+How well constrained are the eigenvectors we plotted previously? This information is given by the corresponding eigenvalues (Figure \ref{fig:grid_convergence}). We'll plot the eigenvalues for the simulations: {\tt uq\_rc\_1e6}, {\tt uq\_30x30}, and {\tt uq\_40x40} -- which differ only in their resolution. The command is:
+
+\begin{spverbatim}
+>python plot_eigenvalue_decay.py
+\end{spverbatim}
+
+Observe how the eigenvalues quickly drop-off in their magnitude, and overlay in each other. This reflects the fact that we expect the same low frequencies modes to be well constrained across different grid resolutions.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=10cm]{./figures/grid_convergence.pdf}
+  \caption[Grid Convergence of Eigenvalues]{Eigenvalues of different modes of basal drag for IsmipC at low (20x20), medium (30x30), and high resolutions (40x40). Black eigenvalues correspond to negative values; they begin to appear at eigenvalues several orders of magnitude below the leading eigenvalues.  Leading eigenvalues at different resoultions closely overlay each other. }
+      \label{fig:grid_convergence}
+\end{figure}
+
+\subsubsection{Quantity of Interest Probability Distribution through time}
+
+The quantity of interest for IsmipC was defined as the integral of ice thickness squared over the domain. Using uncertainty quantification techniques, Fenics Ice determines not only a point estimate of the quantity of interest through time, but also a standard deviation (based on an assumption that it is distributed normally). Let's compare the results for simulations {\tt uq\_rc\_1e4} and {\tt uq\_rc\_1e6}:
+
+\begin{spverbatim}
+>python plot_eigenvalue_decay.py
+\end{spverbatim}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=10cm]{./figures/run_paths.pdf}
+  \caption[Quantity of Interest through Time]{Probability distribution of the quantity of interest through time. The quantity of interest for IsmipC is the integral of height squared over the domain. \textbf{(a)} Quantity of Interest and a 2-sigma envelope.  Dashed line shows simulation {\tt uq\_rc\_1e6} and the solid line shows simulation {\tt uq\_rc\_1e4}.  The blue prior only envelope for {\tt uq\_rc\_1e6} is the only one visible. \textbf{(b)} 2-sigma values for the quantity of interest through time. Solid line corresponds to the prior-only standard deviation, while the dashed line shows the standard deviation after data assimilation. The blue lines correspond to simulation {\tt uq\_rc\_1e4} while the green lines correspond to {\tt uq\_rc\_1e6}.}
+      \label{fig:run_paths}
+\end{figure}
+
+The plots show the 2-sigma envelope if we consider only the prior (regularization), as well as the prior plus information from the data. While the prior-only envelope for simulation {\tt uq\_rc\_1e4} shows large uncertainty on the order of the quantity of interest, increasing the regularization by two orders of magnitude ({\tt uq\_rc\_1e4}) collapses the uncertainty by 2-3 orders. When data is taken into consideration, it is clear that the basal drag modes relevant to the quantity of interest are wel constrained.
+
+\subsubsection{Quantity of Interest with respect to alpha}
+
+Fenics Ice can calculate how the quantity of interest at a given point in time depends on basal drag (parameterized by alpha) ($\frac{d QOI_{t}}{d \alpha}$). With this we can understand which parts of the basal drag field are the most important in determing the quantity of interest. To make this plot using the final timestep, run the following:
+
+\begin{spverbatim}
+>python plot_dq_ts.py
+\end{spverbatim}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=10cm]{./figures/dq_ts.pdf}
+  \caption[Derivative of Quantity of Interest at last timestep w.r.t to alpha]{The derivative of the quantity of interest at the last timestep with respect to alpha. }
+      \label{fig:grid_convergence}
+\end{figure}
+
 
 
 
 
 \section{IsmipC}\label{IsmipC}
+
+\begin{table}[!htpb] 
+\centering
+\begin{tabular}{llll}
+\hline
+ Symbol & Constant  & Value  & Units   \\
+ \hline
+ A &  Ice-flow parameter &  $10^{-16}$ &  \si{\pascal\tothe{n}\per\year}  \\
+ $\rho_i$ & Ice Density &  910 &   \si{\kilo\gram\per\metre\cubed}   \\
+  g & Gravitational constant  & 9.81  & \si{\metre\per\second\squared}   \\
+  n & Exponent in Glen's Flow law  & 3  &   \\
+  $t_y$ & Seconds per year  & 31556926  & \si{\second\per\year}   \\
+ \hline
+\end{tabular}
+\caption[Constants for ISMIP-HOM experiments.]{Constants for ISMIP-HOM experiments}
+    \label{table:ISMIPparam}
+\end{table}
+
+
 Ice Sheet Model Intercomparison Project for Higher-Order ice sheet Models (ISMIP-HOM) is a set of standardized simulations used in the glaciology community for model intercomparison. Due to its familiarity, and simple setup, Experiment C was selected for the tutorial in this user-guide. It allows many aspects of uncertainty quantification to be explored in a simple domain.
 
 The domain of Experiment C is a square domain with periodic boundary conditions on all four boundaries. The surface and basal topography are prescribed as:
@@ -410,22 +521,7 @@ where $t_y$ is the number of seconds in a year, converting $\beta$ to SI units.
 
 
 
-\begin{table}[]
-\centering
-\begin{tabular}{llll}
-\hline
- Symbol & Constant  & Value  & Units   \\
- \hline
- A &  Ice-flow parameter &  $10^{-16}$ &  \si{\pascal\tothe{n}\per\year}  \\
- $\rho_i$ & Ice Density &  910 &   \si{\kilo\gram\per\metre\cubed}   \\
-  g & Gravitational constant  & 9.81  & \si{\metre\per\second\squared}   \\
-  n & Exponent in Glen's Flow law  & 3  &   \\
-  $t_y$ & Seconds per year  & 31556926  & \si{\second\per\year}   \\
- \hline
-\end{tabular}
-\caption[Constants for ISMIP-HOM experiments.]{Constants for ISMIP-HOM experiments}
-    \label{table:ISMIPparam}
-\end{table}
+
 
 
 

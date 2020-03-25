@@ -139,6 +139,7 @@ ax.text(0.05, 0.95, 'e', transform=ax.transAxes,
 c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
 cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
 cbar.ax.set_xlabel(r'$U-U_{obs}$ (m $yr^{-1}$)')
+
 plt.tight_layout(2.0)
 plt.savefig(os.path.join(outdir, 'inv_results.pdf'))
 plt.show()

@@ -22,17 +22,20 @@ base_folder = '/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/output/ismi
 # Simulation Directories: A list of one or more directories
 run_folders = [
     'uq_rc_1e6/run_forward',
-    # 'uq_rc_1e4/run_forward',
+    'uq_rc_1e4/run_forward',
     ]
 
 #Figure size in inches (width, height). Passed to Pyplot figure();
 figsize = (18, 6)
 
 # Output Directory
-outdir = '/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/output/ismipC'
+outdir = os.path.join(base_folder, 'plots')
 
 #########################
 
+if not os.path.isdir(outdir):
+    print('Outdir does not exist. Creating...')
+    os.mkdir(outdir)
 
 
 cmap='Blues'
@@ -48,7 +51,7 @@ fig.tight_layout()
 
 for i, rf in enumerate(run_folders):
     mesh = Mesh(os.path.join(base_folder, rf,'mesh.xml'))
-    param = pickle.load( open( os.path.join(rf,'param.p'), "rb" ) )
+    param = pickle.load( open( os.path.join(base_folder, rf,'param.p'), "rb" ) )
 
     Q = FunctionSpace(mesh,'Lagrange',1)
     Qh = FunctionSpace(mesh,'Lagrange',3)
@@ -67,7 +70,7 @@ for i, rf in enumerate(run_folders):
 
     for j in range(4):
         k = j + e_offset
-        hdf5data = HDF5File(MPI.comm_world, os.path.join(rf, 'vr.h5'), 'r')
+        hdf5data = HDF5File(MPI.comm_world, os.path.join(base_folder, rf, 'vr.h5'), 'r')
         hdf5data.read(eigenfunc, f'v/vector_{k}')
 
         sind = j+1+i*4
@@ -87,4 +90,4 @@ for i, rf in enumerate(run_folders):
         cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="vertical")
 
 plt.show()
-plt.savefig(os.path.join(outdir,'leading_eigenvectors.pdf'))
+plt.savefig(os.path.join(outdir,'leading_eigenvectors.pdf'), bbox_inches="tight")

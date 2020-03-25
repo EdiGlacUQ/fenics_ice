@@ -29,8 +29,8 @@ QOI=1
 
 cd $RUN_DIR
 
-python run_inv.py -b -x $NX -y $NY -m 200 -p 0  -r $RC1 $RC2 $RC3 $RC4 $RC5 -d $INPUT_DIR -o $OUTPUT_DIR
-python run_forward.py -b -t $T -n $N -s $S -i $QOI -d $OUTPUT_DIR -o $FORWARD_DIR
-python run_eigendec.py -s -m -p 0   -d $OUTPUT_DIR -o $EIGENDECOMP_DIR -f $EIGENVALUE_FILE
-python run_errorprop.py -p 0 -d $FORWARD_DIR -e $EIGENDECOMP_DIR -l $EIGENVALUE_FILE -o $FORWARD_DIR
-python run_invsigma.py -p 0 -d $FORWARD_DIR -e $EIGENDECOMP_DIR -k $EIGENVECTOR_FILE -l $EIGENVALUE_FILE -d $OUTPUT_DIR -o $FORWARD_DIR
+# python run_inv.py -b -x $NX -y $NY -m 200 -p 0  -r $RC1 $RC2 $RC3 $RC4 $RC5 -d $INPUT_DIR -o $OUTPUT_DIR
+# python run_forward.py -b -t $T -n $N -s $S -i $QOI -d $OUTPUT_DIR -o $FORWARD_DIR
+# python run_eigendec.py -s -m -p 0   -d $OUTPUT_DIR -o $EIGENDECOMP_DIR -f $EIGENVALUE_FILE
+python run_errorprop.py -p 0 -c 200.0 -d $FORWARD_DIR -e $EIGENDECOMP_DIR -l $EIGENVALUE_FILE -o $FORWARD_DIR
+# python run_invsigma.py -p 0 -d $FORWARD_DIR -e $EIGENDECOMP_DIR -k $EIGENVECTOR_FILE -l $EIGENVALUE_FILE -d $OUTPUT_DIR -o $FORWARD_DIR
