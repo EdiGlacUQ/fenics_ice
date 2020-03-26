@@ -432,6 +432,10 @@ class ssa_solver:
     #     return Q_vaf
 
     def forward_alpha(self, f):
+        """
+        Runs the forward model w/ given alpha (f)
+        and returns the cost function J
+        """
         clear_caches()
         self.alpha = f
         self.def_mom_eq()
@@ -442,6 +446,10 @@ class ssa_solver:
         return J
 
     def forward_beta(self, f):
+        """
+        Runs the forward model w/ given beta (f)
+        and returns the cost function J
+        """
         clear_caches()
         self.beta = f
         self.def_mom_eq()
@@ -452,6 +460,12 @@ class ssa_solver:
         return J
 
     def forward_dual(self, f):
+        """
+        Runs the forward model w/ given
+        alpha and beta (f[0], f[1])
+        and returns the cost function J
+        """
+
         clear_caches()
         self.alpha = f[0]
         self.beta = f[1]
@@ -544,7 +558,9 @@ class ssa_solver:
         return nu
 
     def comp_J_inv(self, verbose=False):
-
+        """
+        Compute the value of the cost function
+        """
         u,v = split(self.U)
 
         u_obs = self.u_obs
@@ -660,6 +676,10 @@ class ssa_solver:
 
 
     def set_hessian_action(self, cntrl):
+        """
+        Construct the Hessian object (defined by tlm_adjoint)
+        with the functional J
+        """
         if type(cntrl) is not list: cntrl = [cntrl]
         fopts = {'alpha': self.forward_alpha, 'beta': self.forward_beta, 'dual': self.forward_dual}
         forward = fopts['dual'] if len(cntrl) > 1 else fopts[cntrl[0].name()]
@@ -688,6 +708,7 @@ class ssa_solver:
         self.H_nps.assign(self.H_init, annotate=False)
         self.H = 0.5*(self.H_np + self.H_s)
 
+#TODO - this isn't referenced anywhere
 class ddJ_wrapper(object):
     def __init__(self, ddJ_action, cntrl):
         self.ddJ_action = ddJ_action

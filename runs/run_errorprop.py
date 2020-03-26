@@ -119,7 +119,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     lam = lam[pind]
     W = W[:,pind]
 
-    D = np.diag(lam / (lam + 1))
+    D = np.diag(lam / (lam + 1)) #D_r Isaac 20
 
     hdf5data = HDF5File(MPI.comm_world, os.path.join(dd, 'dQ_ts.h5'), 'r')
 
