@@ -89,5 +89,6 @@ for i, rf in enumerate(run_folders):
         c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
         cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="vertical")
 
+fig = plt.gcf()
 plt.show()
-plt.savefig(os.path.join(outdir,'leading_eigenvectors.pdf'), bbox_inches="tight")
+fig.savefig(os.path.join(outdir,'leading_eigenvectors.pdf'), bbox_inches="tight")

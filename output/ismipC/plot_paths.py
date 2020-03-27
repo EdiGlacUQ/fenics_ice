@@ -65,5 +65,6 @@ fontsize=13, fontweight='bold', va='top')
 
 axarr[1].text(0.05, 0.95, 'b', transform=axarr[1].transAxes,
 fontsize=13, fontweight='bold', va='top')
+fig = plt.gcf()
 plt.show()
-plt.savefig(os.path.join(outdir,'run_paths.pdf'), bbox_inches="tight")
+fig.savefig(os.path.join(outdir,'run_paths.pdf'), bbox_inches="tight")
