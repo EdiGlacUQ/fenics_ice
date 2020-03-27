@@ -15,9 +15,9 @@ import model
 # Parameters:
 
 #Offset from first eigenvector (0 results in leading four)
-e_offset = 30    
+e_offset = 0    
 
-base_folder = '/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/output/ismipC'
+base_folder = os.path.join(os.environ['FENICS_ICE_BASE_DIR'], 'output/ismipC')
 
 # Simulation Directories: A list of one or more directories
 run_folders = [

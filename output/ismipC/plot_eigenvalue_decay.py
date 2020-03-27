@@ -8,7 +8,7 @@ import os
 ###########################################################
 # Parameters:
 
-base_folder = '/mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/output/ismipC'
+base_folder = os.path.join(os.environ['FENICS_ICE_BASE_DIR'], 'output/ismipC')
 
 run_folders = ['uq_rc_1e4/run_forward',
     'uq_30x30/run_forward',

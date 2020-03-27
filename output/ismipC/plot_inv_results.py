@@ -23,6 +23,7 @@ sns.set()
 # Simulation Directory
 dd = os.path.join(os.environ['FENICS_ICE_BASE_DIR'],'output/ismipC/uq_rc_1e6')
 
+
 # Output Directory
 outdir = os.path.join(dd, 'plots')
 

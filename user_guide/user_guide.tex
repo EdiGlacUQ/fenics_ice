@@ -17,6 +17,7 @@
 \usepackage{dirtree}
 \usepackage{bm}
 \usepackage{siunitx}
+\usepackage[nottoc,numbib]{tocbibind}
 
 \DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
 \DeclareSIUnit\year{yr}
@@ -32,9 +33,30 @@
 This document briefly outlines how to get started with the Fenics ice sheet model. 
 
 \tableofcontents 
+
+
+\section{Introduction}
+
+
+Ice sheet models are important tools for not only generating knowledge, but also for operational forecasts. In this way, they are analagous to weather models and oceanographic models. Ice sheets currently contribute significantly to sea level rise, and this contribution is expected to increase over the coming century. With over 7 \si{\metre} of sea level rise equivalent stored in the Greenland Ice Sheet, and over 50 \si{\metre} sea level rise equivalent in the Antarctic Ice Sheet, forecasts of ice sheet evolution are crucial to informing our response to climate change.  Accurately constraining the predicted ice mass loss, as well as the uncertainty in the predictions, is important for assessing risk and implementing succesful mitigation/adaption strategies.
+
+Most models in glaciology approach the ice sheet forecasting problem from a deterministic perspective. That is, given a set of inputs, the model will produce a single output. The evolution of this approach is to consider the problem probabilistically, calculating the probability distribution of possible answers. Knowing the posterior probability distribution allows us to consider the relative likelihood of different outcomes and establish credible intervals for outputs. Fenics Ice is an ice sheet model developed from a Bayesian statistics perspective, providing uncertainty quantification of relevant quantitites such as mass loss.
+
+Large scale models pose unique challenges for probabilistic modelling. A key problem is the computation expense of running large scale models. Ice sheet models requiring solve a highly non-linear set of equations over large domains. Ice is commonly modelled as a viscous, creeping, incompressible fluid, shear thinning fluid, where viscosity is a function of both temperature and strain rate. Simplifications of the stokes equations based on phsyical assumptions are often used, including in Fenics Ice, for computational reasons.  Real running time of a model over a relevant domain in Antartica can be on the order of hours - days, even with specialized solvers, parallelized programming, and variable resolution. A second key problem is the extremely high dimensionality of ice sheet models. The number of parameters can range from $10^5$ - $10^9$ depending on the model approximation, domain size, and grid resolution. These problems are not unique to glaciology, and are also encountered in models such as mantle convection, weather forecasting, and ocean circulation. 
+
+Computational expense and high dimensionality prohibit the effective use of monte carlo methods for large scale models. Two alternative approaches developed in the scientific community are Ensemble Kalman Filters and Variational Bayes. Ensemble Kalman Filters sample the posterior probability distribution using an ensemble of forecast states, estimating the forecast uncertainty based on the sampled uncertainty. The challenge is to suitably select the ensemble of model runs. Variational methods estimate the forecast uncertainty based on propogating uncertainty through the model by linearizing the model and using the adjoint. The challenge here is that that the model must be able to be automatically differentiatied.
+
+Fenics Ice approaches uncertainty quantification of ice sheet models using the variational approach. The implementation mirrors that of \cite{Isaac2015}, who developed a framework for end-to-end uncertainty quantification of problems consisting of both data assimilation and forward run. This involves 1) inferring unobserved model parameters from data; 2) determining the uncertainty of the inferred model parameters; 3) running the forward model to make a prediction about a quantity (e.g. ice mass loss); 4) propogating the uncertainty in inferred parameters to the model prediction. The key assumptions made in this approach are that probability distributions are Gaussian, and that the forward model can be reasonably approximated by a first-order Taylor approximation.
+
+The main glaciology problem Fenics Ice sets out to address is how the uncertainty in inverted basal drag and $\beta_{glen}$ (temperature dependent coefficient in stress-strain relationship) affect the model forecast. The aim is to understand when the uncertainty in the forecast is on the same order of magnitude as the forecast, determining a forecasting horizon. The same framework allows us to understand how uncertainty in quantities such as bed topography or ice thickness propogate through the model. Another question Fenics Ice is coded to investigate is the question of next-best-measurement. That is, given one additional measurment in a system, where would be the most informative location to place it? Fenics Ice is not limited to these questions, and can easily be adapted to address a variety of research questions. 
+
+Fenics Ice leverages the open source FEniCS computing platform for solving partial differential equations via finite element methods \cite{AlnaesBlechta2015a}. FEniCS does not much of the computational heavy lifting, including mesh generation, implementing appropriate function spaces, and finite element assembly. Interfaces with PETSc and SLEPc provide efficient non-linear solvers and eigendecomposition algorithms. To generate the adjoint of the ice sheet model, and compute Hessian actions, Fenics Ice uses the tlm adjoint package \cite{Maddison2019}. 
+
+
+
 \section{Installation}
 
-The ice sheet mdoel is built using the open source Python finite element software Fenics, and depends on the package tlm-adjoint for implementing inversion and error propagation capabilities. The simplest way to install Fenics and tlm-adjoint is to create a conda environment. 
+The Fenics Ice model is built using the open source Python finite element software Fenics, and depends on the package tlm-adjoint for implementing inversion and error propagation capabilities. The simplest way to install FEniCS and tlm-adjoint is to create a conda environment. 
 
 \subsection{Installing Fenics}
  
@@ -48,13 +70,13 @@ conda config --set channel\_priority strict
 conda create -n fenics -c conda-forge fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl
 
 4. Enter the conda environment: \\
-source activate fenics
+conda activate fenics
 
 5. Make sure the pip package manager is up to date: \\
 pip install -{}-upgrade pip
 
 6. Install the following packages: \\
-conda install matplotlib numpy ipython scipy 
+conda install matplotlib numpy ipython scipy seaborn
 
 7. Install hdf5 for python: \\
 \url{http://docs.h5py.org/en/latest/index.html} \\
@@ -73,7 +95,7 @@ python setup.py install
 pip install mpi4py
 
 10. To enter this environment: \\
-source activate fenics
+conda activate fenics
 
 11. To exit: \\
 source deactivate fenics
@@ -107,7 +129,7 @@ export PYTHONPATH
 
 The core of the ice sheet model is in two files: {\tt /code/model.py} and {\tt /code/solver.py}. These are utilized by the python scripts in the {\tt /runs} folder, which execute specific parts of a simulation. The python scripts there are generic to any simulation. Each new simulation then has its own primary folder in the {\tt /scripts} folder, with simple bash scripts which call program files in {\tt /runs} with specific parameters and data files.
 
-The bash scripts in {\tt /scripts} are where parameters and data file locations are specified; these are bash simple wrapper scripts for calling python scripts in {\tt /runs}. The data and parameters are used by the program files in {\tt /runs} to create a model object (via a class defined in {\tt model.py}) and subsequently a solver object (via a class defined in {\tt solver.py}). The model object contains all the necessary data for a simulation, such as topography, constants, and velocity observations for inversions. The solver object contains the ice sheet physics/inversion code. The model object is passed as a parameter to your solver object. This object then allows you to solve the SSA equations on your domain, invert for basal drag or $B_{glen}$, and perform uncertainty quantification. The options of any python script in the {\tt /runs} folder can be viewed by typing 'python run\_xxx.py --help'.
+The bash scripts in {\tt /scripts} are where parameters and data file locations are specified; these are bash simple wrapper scripts for calling python scripts in {\tt /runs}. The data and parameters are used by the program files in {\tt /runs} to create a model object (via a class defined in {\tt model.py}) and subsequently a solver object (via a class defined in {\tt solver.py}). The model object contains all the necessary data for a simulation, such as topography, constants, and velocity observations for inversions. The solver object contains the ice sheet physics/inversion code. The model object is passed as a parameter to your solver object. This object then allows you to solve the SSA equations \cite{MacAyeal1989} on your domain, invert for basal drag or $B_{glen}$, and perform uncertainty quantification. The options of any python script in the {\tt /runs} folder can be viewed by typing 'python run\_xxx.py --help'.
 
 
 The {\tt /aux} folder contains auxillary files; in here, the file {\tt gen\_ismipC\_domain.py} generates the ismipC domain,  based off definitions in {\tt test\_domains.py}. The {\tt /input} folder is where input files, such as topography and ice thickness, for specific simulations are located. Similarily, the {\tt /output} folder is where output is stored from specific simulations.
@@ -172,7 +194,7 @@ The Ice Sheet Model Intercomparison Project for Higher-Order ice sheet Models (I
 Navigate to the {\tt /fenics\_ice} base directory. Activate the fenics conda environment.
 
 \begin{verbatim}
-> source activate fenics 
+> conda activate fenics 
 \end{verbatim}
 
 To begin, we'll generate the synthetic domain defined by the IsmipC experiment. The specifications are coded in the file {\tt /aux/test\_domains.py}. We'll use the python script {\tt gen\_ismipC\_domain.py} to create a domain with a given length and resolution.
@@ -187,7 +209,7 @@ Let's observe the files that are generated.
 
 \begin{spverbatim}
 > ls $FENICS_ICE_BASE_DIR/input/ismipC
-B2.xml  Bglen.xml  alpha.xml  bed.xml  bmelt.xml  grid_data.npz  mask.xml  mesh.xml  smb.xml  thick.xml 
+B2.xml  Bglen.xml  alpha.xml  bed.xml  bmelt.xml  data_mask.xml  data_mesh.xml  grid_data.npz smb.xml  thick.xml 
 \end{spverbatim}
 
 The .xml files contain discretized scalar fields over the IsmipC domain on a FEniCS mesh. The extension .npz indicates a numpy file format, and contains the domain resolution and length.
@@ -267,7 +289,7 @@ The python script {\tt Uobs\_from\_momsolve.py} takes the vector field in U.xml 
 > python Uobs_from_momsolve.py -b -L 40000 \
 -d $FENICS_ICE_BASE_DIR/input/ismipC/momsolve
 > find $FENICS_ICE_BASE_DIR/input/ismipC/momsolve \
--type f -regex '.*\(obs\|std\).xml'
+-type f -regex `.*\(obs\|std\).xml'
 /mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/input/ismipC/u_obs.xml
 /mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/input/ismipC/u_std.xml
 /mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/input/ismipC/v_obs.xml
@@ -309,7 +331,7 @@ There are five scripts pertaining to uncertainty quantification in {\tt scripts/
 	\item {\tt run\_all.sh}  
 \end{enumerate}
 
-The first two bash scripts specify simulations with different levels of regularization for the inversion. Script {\tt uq\_rc\_1e4.sh} has less regularziation and results in high frequency features in basal drag. The script {\tt uq\_rc\_1e4.sh} increases the level of regularization by two orders of magnitude, so that the inverted basal drag field mirrors the specification by IsmipC. Grid resolution is the focus of the next two scripts. The scripts {\tt uq\_30x30.sh} and {\tt uq\_40x40.sh} use the regulariztion of simulation {\tt uq\_rc\_1e6.sh}, but increase the resolution to 30x30 and 40x40 respectively. The final script -- {\tt run\_all.sh}  -- simply runs the other four scripts.
+The first two bash scripts specify simulations with different levels of regularization for the inversion. Script {\tt uq\_rc\_1e4.sh} has less regularziation and results in high frequency features in basal drag. The script {\tt uq\_rc\_1e6.sh} increases the level of regularization by two orders of magnitude, so that the inverted basal drag field mirrors the specification by IsmipC. Grid resolution is the focus of the next two scripts. The scripts {\tt uq\_30x30.sh} and {\tt uq\_40x40.sh} use the regulariztion of simulation {\tt uq\_rc\_1e6.sh}, but increase the resolution to 30x30 and 40x40 respectively. The final script -- {\tt run\_all.sh}  -- simply runs the other four scripts.
 
 We'll proceed with script {\tt uq\_rc\_1e6.sh}. To run uncertainty quantification of IsmipC, simply call the bash script:
 \begin{verbatim}
@@ -344,7 +366,7 @@ EIGFILE=slepceig_all.p
 
 The variable {\tt OUTPUT\_DIR} should be unique to this specific simulation. The other directories are standard and do not need to be modified. The variable {\tt EIGFILE} specifies the name of the file where the output of eigendecomposition is stored. 
 
-The current name reflects the fact that the eigenvalues and eigenvectors where calculated using the library SLEPc, and that all eigenvectors/values where calculated. Future releases plan to offer additional libraries to solve the eigenvalue problem. For large domains, calculating all eigenvectors/values is not necessary, nor feasible. 
+The current name reflects the fact that the eigenvalues and eigenvectors were calculated using the library SLEPc, and that all eigenvectors/values where calculated. Future releases plan to offer additional libraries to solve the eigenvalue problem. For large domains, calculating all eigenvectors/values is not necessary, nor feasible. 
 
 Next in the script we define the values of parameters that will be used as command line arguments. These will be discussed in the context of the python script they're applicable to.
 \begin{spverbatim}
@@ -384,7 +406,7 @@ The second python script {\tt run\_forward.py} numerically integrates the simula
 
 The third python script {\tt run\_eigendec.py} eigendecomposes the Hessian of the inversion cost function. The {\tt -s} flag specifies that the SLEPc library should be used, presently the only functioning option. To consider only the velocity misfit portion of the cost function, we set the {\tt -m} flag. As for {\tt run\_inv.py}, we set {\tt -p 0} to consider only basal drag. The remaining options specify the input and output locations. 
 
-The fourth python script {\tt run\_errorprop.py} assembles the output of {\tt run\_forward.py} and {\tt run\_errorprop.py} to determine the standard deviation of the quantity of interest through time. The options for this script duplicate those above.
+The fourth python script {\tt run\_errorprop.py} assembles the output of {\tt run\_forward.py} and {\tt run\_eigendec.py} to determine the standard deviation of the quantity of interest through time. The options for this script duplicate those above.
 
 Lastly, the fifth python script {\tt run\_invsigma.py} processes the output of {\tt run\_eigendec.py} to determine the standard deviation of the inverted value across the domain. The options for this script duplicate those above.
 
@@ -440,7 +462,7 @@ Which modes of the basal drag are well constrained by the data? These are descri
 
 At the top of the file you can specify the simulation folders and the output location. The default output folder is {\tt output/ismipC/plots}. Four eigenvectors are plotted by default, with the parameter {\tt e\_offset} specifying the first eigenvector to plot. The order of the eigenvectors corresponds to how well constrained they are. 
 
-Two figures are shown. In each figure, the top row correpsonds to simulation {\tt uq\_rc\_1e6}, and the bottom panel to simulation {\tt uq\_rc\_1e4}. The first four eigenvectors are shown in Figure \ref{fig:leading_eigenvectors_0}, while eigenvectors 30-33 are shown in Figure \ref{fig:leading_eigenvectors_30}. Observe that the top three constrained modes between simulations are nearly identical, with divergence beginning in the fourth mode. Also notice that well constrained modes correspond to lower frequencies.
+Two figures are shown. In each figure, the top row corresponds to simulation {\tt uq\_rc\_1e6}, and the bottom panel to simulation {\tt uq\_rc\_1e4}. The first four eigenvectors are shown in Figure \ref{fig:leading_eigenvectors_0}, while eigenvectors 30-33 are shown in Figure \ref{fig:leading_eigenvectors_30}. Set the parameter {\tt e\_offset} to 30 to reproduce the second plot.  Observe that the top constrained modes between simulations are nearly identical. Also notice that well constrained modes correspond to lower frequencies.
 
 \begin{figure}[!htbp]
   \centering
@@ -471,17 +493,17 @@ Observe how the eigenvalues quickly drop-off in their magnitude, and overlay in 
 The quantity of interest for IsmipC was defined as the integral of ice thickness squared over the domain. Using uncertainty quantification techniques, FenicsIce determines not only a point estimate of the quantity of interest through time, but also a standard deviation (based on an assumption that it is distributed normally). Let's compare the results for simulations {\tt uq\_rc\_1e4} and {\tt uq\_rc\_1e6}:
 
 \begin{spverbatim}
->python plot_eigenvalue_decay.py
+>python plot_paths.py
 \end{spverbatim}
 
 \begin{figure}[!htbp]
   \centering
   \includegraphics[width=10cm]{./figures/run_paths.pdf}
-  \caption[Quantity of Interest through Time]{Probability distribution of the quantity of interest through time. The quantity of interest for IsmipC is the integral of height squared over the domain. \textbf{(a)} Quantity of Interest and a 2-sigma envelope.  Dashed line shows simulation {\tt uq\_rc\_1e6} and the solid line shows simulation {\tt uq\_rc\_1e4}.  The blue prior only envelope for {\tt uq\_rc\_1e6} is the only one visible. \textbf{(b)} 2-sigma values for the quantity of interest through time. Solid line corresponds to the prior-only standard deviation, while the dashed line shows the standard deviation after data assimilation. The blue lines correspond to simulation {\tt uq\_rc\_1e4} while the green lines correspond to {\tt uq\_rc\_1e6}.}
+  \caption[Quantity of Interest through Time]{Probability distribution of the quantity of interest through time. The quantity of interest for IsmipC is the integral of height squared over the domain. \textbf{(a)} quantity of interest and a 2-sigma envelope.  Dashed line shows simulation {\tt uq\_rc\_1e6} and the solid line shows simulation {\tt uq\_rc\_1e4}.  The blue prior only envelope for {\tt uq\_rc\_1e4} is the only one visible. \textbf{(b)} 2-sigma values for the quantity of interest through time. Solid line corresponds to {\tt uq\_rc\_1e4} while dashed line indicates {\tt uq\_rc\_1e6}. Blue lines correspond to the prior-only standard deviation, while the dashed line shows the standard deviation after data assimilation.}
       \label{fig:run_paths}
 \end{figure}
 
-The plots show the 2-sigma envelope if we consider only the prior (regularization), as well as the prior plus information from the data. While the prior-only envelope for simulation {\tt uq\_rc\_1e4} shows large uncertainty on the order of the quantity of interest, increasing the regularization by two orders of magnitude ({\tt uq\_rc\_1e4}) collapses the uncertainty by 2-3 orders. When data is taken into consideration, it is clear that the basal drag modes relevant to the quantity of interest are wel constrained.
+The plots show the 2-sigma envelope if we consider only the prior (regularization), as well as the prior plus information from the data. While the prior-only envelope for simulation {\tt uq\_rc\_1e4} shows large uncertainty on the order of the quantity of interest, increasing the regularization by two orders of magnitude ({\tt uq\_rc\_1e4}) collapses the uncertainty by 2-3 orders. When data is taken into consideration, it is clear that the basal drag modes relevant to the quantity of interest are well constrained.
 
 \subsubsection{Quantity of Interest with respect to alpha}
 
@@ -549,10 +571,11 @@ In Experiment C, basal drag is parameterized with a linear sliding law, with the
 where $t_y$ is the number of seconds in a year, converting $\beta$ to SI units.
 
 \section{Publications}
-This section will be updated as publications with FenicsIce appear.
+This section will be updated as publications with Fenics Ice appear.
 
-
-
+\newpage
+\bibliography{references}
+\bibliographystyle{plain}
 
 
 
