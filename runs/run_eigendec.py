@@ -210,7 +210,7 @@ if __name__ == "__main__":
             os.makedirs(outdir)
 
     if not fileout:
-        if slepsc_flag: fileout = 'slepceig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
-        else: fileout = 'randeig{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
+        if slepsc_flag: fileout = 'slepc_eig_{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
+        else: fileout = 'rand_eig_{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
 
     main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, fileout)

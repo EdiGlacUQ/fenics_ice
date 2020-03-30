@@ -15,24 +15,86 @@ import pickle
 from IPython import embed
 
 
-def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, sl):
+def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, periodic_bc, altiter, sl):
 
-    #Load Data
-    mesh = Mesh(os.path.join(dd,'mesh.xml'))
+   # Determine Mesh
 
-    M = FunctionSpace(mesh, 'DG', 0)
-    Q = FunctionSpace(mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
+    # Create a new mesh with specific resolution
+    if nx and ny:
+        data_mesh_file = 'data_mesh.xml'
+        data_mask_file = 'data_mask.xml'
 
-    mask = Function(M,os.path.join(dd,'mask.xml'))
+        assert(os.path.isfile(os.path.join(dd,data_mesh_file))), 'Need data_mesh.xml to interpolate'
+        assert(os.path.isfile(os.path.join(dd,data_mask_file))), 'Need data_mask.xml to interpolate'
 
-    if os.path.isfile(os.path.join(dd,'data_mesh.xml')):
-        data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
-        Mdata = FunctionSpace(data_mesh, 'DG', 0)
-        data_mask = Function(Mdata, os.path.join(dd,'data_mask.xml'))
+        #Generate model mesh
+        print('Generating new mesh')
+        gf = 'grid_data.npz'
+        npzfile = np.load(os.path.join(dd,'grid_data.npz'))
+        xlim = npzfile['xlim']
+        ylim = npzfile['ylim']
+
+        mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
+
+    # Reuse a mesh; in this case, mesh and data_mesh will be identical
+
+    # Otherwise see if there is previous run
+    elif os.path.isfile(os.path.join(dd,'mesh.xml')):
+        data_mesh_file = 'mesh.xml'
+        data_mask_file = 'mask.xml'
+
+        mesh = Mesh(os.path.join(dd,data_mesh_file))
+    
+    # Mirror data files
+    elif os.path.isfile(os.path.join(dd,'data_mesh.xml')):
+        #Start from raw data
+        data_mesh_file = 'data_mesh.xml'
+        data_mask_file = 'data_mask.xml'
+
+        mesh = Mesh(os.path.join(dd,data_mesh_file))
+
     else:
-        data_mesh = mesh
-        data_mask = mask
+        print('Need mesh and mask files')
+        raise SystemExit
 
+    data_mesh = Mesh(os.path.join(dd,data_mesh_file))
+    
+    # Define Function Spaces
+    M = FunctionSpace(data_mesh, 'DG', 0)
+    Q = FunctionSpace(data_mesh, 'Lagrange', 1)
+    Qp = Q
+
+    # Make necessary modification for periodic bc
+    if periodic_bc:
+
+        #If we're on a new mesh
+        if nx and ny:
+            L1 = xlim[-1] - xlim[0]
+            L2 = ylim[-1] - ylim[0]
+            assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
+            mesh_length = L1
+
+        #If previous run   
+        elif os.path.isfile(os.path.join(dd,'param.p')):
+            mesh_length = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
+            assert(mesh_length), 'Need to run periodic bc using original files'
+
+        # Assume we're on a data_mesh
+        else:
+            gf = 'grid_data.npz'
+            npzfile = np.load(os.path.join(dd,'grid_data.npz'))
+            xlim = npzfile['xlim']
+            ylim = npzfile['ylim']
+            L1 = xlim[-1] - xlim[0]
+            L2 = ylim[-1] - ylim[0]
+            assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
+            mesh_length = L1
+
+        Qp = FunctionSpace(data_mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(mesh_length))
+    
+
+
+    data_mask = Function(M,os.path.join(dd,data_mask_file))
 
     bed = Function(Q,os.path.join(dd,'bed.xml'))
 
@@ -46,42 +108,6 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
     smb = Function(M,os.path.join(dd,'smb.xml'))
 
-    if not os.path.isfile(os.path.join(dd,'param.p')):
-        print('Generating new mesh')
-        #Generate model mesh
-        gf = 'grid_data.npz'
-        npzfile = np.load(os.path.join(dd,'grid_data.npz'))
-        xlim = npzfile['xlim']
-        ylim = npzfile['ylim']
-
-        if not nx:
-            nx = int(npzfile['nx'])
-        if not ny:
-            ny = int(npzfile['ny'])
-
-        mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
-    else:
-        print('Identified as previous run, reusing mesh')
-
-
-    #Compute periodic BC length if required:
-    #---------------------------------------
-    #The flag 'bflag' starts as a logical (True if boundary is periodic)
-    #If True here, it changes to float, the length of the (square) periodic domain
-    #the model/solver param 'periodic_bc' then takes the value of bflag
-    #---------------------------------------
-    if bflag:
-        if os.path.isfile(os.path.join(dd,'param.p')):
-            bflag = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
-            assert(bflag), 'Need to run periodic bc using original files'
-        else:
-            L1 = xlim[-1] - xlim[0]
-            L2 = ylim[-1] - ylim[0]
-            assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
-            bflag = L1
-
-
-
 
 
     #Initialize Model
@@ -90,7 +116,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
             'rc_inv': rc_inv,
             'pflag': pflag,
             'sim_flag': sim_flag,
-            'periodic_bc': bflag,
+            'periodic_bc': mesh_length,
             'altiter': altiter,
             'sliding_law': sl,
             'inv_options': {'maxiter': maxiter, 'disp': True, 'ftol': 1e-4}}
@@ -141,7 +167,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
-    mdl.init_mask(mask)
+    mdl.init_mask(data_mask)
     mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
     mdl.init_lat_dirichletbc()
     mdl.init_bmelt(bmelt)
@@ -163,7 +189,6 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     pickle.dump( mdl.param, open( os.path.join(outdir,'param.p'), "wb" ) )
 
     File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
-    File(os.path.join(outdir,'data_mesh.xml')) << data_mesh
 
 
     vtkfile = File(os.path.join(outdir,'U.pvd'))
@@ -197,10 +222,6 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, s
     vtkfile << mdl.mask
     xmlfile << mdl.mask
 
-    vtkfile = File(os.path.join(outdir,'data_mask.pvd'))
-    xmlfile = File(os.path.join(outdir,'data_mask.xml'))
-    vtkfile << mask
-    xmlfile << mask
 
     vtkfile = File(os.path.join(outdir,'mask_vel.pvd'))
     xmlfile = File(os.path.join(outdir,'mask_vel.xml'))
@@ -268,14 +289,14 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, required=True, help='Inversion parameters: alpha (0), beta (1), alpha and beta (2)')
     parser.add_argument('-s', '--simultaneousmethod', dest='sim_flag', action='store_true', help='Dual parameter inversion for both parameters simultaneously (default is to alternative through parameters)')
     parser.add_argument('-a', '--altiter', dest='altiter', type=int, help='Number of times to iterate through parameters for inversions w/ more than one parameter (not applicable when conducting dual inversion)')
-    parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction (defaults to data resolution)')
-    parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction (defaults to data resolution)')
-    parser.add_argument('-b', '--boundaries', dest='bflag', action='store_true', help='Periodic boundary conditions')
+    parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction')
+    parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction')
+    parser.add_argument('-b', '--boundaries', dest='periodic_bc', action='store_true', help='Periodic boundary conditions')
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
     parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
 
-    parser.set_defaults(maxiter=15,nx=False,ny=False,sim_flag=False, bflag = False, altiter=2, sl=0)
+    parser.set_defaults(maxiter=15,nx=False,ny=False,sim_flag=False, periodic_bc = False, altiter=2, sl=0)
     args = parser.parse_args()
 
     maxiter = args.maxiter
@@ -286,7 +307,7 @@ if __name__ == "__main__":
     nx = args.nx
     ny = args.ny
     sim_flag = args.sim_flag
-    bflag = args.bflag
+    periodic_bc = args.periodic_bc
     altiter = args.altiter
     sl = args.sl
 
@@ -300,4 +321,4 @@ if __name__ == "__main__":
 
 
 
-    main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, bflag, altiter, sl)
+    main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, periodic_bc, altiter, sl)

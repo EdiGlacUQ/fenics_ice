@@ -17,7 +17,107 @@ from IPython import embed
 stop_annotating()
 np.random.seed(10)
 
-def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl, qoi):
+def main(n_steps,run_length,periodic_bc, outdir, dd, nx, ny, num_sens, pflag, sl, qoi):
+
+   # Determine Mesh
+
+    # Create a new mesh with specific resolution
+    if nx and ny:
+        data_mesh_file = 'data_mesh.xml'
+        data_mask_file = 'data_mask.xml'
+
+        assert(os.path.isfile(os.path.join(dd,data_mesh_file))), 'Need data_mesh.xml to interpolate'
+        assert(os.path.isfile(os.path.join(dd,data_mask_file))), 'Need data_mask.xml to interpolate'
+
+        #Generate model mesh
+        print('Generating new mesh')
+        gf = 'grid_data.npz'
+        npzfile = np.load(os.path.join(dd,'grid_data.npz'))
+        xlim = npzfile['xlim']
+        ylim = npzfile['ylim']
+
+        mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
+
+    # Reuse a mesh; in this case, mesh and data_mesh will be identical
+
+    # Otherwise see if there is previous run
+    elif os.path.isfile(os.path.join(dd,'mesh.xml')):
+        data_mesh_file = 'mesh.xml'
+        data_mask_file = 'mask.xml'
+
+        mesh = Mesh(os.path.join(dd,data_mesh_file))
+    
+    # Mirror data files
+    elif os.path.isfile(os.path.join(dd,'data_mesh.xml')):
+        #Start from raw data
+        data_mesh_file = 'data_mesh.xml'
+        data_mask_file = 'data_mask.xml'
+
+        mesh = Mesh(os.path.join(dd,data_mesh_file))
+
+    else:
+        print('Need mesh and mask files')
+        raise SystemExit
+
+    data_mesh = Mesh(os.path.join(dd,data_mesh_file))
+    
+    # Define Function Spaces
+    M = FunctionSpace(data_mesh, 'DG', 0)
+    Q = FunctionSpace(data_mesh, 'Lagrange', 1)
+    V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
+    Qp = Q
+
+    # Make necessary modification for periodic bc
+    if periodic_bc:
+
+        #If we're on a new mesh
+        if nx and ny:
+            L1 = xlim[-1] - xlim[0]
+            L2 = ylim[-1] - ylim[0]
+            assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
+            mesh_length = L1
+
+        #If previous run   
+        elif os.path.isfile(os.path.join(dd,'param.p')):
+            mesh_length = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
+            assert(mesh_length), 'Need to run periodic bc using original files'
+
+        # Assume we're on a data_mesh
+        else:
+            gf = 'grid_data.npz'
+            npzfile = np.load(os.path.join(dd,'grid_data.npz'))
+            xlim = npzfile['xlim']
+            ylim = npzfile['ylim']
+            L1 = xlim[-1] - xlim[0]
+            L2 = ylim[-1] - ylim[0]
+            assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
+            mesh_length = L1
+
+        Qp = FunctionSpace(data_mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(mesh_length))
+        V = VectorFunctionSpace(data_mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(mesh_length))
+    
+
+    data_mask = Function(M,os.path.join(dd,data_mask_file))
+
+
+    #Load fields
+    U = Function(V,os.path.join(dd,'U.xml'))
+
+    alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
+    beta = Function(Qp,os.path.join(dd,'beta.xml'))
+    bed = Function(Q,os.path.join(dd,'bed.xml'))
+
+    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
+    smb = Function(M,os.path.join(dd,'smb.xml'))
+    thick = Function(M,os.path.join(dd,'thick.xml'))
+    mask = Function(M,os.path.join(dd,'mask.xml'))
+    mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
+    u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
+    v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
+    u_std = Function(M,os.path.join(dd,'u_std.xml'))
+    v_std = Function(M,os.path.join(dd,'v_std.xml'))
+    uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
+
 
     #Load Data
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
@@ -60,50 +160,6 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl, qoi):
                                 "error_on_nonconvergence":True,
                                 }}
 
-
-
-    #Load Data
-    mesh = Mesh(os.path.join(dd,'mesh.xml'))
-
-    M = FunctionSpace(mesh, 'DG', 0)
-    Q = FunctionSpace(mesh, 'Lagrange', 1) if os.path.isfile(os.path.join(dd,'param.p')) else M
-
-    mask = Function(M,os.path.join(dd,'mask.xml'))
-
-    if os.path.isfile(os.path.join(dd,'data_mesh.xml')):
-        data_mesh = Mesh(os.path.join(dd,'data_mesh.xml'))
-        Mdata = FunctionSpace(data_mesh, 'DG', 0)
-        data_mask = Function(Mdata, os.path.join(dd,'data_mask.xml'))
-    else:
-        data_mesh = mesh
-        data_mask = mask
-
-
-    if not param['periodic_bc']:
-       Qp = Q
-       V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
-    else:
-       Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
-       V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
-
-
-    #Load fields
-    U = Function(V,os.path.join(dd,'U.xml'))
-
-    alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
-    beta = Function(Qp,os.path.join(dd,'beta.xml'))
-    bed = Function(Q,os.path.join(dd,'bed.xml'))
-
-    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
-    smb = Function(M,os.path.join(dd,'smb.xml'))
-    thick = Function(M,os.path.join(dd,'thick.xml'))
-    mask = Function(M,os.path.join(dd,'mask.xml'))
-    mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
-    u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
-    v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
-    u_std = Function(M,os.path.join(dd,'u_std.xml'))
-    v_std = Function(M,os.path.join(dd,'v_std.xml'))
-    uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
 
     param['run_length'] =  run_length
     param['n_steps'] = n_steps
@@ -199,11 +255,6 @@ def main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl, qoi):
     vtkfile << mdl.mask
     xmlfile << mdl.mask
 
-    vtkfile = File(os.path.join(outdir,'data_mask.pvd'))
-    xmlfile = File(os.path.join(outdir,'data_mask.xml'))
-    vtkfile << mask
-    xmlfile << mask
-
     vtkfile = File(os.path.join(outdir,'mask_vel.pvd'))
     xmlfile = File(os.path.join(outdir,'mask_vel.xml'))
     vtkfile << mdl.mask_vel
@@ -253,22 +304,26 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--time', dest='run_length', type=float, required=True, help='Number of years to run for')
     parser.add_argument('-n', '--num_timesteps', dest='n_steps', type=int, required=True, help='Number of timesteps')
-    parser.add_argument('-b', '--boundaries', dest='bflag', action='store_true', help='Periodic boundary conditions')
+    parser.add_argument('-b', '--boundaries', dest='periodic_bc', action='store_true', help='Periodic boundary conditions')
+    parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction')
+    parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction')
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
     parser.add_argument('-s', '--num_sens', dest='num_sens', type=int, help='Number of samples of cost function')
-    parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, help='Parameter to calculate sensitivity to: alpha (0), beta (1), alpha and beta (2)')
+    parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, help='Parameter to calculate sensitivity to: alpha (0), beta (1), [Future->] alpha and beta (2)')
     parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
     parser.add_argument('-i', '--quantity_of_interest', dest='qoi', type=float,  help = 'Quantity of interest (0: VAF (default), 1: H^2 (for ISMIPC))')
 
-    parser.set_defaults(bflag = False, outdir=False, num_sens = 1.0, pflag=0,sl=0, qoi=0)
+    parser.set_defaults(periodic_bc = False, nx=False,ny=False, outdir=False, num_sens = 1.0, pflag=0,sl=0, qoi=0)
     args = parser.parse_args()
 
     n_steps = args.n_steps
     run_length = args.run_length
-    bflag = args.bflag
+    periodic_bc = args.periodic_bc
     outdir = args.outdir
     dd = args.dd
+    nx = args.nx
+    ny = args.ny
     num_sens = args.num_sens
     pflag = args.pflag
     sl = args.sl
@@ -282,4 +337,4 @@ if __name__ == "__main__":
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
-    main(n_steps,run_length,bflag, outdir, dd, num_sens, pflag, sl, qoi)
+    main(n_steps,run_length,periodic_bc, outdir, dd, nx, ny, num_sens, pflag, sl, qoi)
