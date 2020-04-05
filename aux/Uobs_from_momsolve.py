@@ -33,6 +33,7 @@ def main(dd,noise_sdev, bflag, L):
     u_array = u.vector().get_local()
     v_array = v.vector().get_local()
 
+    np.random.seed(0)
     u_noise = np.random.normal(scale=noise_sdev, size=u_array.size)
     v_noise = np.random.normal(scale=noise_sdev, size=v_array.size)
 

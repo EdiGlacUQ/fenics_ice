@@ -137,6 +137,7 @@ class model:
         if pert:
             #Perturbed field for nonzero gradient at first step of inversion
             bv = self.beta.vector().get_local()
+            np.random.seed(0)
             pert_vec = 0.001*bv*randn(bv.size)
             self.beta.vector().set_local(bv + pert_vec)
             self.beta.vector().apply('insert')

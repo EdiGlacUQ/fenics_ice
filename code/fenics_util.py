@@ -130,6 +130,7 @@ def U2Uobs(dd,noise_sdev=1.0):
     u_array = u.vector().array()
     v_array = v.vector().array()
 
+    np.random.seed(0)
     u_noise = np.random.normal(scale=noise_sdev, size=u_array.size)
     v_noise = np.random.normal(scale=noise_sdev, size=v_array.size)
 
