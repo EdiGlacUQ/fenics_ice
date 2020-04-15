@@ -17,6 +17,8 @@
 CONDA_HOME=$HOME/miniconda3/
 export INSTALL_DIR="$HOME/sources/"
 
+#Optionally choose a branch: master, joe
+BRANCH="master"
 
 source $CONDA_HOME/etc/profile.d/conda.sh
 
@@ -53,7 +55,7 @@ git clone https://github.com/jrmaddison/tlm_adjoint.git
 git clone git@github.com:cpk26/fenics_ice.git
 
 cd fenics_ice
-git checkout joe
+git checkout $BRANCH
 cd ..
 
 #PYTHONPATH equiv which doesn't pollute system environment namespace
