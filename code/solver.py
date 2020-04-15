@@ -593,8 +593,10 @@ class ssa_solver:
         f_beta = Function(self.Qp)
 
         #cf. Isaac 5, delta component ensures invertiblity, gamma -> smoothness
-        #Why does this need to be 'solved' as opposed to simply computed?
         a = f*self.pTau*dIce
+
+        #This L is equivalent to scriptF in reg_operator.pdf
+        #Prior.py contains vector equivalent of this (this operates on fem functions)
         L = (delta_a * alpha * self.pTau - gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
         solve(a == L, f_alpha )
 

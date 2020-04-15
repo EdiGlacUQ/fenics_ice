@@ -109,6 +109,7 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
             tmp = y.vector().get_local()
             sc = np.sqrt(np.dot(v,tmp))
             #eigenvectors are scaled by something to do with the prior action...
+            #sc <- isaac between Eqs. 17, 18 <- normalised
             W[:,i] = v/sc
 
 
@@ -135,6 +136,8 @@ def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
     for j in range(num_sens):
         hdf5data.read(dQ_cntrl, f'dQ/vector_{j}')
 
+        #TODO - is a mass matrix operation required here?
+        #qd_cntrl - should be gradients
         tmp1 = np.dot(W.T,dQ_cntrl.vector().get_local())
         tmp2 = np.dot(D,tmp1 )
         P1 = np.dot(W,tmp2)

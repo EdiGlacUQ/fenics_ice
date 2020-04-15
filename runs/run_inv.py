@@ -177,6 +177,9 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, periodic_bc, alti
     mdl.gen_alpha()
     mdl.init_beta(mdl.bglen_to_beta(Bglen))            #Comment to use uniform Bglen
 
+    #Next line will output the initial guess for alpha fed into the inversion
+    #File(os.path.join(outdir,'alpha_initguess.pvd')) << mdl.alpha
+
     #Inversion
     slvr = solver.ssa_solver(mdl)
 
