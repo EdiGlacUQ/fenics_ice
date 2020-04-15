@@ -8,23 +8,30 @@
 # case (takes several minutes) to check everything
 # works.
 #
-# Be sure to edit CONDA_HOME and INSTALL_DIR before
-# running.
+# Run this script where you find it (i.e. top level
+# dir of the fenics_ice repository!)
+# Be sure to edit CONDA_HOME before running.
 #==============================================
 
-#SET THESE 2 BEFORE RUNNING
+
 # Assumes conda is available on system
+# SET THIS!
 CONDA_HOME=$HOME/miniconda3/
-export INSTALL_DIR="$HOME/sources/"
 
 #Optionally choose a branch: master, joe
 BRANCH="master"
 
+
+#----------------------------------
+# Change things below this point at your peril.
+#----------------------------------
+
+export FENICS_ICE_BASE_DIR="$PWD"
+export INSTALL_DIR=$(dirname "$PWD")
+
+
 source $CONDA_HOME/etc/profile.d/conda.sh
 
-export FENICS_ICE_BASE_DIR="$INSTALL_DIR/fenics_ice/"
-
-mkdir -p $INSTALL_DIR
 cd $INSTALL_DIR
 
 
@@ -52,11 +59,10 @@ cd $INSTALL_DIR
 
 #install tlm_adjoint & fenics_ice
 git clone https://github.com/jrmaddison/tlm_adjoint.git
-git clone git@github.com:cpk26/fenics_ice.git
+#git clone git@github.com:cpk26/fenics_ice.git
 
-cd fenics_ice
+cd $FENICS_ICE_BASE_DIR
 git checkout $BRANCH
-cd ..
 
 #PYTHONPATH equiv which doesn't pollute system environment namespace
 conda develop $INSTALL_DIR/tlm_adjoint/python/
