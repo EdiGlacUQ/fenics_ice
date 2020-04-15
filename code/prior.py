@@ -1,6 +1,6 @@
 import sys
-sys.path.insert(0,'../code/')
-sys.path.insert(0,'../../tlm_adjoint/python/')
+# sys.path.insert(0,'../code/')
+# sys.path.insert(0,'../../tlm_adjoint/python/')
 
 from dolfin import *
 from tlm_adjoint import *
