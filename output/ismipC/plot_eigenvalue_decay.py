@@ -10,7 +10,7 @@ import os
 
 base_folder = os.path.join(os.environ['FENICS_ICE_BASE_DIR'], 'output/ismipC')
 
-run_folders = ['uq_rc_1e4/run_forward',
+run_folders = ['uq_rc_1e6/run_forward',
     'uq_30x30/run_forward',
     'uq_40x40/run_forward'
     ]
