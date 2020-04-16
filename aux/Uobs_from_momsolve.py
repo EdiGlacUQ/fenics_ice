@@ -12,25 +12,20 @@ import model
 import argparse
 
 
-def main(dd,noise_sdev, bflag, L, nx, ny):
+def main(dd,noise_sdev, bflag):
 
-    mesh = Mesh(os.path.join(dd,'mesh.xml'))
-    data_mesh = mesh
-
-    if nx or ny:
-        #Generate new data mesh
-        print('Generating new mesh')
-        data_mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
+    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
     if bflag:
-        V = VectorFunctionSpace(mesh, 'Lagrange', 1, dim=2, constrained_domain=model.PeriodicBoundary(L))
+        V = VectorFunctionSpace(data_mesh, 'Lagrange', 1, dim=2, constrained_domain=model.PeriodicBoundary(L))
     else:
-        V = VectorFunctionSpace(mesh, 'Lagrange', 1, dim=2)
+        V = VectorFunctionSpace(data_mesh, 'Lagrange', 1, dim=2)
 
 
-    U = Function(V,os.path.join(dd,'U.xml'))
+    
     M = FunctionSpace(data_mesh, 'DG', 0)
 
+    U = Function(V,os.path.join(dd,'U.xml'))
     N = Function(M)
 
     uu,vv = U.split(True)
@@ -88,27 +83,20 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--sigma', dest='noise_sdev', type=float,  help = 'Standard deviation of added Gaussian Noise')
     parser.add_argument('-b', '--boundaries', dest='bflag', action='store_true', help='Periodic boundary conditions')
     parser.add_argument('-L', '--length', dest='L', type=int, help='Length of IsmipC domain.')
-    parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction')
-    parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction')
 
-    parser.set_defaults(noise_sdev = 1.0, bflag = False, L = False, nx = False, ny = False)
+    parser.set_defaults(noise_sdev = 1.0, bflag = False, L = False)
     args = parser.parse_args()
 
     dd = args.dd
     noise_sdev = args.noise_sdev
     bflag = args.bflag
     L = args.L
-    nx = args.nx
-    ny = args.ny
 
     if bflag and not L:
         print('Periodic boundary conditions requiring specifying the domain length with -L')
         raise SystemExit
 
-    if (nx or ny):
-        print('Regridding only works on square domains presently (i.e. IsmipC)')
 
-
-    main(dd, noise_sdev, bflag, L, nx, ny)
+    main(dd, noise_sdev, bflag, L)
 
 
