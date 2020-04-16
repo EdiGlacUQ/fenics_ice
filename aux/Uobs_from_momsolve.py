@@ -20,11 +20,7 @@ def main(dd,noise_sdev, bflag, L, nx, ny):
     if nx or ny:
         #Generate new data mesh
         print('Generating new mesh')
-        npzfile = np.load(os.path.join(dd,'grid_data.npz'))
-        xlim = npzfile['xlim']
-        ylim = npzfile['ylim']
-
-        data_mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
+        data_mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
 
     if bflag:
         V = VectorFunctionSpace(mesh, 'Lagrange', 1, dim=2, constrained_domain=model.PeriodicBoundary(L))
@@ -53,10 +49,23 @@ def main(dd,noise_sdev, bflag, L, nx, ny):
 
     File(os.path.join(dd,'data_mesh.xml')) << data_mesh
 
+
+    vtkfile = File(os.path.join(dd,'u_obs.pvd'))
     xmlfile = File(os.path.join(dd,'u_obs.xml'))
+    vtkfile << u
     xmlfile << u
+
+
+    vtkfile = File(os.path.join(dd,'v_obs.pvd'))
     xmlfile = File(os.path.join(dd,'v_obs.xml'))
+    vtkfile << v
     xmlfile << v
+
+    vtkfile = File(os.path.join(dd,'uv_obs.pvd'))
+    xmlfile = File(os.path.join(dd,'uv_obs.xml'))
+    U_obs = project((v**2 + u**2)**(1.0/2.0), M)
+    vtkfile << U_obs
+    xmlfile << U_obs
 
     N.assign(Constant(noise_sdev))
     xmlfile = File(os.path.join(dd,'u_std.xml'))
