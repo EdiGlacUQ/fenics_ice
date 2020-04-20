@@ -12,7 +12,7 @@ import model
 import argparse
 
 
-def main(dd,noise_sdev, bflag):
+def main(dd,noise_sdev, bflag, L):
 
     data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
