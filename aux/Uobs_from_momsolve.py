@@ -17,10 +17,12 @@ def main(dd,noise_sdev, bflag, L, seed=0):
     data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
 
     if bflag:
-        V = VectorFunctionSpace(data_mesh, 'Lagrange', 1, dim=2, constrained_domain=model.PeriodicBoundary(40e3))
+        V = VectorFunctionSpace(data_mesh, 'Lagrange', 1, dim=2, constrained_domain=model.PeriodicBoundary(L))
     else:
         V = VectorFunctionSpace(data_mesh, 'Lagrange', 1, dim=2)
 
+
+    
     M = FunctionSpace(data_mesh, 'DG', 0)
 
     U = Function(V,os.path.join(dd,'U.xml'))
@@ -43,10 +45,23 @@ def main(dd,noise_sdev, bflag, L, seed=0):
 
     File(os.path.join(dd,'data_mesh.xml')) << data_mesh
 
+
+    vtkfile = File(os.path.join(dd,'u_obs.pvd'))
     xmlfile = File(os.path.join(dd,'u_obs.xml'))
+    vtkfile << u
     xmlfile << u
+
+
+    vtkfile = File(os.path.join(dd,'v_obs.pvd'))
     xmlfile = File(os.path.join(dd,'v_obs.xml'))
+    vtkfile << v
     xmlfile << v
+
+    vtkfile = File(os.path.join(dd,'uv_obs.pvd'))
+    xmlfile = File(os.path.join(dd,'uv_obs.xml'))
+    U_obs = project((v**2 + u**2)**(1.0/2.0), M)
+    vtkfile << U_obs
+    xmlfile << U_obs
 
     N.assign(Constant(noise_sdev))
     xmlfile = File(os.path.join(dd,'u_std.xml'))

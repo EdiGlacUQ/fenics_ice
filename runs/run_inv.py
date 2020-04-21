@@ -15,7 +15,7 @@ import pickle
 from IPython import embed
 
 
-def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, periodic_bc, altiter, sl):
+def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, periodic_bc, altiter, sl, pts_lengthscale):
 
    # Determine Mesh
 
@@ -168,7 +168,7 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, periodic_bc, alti
     mdl.init_thick(thick)
     mdl.gen_surf()
     mdl.init_mask(data_mask)
-    mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
+    mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std, pts_lengthscale)
     mdl.init_lat_dirichletbc()
     mdl.init_bmelt(bmelt)
     mdl.init_smb(smb)
@@ -283,6 +283,8 @@ def main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, periodic_bc, alti
     vtkfile << mdl.surf
     xmlfile << mdl.surf
 
+    pickle.dump( mdl.uv_obs_pts, open( os.path.join(outdir,'obs_pts.p'), "wb" ) )
+
 if __name__ == "__main__":
     stop_annotating()
 
@@ -298,8 +300,9 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
     parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
     parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
+    parser.add_argument('-l', '--lengthscale', dest='pts_lengthscale', type=float,  help = 'Lengthscale to place observation observation points')
 
-    parser.set_defaults(maxiter=15,nx=False,ny=False,sim_flag=False, periodic_bc = False, altiter=2, sl=0)
+    parser.set_defaults(maxiter=15,nx=False,ny=False,sim_flag=False, periodic_bc = False, altiter=2, sl=0, pts_lengthscale=False)
     args = parser.parse_args()
 
     maxiter = args.maxiter
@@ -313,6 +316,7 @@ if __name__ == "__main__":
     periodic_bc = args.periodic_bc
     altiter = args.altiter
     sl = args.sl
+    pts_lengthscale = args.pts_lengthscale
 
     if not outdir:
         outdir = ''.join(['./run_inv_', datetime.datetime.now().strftime("%m%d%H%M%S")])
@@ -324,4 +328,4 @@ if __name__ == "__main__":
 
 
 
-    main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, periodic_bc, altiter, sl)
+    main(maxiter, rc_inv, pflag, outdir, dd, nx, ny, sim_flag, periodic_bc, altiter, sl, pts_lengthscale)

@@ -54,6 +54,7 @@ class ssa_solver:
             self.v_obs = model.v_obs
             self.u_std = model.u_std
             self.v_std = model.v_std
+            self.uv_obs_pts = model.uv_obs_pts
         except:
             pass
 
@@ -440,9 +441,7 @@ class ssa_solver:
         self.alpha = f
         self.def_mom_eq()
         self.solve_mom_eq()
-        self.J_inv = self.comp_J_inv()
-        J = Functional()
-        J.assign(self.J_inv)
+        J = self.comp_J_inv()
         return J
 
     def forward_beta(self, f):
@@ -454,9 +453,7 @@ class ssa_solver:
         self.beta = f
         self.def_mom_eq()
         self.solve_mom_eq()
-        self.J_inv = self.comp_J_inv()
-        J = Functional()
-        J.assign(self.J_inv)
+        J = self.comp_J_inv(verbose=True)
         return J
 
     def forward_dual(self, f):
@@ -471,9 +468,7 @@ class ssa_solver:
         self.beta = f[1]
         self.def_mom_eq()
         self.solve_mom_eq()
-        self.J_inv = self.comp_J_inv()
-        J = Functional()
-        J.assign(self.J_inv)
+        J = self.comp_J_inv(verbose=True)
         return J
 
 
@@ -567,6 +562,9 @@ class ssa_solver:
         v_obs = self.v_obs
         u_std = self.u_std
         v_std = self.v_std
+        uv_obs_pts = self.uv_obs_pts
+        num_pts = uv_obs_pts.shape[0]
+        avg_pt_area = assemble(Constant(1.0)*self.dObs)/num_pts
 
         alpha = self.alpha
         beta = self.beta
@@ -585,8 +583,50 @@ class ssa_solver:
         gamma_a = self.param['rc_inv'][3]
         gamma_b = self.param['rc_inv'][4]
 
+        # Sample Discrete Points
+        
+        # Observations
+        u_obs_pts = [new_real_function(name=f"u_obs_pts_{i:d}") for i in range(num_pts)]
+        v_obs_pts = [new_real_function(name=f"v_obs_pts_{i:d}") for i in range(num_pts)]
+        u_std_pts = [new_real_function(name=f"u_std_pts_{i:d}") for i in range(num_pts)]
+        v_std_pts = [new_real_function(name=f"v_std_pts_{i:d}") for i in range(num_pts)]
+
+        PointInterpolationSolver(u_obs, u_obs_pts, X_coords=uv_obs_pts).solve()
+        PointInterpolationSolver(v_obs, v_obs_pts, X_coords=uv_obs_pts).solve()
+        PointInterpolationSolver(u_std, u_std_pts, X_coords=uv_obs_pts).solve()
+        PointInterpolationSolver(v_std, v_std_pts, X_coords=uv_obs_pts).solve()
+
+        # Model
+
+        u_pts = [new_real_function(name=f"u_pts_{i:d}") for i in range(num_pts)]
+        v_pts = [new_real_function(name=f"v_pts_{i:d}") for i in range(num_pts)]
+
+        uf = project(u,self.Q)
+        vf = project(v,self.Q)
+
+        PointInterpolationSolver(uf, u_pts, X_coords=uv_obs_pts).solve()
+        PointInterpolationSolver(vf, v_pts, X_coords=uv_obs_pts).solve()
+
+        ## Continuous
         #data misfit component of J (Isaac 12), with diagonal noise covariance matrix
-        J_ls = lambda_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*(v-v_obs)**2.0)*self.dObs
+        #J_ls = lambda_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*(v-v_obs)**2.0)*self.dObs
+
+        ## Discrete
+
+        J = Functional(name="J")
+
+        #Least Squares
+        J_ls_sum = 0
+        for i, (u, v, uo, vo, us, vs) in enumerate(zip(u_pts, v_pts, u_obs_pts, v_obs_pts, u_std_pts,v_std_pts)):
+            J_ls_term = new_real_function(name=f"J_term_{i:d}")
+            ls_expr = avg_pt_area*lambda_a*(us**(-2.0)*(u-uo)**2.0 + vs**(-2.0)*(v-vo)**2.0)
+
+            ExprEvaluationSolver(ls_expr, J_ls_term).solve()
+            
+            J.addto(J_ls_term)
+            J_ls_sum += J_ls_term
+
+        # Regularization
 
         f = TrialFunction(self.Qp)
         f_alpha = Function(self.Qp)
@@ -606,13 +646,20 @@ class ssa_solver:
         J_reg_alpha = inner(f_alpha,f_alpha)*dIce
         J_reg_beta = inner(f_beta,f_beta)*dIce
 
-        J = J_ls + J_reg_alpha + J_reg_beta
+        J.addto(J_reg_alpha)
+        J.addto(J_reg_beta)
 
+
+        ## Continous
+        #J = J_ls + J_reg_alpha + J_reg_beta
 
         if verbose:
+            J_ls = new_real_function(name="J_ls_term")
+            ExprEvaluationSolver(J_ls_sum, J_ls).solve()
+
             #Print out results
-            J1 = assemble(J)
-            J2 =  assemble(J_ls)
+            J1 = J.value()
+            J2 =  J_ls.values()[0]
             J3 = assemble(J_reg_alpha)
             J4 = assemble(J_reg_beta)
 

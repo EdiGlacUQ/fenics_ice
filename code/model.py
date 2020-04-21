@@ -151,12 +151,30 @@ class model:
     def init_smb(self,smb):
         self.smb = project(smb,self.M)
 
-    def init_vel_obs(self, u, v, mv, ustd=Constant(1.0), vstd=Constant(1.0)):
+    def init_vel_obs(self, u, v, mv, ustd=Constant(1.0), vstd=Constant(1.0), ls = False):
         self.u_obs = project(u,self.M)
         self.v_obs = project(v,self.M)
         self.mask_vel = project(mv,self.M)
         self.u_std = project(ustd,self.M)
         self.v_std = project(vstd,self.M)
+
+        if ls:
+            mc = self.mesh.coordinates()
+            xmin = mc[:,0].min()
+            xmax = mc[:,0].max()
+
+            ymin = mc[:,1].min()
+            ymax = mc[:,1].max()
+
+            xc = np.arange(xmin + ls/2.0, xmax, ls) 
+            yc = np.arange(ymin + ls/2.0, ymax, ls)
+
+            self.uv_obs_pts = np.transpose([np.tile(xc, len(yc)), np.repeat(yc, len(xc))])
+
+        else:
+            self.uv_obs_pts = self.M.tabulate_dof_coordinates().reshape(-1,2)
+
+        
 
     def init_lat_dirichletbc(self):
         """
