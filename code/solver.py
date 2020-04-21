@@ -586,45 +586,77 @@ class ssa_solver:
         # Sample Discrete Points
         
         # Observations
-        u_obs_pts = [new_real_function(name=f"u_obs_pts_{i:d}") for i in range(num_pts)]
-        v_obs_pts = [new_real_function(name=f"v_obs_pts_{i:d}") for i in range(num_pts)]
-        u_std_pts = [new_real_function(name=f"u_std_pts_{i:d}") for i in range(num_pts)]
-        v_std_pts = [new_real_function(name=f"v_std_pts_{i:d}") for i in range(num_pts)]
+        # u_obs_pts = [new_real_function(name=f"u_obs_pts_{i:d}") for i in range(num_pts)]
+        # v_obs_pts = [new_real_function(name=f"v_obs_pts_{i:d}") for i in range(num_pts)]
+        # u_std_pts = [new_real_function(name=f"u_std_pts_{i:d}") for i in range(num_pts)]
+        # v_std_pts = [new_real_function(name=f"v_std_pts_{i:d}") for i in range(num_pts)]
 
-        PointInterpolationSolver(u_obs, u_obs_pts, X_coords=uv_obs_pts).solve()
-        PointInterpolationSolver(v_obs, v_obs_pts, X_coords=uv_obs_pts).solve()
-        PointInterpolationSolver(u_std, u_std_pts, X_coords=uv_obs_pts).solve()
-        PointInterpolationSolver(v_std, v_std_pts, X_coords=uv_obs_pts).solve()
+        # interper = PointInterpolationSolver(u_obs, u_obs_pts, X_coords=uv_obs_pts)
+        # interper.solve()
+        # PointInterpolationSolver(v_obs, v_obs_pts, P=interper._P, P_T=interper._P_T).solve()
+        # PointInterpolationSolver(u_std, u_std_pts, P=interper._P, P_T=interper._P_T).solve()
+        # PointInterpolationSolver(v_std, v_std_pts, P=interper._P, P_T=interper._P_T).solve()
 
-        # Model
+        #Arbitrary mesh to define function for interpolated variables
+        obs_mesh = UnitIntervalMesh(uv_obs_pts.shape[0])
+        obs_space = FunctionSpace(obs_mesh, "Discontinuous Lagrange", 0)
+        u_obs_pts = Function(obs_space)
+        v_obs_pts = Function(obs_space)
+        u_std_pts = Function(obs_space)
+        v_std_pts = Function(obs_space)
 
-        u_pts = [new_real_function(name=f"u_pts_{i:d}") for i in range(num_pts)]
-        v_pts = [new_real_function(name=f"v_pts_{i:d}") for i in range(num_pts)]
+        #Interpolate obs (reusing matrices)
+        interper = InterpolationSolver(u_obs, u_obs_pts, X_coords=uv_obs_pts)
+        interper.solve()
+        P=interper._B[0]._A._P
+        P_T=interper._B[0]._A._P_T
+
+        InterpolationSolver(v_obs, v_obs_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
+        InterpolationSolver(u_std, u_std_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
+        InterpolationSolver(v_std, v_std_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
+
+        # Interpolate from model
+        u_pts = Function(obs_space)
+        v_pts = Function(obs_space)
 
         uf = project(u,self.Q)
         vf = project(v,self.Q)
 
-        PointInterpolationSolver(uf, u_pts, X_coords=uv_obs_pts).solve()
-        PointInterpolationSolver(vf, v_pts, X_coords=uv_obs_pts).solve()
+        interper2 = InterpolationSolver(uf, u_pts, X_coords=uv_obs_pts)
+        interper2.solve()
+        P=interper2._B[0]._A._P
+        P_T=interper2._B[0]._A._P_T
+        InterpolationSolver(vf, v_pts, P=P, P_T=P_T).solve()
+
+        J = Functional(name="J")
 
         ## Continuous
         #data misfit component of J (Isaac 12), with diagonal noise covariance matrix
         #J_ls = lambda_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*(v-v_obs)**2.0)*self.dObs
 
+        # Inner product
+        J_ls_term_new = new_real_function(name=f"J_term")
+        u_mismatch = ((u-u_obs)/u_std)
+        NormSqSolver(project(u_mismatch, self.Q), J_ls_term_new).solve()
+        v_mismatch = ((v-v_obs)/v_std)
+        NormSqSolver(project(v_mismatch, self.Q), J_ls_term_new).solve()
+        J_ls_term_final = new_real_function()
+        ExprEvaluationSolver(J_ls_term_new * lambda_a * avg_pt_area, J_ls_term_final).solve()
+
+        J.addto(J_ls_term_final)
+
         ## Discrete
 
-        J = Functional(name="J")
-
         #Least Squares
-        J_ls_sum = 0
-        for i, (u, v, uo, vo, us, vs) in enumerate(zip(u_pts, v_pts, u_obs_pts, v_obs_pts, u_std_pts,v_std_pts)):
-            J_ls_term = new_real_function(name=f"J_term_{i:d}")
-            ls_expr = avg_pt_area*lambda_a*(us**(-2.0)*(u-uo)**2.0 + vs**(-2.0)*(v-vo)**2.0)
+        # J_ls_sum = 0
+        # for i, (u, v, uo, vo, us, vs) in enumerate(zip(u_pts, v_pts, u_obs_pts, v_obs_pts, u_std_pts,v_std_pts)):
+        #     J_ls_term = new_real_function(name=f"J_term_{i:d}")
+        #     ls_expr = avg_pt_area*lambda_a*(us**(-2.0)*(u-uo)**2.0 + vs**(-2.0)*(v-vo)**2.0)
 
-            ExprEvaluationSolver(ls_expr, J_ls_term).solve()
+        #     ExprEvaluationSolver(ls_expr, J_ls_term).solve()
             
-            J.addto(J_ls_term)
-            J_ls_sum += J_ls_term
+        #     J.addto(J_ls_term) #<- James - could modify this to only 'addto' once
+        #     J_ls_sum += J_ls_term
 
         # Regularization
 
@@ -655,7 +687,7 @@ class ssa_solver:
 
         if verbose:
             J_ls = new_real_function(name="J_ls_term")
-            ExprEvaluationSolver(J_ls_sum, J_ls).solve()
+            ExprEvaluationSolver(J_ls_term_final, J_ls).solve()
 
             #Print out results
             J1 = J.value()
