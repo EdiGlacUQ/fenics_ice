@@ -642,10 +642,13 @@ class ssa_solver:
 
         # Inner product
         J_ls_term_new = new_real_function(name=f"J_term")
-        u_mismatch = ((u-u_obs)/u_std)
-        NormSqSolver(project(u_mismatch, self.Q), J_ls_term_new).solve()
-        v_mismatch = ((v-v_obs)/v_std)
-        NormSqSolver(project(v_mismatch, self.Q), J_ls_term_new).solve()
+
+        #Result of NormSqSolver is added to J_ls_term_new, so calling twice is a sum
+        u_mismatch = ((u_pts-u_obs_pts)/u_std_pts)
+        NormSqSolver(project(u_mismatch, obs_space), J_ls_term_new).solve()
+        v_mismatch = ((v_pts-v_obs_pts)/v_std_pts)
+        NormSqSolver(project(v_mismatch, obs_space), J_ls_term_new).solve()
+
         J_ls_term_final = new_real_function()
         ExprEvaluationSolver(J_ls_term_new * lambda_a * avg_pt_area, J_ls_term_final).solve()
 
