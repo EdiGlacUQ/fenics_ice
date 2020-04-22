@@ -175,7 +175,7 @@ def main(n_steps,run_length,periodic_bc, outdir, dd, nx, ny, num_sens, pflag, sl
     mdl.init_bmelt(bmelt)
     mdl.init_smb(smb)
     mdl.init_alpha(alpha)
-    mdl.init_beta(beta)
+    mdl.init_beta(beta) #TODO <- should this be perturbed? likewise in other run_*.py
     mdl.label_domain()
 
     #Solve

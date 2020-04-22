@@ -555,14 +555,20 @@ class ssa_solver:
     def comp_J_inv(self, verbose=False):
         """
         Compute the value of the cost function
+        Note: 'verbose' significantly decreases speed
         """
         u,v = split(self.U)
 
+        #TODO - these obs are already interpolated onto the model mesh.
+        #Change this so that obs are available at original resolution.
         u_obs = self.u_obs
         v_obs = self.v_obs
         u_std = self.u_std
         v_std = self.v_std
         uv_obs_pts = self.uv_obs_pts
+
+        #TODO - inner product is scaled by avg_pt_area, effectively
+        #rescaling J_ls equivalent to the old integral form.
         num_pts = uv_obs_pts.shape[0]
         avg_pt_area = assemble(Constant(1.0)*self.dObs)/num_pts
 
