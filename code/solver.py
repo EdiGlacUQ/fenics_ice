@@ -557,6 +557,19 @@ class ssa_solver:
         Compute the value of the cost function
         Note: 'verbose' significantly decreases speed
         """
+
+        #What are we inverting for?:
+        pflag = self.param['pflag']
+        if(pflag==0):
+            do_alpha=True
+            do_beta=False
+        elif(pflag==1):
+            do_alpha=False
+            do_beta=True
+        else:
+            do_alpha = True
+            do_beta = True
+
         u,v = split(self.U)
 
         #TODO - these obs are already interpolated onto the model mesh.
@@ -676,19 +689,19 @@ class ssa_solver:
         #cf. Isaac 5, delta component ensures invertiblity, gamma -> smoothness
         a = f*self.pTau*dIce
 
-        #This L is equivalent to scriptF in reg_operator.pdf
-        #Prior.py contains vector equivalent of this (this operates on fem functions)
-        L = (delta_a * alpha * self.pTau - gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
-        solve(a == L, f_alpha )
+        if(do_alpha):
+            #This L is equivalent to scriptF in reg_operator.pdf
+            #Prior.py contains vector equivalent of this (this operates on fem functions)
+            L = (delta_a * alpha * self.pTau - gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
+            solve(a == L, f_alpha )
+            J_reg_alpha = inner(f_alpha,f_alpha)*dIce
+            J.addto(J_reg_alpha)
 
-        L = (delta_b * betadiff * self.pTau - gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
-        solve(a == L, f_beta )
-
-        J_reg_alpha = inner(f_alpha,f_alpha)*dIce
-        J_reg_beta = inner(f_beta,f_beta)*dIce
-
-        J.addto(J_reg_alpha)
-        J.addto(J_reg_beta)
+        if(do_beta):
+            L = (delta_b * betadiff * self.pTau - gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
+            solve(a == L, f_beta )
+            J_reg_beta = inner(f_beta,f_beta)*dIce
+            J.addto(J_reg_beta)
 
 
         ## Continous
@@ -701,21 +714,20 @@ class ssa_solver:
             #Print out results
             J1 = J.value()
             J2 =  J_ls.values()[0]
-            J3 = assemble(J_reg_alpha)
-            J4 = assemble(J_reg_beta)
-
+            J3 = assemble(J_reg_alpha) if do_alpha else 0.0
+            J4 = assemble(J_reg_beta) if do_beta else 0.0
 
             info('Inversion Details')
-            info('delta_a: %.2e' % delta_a)
-            info('delta_b: %.2e' % delta_b)
-            info('gamma_a: %.2e' % gamma_a)
-            info('gamma_b: %.2e' % gamma_b)
-            info('J: %.2e' % J1)
-            info('J_ls: %.2e' % J2)
-            info('J_reg: %.2e' % sum([J3,J4]))
-            info('J_reg_alpha: %.2e' % J3)
-            info('J_reg_beta: %.2e' % J4)
-            info('J_reg/J_cst: %.2e' % ((J3+J4)/(J2)))
+            info('delta_a: %.5e' % delta_a)
+            info('delta_b: %.5e' % delta_b)
+            info('gamma_a: %.5e' % gamma_a)
+            info('gamma_b: %.5e' % gamma_b)
+            info('J: %.5e' % J1)
+            info('J_ls: %.5e' % J2)
+            info('J_reg: %.5e' % sum([J3,J4]))
+            info('J_reg_alpha: %.5e' % J3)
+            info('J_reg_beta: %.5e' % J4)
+            info('J_reg/J_cst: %.5e' % ((J3+J4)/(J2)))
             info('')
 
         return J
