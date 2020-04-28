@@ -580,11 +580,6 @@ class ssa_solver:
         v_std = self.v_std
         uv_obs_pts = self.uv_obs_pts
 
-        #TODO - inner product is scaled by avg_pt_area, effectively
-        #rescaling J_ls equivalent to the old integral form.
-        num_pts = uv_obs_pts.shape[0]
-        avg_pt_area = assemble(Constant(1.0)*self.dObs)/num_pts
-
         alpha = self.alpha
         beta = self.beta
         beta_bgd = self.beta_bgd
@@ -602,20 +597,12 @@ class ssa_solver:
         gamma_a = self.param['rc_inv'][3]
         gamma_b = self.param['rc_inv'][4]
 
+        #TODO: Good reason to think that lambda_a should *always* be 1
+        #So should we get rid of this parameter altogether?
+        assert(lambda_a == 1.0)
+
         # Sample Discrete Points
         
-        # Observations
-        # u_obs_pts = [new_real_function(name=f"u_obs_pts_{i:d}") for i in range(num_pts)]
-        # v_obs_pts = [new_real_function(name=f"v_obs_pts_{i:d}") for i in range(num_pts)]
-        # u_std_pts = [new_real_function(name=f"u_std_pts_{i:d}") for i in range(num_pts)]
-        # v_std_pts = [new_real_function(name=f"v_std_pts_{i:d}") for i in range(num_pts)]
-
-        # interper = PointInterpolationSolver(u_obs, u_obs_pts, X_coords=uv_obs_pts)
-        # interper.solve()
-        # PointInterpolationSolver(v_obs, v_obs_pts, P=interper._P, P_T=interper._P_T).solve()
-        # PointInterpolationSolver(u_std, u_std_pts, P=interper._P, P_T=interper._P_T).solve()
-        # PointInterpolationSolver(v_std, v_std_pts, P=interper._P, P_T=interper._P_T).solve()
-
         #Arbitrary mesh to define function for interpolated variables
         obs_mesh = UnitIntervalMesh(uv_obs_pts.shape[0])
         obs_space = FunctionSpace(obs_mesh, "Discontinuous Lagrange", 0)
@@ -663,22 +650,9 @@ class ssa_solver:
         NormSqSolver(project(v_mismatch, obs_space), J_ls_term_new).solve()
 
         J_ls_term_final = new_real_function()
-        ExprEvaluationSolver(J_ls_term_new * lambda_a * avg_pt_area, J_ls_term_final).solve()
+        ExprEvaluationSolver(J_ls_term_new * lambda_a, J_ls_term_final).solve()
 
         J.addto(J_ls_term_final)
-
-        ## Discrete
-
-        #Least Squares
-        # J_ls_sum = 0
-        # for i, (u, v, uo, vo, us, vs) in enumerate(zip(u_pts, v_pts, u_obs_pts, v_obs_pts, u_std_pts,v_std_pts)):
-        #     J_ls_term = new_real_function(name=f"J_term_{i:d}")
-        #     ls_expr = avg_pt_area*lambda_a*(us**(-2.0)*(u-uo)**2.0 + vs**(-2.0)*(v-vo)**2.0)
-
-        #     ExprEvaluationSolver(ls_expr, J_ls_term).solve()
-            
-        #     J.addto(J_ls_term) #<- James - could modify this to only 'addto' once
-        #     J_ls_sum += J_ls_term
 
         # Regularization
 
