@@ -12,6 +12,8 @@ def main(outdir, L, periodic_bc, nx, ny):
 
     #Fenics mesh
     mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
+
+    #TODO - interpolation from data_mesh to DG mesh, then to L1 elements causes high gradient in surf & bed
     M = FunctionSpace(mesh, 'DG', 0)
     Q = FunctionSpace(mesh, 'Lagrange', 1)
     Qp = Q

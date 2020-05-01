@@ -606,10 +606,10 @@ class ssa_solver:
         #Arbitrary mesh to define function for interpolated variables
         obs_mesh = UnitIntervalMesh(uv_obs_pts.shape[0])
         obs_space = FunctionSpace(obs_mesh, "Discontinuous Lagrange", 0)
-        u_obs_pts = Function(obs_space)
-        v_obs_pts = Function(obs_space)
-        u_std_pts = Function(obs_space)
-        v_std_pts = Function(obs_space)
+        u_obs_pts = Function(obs_space, name='u_obs_pts')
+        v_obs_pts = Function(obs_space, name='v_obs_pts')
+        u_std_pts = Function(obs_space, name='u_std_pts')
+        v_std_pts = Function(obs_space, name='v_std_pts')
 
         #Interpolate obs (reusing matrices)
         interper = InterpolationSolver(u_obs, u_obs_pts, X_coords=uv_obs_pts)
@@ -622,11 +622,14 @@ class ssa_solver:
         InterpolationSolver(v_std, v_std_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
 
         # Interpolate from model
-        u_pts = Function(obs_space)
-        v_pts = Function(obs_space)
+        u_pts = Function(obs_space, name='u_pts')
+        v_pts = Function(obs_space, name='v_pts')
 
         uf = project(u,self.Q)
         vf = project(v,self.Q)
+
+        uf.rename("uf","")
+        vf.rename("uf","")
 
         interper2 = InterpolationSolver(uf, u_pts, X_coords=uv_obs_pts)
         interper2.solve()
@@ -657,8 +660,8 @@ class ssa_solver:
         # Regularization
 
         f = TrialFunction(self.Qp)
-        f_alpha = Function(self.Qp)
-        f_beta = Function(self.Qp)
+        f_alpha = Function(self.Qp, name="f_alpha")
+        f_beta = Function(self.Qp, name="f_beta")
 
         #cf. Isaac 5, delta component ensures invertiblity, gamma -> smoothness
         a = f*self.pTau*dIce
