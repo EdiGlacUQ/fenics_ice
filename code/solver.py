@@ -41,6 +41,15 @@ class ssa_solver:
         self.smb = model.smb
         self.latbc = model.latbc
 
+        # self.test_outfile = None
+        # self.f_alpha_file = None
+
+        self.lumpedmass_inversion = False
+        if self.lumpedmass_inversion:
+            self.alpha_l = Function(self.alpha.function_space())
+            LumpedMassSolver(self.alpha, self.alpha_l, p=0.5).solve(annotate=False, tlm=False)
+
+
         #Parameterization of alpha/beta
         self.bglen_to_beta = model.bglen_to_beta
         self.beta_to_bglen = model.beta_to_bglen
@@ -438,7 +447,19 @@ class ssa_solver:
         and returns the cost function J
         """
         clear_caches()
-        self.alpha = f
+
+        #If we're using a lumped mass approach, f is alpha_l, not alpha
+        if self.lumpedmass_inversion:
+            self.alpha = Function(f.function_space(), name='alpha')
+            LumpedMassSolver(f, self.alpha, p=-0.5).solve()
+            #TODO - 'boundary_correct(self.alpha)'?
+        else:
+            self.alpha = f
+
+        # if not self.test_outfile:
+        #     self.test_outfile = File(os.path.join('invoutput_data','alpha_test.pvd'))
+        # self.test_outfile << self.alpha
+
         self.def_mom_eq()
         self.solve_mom_eq()
         J = self.comp_J_inv()
@@ -485,6 +506,9 @@ class ssa_solver:
             cntrl = cntrl_input[j % nparam]
             if cntrl.name() == 'alpha':
                 cc = self.alpha
+                if self.lumpedmass_inversion:
+                    cc = self.alpha_l
+
                 forward = self.forward_alpha
 
             else:
@@ -674,6 +698,10 @@ class ssa_solver:
             J_reg_alpha = inner(f_alpha,f_alpha)*dIce
             J.addto(J_reg_alpha)
 
+            # if not self.f_alpha_file:
+            #     self.f_alpha_file = File(os.path.join('invoutput_data','f_alpha_test.pvd'))
+            # self.f_alpha_file << f_alpha
+
         if(do_beta):
             L = (delta_b * betadiff * self.pTau - gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
             solve(a == L, f_beta )
@@ -839,3 +867,48 @@ class MomentumSolver(EquationSolver):
         end()
         solve(lhs == rhs, x, self._bcs, J = J, form_compiler_parameters = self._form_compiler_parameters, solver_parameters = self._solver_parameters)
         end()
+
+
+#=======================================================
+# Lumped Mass Matrix stuff for variable mesh resolution
+#=======================================================
+def mass_matrix_diagonal(space, name="M_l"):
+    M_l = Function(space, name=name)
+    M_l.vector().axpy(1.0, assemble(TestFunction(space) * dx))
+    return M_l
+
+
+class LumpedMassSolver(Equation):
+    def __init__(self, m, m_l, p=1):
+        Equation.__init__(self, m_l, deps=[m_l, m], nl_deps=[], ic_deps=[],
+                          adj_ic_deps=[])
+        self._M_l = mass_matrix_diagonal(function_space(m_l))
+        self._M_l_p = p
+
+    def forward_solve(self, x, deps=None):
+        _, m = self.dependencies() if deps is None else deps
+        function_set_values(
+            x,
+            function_get_values(m)
+            * np.power(function_get_values(self._M_l), self._M_l_p))
+
+    def adjoint_derivative_action(self, nl_deps, dep_index, adj_x):
+        if dep_index == 0:
+            return adj_x
+        else:
+            assert dep_index == 1
+            F = function_new(self._M_l)
+            function_set_values(
+                F,
+                -function_get_values(adj_x)
+                * np.power(function_get_values(self._M_l), self._M_l_p))
+            return F
+
+    def adjoint_jacobian_solve(self, adj_x, nl_deps, b):
+        return b
+
+    def tangent_linear(self, M, dM, tlm_map):
+        m_l, m = self.dependencies()
+        assert m_l not in M
+        return LumpedMassSolver(get_tangent_linear(m, M, dM, tlm_map),
+                                tlm_map[m_l], p=self._M_l_p)
