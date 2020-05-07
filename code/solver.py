@@ -597,16 +597,8 @@ class ssa_solver:
         invconfig = self.param.inversion
 
         #What are we inverting for?:
-        pflag = self.param['pflag']
-        if(pflag==0):
-            do_alpha=True
-            do_beta=False
-        elif(pflag==1):
-            do_alpha=False
-            do_beta=True
-        else:
-            do_alpha = True
-            do_beta = True
+        do_alpha = invconfig.alpha_active
+        do_beta = invconfig.beta_active
 
         u,v = split(self.U)
 

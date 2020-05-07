@@ -44,10 +44,10 @@ beta_active = false
 simultaneous = false
 alt_iter = 2
 
-gamma_alpha = 1e6
-delta_alpha = 1e-2
-gamma_beta = 1.0e-9
-delta_beta = 1.0e-9
+gamma_alpha = 1e3 #6
+delta_alpha = 1e-5 #-2
+gamma_beta = 0.0
+delta_beta = 0.0
 
 ftol = 1e-4
 #gtol = 1e-12
