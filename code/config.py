@@ -34,6 +34,8 @@ class ConfigParser(object):
         self.mesh = MeshCfg(**self.config_dict['mesh'])
         self.obs = ObsCfg(**self.config_dict['obs'])
 
+        #TODO - boundaries
+
     def check_dirs(self):
         """
         Check input directory exists & create output dir if necessary.

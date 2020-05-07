@@ -13,6 +13,7 @@ rhow = 1030.0
 g = 9.81
 
 #random_seed = 0
+
 [mesh]
 
 #Not totally happy about the logic here

@@ -60,8 +60,8 @@ def main(config_file):
     mdl.label_domain()
 
 
-    if os.path.isfile(os.path.join(dd,'Bglen.xml')):
-        Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
+    if os.path.isfile(os.path.join(dd, 'Bglen.xml')):
+        Bglen = Function(M, os.path.join(dd, 'Bglen.xml'))
         mdl.init_beta(mdl.bglen_to_beta(Bglen))
 
     else:
