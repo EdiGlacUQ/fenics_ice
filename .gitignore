@@ -8,6 +8,9 @@
 *.h5
 *.pyc
 *.swp
+*~
+*#
 **/.DS_Store
 scripts/*
 !scripts/ismipc/
+!scripts/*toml

@@ -877,9 +877,13 @@ class MomentumSolver(EquationSolver):
         rhs = 0 if self._rhs == 0 else replace_deps(self._rhs)
         J_p = replace_deps(self.J_p)
         J = replace_deps(self._J)
-        solve(lhs == rhs, x, self._bcs, J = J_p, form_compiler_parameters = self._form_compiler_parameters, solver_parameters = self.picard_params)
+        solve(lhs == rhs, x, self._bcs, J=J_p,
+              form_compiler_parameters=self._form_compiler_parameters,
+              solver_parameters=self.picard_params)
         end()
-        solve(lhs == rhs, x, self._bcs, J = J, form_compiler_parameters = self._form_compiler_parameters, solver_parameters = self._solver_parameters)
+        solve(lhs == rhs, x, self._bcs, J=J,
+              form_compiler_parameters=self._form_compiler_parameters,
+              solver_parameters=self._solver_parameters)
         end()
 
 
