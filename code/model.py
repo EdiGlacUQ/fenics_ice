@@ -3,6 +3,7 @@ from dolfin import *
 import ufl
 import numpy as np
 import timeit
+import mesh as fice_mesh
 from IPython import embed
 from numpy.random import randn
 
@@ -11,7 +12,7 @@ class model:
     def __init__(self, mesh_in, mask_in, param_in):
 
         #Initiate parameters
-        self.init_param(param_in)
+        self.param = param_in
 
         #Full mask/mesh
         self.mesh_ext = Mesh(mesh_in)
@@ -26,14 +27,22 @@ class model:
         self.RT = FunctionSpace(self.mesh,'RT',1)
 
         #Based on IsmipC: alpha, beta, and U are periodic.
-        if not self.param['periodic_bc']:
+        if not self.param.mesh.periodic_bc:
             self.Qp = self.Q
             self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
         else:
-            self.Qp = FunctionSpace(self.mesh,'Lagrange',1,
-                                    constrained_domain=PeriodicBoundary(self.param['periodic_bc']))
-            self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2,
-                                    constrained_domain=PeriodicBoundary(self.param['periodic_bc']))
+            mesh_length = fice_mesh.get_mesh_length(mesh_in)
+
+            self.Qp = FunctionSpace(
+                self.mesh,'Lagrange',
+                1,
+                constrained_domain=PeriodicBoundary(mesh_length))
+
+            self.V = VectorFunctionSpace(
+                self.mesh,'Lagrange',
+                1,
+                dim=2,
+                constrained_domain=PeriodicBoundary(mesh_length))
 
         #Default velocity mask and Beta fields
         self.def_vel_mask()
@@ -44,7 +53,7 @@ class model:
         """
         Sets parameter values to defaults, then overwrites with param_in
         """
-
+        #TODO - UNUSED - DELETE ONCE DEFAULTS EXTRACTED
         #Constants for ice sheet modelling
         param = {}
         param['ty'] = 365*24*60*60.0  #seconds in year
@@ -107,8 +116,8 @@ class model:
         self.mask_vel = project(Constant(0.0), self.M)
 
     def def_B_field(self):
-        A = self.param['A']
-        n = self.param['n']
+        A = self.param.constants.A
+        n = self.param.constants.glen_n
         self.beta = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
         self.beta_bgd = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
         self.beta.rename('beta', 'a Function')
@@ -195,16 +204,16 @@ class model:
         self.mask = project(mask,self.M)
 
     def gen_thick(self):
-        rhoi = self.param['rhoi']
-        rhow = self.param['rhow']
+        rhoi = self.param.constants.rhoi
+        rhow = self.param.constants.rhow
 
         h_diff = self.surf-self.bed
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
         self.H = project(Min(h_diff,h_hyd),self.M)
 
     def gen_surf(self):
-        rhoi = self.param['rhoi']
-        rhow = self.param['rhow']
+        rhoi = self.param.constants.rhoi
+        rhow = self.param.constants.rhow
         bed = self.bed
         H = self.H
 
@@ -214,7 +223,8 @@ class model:
         self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
 
     def gen_ice_mask(self):
-        self.mask = project(conditional(gt(self.H,self.param['tol']),1,0), self.M)
+        tol = self.param.constants.float_eps
+        self.mask = project(conditional(gt(self.H,tol),1,0), self.M)
 
     def gen_alpha(self, a_bgd=500.0, a_lb = 1e2, a_ub = 1e4):
         """
@@ -223,12 +233,12 @@ class model:
 
         bed = self.bed
         H = self.H
-        g = self.param['g']
-        rhoi = self.param['rhoi']
-        rhow = self.param['rhow']
+        g = self.param.constants.g
+        rhoi = self.param.constants.rhoi
+        rhow = self.param.constants.rhow
         u_obs = self.u_obs
         v_obs = self.v_obs
-        vel_rp = self.param['vel_rp']
+        vel_rp = self.param.constants.vel_rp
 
         U = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
@@ -255,9 +265,10 @@ class model:
         B2_tmp1 = ufl.Max(B2_, a_lb)
         B2_tmp2 = ufl.Min(B2_tmp1, a_ub)
 
-        if self.param['sliding_law'] == 0:
+        sl = self.param.ice_dynamics.sliding_law
+        if sl == 'linear':
             alpha = sqrt(B2_tmp2)
-        elif self.param['sliding_law'] == 1:
+        elif sl == 'weertman':
             N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed,0.0)*rhow*g)
             U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
             alpha = (1-fl_ex)*sqrt(B2_tmp2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
@@ -267,7 +278,7 @@ class model:
 
 
     def gen_domain(self):
-        tol = self.param['tol']
+        tol = self.param.constants.float_eps
         cf_mask = MeshFunction('size_t',  self.mesh_ext, self.mesh_ext.geometric_dimension())
 
         for c in cells(self.mesh_ext):
@@ -283,12 +294,12 @@ class model:
 
 
     def label_domain(self):
-        tol = self.param['tol']
+        tol = self.param.constants.float_eps
         bed = self.bed
         H = self.H
-        g = self.param['g']
-        rhoi = self.param['rhoi']
-        rhow = self.param['rhow']
+        g = self.param.constants.g
+        rhoi = self.param.constants.rhoi
+        rhow = self.param.constants.rhow
 
         #Flotation Criterion
         H_s = -rhow/rhoi * bed

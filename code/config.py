@@ -49,7 +49,7 @@ class InversionCfg(object):
     """
     active: bool = False
 
-    max_iter: int = 200
+    max_iter: int = 15
     ftol: float = 1e-4
     gtol: float = None
     verbose: bool = True

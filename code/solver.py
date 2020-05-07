@@ -114,29 +114,30 @@ class ssa_solver:
         self.dObs_gnd = self.dx(self.OMEGA_ICE_FLT_OBS)
         self.dObs_flt = self.dx(self.OMEGA_ICE_GND_OBS)
 
-        self.dt = Constant(self.param['dt'])
+        self.dt = Constant(self.param.time.dt)
 
 
 
     def def_mom_eq(self):
 
         #Simplify accessing fields and parameters
+        constants = self.param.constants
         bed = self.bed
         H = self.H
         mask = self.mask
         alpha = self.alpha
 
 
-        rhoi = self.param['rhoi']
-        rhow = self.param['rhow']
+        rhoi = constants.rhoi
+        rhow = constants.rhow
         delta = 1.0 - rhoi/rhow
-        g = self.param['g']
-        n = self.param['n']
-        tol = self.param['tol']
+        g = constants.g
+        n = constants.glen_n
+        tol = constants.float_eps
         dIce = self.dIce
         ds = self.ds
-        sl = self.param['sliding_law']
-        vel_rp = self.param['vel_rp']
+        sl = self.param.ice_dynamics.sliding_law
+        vel_rp = constants.vel_rp
 
         #Vector components of trial function
         u, v = split(self.U)
@@ -192,13 +193,16 @@ class ssa_solver:
         self.mom_Jac = derivative(self.mom_F, self.U)
 
     def sliding_law(self,alpha,U):
+
+        constants = self.param.constants
+
         bed = self.bed
         H = self.H
-        rhoi = self.param['rhoi']
-        rhow = self.param['rhow']
-        g = self.param['g']
-        sl = self.param['sliding_law']
-        vel_rp = self.param['vel_rp']
+        rhoi = constants.rhoi
+        rhow = constants.rhow
+        g = constants.g
+        sl = self.param.ice_dynamics.sliding_law
+        vel_rp = constants.vel_rp
 
         H_s = -rhow/rhoi * bed
         fl_ex = ufl.operators.Conditional(H <= H_s, Constant(1.0), Constant(0.0))
@@ -206,10 +210,11 @@ class ssa_solver:
         C = alpha*alpha
         u,v = split(U)
 
-        if sl == 0:
+        if sl == 'linear':
             B2 = C
 
-        elif sl == 1:
+        elif sl == 'weertman':
+            def Min(a, b): return (a+b-abs(a-b))/Constant(2) #TODO - Min untested
             N = (1-fl_ex)*(H*rhoi*g + Min(bed,0.0)*rhow*g)
             U_mag = sqrt(U[0]**2 + U[1]**2 + vel_rp**2)
             B2 = (1-fl_ex)*(C * N**(1.0/3.0) * U_mag**(-2.0/3.0))
@@ -221,7 +226,7 @@ class ssa_solver:
 
         self.bcs = []
 
-        if not self.param['periodic_bc']:
+        if not self.param.mesh.periodic_bc:
             ff_array = self.ff.array()
             bc0 = DirichletBC(self.V, self.latbc, self.ff, self.GAMMA_LAT) if self.GAMMA_LAT in ff_array else False
             bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF) if self.GAMMA_NF in ff_array else False
@@ -232,8 +237,8 @@ class ssa_solver:
 
         t0 = time.time()
 
-        newton_params = self.param['newton_params']
-        picard_params = self.param['picard_params']
+        newton_params = self.param.momsolve.newton_params
+        picard_params = self.param.momsolve.picard_params
         J_p = self.mom_Jac_p
         MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, J_p=J_p, picard_params = picard_params, solver_parameters = newton_params).solve(annotate=annotate_flag)
 
@@ -311,7 +316,7 @@ class ssa_solver:
         dt = self.param['dt']
         run_length = self.param['run_length']
 
-        outdir = self.param['outdir']
+        outdir = self.param.io.output_dir
 
         self.Qval_ts = np.zeros(n_steps+1)
         Q = Functional()
@@ -493,11 +498,18 @@ class ssa_solver:
         return J
 
 
-    def inversion(self, cntrl_input):
+    def inversion(self):
 
+        config = self.param.inversion
+        cntrl_input = []
+        if config.alpha_active:
+            cntrl_input.append(self.alpha)
+        if config.beta_active:
+            cntrl_input.append(self.beta)
 
         nparam = len(cntrl_input)
-        num_iter = self.param['altiter']*nparam if nparam > 1 else nparam
+
+        num_iter = config.alt_iter*nparam if nparam > 1 else nparam
 
 
         for j in range(num_iter):
@@ -525,8 +537,8 @@ class ssa_solver:
             #ddJ = Hessian(forward)
             #min_order = taylor_test(forward, self.alpha, J_val = J.value(), dJ = dJ, ddJ=ddJ, seed = 1.0e-6)
 
-            cntrl_opt, result = minimize_scipy(forward, cc, J, method = 'L-BFGS-B',
-                options = self.param['inv_options'])
+            cntrl_opt, result = minimize_scipy(forward, cc, J, method='L-BFGS-B',
+                                               options=config.inv_options)
               #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
 
             cc.assign(cntrl_opt)
@@ -555,7 +567,7 @@ class ssa_solver:
         """
         return the effective strain rate squared.
         """
-        eps_rp = self.param['eps_rp']
+        eps_rp = self.param.constants.eps_rp
 
         eps = self.epsilon(U)
         exx = eps[0,0]
@@ -569,7 +581,7 @@ class ssa_solver:
 
     def viscosity(self,U):
         B = self.beta_to_bglen(self.beta)
-        n = self.param['n']
+        n = self.param.constants.glen_n
 
         eps_2 = self.effective_strain_rate(U)
         nu = 0.5 * B * eps_2**((1.0-n)/(2.0*n))
@@ -581,6 +593,8 @@ class ssa_solver:
         Compute the value of the cost function
         Note: 'verbose' significantly decreases speed
         """
+
+        invconfig = self.param.inversion
 
         #What are we inverting for?:
         pflag = self.param['pflag']
@@ -615,11 +629,11 @@ class ssa_solver:
         nm = self.nm
 
         #regularization parameters
-        lambda_a = self.param['rc_inv'][0]
-        delta_a = self.param['rc_inv'][1]
-        delta_b = self.param['rc_inv'][2]
-        gamma_a = self.param['rc_inv'][3]
-        gamma_b = self.param['rc_inv'][4]
+        lambda_a = 1.0
+        delta_a = invconfig.delta_alpha
+        delta_b = invconfig.delta_beta
+        gamma_a = invconfig.gamma_alpha
+        gamma_b = invconfig.gamma_beta
 
         #TODO: Good reason to think that lambda_a should *always* be 1
         #So should we get rid of this parameter altogether?
