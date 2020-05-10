@@ -19,7 +19,7 @@ from IPython import embed
 stop_annotating()
 np.random.seed(10)
 
-def main(n_steps,run_length,periodic_bc, outdir, dd, nx, ny, num_sens, pflag, sl, qoi):
+def run_forward(config_file):
 
    # Determine Mesh
 
@@ -339,4 +339,5 @@ if __name__ == "__main__":
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
-    main(n_steps,run_length,periodic_bc, outdir, dd, nx, ny, num_sens, pflag, sl, qoi)
+    assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
+    run_forward(sys.argv[1])

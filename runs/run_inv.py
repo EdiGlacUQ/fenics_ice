@@ -19,7 +19,7 @@ import pickle
 from IPython import embed
 
 
-def main(config_file):
+def run_inv(config_file):
     """
     Run the inversion part of the simulation
     """
@@ -185,4 +185,4 @@ def main(config_file):
 if __name__ == "__main__":
     stop_annotating()
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
-    main(sys.argv[1])
+    run_inv(sys.argv[1])

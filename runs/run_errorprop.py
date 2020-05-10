@@ -21,7 +21,7 @@ from petsc4py import PETSc
 from IPython import embed
 
 
-def main(outdir, dd, eigendir, lamfile, vecfile, threshlam):
+def run_errorprop(outdir, dd, eigendir, lamfile, vecfile, threshlam):
 
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
 
@@ -202,4 +202,4 @@ if __name__ == "__main__":
 
 
 
-    main(outdir, dd, eigendir, lamfile, vecfile, threshlam)
+    run_errorprop(outdir, dd, eigendir, lamfile, vecfile, threshlam)

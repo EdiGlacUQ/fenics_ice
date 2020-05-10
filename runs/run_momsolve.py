@@ -19,7 +19,7 @@ import pickle
 from IPython import embed
 
 
-def main(config_file):
+def run_momsolve(config_file):
 
     #Read run config file
     params = ConfigParser(config_file)
@@ -136,4 +136,4 @@ def main(config_file):
 
 if __name__ == "__main__":
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
-    main(sys.argv[1])
+    run_momsolve(sys.argv[1])

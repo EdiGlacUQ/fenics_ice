@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import prior
 
 
-def main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, fileout):
+def run_eigendec(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, fileout):
 
     #Load parameters of run
     param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
@@ -215,4 +215,4 @@ if __name__ == "__main__":
         if slepsc_flag: fileout = 'slepc_eig_{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
         else: fileout = 'rand_eig_{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
 
-    main(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, fileout)
+    run_eigendec(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, fileout)
