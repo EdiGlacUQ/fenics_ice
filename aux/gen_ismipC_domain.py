@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
     parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
 
-    parser.set_defaults(outdir = '../input/ismipC/', periodic_bc=True, L = 40e3, nx = 100, ny=100)
+    parser.set_defaults(outdir = '../input/ismipC/', periodic_bc=True, L = 40e3, nx = 100, ny=100) #TODO - because default = True, actually no way to run this code without periodic_bc
     args = parser.parse_args()
 
     outdir = args.outdir
