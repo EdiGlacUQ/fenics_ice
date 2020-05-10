@@ -4,8 +4,12 @@ import os
 import argparse
 from fenics import *
 from tlm_adjoint_fenics import *
+
 import model
 import solver
+from config import ConfigParser
+import mesh as fice_mesh
+
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
@@ -17,93 +21,46 @@ import pickle
 from IPython import embed
 
 stop_annotating()
-np.random.seed(10)
 
 def run_forward(config_file):
 
-   # Determine Mesh
+    # n_steps
+    # run_length
+    # num_sens
+    # qoi
 
-    # Create a new mesh with specific resolution
-    if nx and ny:
-        data_mesh_file = 'data_mesh.xml'
-        data_mask_file = 'data_mask.xml'
+    #Defaults: num_sens = 1.0, qoi=0
 
-        assert(os.path.isfile(os.path.join(dd,data_mesh_file))), 'Need data_mesh.xml to interpolate'
-        assert(os.path.isfile(os.path.join(dd,data_mask_file))), 'Need data_mask.xml to interpolate'
+    #TODO - issue here - run_inv might need to use 'nx,ny' but run_forward should
+    #read mesh...
 
-        #Generate model mesh
-        print('Generating new mesh')
-        gf = 'grid_data.npz'
-        npzfile = np.load(os.path.join(dd,'grid_data.npz'))
-        xlim = npzfile['xlim']
-        ylim = npzfile['ylim']
+    #Read run config file
+    params = ConfigParser(config_file)
 
-        mesh = RectangleMesh(Point(xlim[0],ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
+    dd = params.io.input_dir
 
-    # Reuse a mesh; in this case, mesh and data_mesh will be identical
+    # Determine Mesh
 
-    # Otherwise see if there is previous run
-    elif os.path.isfile(os.path.join(dd,'mesh.xml')):
-        data_mesh_file = 'mesh.xml'
-        data_mask_file = 'mask.xml'
+    mesh = fice_mesh.get_mesh(params)
+    data_mesh = fice_mesh.get_data_mesh(params)
 
-        mesh = Mesh(os.path.join(dd,data_mesh_file))
-    
-    # Mirror data files
-    elif os.path.isfile(os.path.join(dd,'data_mesh.xml')):
-        #Start from raw data
-        data_mesh_file = 'data_mesh.xml'
-        data_mask_file = 'data_mask.xml'
-
-        mesh = Mesh(os.path.join(dd,data_mesh_file))
-
-    else:
-        print('Need mesh and mask files')
-        raise SystemExit
-
-    data_mesh = Mesh(os.path.join(dd,data_mesh_file))
-    
     # Define Function Spaces
     M = FunctionSpace(data_mesh, 'DG', 0)
     Q = FunctionSpace(data_mesh, 'Lagrange', 1)
-    V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
+ #   V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
     Qp = Q
 
     # Make necessary modification for periodic bc
-    if periodic_bc:
+    if params.mesh.periodic_bc:
+        Qp = fice_mesh.setup_periodic_bc(params, data_mesh)
+    else:
+        Qp = Q
 
-        #If we're on a new mesh
-        if nx and ny:
-            L1 = xlim[-1] - xlim[0]
-            L2 = ylim[-1] - ylim[0]
-            assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
-            mesh_length = L1
-
-        #If previous run   
-        elif os.path.isfile(os.path.join(dd,'param.p')):
-            mesh_length = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
-            assert(mesh_length), 'Need to run periodic bc using original files'
-
-        # Assume we're on a data_mesh
-        else:
-            gf = 'grid_data.npz'
-            npzfile = np.load(os.path.join(dd,'grid_data.npz'))
-            xlim = npzfile['xlim']
-            ylim = npzfile['ylim']
-            L1 = xlim[-1] - xlim[0]
-            L2 = ylim[-1] - ylim[0]
-            assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
-            mesh_length = L1
-
-        Qp = FunctionSpace(data_mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(mesh_length))
-        V = VectorFunctionSpace(data_mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(mesh_length))
-    
-
-    data_mask = Function(M,os.path.join(dd,data_mask_file))
+    data_mask = fice_mesh.get_data_mask(params, M)
 
 
     #Load fields
-    U = Function(V,os.path.join(dd,'U.xml'))
+#    U = Function(V,os.path.join(dd,'U.xml')) #<- is this used? and if not, is 'V' used?
 
     alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
     beta = Function(Qp,os.path.join(dd,'beta.xml'))
@@ -120,52 +77,53 @@ def run_forward(config_file):
     v_std = Function(M,os.path.join(dd,'v_std.xml'))
     uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
 
+    #TODO - these solver params differ from run_inv.py
+    # do we want to specify on a step-by-step basis?
 
     #Load Data
-    param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
-    param['sliding_law'] = sl
+    # param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
+    # param['sliding_law'] = sl
 
-    param['outdir'] = outdir
-    if sl == 0:
-        param['picard_params'] =  {"nonlinear_solver":"newton",
-                                "newton_solver":{"linear_solver":"umfpack",
-                                "maximum_iterations":200,
-                                "absolute_tolerance":1.0e-0,
-                                "relative_tolerance":1.0e-3,
-                                "convergence_criterion":"incremental",
-                                "error_on_nonconvergence":False,
-                                }}
-        param['newton_params'] =  {"nonlinear_solver":"newton",
-                                "newton_solver":{"linear_solver":"umfpack",
-                                "maximum_iterations":25,
-                                "absolute_tolerance":1.0e-7,
-                                "relative_tolerance":1.0e-8,
-                                "convergence_criterion":"incremental",
-                                "error_on_nonconvergence":True,
-                                }}
+    # param['outdir'] = outdir
+    # if sl == 0:
+    #     param['picard_params'] =  {"nonlinear_solver":"newton",
+    #                             "newton_solver":{"linear_solver":"umfpack",
+    #                             "maximum_iterations":200,
+    #                             "absolute_tolerance":1.0e-0,
+    #                             "relative_tolerance":1.0e-3,
+    #                             "convergence_criterion":"incremental",
+    #                             "error_on_nonconvergence":False,
+    #                             }}
+    #     param['newton_params'] =  {"nonlinear_solver":"newton",
+    #                             "newton_solver":{"linear_solver":"umfpack",
+    #                             "maximum_iterations":25,
+    #                             "absolute_tolerance":1.0e-7,
+    #                             "relative_tolerance":1.0e-8,
+    #                             "convergence_criterion":"incremental",
+    #                             "error_on_nonconvergence":True,
+    #                             }}
 
-    elif sl == 1:
-        param['picard_params'] =  {"nonlinear_solver":"newton",
-                                "newton_solver":{"linear_solver":"umfpack",
-                                "maximum_iterations":200,
-                                "absolute_tolerance":1.0e-4,
-                                "relative_tolerance":1.0e-10,
-                                "convergence_criterion":"incremental",
-                                "error_on_nonconvergence":False,
-                                }}
-        param['newton_params'] =  {"nonlinear_solver":"newton",
-                                "newton_solver":{"linear_solver":"umfpack",
-                                "maximum_iterations":25,
-                                "absolute_tolerance":1.0e-4,
-                                "relative_tolerance":1.0e-5,
-                                "convergence_criterion":"incremental",
-                                "error_on_nonconvergence":True,
-                                }}
+    # elif sl == 1:
+    #     param['picard_params'] =  {"nonlinear_solver":"newton",
+    #                             "newton_solver":{"linear_solver":"umfpack",
+    #                             "maximum_iterations":200,
+    #                             "absolute_tolerance":1.0e-4,
+    #                             "relative_tolerance":1.0e-10,
+    #                             "convergence_criterion":"incremental",
+    #                             "error_on_nonconvergence":False,
+    #                             }}
+    #     param['newton_params'] =  {"nonlinear_solver":"newton",
+    #                             "newton_solver":{"linear_solver":"umfpack",
+    #                             "maximum_iterations":25,
+    #                             "absolute_tolerance":1.0e-4,
+    #                             "relative_tolerance":1.0e-5,
+    #                             "convergence_criterion":"incremental",
+    #                             "error_on_nonconvergence":True,
+    #                             }}
 
 
-    param['run_length'] =  run_length
-    param['n_steps'] = n_steps
-    param['num_sens'] = num_sens
+    # param['n_steps'] = n_steps
+    # param['num_sens'] = num_sens
 
     mdl = model.model(mesh,data_mask, param)
     mdl.init_bed(bed)
@@ -187,7 +145,7 @@ def run_forward(config_file):
     opts = {'0': slvr.alpha, '1': slvr.beta, '2': [slvr.alpha,slvr.beta]}
     cntrl = opts[str(pflag)]
 
-    qoi_func =  slvr.comp_Q_h2 if qoi == 1 else slvr.comp_Q_vaf
+    qoi_func =  slvr.get_qoi_func() #TODO - test
     Q = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)
     dQ_ts = compute_gradient(Q, cntrl) #Isaac 27
 
@@ -214,6 +172,8 @@ def run_forward(config_file):
 
     File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
 
+    run_length = params.time.run_length
+    n_steps = params.time.total_steps
     ts = np.linspace(0,run_length,n_steps+1)
     pickle.dump([slvr.Qval_ts, ts], open( os.path.join(outdir,'Qval_ts.p'), "wb" ) )
 
@@ -303,41 +263,19 @@ def run_forward(config_file):
 if __name__ == "__main__":
     stop_annotating()
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--time', dest='run_length', type=float, required=True, help='Number of years to run for')
-    parser.add_argument('-n', '--num_timesteps', dest='n_steps', type=int, required=True, help='Number of timesteps')
-    parser.add_argument('-b', '--boundaries', dest='periodic_bc', action='store_true', help='Periodic boundary conditions')
-    parser.add_argument('-x', '--cells_x', dest='nx', type=int, help='Number of cells in x direction')
-    parser.add_argument('-y', '--cells_y', dest='ny', type=int, help='Number of cells in y direction')
-    parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
-    parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
-    parser.add_argument('-s', '--num_sens', dest='num_sens', type=int, help='Number of samples of cost function')
-    parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, help='Parameter to calculate sensitivity to: alpha (0), beta (1), [Future->] alpha and beta (2)')
-    parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
-    parser.add_argument('-i', '--quantity_of_interest', dest='qoi', type=float,  help = 'Quantity of interest (0: VAF (default), 1: H^2 (for ISMIPC))')
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('-t', '--time', dest='run_length', type=float, required=True, help='Number of years to run for')
+    # parser.add_argument('-n', '--num_timesteps', dest='n_steps', type=int, required=True, help='Number of timesteps')
+    # parser.add_argument('-s', '--num_sens', dest='num_sens', type=int, help='Number of samples of cost function')
+    # parser.add_argument('-i', '--quantity_of_interest', dest='qoi', type=float,  help = 'Quantity of interest (0: VAF (default), 1: H^2 (for ISMIPC))')
 
-    parser.set_defaults(periodic_bc = False, nx=False,ny=False, outdir=False, num_sens = 1.0, pflag=0,sl=0, qoi=0)
-    args = parser.parse_args()
+    # parser.set_defaults(periodic_bc = False, nx=False,ny=False, outdir=False, num_sens = 1.0, pflag=0,sl=0, qoi=0)
+    # args = parser.parse_args()
 
-    n_steps = args.n_steps
-    run_length = args.run_length
-    periodic_bc = args.periodic_bc
-    outdir = args.outdir
-    dd = args.dd
-    nx = args.nx
-    ny = args.ny
-    num_sens = args.num_sens
-    pflag = args.pflag
-    sl = args.sl
-    qoi = args.qoi
-
-    if not outdir:
-        outdir = ''.join(['./run_forward_', datetime.datetime.now().strftime("%m%d%H%M%S")])
-        print('Creating output directory: {0}'.format(outdir))
-        os.makedirs(outdir)
-    else:
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
+    # n_steps = args.n_steps
+    # run_length = args.run_length
+    # num_sens = args.num_sens
+    # qoi = args.qoi
 
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_forward(sys.argv[1])

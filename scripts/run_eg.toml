@@ -87,15 +87,20 @@ error_on_nonconvergence = true
 
 [time]
 
-run_time = 30.0
-steps_per_year = 30
-#total_steps = 100
+run_length = 30.0
+#steps_per_year = 30
+total_steps = 120
+#dt = 0.033333333
+num_sens = 5 #TODO rename
 
 [eigendec]
 
 
 [errorprop]
 
+qoi = 'vaf' #or 'h2'
+
+#TODO - not yet implemented
 [[boundaries]]
     name = "Left Side"
     id = 1

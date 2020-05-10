@@ -3,6 +3,7 @@ Classes & methods for parsing fenics_ice configuration files.
 """
 
 import os
+import math
 import toml
 from dataclasses import dataclass, field
 from IPython import embed
@@ -33,7 +34,7 @@ class ConfigParser(object):
         self.time = TimeCfg(**self.config_dict['time'])
         self.mesh = MeshCfg(**self.config_dict['mesh'])
         self.obs = ObsCfg(**self.config_dict['obs'])
-
+        self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         #TODO - boundaries
 
     def check_dirs(self):
@@ -87,9 +88,17 @@ class InversionCfg(object):
 @dataclass(frozen=True)
 class ObsCfg(object):
     """
-    Configuration related to inversion
+    Configuration related to observations
     """
     pts_len: float = None
+
+@dataclass(frozen=True)
+class ErrorPropCfg(object):
+    """
+    Configuration related to error propagation
+    """
+    qoi: str = 'vaf'
+
 
 @dataclass(frozen=True)
 class ConstantsCfg(object):
@@ -207,16 +216,35 @@ class TimeCfg(object):
     """
     Configuration of forward timestepping
     """
-    run_time: float
-    steps_per_year: int = None
+    run_length: float
+    steps_per_year: float = None #NB: FLOAT
     total_steps: int = None
     dt: float = None
+    num_sens: int = 1
 
     def __post_init__(self):
-        assert (bool(self.steps_per_year) != bool(self.total_steps)), \
-            "Provide either 'steps_per_year' OR 'total_steps"
-        #TODO - could use one to compute the other here...
-        assert (bool(self.dt) == bool(self.total_steps))
+        """
+        Sanity check time configuration
+        Logic:
+          Must provide run_length (total len)
+          Must provide exactly one of: total_steps, dt, steps_per_year
+        """
+        #Check user provided exactly one way to specify dt:
+        assert sum([x is not None for x in [self.total_steps,
+                                        self.dt,
+                                        self.steps_per_year]]) == 1, \
+                                        "Provide one of: dt, total_steps, steps_per_year"
+
+        #Compute other two time measures
+        if self.total_steps is not None:
+            object.__setattr__(self, 'dt', self.run_length/self.total_steps)
+            object.__setattr__(self, 'steps_per_year', 1.0/self.dt)
+        elif self.steps_per_year is not None:
+            object.__setattr__(self, 'dt', 1.0/self.steps_per_year)
+            object.__setattr__(self, 'total_steps', math.ceil(self.run_length/self.dt))
+        else: #dt provided
+            object.__setattr__(self, 'total_steps', math.ceil(self.run_length/self.dt))
+            object.__setattr__(self, 'steps_per_year', 1.0/self.dt)
 
 
 def cleanNullTerms(d):

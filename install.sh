@@ -49,7 +49,7 @@ conda install -y conda-build
 
 pip install --upgrade pip
 conda install -y matplotlib numpy ipython scipy seaborn
-pip install h5py mpi4py
+pip install h5py mpi4py toml
 
 #get pyrevolve
 git clone https://github.com/opesci/pyrevolve.git

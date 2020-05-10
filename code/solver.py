@@ -117,6 +117,10 @@ class ssa_solver:
         self.dt = Constant(self.param.time.dt)
 
 
+    def get_qoi_func(self):
+        qoi_dict = {'vaf':self.comp_Q_vaf, 'h2':self.com_Q_h2}
+        choice = self.param.error_prop.qoi.lower() #flexible case
+        return qoi_dict[choice]
 
     def def_mom_eq(self):
 
@@ -312,7 +316,7 @@ class ssa_solver:
 
         t = 0.0
 
-        n_steps = self.param['n_steps']
+        n_steps = self.param.time.total_steps
         dt = self.param['dt']
         run_length = self.param['run_length']
 
@@ -331,7 +335,7 @@ class ssa_solver:
 
 
         if adjoint_flag:
-            num_sens = self.param['num_sens']
+            num_sens = self.param.time.num_sens
             t_sens = np.array([run_length]) if num_sens == 1 else np.linspace(0.0, run_length, num_sens)
             n_sens = np.round(t_sens/dt)
 
