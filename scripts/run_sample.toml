@@ -4,7 +4,7 @@
 
 run_name = "momsolve_init"
 input_dir = "./input/ismipC"
-output_dir = "../output"
+output_dir = "/home/dgoldber/www/public_html/fenics_ice/temp"
 
 [constants]
 
