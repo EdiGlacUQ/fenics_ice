@@ -115,6 +115,7 @@ class ssa_solver:
         self.dObs_flt = self.dx(self.OMEGA_ICE_GND_OBS)
 
         self.dt = Constant(self.param.time.dt)
+        self.run_length = Constant(self.param.time.run_length)
 
 
     def get_qoi_func(self):
@@ -317,8 +318,8 @@ class ssa_solver:
         t = 0.0
 
         n_steps = self.param.time.total_steps
-        dt = self.param['dt']
-        run_length = self.param['run_length']
+        dt = self.dt
+        run_length = self.run_length
 
         outdir = self.param.io.output_dir
 
@@ -774,7 +775,7 @@ class ssa_solver:
         """
         QOI: Square integral of thickness
         """
-
+ 
         Q_h2 = self.H_np*self.H_np*self.dIce
         if verbose: print('Q_h2: {0}'.format(Q_h2))
 

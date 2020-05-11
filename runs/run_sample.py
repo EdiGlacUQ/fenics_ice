@@ -48,14 +48,12 @@ def run_sample(config_file):
     # Define Function Spaces
     M = FunctionSpace(data_mesh, 'DG', 0)
     Q = FunctionSpace(data_mesh, 'Lagrange', 1)
-    space = FunctionSpace(mesh, 'Lagrange', 1)
 
+    # Make necessary modification for periodic bc
     if params.mesh.periodic_bc:
         Qp = fice_mesh.setup_periodic_bc(params, data_mesh)
-        space_p = fice_mesh.setup_periodic_bc(params, mesh)
     else:
         Qp = Q
-        space_p = space
 
     data_mask = fice_mesh.get_data_mask(params, M)
 
@@ -93,15 +91,17 @@ def run_sample(config_file):
     #Inversion
     slvr = solver.ssa_solver(mdl)
 
+    mesh = slvr.mesh
+    Qp = slvr.Q
+
 # ------------------------------------------------------
 
     delta = params.inversion.delta_alpha
     gamma = params.inversion.gamma_alpha
-    reg_op = prior.laplacian(delta,gamma,space_p)
+    reg_op = prior.laplacian(delta,gamma,Qp)
 
-    x = Function(space_p, name="x")
-    x.interpolate(Expression("exp(x[0]) * exp(x[1])",
-                             element=space.ufl_element()))
+    x = Function(Qp, name="x")
+    x =project(Expression("exp(x[0]) * exp(x[1])",degree=1),Qp)
     reg_op.sample(x.vector())
 
 #    xpts    = mesh.coordinates()[:,0]
@@ -124,7 +124,22 @@ def run_sample(config_file):
 #    plt.tight_layout(2.0)
 #    plt.savefig(os.path.join(params.io.output_dir, 'sample_prior.pdf'))
 
-    slvr.forward_alpha(x) 
+    slvr.lambda_a = 0.0
+    slvr.delta_a = 0.0
+    slvr.delta_b = 0.0
+    slvr.gamma_a = 0.0
+    slvr.gamma_b = 0.0
+    J = slvr.forward_alpha(x) 
+    print(J.value())
+    lambda_a = 1.0
+    delta_a = params.inversion.delta_alpha
+    delta_b = params.inversion.delta_beta
+    gamma_a = params.inversion.gamma_alpha
+    gamma_b = params.inversion.gamma_beta
+    slvr.save_ts_zero()
+    slvr.timestep(save=0,adjoint_flag=0, qoi_func=slvr.comp_Q_h2 )
+    Q=slvr.comp_Q_h2(verbose=True)
+    embed()
 
 
 if __name__ == "__main__":
