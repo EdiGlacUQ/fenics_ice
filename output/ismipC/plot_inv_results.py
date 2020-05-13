@@ -6,7 +6,7 @@ import matplotlib.ticker as ticker
 import seaborn as sns
 import os
 from fenics import *
-import model
+from fenics_ice import model
 
 sns.set()
 

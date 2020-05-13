@@ -4,14 +4,14 @@ for ismip-c case before running the main model.
 """
 
 import sys
-sys.path.insert(0,'../code/')
 import os
 import argparse
 from fenics import *
-import model
-import solver
-import mesh as fice_mesh
-from config import *
+
+from fenics_ice import model, solver
+import fenics_ice.mesh as fice_mesh
+from fenics_ice.config import ConfigParser
+
 import numpy as np
 import time
 import datetime

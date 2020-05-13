@@ -1,7 +1,7 @@
 from fenics import *
 import scipy.interpolate as interp
 import numpy as np
-import model
+from fenics_ice import model
 import matplotlib.pyplot as plt
 import test_domains
 import os

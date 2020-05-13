@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import os
 from fenics import *
-import model
+from fenics_ice import model
 
 ###########################################################
 # Plots the sensitivity of the QOI to the parameter of interest. This sensitivity

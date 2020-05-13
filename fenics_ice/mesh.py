@@ -6,7 +6,7 @@ import os
 from fenics import *
 from dolfin import *
 import numpy as np
-import model
+from fenics_ice import model
 
 def get_mesh(params):
     """

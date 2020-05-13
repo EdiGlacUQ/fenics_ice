@@ -5,15 +5,13 @@ import argparse
 from dolfin import *
 from tlm_adjoint import *
 
-import model
-import solver
-import prior
+from fenics_ice import model, solver, prior
+import fenics_ice.fenics_util as fu
 
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-import fenics_util as fu
 import time
 import datetime
 import pickle

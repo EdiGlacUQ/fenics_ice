@@ -5,16 +5,15 @@ import argparse
 from fenics import *
 from tlm_adjoint_fenics import *
 
-import model
-import solver
-from config import ConfigParser
-import mesh as fice_mesh
+from fenics_ice import model, solver
+from fenics_ice import mesh as fice_mesh
+from fenics_ice.config import ConfigParser
+import fenics_ice.fenics_util as fu
 
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-import fenics_util as fu
 import time
 import datetime
 import pickle

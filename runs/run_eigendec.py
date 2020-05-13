@@ -7,14 +7,15 @@ from fenics import *
 from tlm_adjoint_fenics import *
 import pickle
 from IPython import embed
-import model
-import solver
+
+from fenics_ice import model, solver, prior
+from fenics_ice.config import ConfigParser
+
 import datetime
 import numpy as np
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
-import prior
 
 
 def run_eigendec(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, fileout):

@@ -3,7 +3,7 @@ from dolfin import *
 import ufl
 import numpy as np
 import timeit
-import mesh as fice_mesh
+from fenics_ice import mesh as fice_mesh
 from IPython import embed
 from numpy.random import randn
 

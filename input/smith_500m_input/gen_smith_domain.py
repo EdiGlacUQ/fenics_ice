@@ -1,11 +1,10 @@
 import sys
-sys.path.insert(0,'../../code/')
 from fenics import *
 import scipy.interpolate as interp
 import matplotlib.pyplot as plt
 
 import numpy as np
-import fenics_util as fu
+import fenics_ice.fenics_util as fu
 from IPython import embed
 
 #Load preprocessed BEDMPA2 data by bedmap2_data_script.py

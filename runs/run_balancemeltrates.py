@@ -2,16 +2,17 @@ import sys
 import os
 import getopt
 import argparse
-sys.path.insert(0,'../code/')
+
 from fenics import *
 from dolfin import *
-import model
-import solver
+
+from fenics_ice import model, solver
+import fenics_ice.fenics_util as fu
+
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-import fenics_util as fu
 import time
 import datetime
 import pickle

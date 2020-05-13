@@ -1,5 +1,3 @@
-from fenics import *
-
 import numpy as np
 import sys
 import os
@@ -8,7 +6,7 @@ from matplotlib import colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from fenics import *
 from IPython import embed
-import model
+from fenics_ice import model
 import argparse
 
 

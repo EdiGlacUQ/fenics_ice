@@ -66,7 +66,7 @@ git checkout $BRANCH
 
 #PYTHONPATH equiv which doesn't pollute system environment namespace
 conda develop $INSTALL_DIR/tlm_adjoint/python/
-conda develop $INSTALL_DIR/fenics_ice/code
+conda develop $INSTALL_DIR/fenics_ice/
 
 #=================================
 #TEST SETUP WITH AN ISMIP-C CASE
