@@ -27,7 +27,7 @@ BRANCH="master"
 #----------------------------------
 
 export FENICS_ICE_BASE_DIR="$PWD"
-export INSTALL_DIR=$(dirname "$PWD")
+export INSTALL_DIR=$(dirname "$PWD") #parent directory
 
 
 source $CONDA_HOME/etc/profile.d/conda.sh
@@ -66,7 +66,7 @@ git checkout $BRANCH
 
 #PYTHONPATH equiv which doesn't pollute system environment namespace
 conda develop $INSTALL_DIR/tlm_adjoint/python/
-conda develop $INSTALL_DIR/fenics_ice/
+conda develop $FENICS_ICE_BASE_DIR
 
 #=================================
 #TEST SETUP WITH AN ISMIP-C CASE
