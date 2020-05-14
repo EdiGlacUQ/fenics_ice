@@ -29,20 +29,10 @@ class model:
         #Based on IsmipC: alpha, beta, and U are periodic.
         if not self.param.mesh.periodic_bc:
             self.Qp = self.Q
-            self.V = VectorFunctionSpace(self.mesh,'Lagrange',1,dim=2)
+            self.V = VectorFunctionSpace(self.mesh, 'Lagrange', 1, dim=2)
         else:
-            mesh_length = fice_mesh.get_mesh_length(mesh_in)
-
-            self.Qp = FunctionSpace(
-                self.mesh,'Lagrange',
-                1,
-                constrained_domain=PeriodicBoundary(mesh_length))
-
-            self.V = VectorFunctionSpace(
-                self.mesh,'Lagrange',
-                1,
-                dim=2,
-                constrained_domain=PeriodicBoundary(mesh_length))
+            self.Qp = fice_mesh.get_periodic_space(self.param, self.mesh, dim=1)
+            self.V = fice_mesh.get_periodic_space(self.param, self.mesh, dim=2)
 
         #Default velocity mask and Beta fields
         self.def_vel_mask()
@@ -223,6 +213,9 @@ class model:
         self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
 
     def gen_ice_mask(self):
+        """
+        UNUSED - would overwrite self.mask w/ extent of ice sheet (H > 0)
+        """
         tol = self.param.constants.float_eps
         self.mask = project(conditional(gt(self.H,tol),1,0), self.M)
 
@@ -278,6 +271,10 @@ class model:
 
 
     def gen_domain(self):
+        """
+        Takes the input mesh (self.mesh_ext) and produces the submesh
+        where mask==1, which becomes self.mesh
+        """
         tol = self.param.constants.float_eps
         cf_mask = MeshFunction('size_t',  self.mesh_ext, self.mesh_ext.geometric_dimension())
 

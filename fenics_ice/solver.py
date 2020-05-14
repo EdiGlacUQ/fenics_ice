@@ -331,13 +331,15 @@ class ssa_solver:
         Returns the QoI
         """
 
-        t = 0.0
-
-        n_steps = self.param.time.total_steps
-        dt = self.param['dt']
-        run_length = self.param['run_length']
+        #Read timestep info
+        config = self.param.time
+        n_steps = config.total_steps
+        dt = config.dt
+        run_length = config.run_length
 
         outdir = self.param.io.output_dir
+
+        t = 0.0
 
         self.Qval_ts = np.zeros(n_steps+1)
         Q = Functional()
@@ -519,15 +521,26 @@ class ssa_solver:
         return J
 
 
+    def get_control(self):
+        """
+        Returns the list (length 1 or 2) of
+        control params (i.e. alpha and/or beta)
+        """
+
+        config = self.param.inversion
+        cntrl = []
+        if config.alpha_active:
+            cntrl.append(self.alpha)
+        if config.beta_active:
+            cntrl.append(self.beta)
+
+        return cntrl
+
     def inversion(self):
 
         config = self.param.inversion
-        cntrl_input = []
-        if config.alpha_active:
-            cntrl_input.append(self.alpha)
-        if config.beta_active:
-            cntrl_input.append(self.beta)
 
+        cntrl_input = self.get_control()
         nparam = len(cntrl_input)
 
         num_iter = config.alt_iter*nparam if nparam > 1 else nparam
@@ -769,12 +782,14 @@ class ssa_solver:
         QOI: Volume above flotation
         """
 
+        cnst = self.param.constants
+
         H = self.H_nps
         #B stands in for self.bed, which leads to a taping error
         B = Function(self.M)
         B.assign(self.bed, annotate=False)
-        rhoi = Constant(self.param['rhoi'])
-        rhow = Constant(self.param['rhow'])
+        rhoi = Constant(cnst.rhoi)
+        rhow = Constant(cnst.rhow)
         dIce = self.dIce
         dIce_gnd = self.dIce_gnd
         dt = self.dt
