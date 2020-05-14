@@ -5,6 +5,8 @@ from dolfin import *
 from tlm_adjoint import *
 
 from fenics_ice import model, solver, prior
+from fenics_ice import mesh as fice_mesh
+from fenics_ice.config import ConfigParser
 import fenics_ice.fenics_util as fu
 
 import matplotlib as mpl
@@ -19,43 +21,56 @@ from petsc4py import PETSc
 from IPython import embed
 
 
-def run_invsigma(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
+def run_invsigma(config_file):
 
-    param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
+    print("=======================================")
+    print("========== RUNNING INV SIGMA ==========")
+    print("=======================================")
+
+    #Read run config file
+    params = ConfigParser(config_file)
+
+    dd = params.io.input_dir
+    outdir = params.io.output_dir
+    eigendir = outdir
+    lamfile = params.io.eigenvalue_file
+    vecfile = 'vr.h5' #TODO unharcode
+    threshlam = params.eigendec.eigenvalue_thresh
 
     #Load Data
-    mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    mesh = Mesh(os.path.join(outdir,'mesh.xml'))
 
     #Set up Function spaces
     Q = FunctionSpace(mesh,'Lagrange',1)
     M = FunctionSpace(mesh,'DG',0)
 
-    if not param['periodic_bc']:
+    #Handle function with optional periodic boundary conditions
+    if not params.mesh.periodic_bc:
        Qp = Q
        V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
     else:
-       Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
-       V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
+       Qp = fice_mesh.get_periodic_space(params, mesh, dim=1)
+       V = fice_mesh.get_periodic_space(params, mesh, dim=2)
 
     #Load fields
-    U = Function(V,os.path.join(dd,'U.xml'))
+    #U = Function(V,os.path.join(dd,'U.xml'))
 
-    alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
-    beta = Function(Qp,os.path.join(dd,'beta.xml'))
-    bed = Function(Q,os.path.join(dd,'bed.xml'))
+    alpha = Function(Qp,os.path.join(outdir, 'alpha.xml'))
+    beta = Function(Qp,os.path.join(outdir, 'beta.xml'))
+    bed = Function(Q,os.path.join(outdir, 'bed.xml'))
 
-    thick = Function(M,os.path.join(dd,'thick.xml'))
-    mask = Function(M,os.path.join(dd,'mask.xml'))
-    mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
-    u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
-    v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
-    u_std = Function(M,os.path.join(dd,'u_std.xml'))
-    v_std = Function(M,os.path.join(dd,'v_std.xml'))
-    uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
-    Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
+    thick = Function(M,os.path.join(outdir, 'thick.xml'))
+    mask = Function(M,os.path.join(outdir, 'mask.xml'))
+    mask_vel = Function(M,os.path.join(outdir, 'mask_vel.xml'))
+    u_obs = Function(M,os.path.join(outdir, 'u_obs.xml'))
+    v_obs = Function(M,os.path.join(outdir, 'v_obs.xml'))
+    u_std = Function(M,os.path.join(outdir, 'u_std.xml'))
+    v_std = Function(M,os.path.join(outdir, 'v_std.xml'))
+    uv_obs = Function(M,os.path.join(outdir, 'uv_obs.xml'))
+    Bglen = Function(M,os.path.join(outdir, 'Bglen.xml'))
 
 
-    mdl = model.model(mesh,mask, param)
+    mdl = model.model(mesh,mask, params)
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
@@ -65,22 +80,20 @@ def run_invsigma(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
     mdl.label_domain()
     mdl.init_alpha(alpha)
 
-    rc_inv = param['rc_inv']
-    if pflag == 0:
-        delta = rc_inv[1]
-        gamma = rc_inv[3]
-    elif pflag == 1:
-        delta = rc_inv[2]
-        gamma = rc_inv[4]
+    #Regularization operator using inversion delta/gamma values
+    #TODO - this won't handle dual inversion case
+    if params.inversion.alpha_active:
+        delta = params.inversion.delta_alpha
+        gamma = params.inversion.gamma_alpha
+        cntrl = mdl.alpha
+    elif params.inversion.beta_active:
+        delta = params.inversion.delta_beta
+        gamma = params.inversion.gamma_beta
+        cntrl = mdl.beta
 
-    opts = {'0': mdl.alpha, '1': mdl.beta, '2': [mdl.alpha,mdl.beta]}
-    cntrl = opts[str(pflag)]
     space = cntrl.function_space()
 
-    sigma = Function(space)
-    sigma_prior = Function(space)
-    x, y = Function(space), Function(space)
-    z = Function(space)
+    sigma, sigma_prior, x, y, z = [Function(space) for i in range(5)]
 
     reg_op = prior.laplacian(delta, gamma, space)
 
@@ -174,34 +187,5 @@ def run_invsigma(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam):
 if __name__ == "__main__":
     stop_annotating()
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, required=True, help='Inversion parameters: alpha (0), beta (1), alpha and beta (2)')
-    parser.add_argument('-o', '--outdir', dest='outdir', type=str, required=True, help='Directory to store output')
-    parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
-    parser.add_argument('-l', '--lamfile', dest='lamfile', type=str, required=True, help = 'Pickle file storing eigenvals')
-    parser.add_argument('-k', '--vecfile', dest='vecfile', type=str, help = 'Hd5 File storing eigenvecs')
-    parser.add_argument('-e', '--eigdir', dest='eigendir', type=str, required=True, help = 'Directory storing eigenpars')
-    parser.add_argument('-c', '--threshlam', dest='threshlam', type=float, help = 'Threshold eigenvalue value for cutoff')
-
-    parser.set_defaults(outdir=False, threshlam = 1e-1, vecfile = 'vr.h5')
-    args = parser.parse_args()
-
-    pflag = args.pflag
-    outdir = args.outdir
-    dd = args.dd
-    eigendir = args.eigendir
-    vecfile = args.vecfile
-    lamfile = args.lamfile
-    threshlam = args.threshlam
-
-    if not outdir:
-        outdir = ''.join(['./run_tmp_', datetime.datetime.now().strftime("%m%d%H%M%S")])
-        print('Creating output directory: {0}'.format(outdir))
-        os.makedirs(outdir)
-    else:
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
-
-
-
-    run_invsigma(outdir, dd, eigendir, lamfile, vecfile, pflag, threshlam)
+    assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
+    run_invsigma(sys.argv[1])
