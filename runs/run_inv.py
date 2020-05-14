@@ -38,9 +38,12 @@ def run_inv(config_file):
 
     dd = params.io.input_dir
 
-    # Determine Mesh
+    # Determine Mesh (1. create ismip or 2. from file)
+    if params.mesh.nx:
+        mesh = fice_mesh.create_ismip_mesh(params)
+    else:
+        mesh = fice_mesh.get_mesh(params)
 
-    mesh = fice_mesh.get_mesh(params)
     data_mesh = fice_mesh.get_data_mesh(params)
 
     # Define Function Spaces
@@ -49,7 +52,7 @@ def run_inv(config_file):
 
     # Make necessary modification for periodic bc
     if params.mesh.periodic_bc:
-        Qp = fice_mesh.setup_periodic_bc(params, data_mesh)
+        Qp = fice_mesh.get_periodic_space(params, data_mesh, dim=1)
     else:
         Qp = Q
 

@@ -5,7 +5,7 @@ import argparse
 from fenics import *
 from tlm_adjoint_fenics import *
 
-from fenics_ice import model, solver
+from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 import fenics_ice.fenics_util as fu
@@ -16,12 +16,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 import datetime
-import pickle
+
 from IPython import embed
 
 stop_annotating()
 
 def run_forward(config_file):
+
+    print("\n\n==================================")
+    print("==  RUNNING FORWARD MODEL PHASE ==")
+    print("==================================\n\n")
 
     # n_steps
     # run_length
@@ -32,49 +36,54 @@ def run_forward(config_file):
 
     #TODO - issue here - run_inv might need to use 'nx,ny' but run_forward should
     #read mesh...
+    #Furthermore - previously this worked by feeding different 'input' & 'output' dir
+    #to each stage (run_inv, run_forward, run_errorprop, etc). This should be fixed.
 
     #Read run config file
     params = ConfigParser(config_file)
 
     dd = params.io.input_dir
+    outdir = params.io.output_dir
 
     # Determine Mesh
 
-    mesh = fice_mesh.get_mesh(params)
-    data_mesh = fice_mesh.get_data_mesh(params)
+    #TODO - generalize/improve
+    mesh = Mesh(os.path.join(outdir, 'mesh.xml'))
+
+    #data_mesh = fice_mesh.get_data_mesh(params)
+    data_mesh = mesh
 
     # Define Function Spaces
-    M = FunctionSpace(data_mesh, 'DG', 0)
-    Q = FunctionSpace(data_mesh, 'Lagrange', 1)
- #   V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
-    Qp = Q
+    M = FunctionSpace(mesh, 'DG', 0)
+    Q = FunctionSpace(mesh, 'Lagrange', 1)
 
     # Make necessary modification for periodic bc
     if params.mesh.periodic_bc:
-        Qp = fice_mesh.setup_periodic_bc(params, data_mesh)
+        Qp = fice_mesh.get_periodic_space(params, mesh, dim=1)
+        V = fice_mesh.get_periodic_space(params, mesh, dim=2)
     else:
         Qp = Q
+        V = VectorFunctionSpace(mesh, 'Lagrange', 1, dim=2)
 
-    data_mask = fice_mesh.get_data_mask(params, M)
+    data_mask = fice_mesh.get_mask(params, M)
 
 
     #Load fields
-#    U = Function(V,os.path.join(dd,'U.xml')) #<- is this used? and if not, is 'V' used?
+    U = Function(V,os.path.join(outdir,'U.xml'))
+    alpha = Function(Qp,os.path.join(outdir,'alpha.xml'))
+    beta = Function(Qp,os.path.join(outdir,'beta.xml'))
 
-    alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
-    beta = Function(Qp,os.path.join(dd,'beta.xml'))
-    bed = Function(Q,os.path.join(dd,'bed.xml'))
-
-    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
-    smb = Function(M,os.path.join(dd,'smb.xml'))
-    thick = Function(M,os.path.join(dd,'thick.xml'))
-    mask = Function(M,os.path.join(dd,'mask.xml'))
-    mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
-    u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
-    v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
-    u_std = Function(M,os.path.join(dd,'u_std.xml'))
-    v_std = Function(M,os.path.join(dd,'v_std.xml'))
-    uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
+    bed = Function(Q,os.path.join(outdir, 'bed.xml'))
+    bmelt = Function(M,os.path.join(outdir, 'bmelt.xml'))
+    smb = Function(M,os.path.join(outdir, 'smb.xml'))
+    thick = Function(M,os.path.join(outdir, 'thick.xml'))
+    mask = Function(M,os.path.join(outdir, 'mask.xml'))
+    mask_vel = Function(M,os.path.join(outdir, 'mask_vel.xml'))
+    u_obs = Function(M,os.path.join(outdir, 'u_obs.xml'))
+    v_obs = Function(M,os.path.join(outdir, 'v_obs.xml'))
+    u_std = Function(M,os.path.join(outdir, 'u_std.xml'))
+    v_std = Function(M,os.path.join(outdir, 'v_std.xml'))
+    uv_obs = Function(M,os.path.join(outdir, 'uv_obs.xml'))
 
     #TODO - these solver params differ from run_inv.py
     # do we want to specify on a step-by-step basis?
@@ -124,7 +133,7 @@ def run_forward(config_file):
     # param['n_steps'] = n_steps
     # param['num_sens'] = num_sens
 
-    mdl = model.model(mesh,data_mask, param)
+    mdl = model.model(mesh, data_mask, params)
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
@@ -141,11 +150,15 @@ def run_forward(config_file):
     slvr = solver.ssa_solver(mdl)
     slvr.save_ts_zero()
 
-    opts = {'0': slvr.alpha, '1': slvr.beta, '2': [slvr.alpha,slvr.beta]}
-    cntrl = opts[str(pflag)]
+    cntrl = slvr.get_control()[0] #TODO - generalise
 
-    qoi_func =  slvr.get_qoi_func() #TODO - test
+    qoi_func =  slvr.get_qoi_func()
+
+    #TODO here - cntrl now returns a list - so compute_gradient returns a list of tuples
+
+    #Run the forward model
     Q = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)
+    #Run the adjoint model, computing gradient of Qoi w.r.t cntrl
     dQ_ts = compute_gradient(Q, cntrl) #Isaac 27
 
     #Uncomment for Taylor Verification, Comment above two lines
@@ -166,29 +179,13 @@ def run_forward(config_file):
     # sys.exit(os.EX_OK)
 
     #Output model variables in ParaView+Fenics friendly format
-    outdir = mdl.param['outdir']
-    pickle.dump( mdl.param, open( os.path.join(outdir,'param.p'), "wb" ) )
+    outdir = params.io.output_dir
 
-    File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
+    #File(os.path.join(outdir,'mesh_test.xml')) << mdl.mesh
 
-    run_length = params.time.run_length
-    n_steps = params.time.total_steps
-    ts = np.linspace(0,run_length,n_steps+1)
-    pickle.dump([slvr.Qval_ts, ts], open( os.path.join(outdir,'Qval_ts.p'), "wb" ) )
-
-
-    vtkfile = File(os.path.join(outdir,'dQ_ts.pvd'))
-    hdf5out = HDF5File(MPI.comm_world, os.path.join(outdir, 'dQ_ts.h5'), 'w')
-    n=0.0
-
-    for j in dQ_ts:
-        j.rename('dQ', 'dQ')
-        vtkfile << j
-        hdf5out.write(j, 'dQ', n)
-        n += 1.0
-
-    hdf5out.close()
-
+    #Output QOI & DQOI
+    inout.write_qval(slvr.Qval_ts, params)
+    inout.write_dqval(dQ_ts, params)
 
     vtkfile = File(os.path.join(outdir,'U.pvd'))
     xmlfile = File(os.path.join(outdir,'U.xml'))
