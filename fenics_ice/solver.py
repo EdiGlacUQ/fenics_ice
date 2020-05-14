@@ -41,6 +41,8 @@ class ssa_solver:
         self.smb = model.smb
         self.latbc = model.latbc
 
+        self.set_inv_params()
+
         # self.test_outfile = None
         # self.f_alpha_file = None
 
@@ -117,10 +119,25 @@ class ssa_solver:
         self.dt = Constant(self.param.time.dt)
 
 
+    def set_inv_params(self):
+
+        invparam = self.param.inversion
+        self.delta_alpha = invparam.delta_alpha
+        self.gamma_alpha = invparam.gamma_alpha
+        self.delta_beta = invparam.delta_beta
+        self.gamma_beta = invparam.gamma_beta
+
+    def zero_inv_params(self):
+
+        self.delta_alpha = 1E-10
+        self.gamma_alpha = 1E-10
+        self.delta_beta = 1E-10
+        self.gamma_beta = 1E-10
+
     def get_qoi_func(self):
-        qoi_dict = {'vaf':self.comp_Q_vaf, 'h2':self.com_Q_h2}
-        choice = self.param.error_prop.qoi.lower() #flexible case
-        return qoi_dict[choice]
+        qoi_dict = {'vaf':self.comp_Q_vaf, 'h2':self.comp_Q_h2}
+        choice = self.param.error_prop.qoi
+        return qoi_dict[choice.lower()] #flexible case
 
     def def_mom_eq(self):
 
@@ -626,10 +643,10 @@ class ssa_solver:
 
         #regularization parameters
         lambda_a = 1.0
-        delta_a = invconfig.delta_alpha
-        delta_b = invconfig.delta_beta
-        gamma_a = invconfig.gamma_alpha
-        gamma_b = invconfig.gamma_beta
+        delta_a = self.delta_alpha
+        delta_b = self.delta_beta
+        gamma_a = self.gamma_alpha
+        gamma_b = self.gamma_beta
 
         #TODO: Good reason to think that lambda_a should *always* be 1
         #So should we get rid of this parameter altogether?
