@@ -8,35 +8,40 @@ from dolfin import *
 import numpy as np
 from fenics_ice import model
 
-def get_mesh(params):
+def create_ismip_mesh(params):
     """
-    Return filenames for mesh, data_mesh & data_mask
-    either 1) read from file or 2) created on-the-fly, depending
-    on configuration from params.
+    Create rectangular mesh as specified in params
     """
 
     nx = params.mesh.nx
     ny = params.mesh.ny
     dd = params.io.input_dir
+    assert nx
 
-    if nx and ny:
+    #Generate model mesh
+    print('Generating new mesh')
+    gf = 'grid_data.npz' #TODO - unhardcode this
+    npzfile = np.load(os.path.join(dd, gf))
+    xlim = npzfile['xlim']
+    ylim = npzfile['ylim']
 
-        #Generate model mesh
-        print('Generating new mesh')
-        gf = 'grid_data.npz' #TODO - unhardcode this
-        npzfile = np.load(os.path.join(dd, gf))
-        xlim = npzfile['xlim']
-        ylim = npzfile['ylim']
+    mesh_out = RectangleMesh(Point(xlim[0], ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
 
-        mesh_out = RectangleMesh(Point(xlim[0], ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
+    return mesh_out
 
-    # Reuse a mesh; in this case, mesh and data_mesh will be identical
-    else:
+def get_mesh(params):
+    """
+    Gets mesh from file
+    """
 
-        meshfile = os.path.join(dd, params.mesh.mesh_filename)
+    dd = params.io.input_dir
+    mesh_filename = params.mesh.mesh_filename
+    meshfile = os.path.join(dd, mesh_filename)
 
-        assert os.path.isfile(meshfile), "Mesh file '%s' not found" % meshfile
-        mesh_out = Mesh(meshfile)
+    assert mesh_filename
+    assert os.path.isfile(meshfile), "Mesh file '%s' not found" % meshfile
+
+    mesh_out = Mesh(meshfile)
 
     return mesh_out
 
@@ -62,6 +67,18 @@ def get_data_mask(params, space):
     return Function(space, data_mask_file)
 
 
+def get_mask(params, space):
+    """
+    Fetch the mask associated with our run mesh
+    """
+    dd = params.io.output_dir
+    mask_filename = "mask.xml" #params.mesh.data_mask_filename #TODO!!
+    mask_file = os.path.join(dd, mask_filename)
+    assert os.path.isfile(mask_file), "Data mask file '%s' not found" % mask_file
+
+    return Function(space, mask_file)
+
+
 def get_mesh_length(mesh):
     """
     Return a scalar mesh length (i.e. square mesh - isimp only!)
@@ -77,9 +94,9 @@ def get_mesh_length(mesh):
     mesh_length = L1
     return mesh_length
 
-def setup_periodic_bc(params, mesh):
+def get_periodic_space(params, mesh, deg=1, dim=1):
     """
-    Return a FunctionSpace w/ periodic boundary
+    Return a Lagrange FunctionSpace w/ periodic boundary
     """
 
     mesh_length = get_mesh_length(mesh)
@@ -110,11 +127,22 @@ def setup_periodic_bc(params, mesh):
     #     assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
     #     mesh_length = L1
 
-    periodic_space = FunctionSpace(
-        mesh,
-        'Lagrange',
-        1,
-        constrained_domain=model.PeriodicBoundary(mesh_length)
-    )
+    if(dim==1):
+        periodic_space = FunctionSpace(
+            mesh,
+            'Lagrange',
+            deg,
+            dim,
+            constrained_domain=model.PeriodicBoundary(mesh_length)
+        )
+    else:
+        periodic_space = VectorFunctionSpace(
+            mesh,
+            'Lagrange',
+            deg,
+            dim,
+            constrained_domain=model.PeriodicBoundary(mesh_length)
+        )
+
 
     return periodic_space
