@@ -35,6 +35,7 @@ class ConfigParser(object):
         self.mesh = MeshCfg(**self.config_dict['mesh'])
         self.obs = ObsCfg(**self.config_dict['obs'])
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
+        self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
         #TODO - boundaries
 
     def check_dirs(self):
@@ -99,6 +100,24 @@ class ErrorPropCfg(object):
     """
     qoi: str = 'vaf'
 
+@dataclass(frozen=True)
+class EigenDecCfg(object):
+    """
+    Configuration related to eigendecomposition
+    """
+    num_eig: int = None
+    eig_algo: str = "slepc"
+    power_iter: int = 1   #Number of power iterations for random algorithm
+    misfit_only: bool = False
+    precondition_by: str = "prior"
+    eigenvalue_thresh: float = 1e-1
+
+    def __post_init__(self):
+        assert self.precondition_by in ["mass", "prior"], \
+            "Valid selections for 'precondition_by' are 'mass' or 'prior'"
+
+        assert self.eig_algo in ["slepc", "random"], \
+            "Valid selections for 'eig_algo' are 'slepc' or 'random'"
 
 @dataclass(frozen=True)
 class ConstantsCfg(object):
@@ -210,6 +229,15 @@ class IOCfg(object):
     run_name: str
     input_dir: str
     output_dir: str
+
+    #TODO - should these be here, or in ErrorPropCfg?
+    qoi_file: str = "Qval_ts.p"
+    dqoi_h5file: str = "dQ_ts.h5"
+    dqoi_vtkfile: str = "dQ_ts.pvd"
+    eigenvalue_file: str = "eigvals.p"
+
+    sigma_file: str = "sigma.p"
+    sigma_prior_file: str = "sigma_prior.p"
 
 @dataclass(frozen=True)
 class TimeCfg(object):
