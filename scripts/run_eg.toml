@@ -6,6 +6,8 @@ run_name = "momsolve_init"
 input_dir = "./input"
 output_dir = "./output"
 
+eigenvalue_file = "slepc_eig_all.p"
+
 [constants]
 
 rhoi = 917.0
@@ -95,6 +97,13 @@ num_sens = 5 #TODO rename
 
 [eigendec]
 
+#num_eig = 200
+eig_algo = "slepc"
+misfit_only = true
+
+#power_iter = 1 <- not used yet, saving in case
+precondition_by = "prior" #prior by default
+eigenvalue_thresh = 1.0e-1
 
 [errorprop]
 

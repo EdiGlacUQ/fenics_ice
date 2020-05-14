@@ -9,6 +9,7 @@ import pickle
 from IPython import embed
 
 from fenics_ice import model, solver, prior
+from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 
 import datetime
@@ -18,58 +19,56 @@ mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 
-def run_eigendec(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, fileout):
+def run_eigendec(config_file):
 
-    #Load parameters of run
-    param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
-    rc_inv = param['rc_inv']
+    print("=======================================")
+    print("=== RUNNING EIGENDECOMPOSITION PHASE ==")
+    print("=======================================")
 
-    if msft_flag:
-        #Set delta, gamma to << 1 (not zero!) in param[];
-        #rc_inv contains original values for computing preconditioner
-        tmp = list(rc_inv) #deepcopy
-        tmp[1:] = [1e-30 for i in rc_inv[1:]]
-        param['rc_inv'] = tmp
+    #Read run config file
+    params = ConfigParser(config_file)
+
+    dd = params.io.input_dir
+    outdir = params.io.output_dir
 
     #Ice only mesh
-    mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    mesh = Mesh(os.path.join(outdir,'mesh.xml'))
 
     #Set up Function spaces
-    Q = FunctionSpace(mesh,'Lagrange',1)
     M = FunctionSpace(mesh,'DG',0)
+    Q = FunctionSpace(mesh,'Lagrange',1)
 
     #Handle function with optional periodic boundary conditions
-    if not param['periodic_bc']:
+    if not params.mesh.periodic_bc:
        Qp = Q
        V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
     else:
-       Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
-       V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
+       Qp = fice_mesh.get_periodic_space(params, mesh, dim=1)
+       V = fice_mesh.get_periodic_space(params, mesh, dim=2)
 
     #Load fields
 
     U = Function(V,os.path.join(dd,'U.xml'))
+    alpha = Function(Qp,os.path.join(outdir,'alpha.xml'))
+    beta = Function(Qp,os.path.join(outdir,'beta.xml'))
+    bed = Function(Q,os.path.join(outdir,'bed.xml'))
 
-    alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
-    beta = Function(Qp,os.path.join(dd,'beta.xml'))
-    bed = Function(Q,os.path.join(dd,'bed.xml'))
 
+    thick = Function(M,os.path.join(outdir,'thick.xml'))
+    mask = Function(M,os.path.join(outdir,'mask.xml'))
+    mask_vel = Function(M,os.path.join(outdir,'mask_vel.xml'))
+    u_obs = Function(M,os.path.join(outdir,'u_obs.xml'))
+    v_obs = Function(M,os.path.join(outdir,'v_obs.xml'))
+    u_std = Function(M,os.path.join(outdir,'u_std.xml'))
+    v_std = Function(M,os.path.join(outdir,'v_std.xml'))
+    uv_obs = Function(M,os.path.join(outdir,'uv_obs.xml'))
+    Bglen = Function(M,os.path.join(outdir,'Bglen.xml'))
 
-    thick = Function(M,os.path.join(dd,'thick.xml'))
-    mask = Function(M,os.path.join(dd,'mask.xml'))
-    mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
-    u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
-    v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
-    u_std = Function(M,os.path.join(dd,'u_std.xml'))
-    v_std = Function(M,os.path.join(dd,'v_std.xml'))
-    uv_obs = Function(M,os.path.join(dd,'uv_obs.xml'))
-    Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
-
-    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
-    smb = Function(M,os.path.join(dd,'smb.xml'))
+    bmelt = Function(M,os.path.join(outdir,'bmelt.xml'))
+    smb = Function(M,os.path.join(outdir,'smb.xml'))
 
     #Initialize our model object
-    mdl = model.model(mesh,mask, param)
+    mdl = model.model(mesh, mask, params)
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
@@ -85,10 +84,12 @@ def run_eigendec(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, 
     #Setup our solver object
     slvr = solver.ssa_solver(mdl)
 
-    opts = {'0': slvr.alpha, '1': slvr.beta, '2': [slvr.alpha,slvr.beta]}
-    cntrl = opts[str(pflag)]
+    cntrl = slvr.get_control()[0] #TODO generalise - get_control returns a list
     space = cntrl.function_space()
 
+    msft_flag = params.eigendec.misfit_only
+    if msft_flag:
+        slvr.zero_inv_params()
 
     #Hessian Action
     slvr.set_hessian_action(cntrl)
@@ -103,13 +104,13 @@ def run_eigendec(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, 
     mass_solver.set_operator(mass)
 
     #Regularization operator using inversion delta/gamma values
-
-    if pflag == 0:
-        delta = rc_inv[1]
-        gamma = rc_inv[3]
-    elif pflag == 1:
-        delta = rc_inv[2]
-        gamma = rc_inv[4]
+    #TODO - this won't handle dual inversion case
+    if params.inversion.alpha_active:
+        delta = params.inversion.delta_alpha
+        gamma = params.inversion.gamma_alpha
+    elif params.inversion.beta_active:
+        delta = params.inversion.delta_beta
+        gamma = params.inversion.gamma_beta
 
     reg_op = prior.laplacian(delta,gamma, space)
 
@@ -131,14 +132,22 @@ def run_eigendec(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, 
         return function_get_values(xg)
 
 
-    opts = {'0': gnhep_prior_action, '1': gnhep_mass_action}
-    gnhep_func = opts[str(gnhep)]
+    opts = {'prior': gnhep_prior_action, 'mass': gnhep_mass_action}
+    gnhep_func = opts[params.eigendec.precondition_by]
+
+    num_eig = params.eigendec.num_eig
+    n_iter = params.eigendec.power_iter #<- not used yet
 
     #Hessian eigendecomposition using SLEPSC
-    if slepsc_flag:
+    eig_algo = params.eigendec.eig_algo
+    if eig_algo == "slepc":
 
         #Eigendecomposition
-        lam, [vr, vi] = eigendecompose(space, gnhep_func, tolerance = 1.0e-10, N_eigenvalues = num_eig)
+
+        lam, [vr, vi] = eigendecompose(space,
+                                       gnhep_func,
+                                       tolerance = 1.0e-10,
+                                       N_eigenvalues = num_eig)
 
         # Uses extreme amounts of disk space; suitable for ismipc only
         # #Save eigenfunctions
@@ -158,11 +167,13 @@ def run_eigendec(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, 
         hdf5file = HDF5File(slvr.mesh.mpi_comm(), os.path.join(outdir, 'vi.h5'), 'w')
         for i, v in enumerate(vi): hdf5file.write(v, 'v', i)
 
-
+    else:
+        raise NotImplementedError
 
     #Save eigenvals and some associated info
+    fileout = params.io.eigenvalue_file
     pfile = open( os.path.join(outdir, fileout), "wb" )
-    pickle.dump( [lam, num_eig, n_iter, slepsc_flag, msft_flag, outdir, dd], pfile)
+    pickle.dump( [lam, num_eig, n_iter, eig_algo, msft_flag, outdir, dd], pfile)
     pfile.close()
 
     #Plot of eigenvals
@@ -174,46 +185,14 @@ def run_eigendec(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, 
     plt.semilogy(lind[lneg], np.abs(lamr[lneg]), '.')
     plt.savefig(os.path.join(outdir,'lambda.pdf'))
 
+    #Note - for now this does nothing, but eventually if the whole series
+    #of runs were done without re-initializing solver, it'd be important to
+    #put the inversion params back
+    if msft_flag:
+        slvr.set_inv_params()
 
 if __name__ == "__main__":
     stop_annotating()
 
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-n', '--numeig', dest='num_eig', type=int, help='Number of eigenvalues to find (default is all)')
-    parser.add_argument('-i', '--niter', dest='n_iter', type=int, help='Number of power iterations for random algorithm')
-    parser.add_argument('-s', '--slepsc', dest='slepsc_flag', action='store_true', help='Use slepsc instead of random algorithm')
-    parser.add_argument('-m', '--msft_flag', dest='msft_flag', action='store_true', help='Consider only the misfit term of the cost function without regularization')
-    parser.add_argument('-p', '--parameters', dest='pflag', choices=[0, 1, 2], type=int, required=True, help='Inversion parameters: alpha (0), beta (1), alpha and beta (2)')
-    parser.add_argument('-g', '--gnhep', dest='gnhep', choices=[0, 1], type=int, help='Eigenvalue problem to solve: 0: prior preconditioned hessian (default); 1: inverse mass matrix preconditioned hessian')
-
-    parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
-    parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
-    parser.add_argument('-f', '--fileout', dest='fileout', type=str, help='File to store eigenvalues')
-
-    parser.set_defaults(n_iter=1, num_eig = None, slepsc_flag=False, msft_flag=False, outdir=False, fileout=False, gnhep=0)
-    args = parser.parse_args()
-
-    num_eig = args.num_eig
-    n_iter = args.n_iter
-    slepsc_flag = args.slepsc_flag
-    msft_flag = args.msft_flag
-    pflag = args.pflag
-    gnhep = args.gnhep
-    outdir = args.outdir
-    dd = args.dd
-    fileout = args.fileout
-
-    if not outdir:
-        outdir = ''.join(['./run_eigendec_', datetime.datetime.now().strftime("%m%d%H%M%S")])
-        print('Creating output directory: {0}'.format(outdir))
-        os.makedirs(outdir)
-    else:
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
-
-    if not fileout:
-        if slepsc_flag: fileout = 'slepc_eig_{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
-        else: fileout = 'rand_eig_{0}{1}_{2}.p'.format(num_eig, 'm' if msft_flag else '', timestamp)
-
-    run_eigendec(num_eig, n_iter, slepsc_flag, msft_flag, pflag, gnhep, outdir, dd, fileout)
+    assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
+    run_eigendec(sys.argv[1])
