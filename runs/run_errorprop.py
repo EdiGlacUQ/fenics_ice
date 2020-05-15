@@ -60,7 +60,7 @@ def run_errorprop(config_file):
        V = fice_mesh.get_periodic_space(params, mesh, dim=2)
 
     #Load fields
-    U = Function(V,os.path.join(dd,'U.xml'))
+    U = Function(V,os.path.join(outdir,'U.xml'))
 
     alpha = Function(Qp,os.path.join(outdir,'alpha.xml'))
     beta = Function(Qp,os.path.join(outdir,'beta.xml'))

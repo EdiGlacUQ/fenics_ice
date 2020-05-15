@@ -48,7 +48,7 @@ def run_eigendec(config_file):
 
     #Load fields
 
-    U = Function(V,os.path.join(dd,'U.xml'))
+    U = Function(V,os.path.join(outdir,'U.xml'))
     alpha = Function(Qp,os.path.join(outdir,'alpha.xml'))
     beta = Function(Qp,os.path.join(outdir,'beta.xml'))
     bed = Function(Q,os.path.join(outdir,'bed.xml'))
