@@ -4,7 +4,7 @@ import argparse
 from dolfin import *
 from tlm_adjoint_fenics import *
 
-from fenics_ice import model, solver
+from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 import fenics_ice.fenics_util as fu
@@ -19,6 +19,7 @@ import pickle
 from IPython import embed
 
 import git
+import logging as log
 
 def run_inv(config_file):
     """
@@ -35,6 +36,9 @@ def run_inv(config_file):
 
     #Read run config file
     params = ConfigParser(config_file)
+
+    inout.setup_logging(params)
+    log.info("Beginning Inversion Stage")
 
     dd = params.io.input_dir
 

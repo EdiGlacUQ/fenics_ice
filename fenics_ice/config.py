@@ -239,6 +239,12 @@ class IOCfg(object):
     sigma_file: str = "sigma.p"
     sigma_prior_file: str = "sigma_prior.p"
 
+    log_level: str = "info"
+
+    def __post_init__(self):
+        assert self.log_level.lower() in ["critical","error","warning","info","debug"], \
+            "Invalid log level"
+
 @dataclass(frozen=True)
 class TimeCfg(object):
     """

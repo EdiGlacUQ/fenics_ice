@@ -8,6 +8,8 @@ output_dir = "./output"
 
 eigenvalue_file = "slepc_eig_all.p"
 
+log_level = "info" #This is default
+
 [constants]
 
 rhoi = 917.0
