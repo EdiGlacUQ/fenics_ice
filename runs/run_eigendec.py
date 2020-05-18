@@ -8,7 +8,7 @@ from tlm_adjoint_fenics import *
 import pickle
 from IPython import embed
 
-from fenics_ice import model, solver, prior
+from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 

@@ -5,7 +5,7 @@ import argparse
 from dolfin import *
 from tlm_adjoint import *
 
-from fenics_ice import model, solver, prior
+from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 import fenics_ice.fenics_util as fu
