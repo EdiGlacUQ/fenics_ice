@@ -17,16 +17,17 @@ import numpy as np
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
-
+import logging as log
 
 def run_eigendec(config_file):
 
-    print("=======================================")
-    print("=== RUNNING EIGENDECOMPOSITION PHASE ==")
-    print("=======================================")
-
     #Read run config file
     params = ConfigParser(config_file)
+    inout.setup_logging(params)
+
+    log.info("=======================================")
+    log.info("=== RUNNING EIGENDECOMPOSITION PHASE ==")
+    log.info("=======================================")
 
     dd = params.io.input_dir
     outdir = params.io.output_dir

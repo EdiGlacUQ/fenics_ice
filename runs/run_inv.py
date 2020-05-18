@@ -26,19 +26,22 @@ def run_inv(config_file):
     Run the inversion part of the simulation
     """
 
-    repo = git.Repo(__file__, search_parent_directories=True)
-    branch = repo.active_branch.name
-    sha = repo.head.object.hexsha[:7]
-    print("=============== Fenics Ice ===============")
-    print("==   git branch  : %s" % branch)
-    print("==   commit hash : %s" % sha)
-    print("==========================================")
-
     #Read run config file
     params = ConfigParser(config_file)
 
     inout.setup_logging(params)
-    log.info("Beginning Inversion Stage")
+
+    repo = git.Repo(__file__, search_parent_directories=True)
+    branch = repo.active_branch.name
+    sha = repo.head.object.hexsha[:7]
+    log.info("=============== Fenics Ice ===============")
+    log.info("==   git branch  : %s" % branch)
+    log.info("==   commit hash : %s" % sha)
+    log.info("==========================================")
+
+    log.info("\n\n==================================")
+    log.info("==  RUNNING INVERSE MODEL PHASE ==")
+    log.info("==================================\n\n")
 
     dd = params.io.input_dir
 

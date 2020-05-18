@@ -19,16 +19,17 @@ import datetime
 import pickle
 from petsc4py import PETSc
 from IPython import embed
-
+import logging as log
 
 def run_invsigma(config_file):
 
-    print("=======================================")
-    print("========== RUNNING INV SIGMA ==========")
-    print("=======================================")
-
     #Read run config file
     params = ConfigParser(config_file)
+    inout.setup_logging(params)
+
+    log.info("=======================================")
+    log.info("========== RUNNING INV SIGMA ==========")
+    log.info("=======================================")
 
     dd = params.io.input_dir
     outdir = params.io.output_dir
@@ -156,8 +157,8 @@ def run_invsigma(config_file):
 
 
         if dprod < 0:
-            print(f'WARNING: Negative Sigma: {dprod}')
-            print(f'Setting as Zero and Continuing.')
+            log.warning(f'WARNING: Negative Sigma: {dprod}')
+            log.warning(f'Setting as Zero and Continuing.')
             neg_flag = 1
             continue
 
@@ -166,7 +167,7 @@ def run_invsigma(config_file):
 
 
     if neg_flag:
-        print('Negative value(s) of sigma encountered. Examine the range of eigenvalues and check if the threshlam paramater is set appropriately.')
+        log.warning('Negative value(s) of sigma encountered. Examine the range of eigenvalues and check if the threshlam paramater is set appropriately.')
     
     sigma.vector().set_local(sigma_vector)
     sigma.vector().apply('insert')

@@ -16,31 +16,26 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 import datetime
-
+import logging as log
 from IPython import embed
 
 stop_annotating()
 
 def run_forward(config_file):
 
-    print("\n\n==================================")
-    print("==  RUNNING FORWARD MODEL PHASE ==")
-    print("==================================\n\n")
+    #Read run config file
+    params = ConfigParser(config_file)
+    inout.setup_logging(params)
 
-    # n_steps
-    # run_length
-    # num_sens
-    # qoi
-
-    #Defaults: num_sens = 1.0, qoi=0
+    log.info("\n\n==================================")
+    log.info("==  RUNNING FORWARD MODEL PHASE ==")
+    log.info("==================================\n\n")
 
     #TODO - issue here - run_inv might need to use 'nx,ny' but run_forward should
     #read mesh...
     #Furthermore - previously this worked by feeding different 'input' & 'output' dir
     #to each stage (run_inv, run_forward, run_errorprop, etc). This should be fixed.
 
-    #Read run config file
-    params = ConfigParser(config_file)
 
     dd = params.io.input_dir
     outdir = params.io.output_dir
