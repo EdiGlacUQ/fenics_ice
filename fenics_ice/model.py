@@ -116,6 +116,7 @@ class model:
         self.latbc = Constant([0.0,0.0])
 
     def init_surf(self,surf):
+        #Note - surf is not updated during forward sim
         self.surf = project(surf,self.Q)
 
     def init_bed(self,bed):

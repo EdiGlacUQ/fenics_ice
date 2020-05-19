@@ -182,73 +182,73 @@ def run_forward(config_file):
     inout.write_qval(slvr.Qval_ts, params)
     inout.write_dqval(dQ_ts, params)
 
-    vtkfile = File(os.path.join(outdir,'U.pvd'))
-    xmlfile = File(os.path.join(outdir,'U.xml'))
+    vtkfile = File(os.path.join(outdir,'U_fwd.pvd'))
+    xmlfile = File(os.path.join(outdir,'U_fwd.xml'))
     vtkfile << slvr.U
     xmlfile << slvr.U
 
-    vtkfile = File(os.path.join(outdir,'beta.pvd'))
-    xmlfile = File(os.path.join(outdir,'beta.xml'))
-    vtkfile << slvr.beta
-    xmlfile << slvr.beta
+    # vtkfile = File(os.path.join(outdir,'beta_fwd.pvd'))
+    # xmlfile = File(os.path.join(outdir,'beta_fwd.xml'))
+    # vtkfile << slvr.beta
+    # xmlfile << slvr.beta
 
-    vtkfile = File(os.path.join(outdir,'bed.pvd'))
-    xmlfile = File(os.path.join(outdir,'bed.xml'))
-    vtkfile << mdl.bed
-    xmlfile << mdl.bed
+    # vtkfile = File(os.path.join(outdir,'bed_fwd.pvd'))
+    # xmlfile = File(os.path.join(outdir,'bed_fwd.xml'))
+    # vtkfile << mdl.bed
+    # xmlfile << mdl.bed
 
-    vtkfile = File(os.path.join(outdir,'thick.pvd'))
-    xmlfile = File(os.path.join(outdir,'thick.xml'))
+    vtkfile = File(os.path.join(outdir,'thick_fwd.pvd'))
+    xmlfile = File(os.path.join(outdir,'thick_fwd.xml'))
     H = project(mdl.H, mdl.M)
     vtkfile << H
     xmlfile << H
 
-    vtkfile = File(os.path.join(outdir,'mask.pvd'))
-    xmlfile = File(os.path.join(outdir,'mask.xml'))
-    vtkfile << mdl.mask
-    xmlfile << mdl.mask
+    # vtkfile = File(os.path.join(outdir,'mask_fwd.pvd'))
+    # xmlfile = File(os.path.join(outdir,'mask_fwd.xml'))
+    # vtkfile << mdl.mask
+    # xmlfile << mdl.mask
 
-    vtkfile = File(os.path.join(outdir,'mask_vel.pvd'))
-    xmlfile = File(os.path.join(outdir,'mask_vel.xml'))
-    vtkfile << mdl.mask_vel
-    xmlfile << mdl.mask_vel
+    # vtkfile = File(os.path.join(outdir,'mask_vel_fwd.pvd'))
+    # xmlfile = File(os.path.join(outdir,'mask_vel_fwd.xml'))
+    # vtkfile << mdl.mask_vel
+    # xmlfile << mdl.mask_vel
 
-    vtkfile = File(os.path.join(outdir,'u_obs.pvd'))
-    xmlfile = File(os.path.join(outdir,'u_obs.xml'))
-    vtkfile << mdl.u_obs
-    xmlfile << mdl.u_obs
+    # vtkfile = File(os.path.join(outdir,'u_obs_fwd.pvd'))
+    # xmlfile = File(os.path.join(outdir,'u_obs_fwd.xml'))
+    # vtkfile << mdl.u_obs
+    # xmlfile << mdl.u_obs
 
-    vtkfile = File(os.path.join(outdir,'v_obs.pvd'))
-    xmlfile = File(os.path.join(outdir,'v_obs.xml'))
-    vtkfile << mdl.v_obs
-    xmlfile << mdl.v_obs
+    # vtkfile = File(os.path.join(outdir,'v_obs_fwd.pvd'))
+    # xmlfile = File(os.path.join(outdir,'v_obs_fwd.xml'))
+    # vtkfile << mdl.v_obs
+    # xmlfile << mdl.v_obs
 
-    vtkfile = File(os.path.join(outdir,'u_std.pvd'))
-    xmlfile = File(os.path.join(outdir,'u_std.xml'))
-    vtkfile << mdl.u_std
-    xmlfile << mdl.u_std
+    # vtkfile = File(os.path.join(outdir,'u_std_fwd.pvd'))
+    # xmlfile = File(os.path.join(outdir,'u_std_fwd.xml'))
+    # vtkfile << mdl.u_std
+    # xmlfile << mdl.u_std
 
-    vtkfile = File(os.path.join(outdir,'v_std.pvd'))
-    xmlfile = File(os.path.join(outdir,'v_std.xml'))
-    vtkfile << mdl.v_std
-    xmlfile << mdl.v_std
+    # vtkfile = File(os.path.join(outdir,'v_std_fwd.pvd'))
+    # xmlfile = File(os.path.join(outdir,'v_std_fwd.xml'))
+    # vtkfile << mdl.v_std
+    # xmlfile << mdl.v_std
 
-    vtkfile = File(os.path.join(outdir,'uv_obs.pvd'))
-    xmlfile = File(os.path.join(outdir,'uv_obs.xml'))
-    U_obs = project((mdl.v_obs**2 + mdl.u_obs**2)**(1.0/2.0), mdl.M)
-    vtkfile << U_obs
-    xmlfile << U_obs
+    # vtkfile = File(os.path.join(outdir,'uv_obs_fwd.pvd'))
+    # xmlfile = File(os.path.join(outdir,'uv_obs_fwd.xml'))
+    # U_obs = project((mdl.v_obs**2 + mdl.u_obs**2)**(1.0/2.0), mdl.M)
+    # vtkfile << U_obs
+    # xmlfile << U_obs
 
-    vtkfile = File(os.path.join(outdir,'alpha.pvd'))
-    xmlfile = File(os.path.join(outdir,'alpha.xml'))
-    vtkfile << slvr.alpha
-    xmlfile << slvr.alpha
+    # vtkfile = File(os.path.join(outdir,'alpha_fwd.pvd'))
+    # xmlfile = File(os.path.join(outdir,'alpha_fwd.xml'))
+    # vtkfile << slvr.alpha
+    # xmlfile << slvr.alpha
 
 
-    vtkfile = File(os.path.join(outdir,'surf.pvd'))
-    xmlfile = File(os.path.join(outdir,'surf.xml'))
-    vtkfile << mdl.surf
-    xmlfile << mdl.surf
+    # vtkfile = File(os.path.join(outdir,'surf_fwd.pvd'))
+    # xmlfile = File(os.path.join(outdir,'surf_fwd.xml'))
+    # vtkfile << mdl.surf
+    # xmlfile << mdl.surf
 
 
 if __name__ == "__main__":
