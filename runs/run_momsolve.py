@@ -66,7 +66,7 @@ def run_momsolve(config_file):
 
     if os.path.isfile(os.path.join(dd, 'Bglen.xml')):
         Bglen = Function(M, os.path.join(dd, 'Bglen.xml'))
-        mdl.init_beta(mdl.bglen_to_beta(Bglen))
+        mdl.init_beta(mdl.bglen_to_beta(Bglen), False)
 
     else:
         print('Using default bglen (constant)')

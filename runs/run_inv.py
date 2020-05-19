@@ -91,7 +91,8 @@ def run_inv(config_file):
     mdl.label_domain()
 
     mdl.gen_alpha()
-    mdl.init_beta(mdl.bglen_to_beta(Bglen))            #Comment to use uniform Bglen
+    #Add random noise to Beta field iff we're inverting for it
+    mdl.init_beta(mdl.bglen_to_beta(Bglen), params.inversion.beta_active)
 
     #Next line will output the initial guess for alpha fed into the inversion
     #File(os.path.join(outdir,'alpha_initguess.pvd')) << mdl.alpha

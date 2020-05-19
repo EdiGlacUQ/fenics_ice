@@ -100,7 +100,7 @@ def main(config_file):
     mdl.init_lat_dirichletbc()
     mdl.init_bmelt(Constant(0.0))
     mdl.init_alpha(alpha)
-    mdl.init_beta(beta)
+    mdl.init_beta(beta, False)
     mdl.init_smb(smb)
     mdl.label_domain()
 

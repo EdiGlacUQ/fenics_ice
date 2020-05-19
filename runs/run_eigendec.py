@@ -79,7 +79,7 @@ def run_eigendec(config_file):
     mdl.init_bmelt(bmelt)
     mdl.init_smb(smb)
     mdl.init_alpha(alpha)
-    mdl.init_beta(beta)
+    mdl.init_beta(beta, False)
     mdl.label_domain()
 
     #Setup our solver object

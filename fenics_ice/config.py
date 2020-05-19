@@ -6,6 +6,7 @@ import os
 import math
 import toml
 from dataclasses import dataclass, field
+import numpy as np
 from IPython import embed
 
 class ConfigParser(object):

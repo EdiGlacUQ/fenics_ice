@@ -138,7 +138,7 @@ def run_forward(config_file):
     mdl.init_bmelt(bmelt)
     mdl.init_smb(smb)
     mdl.init_alpha(alpha)
-    mdl.init_beta(beta) #TODO <- should this be perturbed? likewise in other run_*.py
+    mdl.init_beta(beta, False)
     mdl.label_domain()
 
     #Solve
