@@ -109,7 +109,7 @@ eigenvalue_thresh = 1.0e-1
 
 [errorprop]
 
-qoi = 'vaf' #or 'h2'
+qoi = 'h2' #or 'vaf'
 
 #TODO - not yet implemented
 [[boundaries]]
