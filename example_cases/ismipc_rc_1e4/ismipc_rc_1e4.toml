@@ -3,7 +3,7 @@
 [io] #Directory specification
 
 #gamma_alpha =/= 1e6 (discrete cost func) but equivalent to initial test case
-run_name = "uq_rc_1e6"
+run_name = "ismipc_rc_1e4"
 input_dir = "./input"
 output_dir = "./output"
 
@@ -49,8 +49,8 @@ beta_active = false
 simultaneous = false
 alt_iter = 2
 
-gamma_alpha = 1.0e3 #6
-delta_alpha = 1e-4 #-2
+gamma_alpha = 1.0e1
+delta_alpha = 1e-6
 gamma_beta = 0.0
 delta_beta = 0.0
 
