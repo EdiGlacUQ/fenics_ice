@@ -7,6 +7,7 @@ import math
 import toml
 from dataclasses import dataclass, field
 import numpy as np
+from pathlib import Path
 from IPython import embed
 
 class ConfigParser(object):
@@ -15,7 +16,8 @@ class ConfigParser(object):
     """
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, config_file):
+    def __init__(self, config_file, top_dir=Path(".")):
+        self.top_dir = top_dir  # TODO - hook this up for sims (just plots atm)
         self.config_file = config_file
         self.config_dict = toml.load(self.config_file)
         self.parse()
@@ -43,9 +45,12 @@ class ConfigParser(object):
         """
         Check input directory exists & create output dir if necessary.
         """
-        assert os.path.isdir(self.io.input_dir), "Unable to find input directory"
-        if not os.path.isdir(self.io.output_dir):
-            os.mkdir(self.io.output_dir)
+        assert (self.top_dir / self.io.input_dir).exists(), \
+            "Unable to find input directory"
+
+        outdir = (self.top_dir / self.io.output_dir)
+        if not outdir.is_dir():
+            outdir.mkdir(parents=True, exist_ok=True)
 
 @dataclass(frozen=True)
 class InversionCfg(object):

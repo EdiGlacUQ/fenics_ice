@@ -2,29 +2,27 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from pathlib import Path
 
 ###########################################################
 # Plot the eigenvalue decay for a run(s)
 ###########################################################
 # Parameters:
 
-base_folder = os.path.join(os.environ['FENICS_ICE_BASE_DIR'], 'output/ismipC')
+base_folder = Path(os.environ['FENICS_ICE_BASE_DIR']) / "example_cases"
 
-run_folders = ['uq_rc_1e6/run_forward',
-    'uq_30x30/run_forward',
-    'uq_40x40/run_forward'
+run_folders = ['ismipc_rc_1e6/output',
+    'ismipc_30x30/output',
+    'ismipc_40x40/output'
     ]
 
 #Legend values for simulations
 labels = ('Low Res', 'Mid Res', 'High Res')
 
 # Output Directory
-outdir = os.path.join(base_folder, 'plots')
+outdir = base_folder / "plots"
+outdir.mkdir(parents=True, exist_ok=True)
 #########################
-
-if not os.path.isdir(outdir):
-    print('Outdir does not exist. Creating...')
-    os.mkdir(outdir)
 
 plt.figure()
 for i, rf in enumerate(run_folders):

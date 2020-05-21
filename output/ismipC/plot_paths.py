@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+from pathlib import Path
 sns.set()
 
 ###########################################################
@@ -10,14 +11,14 @@ sns.set()
 # ###########################################################
 # Parameters:
 
-base_folder = os.path.join(os.environ['FENICS_ICE_BASE_DIR'], 'output/ismipC')
+base_folder = Path(os.environ['FENICS_ICE_BASE_DIR']) / "example_cases"
 
-run_folders = ['uq_rc_1e4/run_forward',
-    'uq_rc_1e6/run_forward'
-    ]
+run_folders = ['ismipc_rc_1e4',
+               'ismipc_rc_1e6']
 
 # Output Directory
-outdir = os.path.join(base_folder, 'plots')
+outdir = base_folder / "plots"
+outdir.mkdir(parents=True, exist_ok=True)
 #########################
 
 
@@ -25,19 +26,22 @@ f, axarr = plt.subplots(1,2, sharex=True)
 
 for i, rf in enumerate(run_folders):
 
+    run_dir = base_folder / rf
+    result_dir = run_dir / "output"
     Qfile = 'Qval_ts.p'
     sigmafile = 'sigma.p'
     sigmapriorfile = 'sigma_prior.p'
 
-    pd = pickle.load(open(os.path.join(base_folder, rf, Qfile), 'rb'))
+    # pd = pickle.load(open(os.path.join(base_folder, rf, Qfile), 'rb'))
+    pd = pickle.load((result_dir / Qfile).open('rb'))
     dQ_vals = pd[0]
     dQ_t = pd[1]
 
-    pd = pickle.load(open(os.path.join(base_folder, rf, sigmafile), 'rb'))
+    pd = pickle.load((result_dir / sigmafile).open('rb'))
     sigma_vals = pd[0]
     sigma_t = pd[1]
 
-    pd = pickle.load(open(os.path.join(base_folder, rf, sigmapriorfile), 'rb'))
+    pd = pickle.load((result_dir / sigmapriorfile).open('rb'))
     sigma_prior_vals = pd[0]
 
     sigma_interp = np.interp(dQ_t, sigma_t, sigma_vals)

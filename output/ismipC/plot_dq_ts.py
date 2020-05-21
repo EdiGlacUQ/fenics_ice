@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import os
 from fenics import *
-from fenics_ice import model
+from fenics_ice import model, config
+from fenics_ice import mesh as fice_mesh
+from pathlib import Path
 
 ###########################################################
 # Plots the sensitivity of the QOI to the parameter of interest. This sensitivity
@@ -22,12 +24,13 @@ from fenics_ice import model
 #The sensitivity to look at
 n_sens = 4
 
-
-base_folder = os.path.join(os.environ['FENICS_ICE_BASE_DIR'], 'output/ismipC')
-run_folders = ['uq_rc_1e6/run_forward',]
+base_folder = Path(os.environ['FENICS_ICE_BASE_DIR']) / "example_cases"
+run_folders = ['ismipc_rc_1e6','ismipc_rc_1e4']
 
 # Output Directory
-outdir = os.path.join(base_folder, 'plots')
+plot_outdir = base_folder / "plots"
+plot_outdir.mkdir(parents=True, exist_ok=True)
+
 
 #########################
 
@@ -42,17 +45,27 @@ tick_options = {'axis':'both','which':'both','bottom':False,
 fig = plt.figure()
 
 for i, rf in enumerate(run_folders):
-    mesh = Mesh(os.path.join(base_folder, rf,'mesh.xml'))
-    param = pickle.load( open( os.path.join(base_folder, rf,'param.p'), "rb" ) )
+
+
+    run_dir = base_folder / rf
+
+    param_file = str((run_dir/rf).with_suffix(".toml"))
+    params = config.ConfigParser(param_file, top_dir=run_dir)
+
+    outdir = run_dir / params.io.output_dir
+
+    mesh = Mesh(str(outdir/'mesh.xml'))
+
+#    param = pickle.load( open( os.path.join(base_folder, rf,'param.p'), "rb" ) )
 
     Q = FunctionSpace(mesh,'Lagrange',1)
     Qh = FunctionSpace(mesh,'Lagrange',3)
     M = FunctionSpace(mesh,'DG',0)
 
-    if not param['periodic_bc']:
+    if not params.mesh.periodic_bc:
        Qp = Q
     else:
-       Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
+       Qp = fice_mesh.get_periodic_space(params, mesh, dim=1)
 
     dQ = Function(Qp)
 
@@ -60,7 +73,7 @@ for i, rf in enumerate(run_folders):
     y    = mesh.coordinates()[:,1]
     t    = mesh.cells()
 
-    hdf5data = HDF5File(MPI.comm_world, os.path.join(base_folder, rf, 'dQ_ts.h5'), 'r')
+    hdf5data = HDF5File(MPI.comm_world, str(outdir/'dQ_ts.h5'), 'r')
     hdf5data.read(dQ, f'dQ/vector_{n_sens}')
 
 
@@ -81,5 +94,5 @@ for i, rf in enumerate(run_folders):
     cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal", format="%.1E")
     cbar.ax.set_xlabel(r'$\frac{dQ}{d\alpha}$')
 
-plt.savefig(os.path.join(outdir,'dq_ts.pdf'), bbox_inches="tight")
+plt.savefig(os.path.join(plot_outdir,'dq_ts.pdf'), bbox_inches="tight")
 plt.show()

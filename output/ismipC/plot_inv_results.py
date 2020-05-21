@@ -6,8 +6,9 @@ import matplotlib.ticker as ticker
 import seaborn as sns
 import os
 from fenics import *
-from fenics_ice import model
-
+from fenics_ice import model, config
+from fenics_ice import mesh as fice_mesh
+from pathlib import Path
 sns.set()
 
 ###########################################################
@@ -21,17 +22,15 @@ sns.set()
 # Parameters:
 
 # Simulation Directory
-dd = os.path.join(os.environ['FENICS_ICE_BASE_DIR'],'output/ismipC/uq_rc_1e6')
-
+run_name = 'ismipc_rc_1e6'
+dd = Path(os.environ['FENICS_ICE_BASE_DIR']) / 'example_cases' / run_name
 
 # Output Directory
-outdir = os.path.join(dd, 'plots')
+outdir = dd / "plots"
+outdir.mkdir(exist_ok=True)
 
+results_dir = dd / "output"
 ###########################################################
-
-if not os.path.isdir(outdir):
-    print('Outdir does not exist. Creating...')
-    os.mkdir(outdir)
 
 cmap='Blues'
 cmap_div='RdBu'
@@ -39,24 +38,27 @@ numlev = 20
 tick_options = {'axis':'both','which':'both','bottom':False,
     'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
 
-mesh = Mesh(os.path.join(dd,'mesh.xml'))
-param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
+mesh = Mesh(str(dd / "output" / "mesh.xml"))
+#param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
+
+param_file = str((dd/run_name).with_suffix(".toml"))
+params = config.ConfigParser(param_file, top_dir=dd)
 
 Q = FunctionSpace(mesh,'Lagrange',1)
 Qh = FunctionSpace(mesh,'Lagrange',3)
 M = FunctionSpace(mesh,'DG',0)
 
-if not param['periodic_bc']:
+if not params.mesh.periodic_bc:
    Qp = Q
    V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
 else:
-   Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
-   V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2,constrained_domain=model.PeriodicBoundary(param['periodic_bc']))
+    Qp = fice_mesh.get_periodic_space(params, mesh, dim=1)
+    V =  fice_mesh.get_periodic_space(params, mesh, dim=2)
 
-U = Function(V,os.path.join(dd,'U.xml'))
-alpha = Function(Qp,os.path.join(dd,'alpha.xml'))
-uv_obs = Function(M, os.path.join(dd,'uv_obs.xml'))
-alpha_sigma = Function(Qp, os.path.join(dd,'run_forward/alpha_sigma.xml'))
+U = Function(V,str(results_dir/'U.xml'))
+alpha = Function(Qp,str(results_dir/'alpha.xml'))
+uv_obs = Function(M, str(results_dir/'uv_obs.xml'))
+alpha_sigma = Function(Qp, str(results_dir/'alpha_sigma.xml'))
 # B2 = Function(M, os.path.join(dd,'B2.xml'))
 
 u, v = U.split()

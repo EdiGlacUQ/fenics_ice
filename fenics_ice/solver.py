@@ -10,7 +10,6 @@ import ufl
 import os
 import timeit
 import time
-from IPython import embed
 
 
 
@@ -383,7 +382,6 @@ class ssa_solver:
                 Q.addto(Q_i.fn())
 
             new_block()
-
 
         if save:
             hdf_hts = HDF5File(self.mesh.mpi_comm(), os.path.join(outdir, 'H_ts.h5'), 'w')
@@ -781,6 +779,8 @@ class ssa_solver:
         QOI: Volume above flotation
         """
 
+        print("WARNING: Think comp_Q_vaf returns zero on first timestep - ",
+              "check initialisation of H_nps")
         cnst = self.param.constants
 
         H = self.H_nps
