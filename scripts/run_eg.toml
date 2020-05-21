@@ -2,7 +2,8 @@
 
 [io] #Directory specification
 
-run_name = "momsolve_init"
+#gamma_alpha =/= 1e6 (discrete cost func) but equivalent to initial test case
+run_name = "uq_rc_1e6"
 input_dir = "./input"
 output_dir = "./output"
 
