@@ -30,8 +30,8 @@ data_mask_filename = "data_mask.xml"
 
 periodic_bc = true
 #what to do about these (not general):
-nx = 20
-ny = 20
+nx = 40
+ny = 40
 length = 40000.0
 
 [obs]
@@ -49,8 +49,8 @@ beta_active = false
 simultaneous = false
 alt_iter = 2
 
-gamma_alpha = 1.0e3 #6
-delta_alpha = 1e-4 #-2
+gamma_alpha = 5.0e2 #6
+delta_alpha = 5.0e-6 #-2
 gamma_beta = 0.0
 delta_beta = 0.0
 

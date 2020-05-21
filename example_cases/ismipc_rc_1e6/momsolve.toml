@@ -48,8 +48,8 @@ beta_active = false
 simultaneous = false
 alt_iter = 2
 
-gamma_alpha = 1.0e3 #6
-delta_alpha = 1e-4 #-2
+gamma_alpha = 5.0e2 #6
+delta_alpha = 5.0e-6 #-2
 gamma_beta = 0.0
 delta_beta = 0.0
 
