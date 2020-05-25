@@ -22,7 +22,7 @@ sns.set()
 # Parameters:
 
 # Simulation Directory
-run_name = 'ismipc_rc_1e6'
+run_name = sys.argv[1]
 dd = Path(os.environ['FENICS_ICE_BASE_DIR']) / 'example_cases' / run_name
 
 # Output Directory
@@ -58,7 +58,10 @@ else:
 U = Function(V,str(results_dir/'U.xml'))
 alpha = Function(Qp,str(results_dir/'alpha.xml'))
 uv_obs = Function(M, str(results_dir/'uv_obs.xml'))
-alpha_sigma = Function(Qp, str(results_dir/'alpha_sigma.xml'))
+
+#alpha_sigma = Function(Qp, str(results_dir/'alpha_sigma.xml'))
+
+
 # B2 = Function(M, os.path.join(dd,'B2.xml'))
 
 u, v = U.split()
@@ -89,21 +92,21 @@ c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap))
 cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
 cbar.ax.set_xlabel(r'${B^2}$ (Pa $m^{-1}$ yr)')
 
-ax  = fig.add_subplot(232)
-ax.set_aspect('equal')
-v    = alpha_sigma.compute_vertex_values(mesh)
-minv = np.min(v)
-maxv = np.max(v)
-levels = np.linspace(minv,maxv,numlev)
-ticks = np.linspace(minv,maxv,3)
-ax.tick_params(**tick_options)
-ax.text(0.05, 0.95, 'b', transform=ax.transAxes,
-    fontsize=13, fontweight='bold', va='top')
-c = ax.tricontourf(x, y, v, levels = levels, cmap=plt.get_cmap(cmap))
-cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal", format=ticker.FormatStrFormatter('%1.1e'))
-cbar.ax.xaxis.set_major_locator(ticker.LinearLocator(3))
-
-cbar.ax.set_xlabel(r'$\sigma$ ($Pa^{0.5}$ $m^{-0.5}$ $yr^{0.5}$)')
+#ax  = fig.add_subplot(232)
+#ax.set_aspect('equal')
+#v    = alpha_sigma.compute_vertex_values(mesh)
+#minv = np.min(v)
+#maxv = np.max(v)
+#levels = np.linspace(minv,maxv,numlev)
+#ticks = np.linspace(minv,maxv,3)
+#ax.tick_params(**tick_options)
+#ax.text(0.05, 0.95, 'b', transform=ax.transAxes,
+#    fontsize=13, fontweight='bold', va='top')
+#c = ax.tricontourf(x, y, v, levels = levels, cmap=plt.get_cmap(cmap))
+#cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal", format=ticker.FormatStrFormatter('%1.1e'))
+#cbar.ax.xaxis.set_major_locator(ticker.LinearLocator(3))
+#
+#cbar.ax.set_xlabel(r'$\sigma$ ($Pa^{0.5}$ $m^{-0.5}$ $yr^{0.5}$)')
 
 ax  = fig.add_subplot(233)
 ax.set_aspect('equal')

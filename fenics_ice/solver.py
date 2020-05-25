@@ -10,6 +10,7 @@ import ufl
 import os
 import timeit
 import time
+from IPython import embed
 
 
 
@@ -323,7 +324,7 @@ class ssa_solver:
         a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
         solve(a==L,H_nps, bcs = self.H_bcs)
 
-    def timestep(self, save = 1, adjoint_flag=1, qoi_func= None ):
+    def timestep(self, save=1, adjoint_flag=1, cost_flag=1, qoi_func= None ):
         """
         Time evolving model
         Returns the QoI
@@ -351,11 +352,12 @@ class ssa_solver:
         H_nps = self.H_nps
 
 
-        if adjoint_flag:
+        if (adjoint_flag | cost_flag):
             num_sens = self.param.time.num_sens
             t_sens = np.array([run_length]) if num_sens == 1 else np.linspace(0.0, run_length, num_sens)
             n_sens = np.round(t_sens/dt)
 
+        if adjoint_flag:
             reset()
             start_annotating()
 #            configure_checkpointing("periodic_disk", {'period': 2, "format":"pickle"})
@@ -374,13 +376,14 @@ class ssa_solver:
             qoi = qoi_func()
             self.Qval_ts[0] = assemble(qoi)
 
-        if adjoint_flag:
+        if (adjoint_flag | cost_flag):
             if 0.0 in n_sens:
                 Q_i = Functional()
                 Q_i.assign(qoi)
                 Q_is.append(Q_i)
                 Q.addto(Q_i.fn())
 
+        if adjoint_flag:
             new_block()
 
         if save:
@@ -434,7 +437,7 @@ class ssa_solver:
                 qoi = qoi_func()
                 self.Qval_ts[n] = assemble(qoi)
 
-                if adjoint_flag:
+                if (adjoint_flag | cost_flag):
                     if n in n_sens:
                         Q_i = Functional()
                         Q_i.assign(qoi)
@@ -453,7 +456,8 @@ class ssa_solver:
         if save:
             hdf_hts.close()
             hdf_uts.close()
-        manager_info()
+        if (adjoint_flag):    
+            manager_info()
         return Q_is if qoi_func is not None else None
 
 

@@ -1,6 +1,8 @@
 import sys
 # sys.path.insert(0,'../../tlm_adjoint/python/')
-
+import numpy as np
+from numpy import random
+from fenics_ice.sqrt_mass_matrix_action import A_root_action
 from dolfin import *
 from tlm_adjoint import *
 
@@ -52,3 +54,14 @@ class laplacian(object):
         self.A_solver.solve(self.tmp1, self.tmp2)
         y.set_local(self.tmp1.get_local())
         y.apply("insert")
+        
+    def sample(self,x):        # sqrt cov: A-1 M^1/2
+        shp = np.shape(x.vec().array)
+        np.random.seed()
+        x.vec().array = random.normal(np.zeros(shp),
+                     np.ones(shp),shp)
+        M = self.M
+        M_norm = M.norm("linf")
+        y, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm)
+        self.A_solver.solve(x, y)
+
