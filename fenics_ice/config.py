@@ -9,6 +9,20 @@ from dataclasses import dataclass, field
 import numpy as np
 from pathlib import Path
 from IPython import embed
+import pprint
+
+class ConfigPrinter(object):
+    """
+    Parent class to define how configuration should be printed.
+    """
+    def __str__(self):
+        lines = [self.__class__.__name__ + ':']
+        for key, val in vars(self).items():
+            if isinstance(val, dict):
+                lines += '{}: dict:\n {}'.format(key, pprint.pformat(val)).split('\n')
+            else:
+                lines += '{}: {}'.format(key, val).split('\n')
+        return '\n    '.join(lines)
 
 class ConfigParser(object):
     """
@@ -16,9 +30,17 @@ class ConfigParser(object):
     """
     # pylint: disable=too-many-instance-attributes
 
+    def __str__(self):
+        lines = [self.__class__.__name__ + ':']
+        for key, val in vars(self).items():
+            if key == "config_dict":
+                continue
+            lines += '{}: {}'.format(key, val).split('\n')
+        return '\n    '.join(lines)
+
     def __init__(self, config_file, top_dir=Path(".")):
         self.top_dir = top_dir  # TODO - hook this up for sims (just plots atm)
-        self.config_file = config_file
+        self.config_file = Path(config_file)
         self.config_dict = toml.load(self.config_file)
         self.parse()
         self.check_dirs()
@@ -53,7 +75,7 @@ class ConfigParser(object):
             outdir.mkdir(parents=True, exist_ok=True)
 
 @dataclass(frozen=True)
-class InversionCfg(object):
+class InversionCfg(ConfigPrinter):
     """
     Configuration related to inversion
     """
@@ -93,21 +115,21 @@ class InversionCfg(object):
         object.__setattr__(self,'inv_options', self.construct_inv_options())
 
 @dataclass(frozen=True)
-class ObsCfg(object):
+class ObsCfg(ConfigPrinter):
     """
     Configuration related to observations
     """
     pts_len: float = None
 
 @dataclass(frozen=True)
-class ErrorPropCfg(object):
+class ErrorPropCfg(ConfigPrinter):
     """
     Configuration related to error propagation
     """
     qoi: str = 'vaf'
 
 @dataclass(frozen=True)
-class EigenDecCfg(object):
+class EigenDecCfg(ConfigPrinter):
     """
     Configuration related to eigendecomposition
     """
@@ -126,7 +148,7 @@ class EigenDecCfg(object):
             "Valid selections for 'eig_algo' are 'slepc' or 'random'"
 
 @dataclass(frozen=True)
-class ConstantsCfg(object):
+class ConstantsCfg(ConfigPrinter):
     """
     Configuration of constants
     """
@@ -151,7 +173,7 @@ class ConstantsCfg(object):
             np.random.seed(self.random_seed)
 
 @dataclass(frozen=True)
-class MeshCfg(object):
+class MeshCfg(ConfigPrinter):
     """
     Configuration related to mesh
     """
@@ -192,7 +214,7 @@ class MeshCfg(object):
                 object.__setattr__(self, 'data_mask_filename', "data_mask.xml")
 
 @dataclass(frozen=True)
-class IceDynamicsCfg(object):
+class IceDynamicsCfg(ConfigPrinter):
     """
     Configuration related to modelling ice dynamics
     """
@@ -203,7 +225,7 @@ class IceDynamicsCfg(object):
 
 
 @dataclass(frozen=True)
-class MomsolveCfg(object):
+class MomsolveCfg(ConfigPrinter):
     """
     Configuration of MomentumSolver with sensible defaults for picard & newton params
     """
@@ -228,7 +250,7 @@ class MomsolveCfg(object):
 
 
 @dataclass(frozen=True)
-class IOCfg(object):
+class IOCfg(ConfigPrinter):
     """
     Configuration parameters for input/output
     """
@@ -252,7 +274,7 @@ class IOCfg(object):
             "Invalid log level"
 
 @dataclass(frozen=True)
-class TimeCfg(object):
+class TimeCfg(ConfigPrinter):
     """
     Configuration of forward timestepping
     """

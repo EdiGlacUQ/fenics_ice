@@ -43,6 +43,8 @@ def run_inv(config_file):
     log.info("==  RUNNING INVERSE MODEL PHASE ==")
     log.info("==================================\n\n")
 
+    log.info(params)
+
     dd = params.io.input_dir
 
     # Determine Mesh (1. create ismip or 2. from file)
