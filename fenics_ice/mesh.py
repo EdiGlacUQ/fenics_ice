@@ -7,6 +7,7 @@ from fenics import *
 from dolfin import *
 import numpy as np
 from fenics_ice import model
+import logging
 
 def create_ismip_mesh(params):
     """
@@ -19,7 +20,7 @@ def create_ismip_mesh(params):
     assert nx
 
     #Generate model mesh
-    print('Generating new mesh')
+    logging.info('Generating new mesh')
     gf = 'grid_data.npz' #TODO - unhardcode this
     npzfile = np.load(os.path.join(dd, gf))
     xlim = npzfile['xlim']

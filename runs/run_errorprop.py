@@ -19,17 +19,18 @@ import datetime
 import pickle
 from petsc4py import PETSc
 from IPython import embed
-import logging as log
 
 def run_errorprop(config_file):
 
     #Read run config file
     params = ConfigParser(config_file)
-    inout.setup_logging(params)
+    log = inout.setup_logging(params)
 
     log.info("=======================================")
     log.info("=== RUNNING ERROR PROPAGATION PHASE ===")
     log.info("=======================================")
+
+    inout.print_config(params)
 
     dd = params.io.input_dir
     outdir = params.io.output_dir

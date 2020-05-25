@@ -30,6 +30,11 @@ def main(config_file):
 
     #Read run config file
     params = ConfigParser(config_file)
+
+    log = inout.setup_logging(params)
+
+    inout.print_config(params)
+
     dd = params.io.input_dir
     outdir = params.io.output_dir
     run_length = params.time.run_length

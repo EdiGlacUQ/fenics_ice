@@ -19,7 +19,6 @@ import pickle
 from IPython import embed
 
 import git
-import logging as log
 
 def run_inv(config_file):
     """
@@ -29,7 +28,7 @@ def run_inv(config_file):
     #Read run config file
     params = ConfigParser(config_file)
 
-    inout.setup_logging(params)
+    log = inout.setup_logging(params)
 
     repo = git.Repo(__file__, search_parent_directories=True)
     branch = repo.active_branch.name
@@ -43,7 +42,7 @@ def run_inv(config_file):
     log.info("==  RUNNING INVERSE MODEL PHASE ==")
     log.info("==================================\n\n")
 
-    log.info(params)
+    inout.print_config(params)
 
     dd = params.io.input_dir
 

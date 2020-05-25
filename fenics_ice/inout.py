@@ -93,31 +93,64 @@ class LogFormatter(logging.Formatter):
         return result
 
 
+#TODO - as yet unused - can't get stdout redirection to work
+class LoggerWriter:
+    def __init__(self, logger, level):
+        self.logger = logger
+        self.level = level
+
+    def write(self, message):
+        if message != '\n':
+            self.logger.log(self.level, message)
 
 def setup_logging(params):
     """
     Set up logging to file specified in params
     """
 
+    #TODO - Doesn't work yet - can't redirect output from fenics etc
+    # run_name = params.io.run_name
+    # logfile = run_name + ".log"
+
     log_level = params.io.log_level
 
     numeric_level = getattr(logging, log_level.upper(), None)
     if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: %s' % loglevel)
+        raise ValueError('Invalid log level: %s' % log_level)
 
     fmt = LogFormatter()
-    hdlr = logging.StreamHandler(sys.stdout)
-    hdlr.setFormatter(fmt)
 
-    logging.root.addHandler(hdlr)
-    logging.root.setLevel(numeric_level)
+    logger = logging.getLogger("fenics_ice")
+    logger.setLevel(numeric_level)
+
+    so = logging.StreamHandler(sys.stdout)
+    so.setFormatter(fmt)
+    so.setLevel(numeric_level)
+
+    # fo = logging.FileHandler(logfile)
+    # fo.setFormatter(fmt)
+    # fo.setLevel(numeric_level)
+
+    # logger.addHandler(fo)
+    logger.addHandler(so)
+
+    # sys.stdout = LoggerWriter(logger, numeric_level)
+    # sys.stderr = LoggerWriter(logger, numeric_level)
+
+    return logger
+
     #Consider adding %(process)d- when we move to parallel sims (at least for debug messages?)
 #    logging.basicConfig(level=numeric_level, format='%(levelname)s:%(message)s')
 #    logging.basicConfig(level=numeric_level, format=)
 
-    #e.g.:
-    # logging.critical("critical")
-    # logging.error("error")
-    # logging.warning("warning")
-    # logging.info("info")
-    # logging.debug("boring")
+
+def print_config(params):
+
+    log = logging.getLogger("fenics_ice")
+    log.info("\n==================================")
+    log.info("========= Configuration ==========")
+    log.info("==================================\n\n")
+    log.info(params)
+    log.info("\n\n==================================")
+    log.info("======= End of Configuration =====")
+    log.info("==================================\n\n")

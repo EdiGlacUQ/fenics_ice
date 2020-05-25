@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 import datetime
-import logging as log
 from IPython import embed
 
 stop_annotating()
@@ -25,11 +24,13 @@ def run_forward(config_file):
 
     #Read run config file
     params = ConfigParser(config_file)
-    inout.setup_logging(params)
+    log = inout.setup_logging(params)
 
     log.info("\n\n==================================")
     log.info("==  RUNNING FORWARD MODEL PHASE ==")
     log.info("==================================\n\n")
+
+    inout.print_config(params)
 
     #TODO - issue here - run_inv might need to use 'nx,ny' but run_forward should
     #read mesh...
