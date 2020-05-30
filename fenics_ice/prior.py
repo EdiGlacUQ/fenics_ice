@@ -37,11 +37,12 @@ class laplacian(object):
         self.tmp1, self.tmp2 = Function(space), Function(space)
 
         self.tmp1, self.tmp2 = Vector(), Vector()
+        self.tmp3 = Vector()
         self.A.init_vector(self.tmp1, 0)
         self.A.init_vector(self.tmp2, 1)
 
 
-    def action(self, x, y):
+    def action(self, x, y):      # A M-1 A
         self.A.mult(x, self.tmp1) #tmp1 = Ax
         self.M_solver.solve(self.tmp2, self.tmp1) #Atmp2 = tmp1
         self.A.mult(self.tmp2,self.tmp1)
@@ -55,13 +56,44 @@ class laplacian(object):
         y.set_local(self.tmp1.get_local())
         y.apply("insert")
         
-    def sample(self,x):        # sqrt cov: A-1 M^1/2
+    def sqrt_action(self, x, y):     # sqrt of inv cov: Gamma -1 Gamma 1/2
+                                     #                  A M-1 A A-1 M1/2
+                                     #                  A M-1 M1/2
+        M_norm = self.M.norm("linf")
+        self.tmp1, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm)
+        self.M_solver.solve(self.tmp2, self.tmp1) 
+        self.A.mult(self.tmp2,self.tmp3)
+        y.set_local(self.tmp3.get_local())
+        y.apply("insert")
+        
+    def sqrt_inv_action(self, x, y): # sqrt of cov: Gamma 1/2
+                                     #                  A-1 M1/2
+        M_norm = self.M.norm("linf")        
+        self.tmp1, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm)
+        self.A_solver.solve(self.tmp2, self.tmp1)
+        y.set_local(self.tmp2.get_local())
+        y.apply("insert")
+        
+    def sample_prior(self,x):        # sqrt cov: A-1 M^1/2
         shp = np.shape(x.vec().array)
         np.random.seed()
         x.vec().array = random.normal(np.zeros(shp),
                      np.ones(shp),shp)
-        M = self.M
-        M_norm = M.norm("linf")
-        y, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm)
-        self.A_solver.solve(x, y)
-
+        M_norm = self.M.norm("linf")
+        self.tmp1, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm)
+        self.A_solver.solve(self.tmp2, self.tmp1)
+        x.set_local(self.tmp2.get_local())
+        x.apply("insert")
+        
+        
+    def sample_inv_prior(self,x):        # sqrt inv cov: A M-1 M1/2
+        shp = np.shape(x.vec().array)
+        np.random.seed()
+        x.vec().array = random.normal(np.zeros(shp),
+                     np.ones(shp),shp)
+        M_norm = self.M.norm("linf")
+        self.tmp1, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm)
+        self.M_solver.solve(self.tmp2, selpf.tmp1) 
+        self.A.mult(self.tmp2,self.tmp3)
+        x.set_local(self.tmp3.get_local())
+        x.apply("insert")
