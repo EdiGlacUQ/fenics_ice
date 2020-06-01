@@ -18,6 +18,9 @@ import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
 
+import slepc4py.SLEPc as SLEPc
+import petsc4py.PETSc as PETSc
+
 def run_eigendec(config_file):
 
     #Read run config file
@@ -118,6 +121,17 @@ def run_eigendec(config_file):
 
     #Counter for hessian action -- list rather than float/int necessary
     num_action_calls = [0]
+    prior_action_calls = [0]
+    # set_log_level(10)
+
+    def ghep_action(x):
+        """
+        Hessian action w/o preconditioning
+        """
+        num_action_calls[0] += 1
+        info("ghep_action call %i" % num_action_calls[0])
+        _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
+        return function_get_values(ddJ_val)
 
     def gnhep_prior_action(x):
         num_action_calls[0] += 1
@@ -134,6 +148,76 @@ def run_eigendec(config_file):
         return function_get_values(xg)
 
 
+    # This code & the 'prior_diag' function are just to test
+    # whether feeding the diagonal helps at all (it enables JACOBI precond)
+    # SLEPc manual also mentions the option of user-defined preconditioner...
+    a_arr = np.matrix(reg_op.A.array())
+    m_arr = np.matrix(reg_op.M.array())
+    m_inv_arr = np.matrix(np.linalg.inv(m_arr))
+
+    oper = a_arr * m_inv_arr * a_arr
+
+    def prior_diag():
+        a_arr = np.matrix(reg_op.A.array())
+        m_arr = np.matrix(reg_op.M.array())
+        m_inv_arr = np.matrix(np.linalg.inv(m_arr))
+
+        oper = a_arr * m_inv_arr * a_arr
+        return np.diag(oper)
+
+    # This defines the action of the B_matrix
+    def prior_action(x):
+        prior_action_calls[0] += 1
+        if prior_action_calls[0] % 10000 == 0:
+            log.info("Prior action call %s" % prior_action_calls[0])
+        # log.info("Attempting to use prior_action")
+        reg_op.action(x.vector(), xg.vector())
+        #return np.matmul(oper, x.vector().get_local())
+        return function_get_values(xg)
+
+
+    class PythonMatrix:
+        def __init__(self, action, X):
+            self._action = action
+            self._X = X
+
+        def mult(self, A, x, y):
+            function_set_values(self._X, x.getArray(readonly=True))
+            y.setArray(self._action(self._X))
+
+        def getDiagonal(self, A, D):
+
+            diag = prior_diag()
+            D.array = diag
+
+    def slepc_config_callback(config):
+        log.info("Got to the callback")
+
+        # st = config.getST()
+        # st.setType('shift')
+
+        ksp = config.getST().getKSP()
+        # ksp.setType(PETSc.KSP.Type.GMRES)
+
+        #NECESSARY - default precond is LU (or ILU?), doesn't
+        #work with B shell matrix (JACOBI requires diag)
+        pc = ksp.getPC()
+        pc.setType(PETSc.PC.Type.JACOBI)
+        # pc.setType(PETSc.PC.Type.NONE)
+
+        #A_matrix already defined so just grab it
+        A_matrix, _ = config.getOperators()
+
+        #Equivalent code to tlm_adjoint for defining the shell matrix
+        Y = space_new(space)
+        n, N = function_local_size(Y), function_global_size(Y)
+        B_matrix = PETSc.Mat().createPython(((n, N), (n, N)),
+                                            PythonMatrix(prior_action, Y),
+                                            comm=function_comm(Y))
+        B_matrix.setUp()
+
+        config.setOperators(A_matrix, B_matrix)
+
     opts = {'prior': gnhep_prior_action, 'mass': gnhep_mass_action}
     gnhep_func = opts[params.eigendec.precondition_by]
 
@@ -145,11 +229,14 @@ def run_eigendec(config_file):
     if eig_algo == "slepc":
 
         #Eigendecomposition
+        lam, vr = eigendecompose(space,
+                                 ghep_action,
+                                 tolerance = 1.0e-10,
+                                 N_eigenvalues = num_eig,
+                                 problem_type=SLEPc.EPS.ProblemType.GHEP,
+                                 # solver_type=SLEPc.EPS.Type.ARNOLDI,
+                                 configure=slepc_config_callback)
 
-        lam, [vr, vi] = eigendecompose(space,
-                                       gnhep_func,
-                                       tolerance = 1.0e-10,
-                                       N_eigenvalues = num_eig)
 
         # Uses extreme amounts of disk space; suitable for ismipc only
         # #Save eigenfunctions
@@ -165,9 +252,6 @@ def run_eigendec(config_file):
 
         hdf5file = HDF5File(slvr.mesh.mpi_comm(), os.path.join(outdir, 'vr.h5'), 'w')
         for i, v in enumerate(vr): hdf5file.write(v, 'v', i)
-
-        hdf5file = HDF5File(slvr.mesh.mpi_comm(), os.path.join(outdir, 'vi.h5'), 'w')
-        for i, v in enumerate(vi): hdf5file.write(v, 'v', i)
 
     else:
         raise NotImplementedError
