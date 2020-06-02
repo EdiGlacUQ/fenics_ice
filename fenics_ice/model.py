@@ -6,6 +6,9 @@ import timeit
 from fenics_ice import mesh as fice_mesh
 from IPython import embed
 from numpy.random import randn
+import logging
+
+log = logging.getLogger("fenics_ice")
 
 class model:
 

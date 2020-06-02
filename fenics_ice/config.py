@@ -197,21 +197,16 @@ class MeshCfg(ConfigPrinter):
         assert (self.nx is None) != (self.mesh_filename is None), \
             "Mesh: provide either mesh_filename or nx,ny"
 
-        #TODO - ought we to check that mesh_filename & data_mesh_filename
-        #are not both provided?
         assert self.data_mask_filename, "Please provide data_mask_filename"
 
         if self.nx is not None:
             assert self.data_mesh_filename is not None, "Please provide data_mesh_filename"
 
-        #Set data_mesh_filename = mesh_filename by default
-        if self.mesh_filename is not None:
-            object.__setattr__(self, 'data_mesh_filename', self.mesh_filename)
-        else:
-            if self.data_mesh_filename is None:
-                object.__setattr__(self, 'data_mesh_filename', "data_mesh.xml")
-            if self.data_mask_filename is None: #TODO - check logic here
-                object.__setattr__(self, 'data_mask_filename', "data_mask.xml")
+        #Default filenames
+        if self.data_mesh_filename is None:
+            object.__setattr__(self, 'data_mesh_filename', "data_mesh.xml")
+        if self.data_mask_filename is None: #TODO - check logic here
+            object.__setattr__(self, 'data_mask_filename', "data_mask.xml")
 
 @dataclass(frozen=True)
 class IceDynamicsCfg(ConfigPrinter):

@@ -40,6 +40,9 @@ class laplacian(object):
 
 
     def action(self, x, y):
+        """
+        LM^-1L
+        """
         self.A.mult(x, self.tmp1) #tmp1 = Ax
         self.M_solver.solve(self.tmp2, self.tmp1) #Atmp2 = tmp1
         self.A.mult(self.tmp2,self.tmp1)
@@ -47,6 +50,9 @@ class laplacian(object):
         y.apply("insert")
 
     def inv_action(self, x, y):
+        """
+        L^-1 M L^-1
+        """
         self.A_solver.solve(self.tmp1, x)
         self.M.mult(self.tmp1, self.tmp2)
         self.A_solver.solve(self.tmp1, self.tmp2)
