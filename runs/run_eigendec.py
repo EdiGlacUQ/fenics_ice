@@ -131,49 +131,39 @@ def run_eigendec(config_file):
         num_action_calls[0] += 1
         info("ghep_action call %i" % num_action_calls[0])
         _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
+        # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
         return function_get_values(ddJ_val)
-
-    def gnhep_prior_action(x):
-        num_action_calls[0] += 1
-        info("gnhep_prior_action call %i" % num_action_calls[0])
-        _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
-        reg_op.inv_action(ddJ_val.vector(), xg.vector())
-        return function_get_values(xg)
-
-    def gnhep_mass_action(x):
-        num_action_calls[0] += 1
-        info("gnhep_mass_action call %i" % num_action_calls[0])
-        _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
-        mass_solver.solve(xg.vector(), ddJ_val.vector())
-        return function_get_values(xg)
-
-
-    # This code & the 'prior_diag' function are just to test
-    # whether feeding the diagonal helps at all (it enables JACOBI precond)
-    # SLEPc manual also mentions the option of user-defined preconditioner...
-    a_arr = np.matrix(reg_op.A.array())
-    m_arr = np.matrix(reg_op.M.array())
-    m_inv_arr = np.matrix(np.linalg.inv(m_arr))
-
-    oper = a_arr * m_inv_arr * a_arr
-
-    def prior_diag():
-        a_arr = np.matrix(reg_op.A.array())
-        m_arr = np.matrix(reg_op.M.array())
-        m_inv_arr = np.matrix(np.linalg.inv(m_arr))
-
-        oper = a_arr * m_inv_arr * a_arr
-        return np.diag(oper)
 
     # This defines the action of the B_matrix
     def prior_action(x):
+        """
+        Defines the action of the B matrix (prior)
+        """
         prior_action_calls[0] += 1
         if prior_action_calls[0] % 10000 == 0:
             log.info("Prior action call %s" % prior_action_calls[0])
-        # log.info("Attempting to use prior_action")
         reg_op.action(x.vector(), xg.vector())
-        #return np.matmul(oper, x.vector().get_local())
         return function_get_values(xg)
+
+    def prior_approx_action(x):
+        """
+        Only used for checking B' orthonormality
+        """
+        reg_op.approx_action(x.vector(), xg.vector())
+        return function_get_values(xg)
+
+    class LumpedPC:
+        """
+        A preconditioner using the lumped-mass approximation to the
+        inverse root of the prior hessian
+        See prior.laplacian.approx_root_inv_action
+        """
+        def setUp(self, pc):
+            A, B = pc.getOperators()
+            self.action = reg_op.approx_root_inv_action
+
+        def apply(self, pc, x, y):
+            self.action(x,y)
 
 
     class PythonMatrix:
@@ -184,11 +174,6 @@ def run_eigendec(config_file):
         def mult(self, A, x, y):
             function_set_values(self._X, x.getArray(readonly=True))
             y.setArray(self._action(self._X))
-
-        def getDiagonal(self, A, D):
-
-            diag = prior_diag()
-            D.array = diag
 
     def slepc_config_callback(config):
         log.info("Got to the callback")
@@ -202,7 +187,9 @@ def run_eigendec(config_file):
         #NECESSARY - default precond is LU (or ILU?), doesn't
         #work with B shell matrix (JACOBI requires diag)
         pc = ksp.getPC()
-        pc.setType(PETSc.PC.Type.JACOBI)
+        pc.setType(PETSc.PC.Type.PYTHON)
+        pc.setPythonContext(LumpedPC())
+
         # pc.setType(PETSc.PC.Type.NONE)
 
         #A_matrix already defined so just grab it
@@ -218,8 +205,8 @@ def run_eigendec(config_file):
 
         config.setOperators(A_matrix, B_matrix)
 
-    opts = {'prior': gnhep_prior_action, 'mass': gnhep_mass_action}
-    gnhep_func = opts[params.eigendec.precondition_by]
+    # opts = {'prior': gnhep_prior_action, 'mass': gnhep_mass_action}
+    # gnhep_func = opts[params.eigendec.precondition_by]
 
     num_eig = params.eigendec.num_eig
     n_iter = params.eigendec.power_iter #<- not used yet
@@ -236,6 +223,46 @@ def run_eigendec(config_file):
                                  problem_type=SLEPc.EPS.ProblemType.GHEP,
                                  # solver_type=SLEPc.EPS.Type.ARNOLDI,
                                  configure=slepc_config_callback)
+
+
+        # Check orthonormality of EVs
+
+        if num_eig is not None and num_eig < 100:
+            x = space_new(space)
+
+            # Check for B (not B') orthogonality & normalisation
+            for i in range(num_eig):
+                print("EV %s norm %s" % (i, np.inner(prior_action(vr[i]), vr[i].vector())))
+
+            for i in range(num_eig):
+                for j in range(i+1,num_eig):
+                    print("EV %s %s inner %s" % (i, j,
+                        np.inner(prior_action(vr[i]), vr[j].vector())))
+
+            # Check for B' orthogonality & normalisation
+            for i in range(num_eig):
+                print("EV %s approx norm %s" % (i,
+                        np.inner(prior_approx_action(vr[i]), vr[i].vector())))
+
+            for i in range(num_eig):
+                for j in range(i+1,num_eig):
+                    print("EV %s %s approx inner %s" % (i,j,
+                        np.inner(prior_approx_action(vr[i]), vr[j].vector())))
+
+            embed()
+
+        # TODO - multiply by \Theta here?
+        # for v in vr:
+        #     reg_op.approx_root_inv_action(v.vector(), x.vector())
+        #     v.vector().set_local(x.vector().get_local())
+
+        # for i in range(num_eig):
+        #     print("EV %s norm %s" % (i, np.inner(prior_action(vr[i]), vr[i].vector())))
+
+        # for i in range(num_eig):
+        #     for j in range(i+1,num_eig):
+        #         print("EV %s %s inner %s" % (i, j, np.inner(prior_action(vr[i]),
+        #                      vr[j].vector())))
 
 
         # Uses extreme amounts of disk space; suitable for ismipc only
