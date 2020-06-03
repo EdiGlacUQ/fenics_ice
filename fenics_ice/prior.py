@@ -21,7 +21,7 @@ class laplacian(object):
                                    "relative_tolerance":1.0e-14})
         self.M_solver.set_operator(self.M)
 
-        self.A = assemble(delta*var_m + gamma*var_n)
+        self.A = assemble(delta * var_m + gamma * var_n)
         self.A_solver = KrylovSolver("cg", "sor")
         self.A_solver.set_operator(self.A)
 
@@ -31,47 +31,39 @@ class laplacian(object):
         self.A.init_vector(self.tmp1, 0)
         self.A.init_vector(self.tmp2, 1)
 
-        # Inverse Root Lumped mass matrix:
-        # NB lots of misnomers here - easier than constructing fresh objects
-        mass_action_form = action(var_m, Constant(1)) #<- assumes no Dirichlet BC
-        lump_diag = assemble(mass_action_form)
-        root_lump_diag = (lump_diag.get_local()) ** 0.5
+        # Inverse Root Lumped mass matrix (etc):
+        # All stored as vectors for efficiency
+        mass_action_form = action(var_m, Constant(1))  # <- assumes no Dirichlet BC
+        lump_diag = assemble(mass_action_form).get_local()
+        root_lump_diag = (lump_diag) ** 0.5
         inv_root_lump_diag = 1.0 / root_lump_diag
-        inv_lump_diag = 1.0 / lump_diag.get_local()
+        inv_lump_diag = 1.0 / lump_diag
 
-        # TODO - replace these w/ vectors
-        self.M_irl = assemble(var_m)  # dummy, zeroed
-        self.M_rl = assemble(var_m)  # dummy, zeroed
-        self.M_l = assemble(var_m)  # dummy, zeroed
-        self.M_il = assemble(var_m)  # dummy, zeroed
+        comm = self.A.mpi_comm()  # TODO - is this correct?
+        dim = space.dim()
 
-        self.M_irl.zero()
-        self.M_rl.zero()
-        self.M_l.zero()
-        self.M_il.zero()
-
-        # TODO - don't need all these (M_rl specifically?)
-        self.M_l.set_diagonal(lump_diag)
+        self.M_l = Vector(comm, dim)
+        self.M_l.set_local(lump_diag)
         self.M_l.apply("insert")
-        lump_diag.set_local(inv_root_lump_diag)
-        lump_diag.apply("insert")
-        self.M_irl.set_diagonal(lump_diag)
-        self.M_irl.apply("insert")
-        lump_diag.set_local(root_lump_diag)
-        lump_diag.apply("insert")
-        self.M_rl.set_diagonal(lump_diag)
-        self.M_rl.apply("insert")
-        lump_diag.set_local(inv_lump_diag)
-        lump_diag.apply("insert")
-        self.M_il.set_diagonal(lump_diag)
+
+        self.M_il = Vector(comm, dim)
+        self.M_il.set_local(inv_lump_diag)
         self.M_il.apply("insert")
+
+        self.M_rl = Vector(comm, dim)
+        self.M_rl.set_local(root_lump_diag)
+        self.M_rl.apply("insert")
+
+        self.M_irl = Vector(comm, dim)
+        self.M_irl.set_local(inv_root_lump_diag)
+        self.M_irl.apply("insert")
 
     def action(self, x, y):
         """
         LM^-1L
         """
-        self.A.mult(x, self.tmp1) #tmp1 = Ax
-        self.M_solver.solve(self.tmp2, self.tmp1) #Atmp2 = tmp1
+        self.A.mult(x, self.tmp1)  # tmp1 = Ax
+        self.M_solver.solve(self.tmp2, self.tmp1)  # Atmp2 = tmp1
         self.A.mult(self.tmp2,self.tmp1)
         y.set_local(self.tmp1.get_local())
         y.apply("insert")
@@ -90,8 +82,8 @@ class laplacian(object):
         """
         L M_lump^-1L
         """
-        self.A.mult(x, self.tmp1) #tmp1 = Ax
-        self.M_il.mult(self.tmp1, self.tmp2)
+        self.A.mult(x, self.tmp1)  # tmp1 = Ax
+        self.tmp2 = self.M_il * self.tmp1
         self.A.mult(self.tmp2,self.tmp1)
         y.set_local(self.tmp1.get_local())
         y.apply("insert")
@@ -102,7 +94,6 @@ class laplacian(object):
         Used as a GHEP preconditioner
         eigendecomposition_transformation.tex
         """
-        # embed()
 
         if not isinstance(x, PETScVector):
             x_tmp = PETScVector(x)
@@ -114,7 +105,7 @@ class laplacian(object):
         else:
             y_tmp = y
 
-        self.M_rl.mult(x_tmp, self.tmp1)
+        self.tmp1 = self.M_rl * x_tmp
         self.A_solver.solve(y_tmp, self.tmp1)
 
 
