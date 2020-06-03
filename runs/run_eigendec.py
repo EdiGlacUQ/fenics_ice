@@ -134,7 +134,6 @@ def run_eigendec(config_file):
         # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
         return function_get_values(ddJ_val)
 
-    # This defines the action of the B_matrix
     def prior_action(x):
         """
         Defines the action of the B matrix (prior)
@@ -152,18 +151,16 @@ def run_eigendec(config_file):
         reg_op.approx_action(x.vector(), xg.vector())
         return function_get_values(xg)
 
-    class LumpedPC:
-        """
-        A preconditioner using the lumped-mass approximation to the
-        inverse root of the prior hessian
-        See prior.laplacian.approx_root_inv_action
-        """
-        def setUp(self, pc):
-            A, B = pc.getOperators()
-            self.action = reg_op.approx_root_inv_action
+    eps_error = [False]
 
-        def apply(self, pc, x, y):
-            self.action(x,y)
+    def flag_errors(fn):
+        def wrapped_fn(*args, **kwargs):
+            try:
+                return fn(*args, **kwargs)
+            except:  # noqa: E722
+                eps_error[0] = True
+                raise
+        return wrapped_fn
 
 
     class PythonMatrix:
@@ -171,9 +168,11 @@ def run_eigendec(config_file):
             self._action = action
             self._X = X
 
+        @flag_errors
         def mult(self, A, x, y):
             function_set_values(self._X, x.getArray(readonly=True))
             y.setArray(self._action(self._X))
+
 
     def slepc_config_callback(config):
         log.info("Got to the callback")
@@ -184,11 +183,9 @@ def run_eigendec(config_file):
         ksp = config.getST().getKSP()
         # ksp.setType(PETSc.KSP.Type.GMRES)
 
-        #NECESSARY - default precond is LU (or ILU?), doesn't
-        #work with B shell matrix (JACOBI requires diag)
         pc = ksp.getPC()
         pc.setType(PETSc.PC.Type.PYTHON)
-        pc.setPythonContext(LumpedPC())
+        pc.setPythonContext(prior.LumpedPC(reg_op))
 
         # pc.setType(PETSc.PC.Type.NONE)
 
@@ -232,22 +229,28 @@ def run_eigendec(config_file):
 
             # Check for B (not B') orthogonality & normalisation
             for i in range(num_eig):
-                print("EV %s norm %s" % (i, np.inner(prior_action(vr[i]), vr[i].vector())))
+                reg_op.action(vr[i].vector(), xg.vector())
+                norm = xg.vector().inner(Vector(vr[i].vector())) ** 0.5
+                print("EV %s norm %s" % (i, norm))
 
             for i in range(num_eig):
+                reg_op.action(vr[i].vector(), xg.vector())
                 for j in range(i+1,num_eig):
-                    print("EV %s %s inner %s" % (i, j,
-                        np.inner(prior_action(vr[i]), vr[j].vector())))
+                    inn = xg.vector().inner(Vector(vr[j].vector()))
+                    print("EV %s %s inner %s" % (i, j, inn))
 
             # Check for B' orthogonality & normalisation
             for i in range(num_eig):
-                print("EV %s approx norm %s" % (i,
-                        np.inner(prior_approx_action(vr[i]), vr[i].vector())))
+                reg_op.approx_action(vr[i].vector(), xg.vector())
+                norm = xg.vector().inner(Vector(vr[i].vector())) ** 0.5
+                print("EV %s approx norm %s" % (i,norm))
 
             for i in range(num_eig):
+                reg_op.approx_action(vr[i].vector(), xg.vector())
                 for j in range(i+1,num_eig):
-                    print("EV %s %s approx inner %s" % (i,j,
-                        np.inner(prior_approx_action(vr[i]), vr[j].vector())))
+                    inn = xg.vector().inner(Vector(vr[j].vector()))
+                    print("EV %s %s approx inner %s" % (i,j, inn))
+
 
             embed()
 

@@ -6,11 +6,6 @@ from tlm_adjoint import *
 
 from IPython import embed
 
-class error_propogator(object):
-
-    def __init__():
-      pass
-
 class laplacian(object):
 
     def __init__(self, delta, gamma, space):
@@ -38,12 +33,13 @@ class laplacian(object):
 
         # Inverse Root Lumped mass matrix:
         # NB lots of misnomers here - easier than constructing fresh objects
-        mass_action_form = action(var_m, Constant(1))
+        mass_action_form = action(var_m, Constant(1)) #<- assumes no Dirichlet BC
         lump_diag = assemble(mass_action_form)
         root_lump_diag = (lump_diag.get_local()) ** 0.5
         inv_root_lump_diag = 1.0 / root_lump_diag
         inv_lump_diag = 1.0 / lump_diag.get_local()
 
+        # TODO - replace these w/ vectors
         self.M_irl = assemble(var_m)  # dummy, zeroed
         self.M_rl = assemble(var_m)  # dummy, zeroed
         self.M_l = assemble(var_m)  # dummy, zeroed
@@ -56,12 +52,19 @@ class laplacian(object):
 
         # TODO - don't need all these (M_rl specifically?)
         self.M_l.set_diagonal(lump_diag)
+        self.M_l.apply("insert")
         lump_diag.set_local(inv_root_lump_diag)
+        lump_diag.apply("insert")
         self.M_irl.set_diagonal(lump_diag)
+        self.M_irl.apply("insert")
         lump_diag.set_local(root_lump_diag)
+        lump_diag.apply("insert")
         self.M_rl.set_diagonal(lump_diag)
+        self.M_rl.apply("insert")
         lump_diag.set_local(inv_lump_diag)
+        lump_diag.apply("insert")
         self.M_il.set_diagonal(lump_diag)
+        self.M_il.apply("insert")
 
     def action(self, x, y):
         """
@@ -95,7 +98,7 @@ class laplacian(object):
 
     def approx_root_inv_action(self, x, y):
         """
-        L^-1 M_lump^-1/2
+        L^-1 M_lump^1/2
         Used as a GHEP preconditioner
         eigendecomposition_transformation.tex
         """
@@ -111,5 +114,23 @@ class laplacian(object):
         else:
             y_tmp = y
 
-        self.M_irl.mult(x_tmp, self.tmp1)
+        self.M_rl.mult(x_tmp, self.tmp1)
         self.A_solver.solve(y_tmp, self.tmp1)
+
+
+class LumpedPC:
+    """
+    A preconditioner using the lumped-mass approximation to the
+    inverse root of the prior hessian
+    See laplacian.approx_root_inv_action
+    """
+    def __init__(self, lap):
+        self.laplacian = lap
+        self.action = self.laplacian.approx_root_inv_action
+
+    def setUp(self, pc):
+        pass
+
+    def apply(self, pc, x, y):
+        self.action(x, y)
+
