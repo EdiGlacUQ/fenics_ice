@@ -1,10 +1,5 @@
-import sys
-# sys.path.insert(0,'../../tlm_adjoint/python/')
-
 from dolfin import *
 from tlm_adjoint import *
-
-from IPython import embed
 
 class laplacian(object):
 
@@ -12,13 +7,13 @@ class laplacian(object):
 
         test, trial = TestFunction(space), TrialFunction(space)
 
-        var_m = inner(test,trial)*dx
-        var_n = inner(grad(test), grad(trial))*dx
+        var_m = inner(test, trial) * dx
+        var_n = inner(grad(test), grad(trial)) * dx
 
         self.M = assemble(var_m)
         self.M_solver = KrylovSolver("cg", "sor")
-        self.M_solver.parameters.update({"absolute_tolerance":1.0e-32,
-                                   "relative_tolerance":1.0e-14})
+        self.M_solver.parameters.update({"absolute_tolerance": 1.0e-32,
+                                         "relative_tolerance": 1.0e-14})
         self.M_solver.set_operator(self.M)
 
         self.A = assemble(delta * var_m + gamma * var_n)
@@ -33,7 +28,8 @@ class laplacian(object):
 
         # Inverse Root Lumped mass matrix (etc):
         # All stored as vectors for efficiency
-        mass_action_form = action(var_m, Constant(1))  # <- assumes no Dirichlet BC
+        # NB: mass matrix here assumes no Dirichlet BC (OK as precond)
+        mass_action_form = action(var_m, Constant(1))
         lump_diag = assemble(mass_action_form).get_local()
         root_lump_diag = (lump_diag) ** 0.5
         inv_root_lump_diag = 1.0 / root_lump_diag
@@ -64,7 +60,7 @@ class laplacian(object):
         """
         self.A.mult(x, self.tmp1)  # tmp1 = Ax
         self.M_solver.solve(self.tmp2, self.tmp1)  # Atmp2 = tmp1
-        self.A.mult(self.tmp2,self.tmp1)
+        self.A.mult(self.tmp2, self.tmp1)
         y.set_local(self.tmp1.get_local())
         y.apply("insert")
 
@@ -84,7 +80,7 @@ class laplacian(object):
         """
         self.A.mult(x, self.tmp1)  # tmp1 = Ax
         self.tmp2 = self.M_il * self.tmp1
-        self.A.mult(self.tmp2,self.tmp1)
+        self.A.mult(self.tmp2, self.tmp1)
         y.set_local(self.tmp1.get_local())
         y.apply("insert")
 
@@ -124,4 +120,3 @@ class LumpedPC:
 
     def apply(self, pc, x, y):
         self.action(x, y)
-
