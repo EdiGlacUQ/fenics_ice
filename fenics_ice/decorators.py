@@ -3,6 +3,8 @@ Decorator library - TODO should this be merged with something else?
 """
 
 import logging
+import functools
+import time
 
 class count_calls:  # noqa: N801
     """
@@ -11,18 +13,20 @@ class count_calls:  # noqa: N801
     Log interval can be set, e.g. @count_calls(1000)
     """
 
-    def __init__(self, interval=1):
+    def __init__(self, interval=1, fn_name=None):
         """Initialize counter, logger and logging interval"""
         self.n = 0
         self.interval = interval
         self.log = logging.getLogger("fenics_ice")
+        self.fn_name = fn_name
 
     def __call__(self, f):
         """Return wrapped function"""
         def wrapped(*args, **kwargs):
             self.n += 1
             if(self.n % self.interval == 0):
-                self.log.info("%s call %s" % (f.__name__, self.n))
+                name = self.fn_name if self.fn_name is not None else f.__name__
+                self.log.info("%s call %s" % (name, self.n))
             return f(*args, **kwargs)
 
         return wrapped
@@ -45,3 +49,17 @@ def flag_errors(fn):
             eps_error[0] = True
             raise
     return wrapped_fn
+
+def timer(func):
+    """Print the runtime of the decorated function"""
+
+    @functools.wraps(func)
+    def wrapper_timer(*args, **kwargs):
+        start_time = time.perf_counter()
+        value = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        run_time = end_time - start_time
+        print(f"Finished {func.__name__!r} in {run_time:.4f} secs")
+        return value
+
+    return wrapper_timer

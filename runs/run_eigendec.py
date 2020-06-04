@@ -10,7 +10,7 @@ from IPython import embed
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
-from fenics_ice.decorators import count_calls, flag_errors
+from fenics_ice.decorators import count_calls, flag_errors, timer
 
 import numpy as np
 import matplotlib as mpl
@@ -131,13 +131,14 @@ def run_eigendec(config_file):
     # set_log_level(10)
 
     @count_calls()
+    # @timer
     def ghep_action(x):
         """Hessian action w/o preconditioning"""
         _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
         # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
         return function_get_values(ddJ_val)
 
-    @count_calls(1000)
+    @count_calls()
     def prior_action(x):
         """Define the action of the B matrix (prior)"""
         reg_op.action(x.vector(), xg.vector())
@@ -170,12 +171,15 @@ def run_eigendec(config_file):
         # st = config.getST()
         # st.setType('shift')
 
+        # KSP corresponds to B-matrix inversion
+        # Set it to precondition only because we
+        # supply the inverse in LaplacianPC
         ksp = config.getST().getKSP()
-        # ksp.setType(PETSc.KSP.Type.GMRES)
+        ksp.setType(PETSc.KSP.Type.PREONLY)
 
         pc = ksp.getPC()
         pc.setType(PETSc.PC.Type.PYTHON)
-        pc.setPythonContext(prior.LumpedPC(reg_op))
+        pc.setPythonContext(prior.LaplacianPC(reg_op))
 
         # pc.setType(PETSc.PC.Type.NONE)
 

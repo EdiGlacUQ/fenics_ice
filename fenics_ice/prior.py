@@ -1,9 +1,12 @@
 from dolfin import *
 from tlm_adjoint import *
+from .decorators import count_calls, timer
 
 class laplacian(object):
 
     def __init__(self, delta, gamma, space):
+
+        self.space = space
 
         test, trial = TestFunction(space), TrialFunction(space)
 
@@ -71,6 +74,7 @@ class laplacian(object):
         self.A_solver.solve(self.tmp1, x)
         self.M.mult(self.tmp1, self.tmp2)
         self.A_solver.solve(self.tmp1, self.tmp2)
+
         y.set_local(self.tmp1.get_local())
         y.apply("insert")
 
@@ -118,5 +122,33 @@ class LumpedPC:
     def setUp(self, pc):
         pass
 
+    @count_calls(1, 'LumpedPC')
     def apply(self, pc, x, y):
         self.action(x, y)
+
+class LaplacianPC:
+    """
+    A preconditioner using the laplacian inverse_action
+
+    i.e. B^-1  =  L^-1 M L^-1
+    """
+    def __init__(self, lap):
+        self.laplacian = lap
+        self.action = self.laplacian.inv_action
+        self.x_tmp = Function(self.laplacian.space).vector()
+        self.y_tmp = Function(self.laplacian.space).vector()
+
+    def setUp(self, pc):
+        pass
+
+    @count_calls(1, 'LaplacianPC')
+    def apply(self, pc, x, y):
+
+        self.x_tmp.set_local(x.array)
+        self.x_tmp.apply("insert")
+
+        self.action(self.x_tmp, self.y_tmp)
+
+        y.array = self.y_tmp.get_local()
+        # TODO - do we need a y.assemble() here?
+        # or y.assemblyBegin(), assemblyEnd()?
