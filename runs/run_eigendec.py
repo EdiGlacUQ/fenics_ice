@@ -239,8 +239,6 @@ def run_eigendec(config_file):
                     print("EV %s %s approx inner %s" % (i, j, inn))
 
 
-            embed()
-
         # TODO - multiply by \Theta here?
 
         # x = space_new(space)
