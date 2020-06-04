@@ -10,6 +10,7 @@ from IPython import embed
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
+from fenics_ice.decorators import count_calls, flag_errors
 
 import numpy as np
 import matplotlib as mpl
@@ -126,24 +127,19 @@ def run_eigendec(config_file):
 
     reg_op = prior.laplacian(delta, gamma, space)
 
-    # Counter for hessian action -- list rather than float/int necessary
-    num_action_calls = [0]
-    prior_action_calls = [0]
+    # Uncomment to get low-level SLEPc/PETSc output
     # set_log_level(10)
 
+    @count_calls()
     def ghep_action(x):
         """Hessian action w/o preconditioning"""
-        num_action_calls[0] += 1
-        info("ghep_action call %i" % num_action_calls[0])
         _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
         # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
         return function_get_values(ddJ_val)
 
+    @count_calls(1000)
     def prior_action(x):
         """Define the action of the B matrix (prior)"""
-        prior_action_calls[0] += 1
-        if prior_action_calls[0] % 10000 == 0:
-            log.info("Prior action call %s" % prior_action_calls[0])
         reg_op.action(x.vector(), xg.vector())
         return function_get_values(xg)
 
@@ -152,18 +148,13 @@ def run_eigendec(config_file):
         reg_op.approx_action(x.vector(), xg.vector())
         return function_get_values(xg)
 
-    eps_error = [False]
-
-    def flag_errors(fn):
-        def wrapped_fn(*args, **kwargs):
-            try:
-                return fn(*args, **kwargs)
-            except:  # noqa: E722
-                eps_error[0] = True
-                raise
-        return wrapped_fn
-
     class PythonMatrix:
+        """
+        Define a 'shell' matrix defined only by its
+        action (mult) on a vector (x)
+        Copied from tlm_adjoint eigendecomposition.py
+        """
+
         def __init__(self, action, X):
             self._action = action
             self._X = X
