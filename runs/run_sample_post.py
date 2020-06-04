@@ -27,6 +27,8 @@ import logging as log
 
 def run_sample_post(config_file):
 
+    print("GOT HERE")
+
     #Read run config file
     params = ConfigParser(config_file)
     inout.setup_logging(params)
@@ -66,8 +68,8 @@ def run_sample_post(config_file):
     beta = Function(Qp,os.path.join(outdir,'beta.xml'))
     bed = Function(Q,os.path.join(outdir,'bed.xml'))
 
-    thick = Function(M,os.path.join(outdir,'thick.xml'))
     mask = Function(M,os.path.join(outdir,'mask.xml'))
+    thick = Function(M,os.path.join(outdir,'thick.xml'))
     mask_vel = Function(M,os.path.join(outdir,'mask_vel.xml'))
     u_obs = Function(M,os.path.join(outdir,'u_obs.xml'))
     v_obs = Function(M,os.path.join(outdir,'v_obs.xml'))
@@ -147,16 +149,27 @@ def run_sample_post(config_file):
     W = W[:,pind]
     D = np.diag(1 / np.sqrt(1+lam) - 1)
     
-    x, y, z, a = [Function(space) for i in range(4)]
     
-    shp = np.shape(z.vector().get_local())
-    
-    
+    if (os.path.exists(os.path.join(outdir,'step_number.npy'))):
+        min_step = np.load(os.path.join(outdir,'step_number.npy'))
+    else:
+        min_step = 0
+
+
+
+    if (os.path.exists(os.path.join(outdir,'sampling_results.npy'))):
+        Qarray = np.load(os.path.join(outdir,'sampling_results.npy'))
+    else:
+        Qarray = np.zeros((params.time.num_sens,params.time.num_samples))
+        min_step = 0
+
     slvr = solver.ssa_solver(mdl)
-        
-    Qarray = np.zeros((params.time.num_sens,params.time.num_samples))
+
     
-    for i in range(params.time.num_samples):
+    for i in range(min_step,params.time.num_samples):
+        info("sample number {0}".format(i))
+        x, y, z, a = [Function(space) for i in range(4)]
+        shp = np.shape(z.vector().get_local())
         np.random.seed()
         x.vector().set_local(random.normal(np.zeros(shp),  # N
                          np.ones(shp),shp))
@@ -174,13 +187,22 @@ def run_sample_post(config_file):
         a.vector()[:] += alpha.vector()[:]
         z.vector()[:] += alpha.vector()[:]
         
-        slvr.alpha=x
+        slvr.alpha=a
         slvr.save_ts_zero()
-        Q = slvr.timestep(save=1,adjoint_flag=0,cost_flag=1,qoi_func=slvr.comp_Q_h2 )
-        for j in range(params.time.num_sens):
-            Qarray[j,i] = Q[j].value()
-            
-    np.save(os.path.join(outdir,'sampling_results'),Qarray)
+        try:
+            Q = slvr.timestep(save=1,adjoint_flag=0,cost_flag=1,qoi_func=slvr.comp_Q_h2 )
+            for j in range(params.time.num_sens):
+                Qarray[j,i] = Q[j].value()
+        except: 
+            info("something went wrong in solver")
+            for j in range(params.time.num_sens):
+                Qarray[j,i] = -9999.0
+
+        slvr.reset_ts_zero()
+        if(np.mod(i,5)==0):    
+         np.save(os.path.join(outdir,'sampling_results'),Qarray)
+         np.save(os.path.join(outdir,'step_number'),i)
+         info("progress saved, step {0}".format(i))
             
 
 #    embed()
