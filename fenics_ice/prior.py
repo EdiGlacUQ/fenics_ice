@@ -21,6 +21,8 @@ class laplacian(object):
 
         self.A = assemble(delta * var_m + gamma * var_n)
         self.A_solver = KrylovSolver("cg", "sor")
+        self.A_solver.parameters.update({"absolute_tolerance": 1.0e-32,
+                                         "relative_tolerance": 1.0e-14})
         self.A_solver.set_operator(self.A)
 
         self.tmp1, self.tmp2 = Function(space), Function(space)
