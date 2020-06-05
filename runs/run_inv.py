@@ -31,8 +31,12 @@ def run_inv(config_file):
     log = inout.setup_logging(params)
 
     repo = git.Repo(__file__, search_parent_directories=True)
-    branch = repo.active_branch.name
+    try:
+        branch = repo.active_branch.name
+    except TypeError:
+        branch = "DETACHED"
     sha = repo.head.object.hexsha[:7]
+
     log.info("=============== Fenics Ice ===============")
     log.info("==   git branch  : %s" % branch)
     log.info("==   commit hash : %s" % sha)
