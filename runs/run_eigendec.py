@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import sys
+import resource
 
 import os
 from fenics import *
@@ -12,13 +13,14 @@ from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 from fenics_ice.decorators import count_calls, flag_errors, timer
 
+import slepc4py.SLEPc as SLEPc
+import petsc4py.PETSc as PETSc
+
 import numpy as np
 import matplotlib as mpl
 mpl.use("Agg")
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
-import slepc4py.SLEPc as SLEPc
-import petsc4py.PETSc as PETSc
 
 def run_eigendec(config_file):
     """
@@ -30,7 +32,6 @@ def run_eigendec(config_file):
     4. Performs the generalized eigendecomposition with
         A = H_mis, B = prior_action
     """
-
     # Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
@@ -168,9 +169,6 @@ def run_eigendec(config_file):
     def slepc_config_callback(config):
         log.info("Got to the callback")
 
-        # st = config.getST()
-        # st.setType('shift')
-
         # KSP corresponds to B-matrix inversion
         # Set it to precondition only because we
         # supply the inverse in LaplacianPC
@@ -180,8 +178,6 @@ def run_eigendec(config_file):
         pc = ksp.getPC()
         pc.setType(PETSc.PC.Type.PYTHON)
         pc.setPythonContext(prior.LaplacianPC(reg_op))
-
-        # pc.setType(PETSc.PC.Type.NONE)
 
         # A_matrix already defined so just grab it
         A_matrix, _ = config.getOperators()
@@ -194,6 +190,7 @@ def run_eigendec(config_file):
                                             comm=function_comm(Y))
         B_matrix.setUp()
 
+        config.view()  # TODO - should this go to log?
         config.setOperators(A_matrix, B_matrix)
 
     # opts = {'prior': gnhep_prior_action, 'mass': gnhep_mass_action}
@@ -229,34 +226,6 @@ def run_eigendec(config_file):
                 for j in range(i+1, num_eig):
                     inn = xg.vector().inner(Vector(vr[j].vector()))
                     print("EV %s %s inner %s" % (i, j, inn))
-
-            # Check for B' orthogonality & normalisation
-            for i in range(num_eig):
-                reg_op.approx_action(vr[i].vector(), xg.vector())
-                norm = xg.vector().inner(Vector(vr[i].vector())) ** 0.5
-                print("EV %s approx norm %s" % (i, norm))
-
-            for i in range(num_eig):
-                reg_op.approx_action(vr[i].vector(), xg.vector())
-                for j in range(i+1, num_eig):
-                    inn = xg.vector().inner(Vector(vr[j].vector()))
-                    print("EV %s %s approx inner %s" % (i, j, inn))
-
-
-        # TODO - multiply by \Theta here?
-
-        # x = space_new(space)
-        # for v in vr:
-        #     reg_op.approx_root_inv_action(v.vector(), x.vector())
-        #     v.vector().set_local(x.vector().get_local())
-
-        # for i in range(num_eig):
-        #     print("EV %s norm %s" % (i, np.inner(prior_action(vr[i]), vr[i].vector())))
-
-        # for i in range(num_eig):
-        #     for j in range(i+1,num_eig):
-        #         print("EV %s %s inner %s" % (i, j, np.inner(prior_action(vr[i]),
-        #                      vr[j].vector())))
 
         # Uses extreme amounts of disk space; suitable for ismipc only
         # #Save eigenfunctions
@@ -305,3 +274,6 @@ if __name__ == "__main__":
 
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_eigendec(sys.argv[1])
+
+    mem_high_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    print("Memory high water mark: %s" % mem_high_kb)  # TODO - log, and put in a module
