@@ -9,27 +9,6 @@ import numpy as np
 from fenics_ice import model
 import logging
 
-def create_ismip_mesh(params):
-    """
-    Create rectangular mesh as specified in params
-    """
-
-    nx = params.mesh.nx
-    ny = params.mesh.ny
-    dd = params.io.input_dir
-    assert nx
-
-    #Generate model mesh
-    logging.info('Generating new mesh')
-    gf = 'grid_data.npz' #TODO - unhardcode this
-    npzfile = np.load(os.path.join(dd, gf))
-    xlim = npzfile['xlim']
-    ylim = npzfile['ylim']
-
-    mesh_out = RectangleMesh(Point(xlim[0], ylim[0]), Point(xlim[-1], ylim[-1]), nx, ny)
-
-    return mesh_out
-
 def get_mesh(params):
     """
     Gets mesh from file
@@ -45,40 +24,6 @@ def get_mesh(params):
     mesh_out = Mesh(meshfile)
 
     return mesh_out
-
-def get_data_mesh(params):
-    """
-    Fetch the data mesh from file
-    """
-    dd = params.io.input_dir
-    data_mesh_filename = params.mesh.data_mesh_filename
-    data_mesh_file = os.path.join(dd, data_mesh_filename)
-    assert os.path.isfile(data_mesh_file), "Data mesh file '%s' not found" % data_mesh_file
-    return Mesh(data_mesh_file)
-
-def get_data_mask(params, space):
-    """
-    Fetch the data mask from file
-    """
-    dd = params.io.input_dir
-    data_mask_filename = params.mesh.data_mask_filename
-    data_mask_file = os.path.join(dd, data_mask_filename)
-    assert os.path.isfile(data_mask_file), "Data mask file '%s' not found" % data_mask_file
-
-    return Function(space, data_mask_file)
-
-
-def get_mask(params, space):
-    """
-    Fetch the mask associated with our run mesh
-    """
-    dd = params.io.output_dir
-    mask_filename = "mask.xml" #params.mesh.data_mask_filename #TODO!!
-    mask_file = os.path.join(dd, mask_filename)
-    assert os.path.isfile(mask_file), "Data mask file '%s' not found" % mask_file
-
-    return Function(space, mask_file)
-
 
 def get_mesh_length(mesh):
     """
