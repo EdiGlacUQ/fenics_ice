@@ -119,6 +119,7 @@ class ObsCfg(ConfigPrinter):
     """
     Configuration related to observations
     """
+    vel_file: str = None
     pts_len: float = None
 
 @dataclass(frozen=True)
@@ -177,12 +178,7 @@ class MeshCfg(ConfigPrinter):
     """
     Configuration related to mesh
     """
-    mesh_filename: str = None
-    data_mesh_filename: str = None
-    data_mask_filename: str = None
-    nx: int = None
-    ny: int = None
-    length: float = None
+    mesh_filename: str = 'mesh.xml'
     periodic_bc: bool = False
 
     def __post_init__(self):
@@ -190,23 +186,7 @@ class MeshCfg(ConfigPrinter):
         Check sanity of provided options & set conditional defaults
         Use setattr so dataclass can be frozen
         """
-
-        assert (self.nx is None) == (self.ny is None), \
-            "Mesh nx, ny: provide both or neither!"
-
-        assert (self.nx is None) != (self.mesh_filename is None), \
-            "Mesh: provide either mesh_filename or nx,ny"
-
-        assert self.data_mask_filename, "Please provide data_mask_filename"
-
-        if self.nx is not None:
-            assert self.data_mesh_filename is not None, "Please provide data_mesh_filename"
-
-        #Default filenames
-        if self.data_mesh_filename is None:
-            object.__setattr__(self, 'data_mesh_filename', "data_mesh.xml")
-        if self.data_mask_filename is None: #TODO - check logic here
-            object.__setattr__(self, 'data_mask_filename', "data_mask.xml")
+        pass
 
 @dataclass(frozen=True)
 class IceDynamicsCfg(ConfigPrinter):
@@ -252,6 +232,7 @@ class IOCfg(ConfigPrinter):
     run_name: str
     input_dir: str
     output_dir: str
+    data_file: str
 
     #TODO - should these be here, or in ErrorPropCfg?
     qoi_file: str = "Qval_ts.p"

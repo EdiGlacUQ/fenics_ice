@@ -5,137 +5,65 @@ for ismip-c case before running the main model.
 
 import sys
 import os
-import argparse
+from pathlib import Path
+
 from fenics import *
 
-from fenics_ice import model, solver
+from fenics_ice import model, solver, inout
 import fenics_ice.mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 
-import numpy as np
-import time
-import datetime
-import pickle
 from IPython import embed
 
 
 def run_momsolve(config_file):
 
-    #Read run config file
+    # Read run config file
     params = ConfigParser(config_file)
 
+    log = inout.setup_logging(params)
+
     dd = params.io.input_dir
+    data_file = params.io.data_file
+    input_data = inout.InputData(Path(dd) / data_file)
 
-    # Determine Mesh
-    if params.mesh.nx:
-        mesh = fice_mesh.create_ismip_mesh(params)
-    else:
-        mesh = fice_mesh.get_mesh(params)
+    # Get model mesh
+    mesh = fice_mesh.get_mesh(params)
 
-    data_mesh = fice_mesh.get_data_mesh(params)
+    mdl = model.model(mesh, input_data, params)
 
-    # Define Function Spaces
-    M = FunctionSpace(data_mesh, 'DG', 0)
-    Q = FunctionSpace(data_mesh, 'Lagrange', 1)
-
-    # Make necessary modification for periodic bc
-    if params.mesh.periodic_bc:
-        Qp = fice_mesh.get_periodic_space(params, data_mesh, dim=1)
-    else:
-        Qp = Q
-
-
-    data_mask = fice_mesh.get_data_mask(params, M)
-
-    bed = Function(Q, os.path.join(dd, 'bed.xml'))
-    bmelt = Function(M, os.path.join(dd, 'bmelt.xml'))
-    smb = Function(M, os.path.join(dd, 'smb.xml'))
-    thick = Function(M, os.path.join(dd, 'thick.xml'))
-    alpha = Function(Qp, os.path.join(dd, 'alpha.xml'))
-
-    mdl = model.model(mesh, data_mask, params)
-    mdl.init_bed(bed)
-    mdl.init_thick(thick)
+    mdl.bed_from_data()
+    mdl.thick_from_data()
     mdl.gen_surf()
-    mdl.init_mask(data_mask)
-    mdl.init_bmelt(bmelt)
-    mdl.init_smb(smb)
-    mdl.init_alpha(alpha)
+    mdl.mask_from_data()
+    mdl.bmelt_from_data()
+    mdl.smb_from_data()
+    mdl.alpha_from_data()
     mdl.label_domain()
 
-
-    if os.path.isfile(os.path.join(dd, 'Bglen.xml')):
-        Bglen = Function(M, os.path.join(dd, 'Bglen.xml'))
+    try:
+        Bglen = mdl.input_data.interpolate("Bglen", mdl.M)
         mdl.init_beta(mdl.bglen_to_beta(Bglen), False)
+    except AttributeError:
+        log.warning('Using default bglen (constant)')
 
-    else:
-        print('Using default bglen (constant)')
-
-
-
-    #Forward Solve
+    # Forward Solve
     slvr = solver.ssa_solver(mdl)
     slvr.def_mom_eq()
     slvr.solve_mom_eq()
 
 
-    #Output model variables in ParaView+Fenics friendly format
+    # Output model variables in ParaView+Fenics friendly format
     outdir = params.io.output_dir
-    pickle.dump( mdl.param, open( os.path.join(outdir,'param.p'), "wb" ) )
 
-    File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
+    h5file = HDF5File(mesh.mpi_comm(), str(Path(outdir)/'U.h5'), 'w')
+    h5file.write(slvr.U, 'U')
+    h5file.write(mesh, 'mesh')
+    h5file.attributes('mesh')['periodic'] = params.mesh.periodic_bc
 
     vtkfile = File(os.path.join(outdir,'U.pvd'))
-    xmlfile = File(os.path.join(outdir,'U.xml'))
     vtkfile << slvr.U
-    xmlfile << slvr.U
 
-    vtkfile = File(os.path.join(outdir,'beta.pvd'))
-    xmlfile = File(os.path.join(outdir,'beta.xml'))
-    vtkfile << slvr.beta
-    xmlfile << slvr.beta
-
-    vtkfile = File(os.path.join(outdir,'beta_bgd.pvd'))
-    xmlfile = File(os.path.join(outdir,'beta_bgd.xml'))
-    vtkfile << slvr.beta_bgd
-    xmlfile << slvr.beta_bgd
-
-    vtkfile = File(os.path.join(outdir,'bed.pvd'))
-    xmlfile = File(os.path.join(outdir,'bed.xml'))
-    vtkfile << mdl.bed
-    xmlfile << mdl.bed
-
-    vtkfile = File(os.path.join(outdir,'thick.pvd'))
-    xmlfile = File(os.path.join(outdir,'thick.xml'))
-    H = project(mdl.H, mdl.M)
-    vtkfile << H
-    xmlfile << H
-
-    vtkfile = File(os.path.join(outdir,'mask.pvd'))
-    xmlfile = File(os.path.join(outdir,'mask.xml'))
-    vtkfile << mdl.mask
-    xmlfile << mdl.mask
-
-    vtkfile = File(os.path.join(outdir,'alpha.pvd'))
-    xmlfile = File(os.path.join(outdir,'alpha.xml'))
-    vtkfile << slvr.alpha
-    xmlfile << slvr.alpha
-
-    vtkfile = File(os.path.join(outdir,'Bglen.pvd'))
-    xmlfile = File(os.path.join(outdir,'Bglen.xml'))
-    Bglen = project(slvr.beta_to_bglen(slvr.beta),mdl.M)
-    vtkfile << Bglen
-    xmlfile << Bglen
-
-    vtkfile = File(os.path.join(outdir,'surf.pvd'))
-    xmlfile = File(os.path.join(outdir,'surf.xml'))
-    vtkfile << mdl.surf
-    xmlfile << mdl.surf
-
-    vtkfile = File(os.path.join(outdir,'bmelt.pvd'))
-    xmlfile = File(os.path.join(outdir,'bmelt.xml'))
-    vtkfile << mdl.bmelt
-    xmlfile << mdl.bmelt
 
 
 if __name__ == "__main__":
