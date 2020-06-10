@@ -19,8 +19,6 @@ import datetime
 import pickle
 from IPython import embed
 
-import git
-
 def run_inv(config_file):
     """
     Run the inversion part of the simulation
@@ -30,18 +28,7 @@ def run_inv(config_file):
     params = ConfigParser(config_file)
 
     log = inout.setup_logging(params)
-
-    repo = git.Repo(__file__, search_parent_directories=True)
-    try:
-        branch = repo.active_branch.name
-    except TypeError:
-        branch = "DETACHED"
-    sha = repo.head.object.hexsha[:7]
-
-    log.info("=============== Fenics Ice ===============")
-    log.info("==   git branch  : %s" % branch)
-    log.info("==   commit hash : %s" % sha)
-    log.info("==========================================")
+    inout.log_git_info()
 
     log.info("\n\n==================================")
     log.info("==  RUNNING INVERSE MODEL PHASE ==")

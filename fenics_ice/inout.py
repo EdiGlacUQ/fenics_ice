@@ -8,6 +8,7 @@ import pickle
 import logging
 import re
 import h5py
+import git
 from scipy import interpolate as interp
 from IPython import embed
 
@@ -306,10 +307,25 @@ def setup_logging(params):
 def print_config(params):
 
     log = logging.getLogger("fenics_ice")
-    log.info("\n==================================")
+    log.info("==================================")
     log.info("========= Configuration ==========")
     log.info("==================================\n\n")
     log.info(params)
     log.info("\n\n==================================")
     log.info("======= End of Configuration =====")
     log.info("==================================\n\n")
+
+def log_git_info():
+    """Get the current branch & commit hash for logging"""
+    repo = git.Repo(__file__, search_parent_directories=True)
+    try:
+        branch = repo.active_branch.name
+    except TypeError:
+        branch = "DETACHED"
+    sha = repo.head.object.hexsha[:7]
+
+    log = logging.getLogger("fenics_ice")
+    log.info("=============== Fenics Ice ===============")
+    log.info("==   git branch  : %s" % branch)
+    log.info("==   commit hash : %s" % sha)
+    log.info("==========================================")
