@@ -2,7 +2,8 @@ from fenics import *
 from dolfin import *
 import ufl
 import numpy as np
-import timeit
+import scipy.spatial.qhull as qhull
+from fenics_ice import inout
 from fenics_ice import mesh as fice_mesh
 from IPython import embed
 from numpy.random import randn
@@ -12,14 +13,16 @@ log = logging.getLogger("fenics_ice")
 
 class model:
 
-    def __init__(self, mesh_in, mask_in, param_in):
+    def __init__(self, mesh_in, input_data, param_in):
 
         #Initiate parameters
         self.param = param_in
+        self.input_data = input_data
 
         #Full mask/mesh
         self.mesh_ext = Mesh(mesh_in)
-        self.mask_ext = mask_in.copy(deepcopy=True)
+        M_in = FunctionSpace(self.mesh_ext, 'DG', 0)
+        self.mask_ext = self.input_data.interpolate("data_mask", M_in)
 
         #Generate Domain and Function Spaces
         self.gen_domain()
@@ -106,7 +109,7 @@ class model:
         return x*x
 
     def def_vel_mask(self):
-        self.mask_vel = project(Constant(0.0), self.M)
+        self.mask_vel_M = project(Constant(0.0), self.M)
 
     def def_B_field(self):
         A = self.param.constants.A
@@ -118,23 +121,33 @@ class model:
     def def_lat_dirichletbc(self):
         self.latbc = Constant([0.0,0.0])
 
-    def init_surf(self,surf):
-        #Note - surf is not updated during forward sim
-        self.surf = project(surf,self.Q)
+    def mask_from_data(self):
+        self.mask = self.input_data.interpolate("data_mask", self.M)
 
-    def init_bed(self,bed):
-        self.bed = project(bed,self.Q)
+    def surf_from_data(self):
+        self.surf = self.input_data.interpolate("surf", self.Q)
 
-    def init_thick(self,thick):
-        self.H_np = project(thick,self.M)
-        self.H_s = project(thick,self.M)
+    def bed_from_data(self):
+        self.bed = self.input_data.interpolate("bed", self.Q)
+
+    def thick_from_data(self):
+        self.H_np = self.input_data.interpolate("thick", self.M)
+        self.H_s = self.H_np.copy(deepcopy=True)
         self.H = 0.5*(self.H_np + self.H_s)
 
-    def init_alpha(self,alpha):
-        self.alpha = project(alpha,self.Qp)
-        self.alpha.rename('alpha', 'a Function')
+    def alpha_from_data(self):
+        self.alpha = self.input_data.interpolate("alpha", self.Qp)
 
-    def init_beta(self,beta, pert= True):
+    def bmelt_from_data(self):
+        self.bmelt = self.input_data.interpolate("bmelt", self.M, 0)
+
+    def smb_from_data(self):
+        self.smb = self.input_data.interpolate("smb", self.M, 0)
+
+    def bglen_from_data(self):
+        self.bglen = self.input_data.interpolate("bglen", self.Q, 0)
+
+    def init_beta(self, beta, pert=False):
         self.beta_bgd = project(beta,self.Qp)
         self.beta = project(beta,self.Qp)
         if pert:
@@ -146,14 +159,78 @@ class model:
 
         self.beta.rename('beta', 'a Function')
 
+    def init_vel_obs(self):
+        """
+        Read velocity observations & uncertainty from HDF5 file
 
-    def init_bmelt(self,bmelt):
-        self.bmelt = project(bmelt,self.M)
+        Additionally interpolates these arbitrarily spaced data
+        onto self.Q for use as boundary conditions etc
+        """
 
-    def init_smb(self,smb):
-        self.smb = project(smb,self.M)
+        # Read the obs from HDF5 file
+        # Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
+        # self.uv_obs_pts, self.mask_vel
+        inout.read_vel_obs(self.param, self)
 
-    def init_vel_obs(self, u, v, mv, ustd=Constant(1.0), vstd=Constant(1.0), ls = False):
+        # Functions for repeated ungridded interpolation
+        def interp_weights(xy, uv, d=2):
+            """Compute the nearest vertices & weights (for reuse)"""
+            tri = qhull.Delaunay(xy)
+            simplex = tri.find_simplex(uv)
+            vertices = np.take(tri.simplices, simplex, axis=0)
+            temp = np.take(tri.transform, simplex, axis=0)
+            delta = uv - temp[:, d]
+            bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
+            return vertices, np.hstack((bary, 1 - bary.sum(axis=1,
+                                                           keepdims=True)))
+
+        def interpolate(values, vtx, wts):
+            """Bilinear interpolation, given vertices & weights above"""
+            return np.einsum('nj,nj->n', np.take(values, vtx), wts)
+
+        # Grab coordinates of both Lagrangian & DG function spaces
+        # and compute (once) the interpolating arrays
+        Q_coords = self.Q.tabulate_dof_coordinates()
+        M_coords = self.M.tabulate_dof_coordinates()
+        vtx_Q, wts_Q = interp_weights(self.uv_obs_pts, Q_coords)
+        vtx_M, wts_M = interp_weights(self.uv_obs_pts, M_coords)
+
+        # Define new functions to hold results
+        self.u_obs_Q = Function(self.Q)
+        self.v_obs_Q = Function(self.Q)
+        self.u_std_Q = Function(self.Q)
+        self.v_std_Q = Function(self.Q)
+        # self.mask_vel_Q = Function(self.Q)
+
+        self.u_obs_M = Function(self.M)
+        self.v_obs_M = Function(self.M)
+        # self.u_std_M = Function(self.M)
+        # self.v_std_M = Function(self.M)
+        self.mask_vel_M = Function(self.M)
+
+        # Fill via interpolation
+        self.u_obs_Q.vector()[:] = interpolate(self.u_obs, vtx_Q, wts_Q)
+        self.v_obs_Q.vector()[:] = interpolate(self.v_obs, vtx_Q, wts_Q)
+        self.u_std_Q.vector()[:] = interpolate(self.u_std, vtx_Q, wts_Q)
+        self.v_std_Q.vector()[:] = interpolate(self.v_std, vtx_Q, wts_Q)
+        # self.mask_vel_Q.vector()[:] = interpolate(self.mask_vel, vtx_Q, wts_Q)
+
+        self.u_obs_M.vector()[:] = interpolate(self.u_obs, vtx_M, wts_M)
+        self.v_obs_M.vector()[:] = interpolate(self.v_obs, vtx_M, wts_M)
+        # self.u_std_M.vector()[:] = interpolate(self.u_std, vtx_M, wts_M)
+        # self.v_std_M.vector()[:] = interpolate(self.v_std, vtx_M, wts_M)
+        self.mask_vel_M.vector()[:] = interpolate(self.mask_vel, vtx_M, wts_M)
+
+    def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
+                         vstd=Constant(1.0), ls = False):
+        """
+        Set up velocity observations for inversion
+
+        Approach here involves velocity defined on functions (on mesh) which
+        are projected onto the current model mesh. uv_obs_pts is a set of numpy
+        coordinates which can be arbitrarily defined, and obs are then
+        interpolated (again) onto these points in comp_J_inv.
+        """
         self.u_obs = project(u,self.M)
         self.v_obs = project(v,self.M)
         self.mask_vel = project(mv,self.M)
@@ -183,18 +260,11 @@ class model:
         Set lateral vel BC from obs
         """
 
-        u_obs = project(self.u_obs,self.Q)
-        v_obs = project(self.v_obs,self.Q)
-
         latbc = Function(self.V)
-        assign(latbc.sub(0),u_obs)
-        assign(latbc.sub(1),v_obs)
+        assign(latbc.sub(0), self.u_obs_Q)
+        assign(latbc.sub(1), self.v_obs_Q)
 
         self.latbc = latbc
-
-
-    def init_mask(self,mask):
-        self.mask = project(mask,self.M)
 
     def gen_thick(self):
         rhoi = self.param.constants.rhoi
@@ -232,8 +302,8 @@ class model:
         g = self.param.constants.g
         rhoi = self.param.constants.rhoi
         rhow = self.param.constants.rhow
-        u_obs = self.u_obs
-        v_obs = self.v_obs
+        u_obs = self.u_obs_M
+        v_obs = self.v_obs_M
         vel_rp = self.param.constants.vel_rp
 
         U = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
@@ -346,7 +416,7 @@ class model:
             x_m       = c.midpoint().x()
             y_m       = c.midpoint().y()
             m_xy = self.mask_ext(x_m, y_m)
-            mv_xy = self.mask_vel(x_m, y_m)
+            mv_xy = self.mask_vel_M(x_m, y_m)
             fl_xy = fl_ex(x_m, y_m)
 
             #Determine whether cell is in the domain
