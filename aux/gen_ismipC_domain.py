@@ -16,9 +16,6 @@ def main(outfname, L, nx, ny):
     outdir = outpath.parent
     outdir.mkdir(exist_ok=True, parents=True)
 
-    mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
-    File(str(outdir/'momsolve_mesh.xml')) << mesh
-
     # Data on grid
     domain = test_domains.ismipC(L, nx=nx+1, ny=ny+1, tiles=1.0)
 
