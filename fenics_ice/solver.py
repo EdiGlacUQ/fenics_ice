@@ -653,15 +653,10 @@ class ssa_solver:
         nm = self.nm
 
         #regularization parameters
-        lambda_a = 1.0
         delta_a = self.delta_alpha
         delta_b = self.delta_beta
         gamma_a = self.gamma_alpha
         gamma_b = self.gamma_beta
-
-        #TODO: Good reason to think that lambda_a should *always* be 1
-        #So should we get rid of this parameter altogether?
-        assert(lambda_a == 1.0)
 
         # Sample Discrete Points
         
@@ -673,15 +668,15 @@ class ssa_solver:
         u_std_pts = Function(obs_space, name='u_std_pts')
         v_std_pts = Function(obs_space, name='v_std_pts')
 
-        #Interpolate obs (reusing matrices)
-        interper = InterpolationSolver(u_obs, u_obs_pts, X_coords=uv_obs_pts)
-        interper.solve()
-        P=interper._B[0]._A._P
-        P_T=interper._B[0]._A._P_T
+        u_obs_pts.vector()[:] = u_obs
+        v_obs_pts.vector()[:] = v_obs
+        u_std_pts.vector()[:] = u_std
+        v_std_pts.vector()[:] = v_std
 
-        InterpolationSolver(v_obs, v_obs_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
-        InterpolationSolver(u_std, u_std_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
-        InterpolationSolver(v_std, v_std_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
+        u_obs_pts.vector().apply("insert")
+        v_obs_pts.vector().apply("insert")
+        u_std_pts.vector().apply("insert")
+        v_std_pts.vector().apply("insert")
 
         # Interpolate from model
         u_pts = Function(obs_space, name='u_pts')
@@ -714,10 +709,10 @@ class ssa_solver:
         v_mismatch = ((v_pts-v_obs_pts)/v_std_pts)
         NormSqSolver(project(v_mismatch, obs_space), J_ls_term_new).solve()
 
-        J_ls_term_final = new_real_function()
-        ExprEvaluationSolver(J_ls_term_new * lambda_a, J_ls_term_final).solve()
+        # J_ls_term_final = new_real_function()
+        # ExprEvaluationSolver(J_ls_term_new * lambda_a, J_ls_term_final).solve()
 
-        J.addto(J_ls_term_final)
+        J.addto(J_ls_term_new)
 
         # Regularization
 
@@ -752,7 +747,7 @@ class ssa_solver:
 
         if verbose:
             J_ls = new_real_function(name="J_ls_term")
-            ExprEvaluationSolver(J_ls_term_final, J_ls).solve()
+            ExprEvaluationSolver(J_ls_term_new, J_ls).solve()
 
             #Print out results
             J1 = J.value()
