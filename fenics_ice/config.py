@@ -234,12 +234,13 @@ class IOCfg(ConfigPrinter):
     output_dir: str
     data_file: str
 
+    inversion_file: str = None
     #TODO - should these be here, or in ErrorPropCfg?
     qoi_file: str = "Qval_ts.p"
     dqoi_h5file: str = "dQ_ts.h5"
     dqoi_vtkfile: str = "dQ_ts.pvd"
     eigenvalue_file: str = "eigvals.p"
-
+    eigenvecs_file: str = None
     sigma_file: str = "sigma.p"
     sigma_prior_file: str = "sigma_prior.p"
 
@@ -248,6 +249,20 @@ class IOCfg(ConfigPrinter):
     def __post_init__(self):
         assert self.log_level.lower() in ["critical","error","warning","info","debug"], \
             "Invalid log level"
+
+        if self.inversion_file is None:
+            object.__setattr__(self,
+                               'inversion_file',
+                               self.run_name+"_invout.h5")
+        else:
+            assert Path(self.inversion_file).suffix == '.h5'
+
+        if self.eigenvecs_file is None:
+            object.__setattr__(self,
+                               'eigenvecs_file',
+                               self.run_name+"_vr.h5")
+        else:
+            assert Path(self.inversion_file).suffix == '.h5'
 
 @dataclass(frozen=True)
 class TimeCfg(ConfigPrinter):

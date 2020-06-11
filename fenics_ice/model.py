@@ -2,6 +2,7 @@ from fenics import *
 from dolfin import *
 import ufl
 import numpy as np
+from pathlib import Path
 import scipy.spatial.qhull as qhull
 from fenics_ice import inout
 from fenics_ice import mesh as fice_mesh
@@ -138,6 +139,29 @@ class model:
 
     def alpha_from_data(self):
         self.alpha = self.input_data.interpolate("alpha", self.Qp)
+
+    def alpha_from_inversion(self):
+        """Get alpha field from inversion step"""
+        inversion_file = self.params.io.inversion_file
+        outdir = self.params.io.output_dir
+
+        with HDF5File(self.mesh.mpi_comm(),
+                      str(Path(outdir)/inversion_file),
+                      'r') as infile:
+            self.alpha = Function(self.Qp, name='alpha')
+            infile.read(self.alpha, 'alpha')
+
+    def beta_from_inversion(self):
+        """Get beta field from inversion step"""
+        inversion_file = self.params.io.inversion_file
+        outdir = self.params.io.output_dir
+
+        with HDF5File(self.mesh.mpi_comm(),
+                      str(Path(outdir)/inversion_file),
+                      'r') as infile:
+            self.beta = Function(self.Qp, name='beta')
+            infile.read(self.beta, 'beta')
+            self.beta_bgd = self.beta.copy(deepcopy=True)
 
     def bmelt_from_data(self):
         self.bmelt = self.input_data.interpolate("bmelt", self.M, 0)

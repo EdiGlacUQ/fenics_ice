@@ -35,8 +35,9 @@ def run_inv(config_file):
     log.info("==================================\n\n")
 
     inout.print_config(params)
-
     dd = params.io.input_dir
+
+    # Load the static model data (geometry, smb, etc)
     data_file = params.io.data_file
     input_data = inout.InputData(Path(dd) / data_file)
 
@@ -72,12 +73,26 @@ def run_inv(config_file):
     slvr = solver.ssa_solver(mdl)
     slvr.inversion()
 
-    # File(os.path.join(dd,'mesh.xml')) << mdl.mesh
     ###########################
     #  Write out variables    #
     ###########################
 
     outdir = params.io.output_dir
+
+    # Required for next phase (HDF5):
+
+    invout_file = params.io.inversion_file
+    invout = HDF5File(mesh.mpi_comm(), str(Path(outdir)/invout_file), 'w')
+
+    invout.parameters.add("gamma_alpha", slvr.gamma_alpha)
+    invout.parameters.add("delta_alpha", slvr.delta_alpha)
+    invout.parameters.add("gamma_beta", slvr.gamma_beta)
+    invout.parameters.add("delta_beta", slvr.delta_beta)
+
+    invout.write(mdl.alpha, 'alpha')
+    invout.write(mdl.beta, 'beta')
+
+    # For visualisation (XML & VTK):
 
     inout.write_variable(slvr.U, params)
     inout.write_variable(slvr.beta, params)
