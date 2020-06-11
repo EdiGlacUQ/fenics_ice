@@ -121,23 +121,29 @@ class model:
         self.beta.rename('beta', 'a Function')
 
     def def_lat_dirichletbc(self):
+        """Homogenous dirichlet conditions on lateral boundaries"""
         self.latbc = Constant([0.0,0.0])
 
     def mask_from_data(self):
+        """Get data mask field from initial input"""
         self.mask = self.input_data.interpolate("data_mask", self.M)
 
     def surf_from_data(self):
+        """Get surf elevation field from initial input"""
         self.surf = self.input_data.interpolate("surf", self.Q)
 
     def bed_from_data(self):
+        """Get bed elevation field from initial input"""
         self.bed = self.input_data.interpolate("bed", self.Q)
 
     def thick_from_data(self):
+        """Get thickness field from initial input & setup H_s, H_np"""
         self.H_np = self.input_data.interpolate("thick", self.M)
         self.H_s = self.H_np.copy(deepcopy=True)
         self.H = 0.5*(self.H_np + self.H_s)
 
     def alpha_from_data(self):
+        """Get alpha field from initial input data (run_momsolve only)"""
         self.alpha = self.input_data.interpolate("alpha", self.Qp)
 
     def alpha_from_inversion(self):
@@ -164,19 +170,28 @@ class model:
             self.beta_bgd = self.beta.copy(deepcopy=True)
 
     def bmelt_from_data(self):
+        """Get basal melt field from initial input (default 0.0)"""
         self.bmelt = self.input_data.interpolate("bmelt", self.M, 0)
 
     def smb_from_data(self):
+        """Get smb field from initial input (default 0.0)"""
         self.smb = self.input_data.interpolate("smb", self.M, 0)
 
     def bglen_from_data(self):
-        self.bglen = self.input_data.interpolate("bglen", self.Q, 0)
+        """Get bglen field from initial input data"""
+        self.bglen = self.input_data.interpolate("Bglen", self.Q)
 
     def init_beta(self, beta, pert=False):
-        self.beta_bgd = project(beta,self.Qp)
-        self.beta = project(beta,self.Qp)
+        """
+        Define the beta field from input
+
+        Optionally perturb the field slightly to prevent zero gradient
+        on first step of beta inversion.
+        """
+        self.beta_bgd = project(beta, self.Qp)
+        self.beta = project(beta, self.Qp)
         if pert:
-            #Perturbed field for nonzero gradient at first step of inversion
+            # Perturbed field for nonzero gradient at first step of inversion
             bv = self.beta.vector().get_local()
             pert_vec = 0.001*bv*randn(bv.size)
             self.beta.vector().set_local(bv + pert_vec)
