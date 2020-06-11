@@ -38,10 +38,10 @@ def write_dqval(dQ_ts, params):
     """
 
     outdir = params.io.output_dir
-    vtk_filename = params.io.dqoi_vtkfile
     h5_filename = params.io.dqoi_h5file
 
-    vtkfile = File(str(Path(outdir)/vtk_filename))
+    vtkfile = File(str((Path(outdir)/h5_filename).with_suffix(".pvd")))
+
     hdf5out = HDF5File(MPI.comm_world, str(Path(outdir)/h5_filename), 'w')
     n = 0.0
 

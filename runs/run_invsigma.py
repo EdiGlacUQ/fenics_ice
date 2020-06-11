@@ -138,23 +138,35 @@ def run_invsigma(config_file):
         sigma_vector[j] = np.sqrt(dprod)
         sigma_prior_vector[j] = np.sqrt(dprod_prior)
 
-
     if neg_flag:
-        log.warning('Negative value(s) of sigma encountered. Examine the range of eigenvalues and check if the threshlam paramater is set appropriately.')
-    
+        log.warning('Negative value(s) of sigma encountered.'
+                    'Examine the range of eigenvalues and check if '
+                    'the threshlam paramater is set appropriately.')
+
+    # Write values to vectors
     sigma.vector().set_local(sigma_vector)
     sigma.vector().apply('insert')
 
     sigma_prior.vector().set_local(sigma_prior_vector)
     sigma_prior.vector().apply('insert')
 
-    vtkfile = File(os.path.join(outdir,'{0}_sigma.pvd'.format(cntrl.name()) ))
-    xmlfile = File(os.path.join(outdir,'{0}_sigma.xml'.format(cntrl.name()) ))
+    # Construct filenames
+    sigma_fname = Path("_".join((params.io.run_name,
+                                 cntrl.name(),
+                                 'sigma')))
+    sigma_prior_fname = Path("_".join((params.io.run_name,
+                                       cntrl.name(),
+                                       'sigma_prior')))
+    outdirp = Path(outdir)
+
+    # Write out to pvd & xml
+    vtkfile = File(str(outdirp/sigma_fname.with_suffix('.pvd')))
+    xmlfile = File(str(outdirp/sigma_fname.with_suffix('.xml')))
     vtkfile << sigma
     xmlfile << sigma
 
-    vtkfile = File(os.path.join(outdir,'{0}_sigma_prior.pvd'.format(cntrl.name()) ))
-    xmlfile = File(os.path.join(outdir,'{0}_sigma_prior.xml'.format(cntrl.name()) ))
+    vtkfile = File(str(outdirp/sigma_prior_fname.with_suffix('.pvd')))
+    xmlfile = File(str(outdirp/sigma_prior_fname.with_suffix('.xml')))
     vtkfile << sigma_prior
     xmlfile << sigma_prior
 

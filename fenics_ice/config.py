@@ -8,7 +8,6 @@ import toml
 from dataclasses import dataclass, field
 import numpy as np
 from pathlib import Path
-from IPython import embed
 import pprint
 
 class ConfigPrinter(object):
@@ -235,34 +234,50 @@ class IOCfg(ConfigPrinter):
     data_file: str
 
     inversion_file: str = None
-    #TODO - should these be here, or in ErrorPropCfg?
-    qoi_file: str = "Qval_ts.p"
-    dqoi_h5file: str = "dQ_ts.h5"
-    dqoi_vtkfile: str = "dQ_ts.pvd"
-    eigenvalue_file: str = "eigvals.p"
+    qoi_file: str = None  # "Qval_ts.p"
+    dqoi_h5file: str = None  # "dQ_ts.h5"
+    eigenvalue_file: str = None  # "eigvals.p"
     eigenvecs_file: str = None
-    sigma_file: str = "sigma.p"
-    sigma_prior_file: str = "sigma_prior.p"
+    sigma_file: str = None  # "sigma.p"
+    sigma_prior_file: str = None  # "sigma_prior.p"
 
     log_level: str = "info"
 
+    def set_default_filename(self, attr_name, suffix):
+        """Sets a default filename (prefixed with run_name) & check suffix"""
+
+        # Set default if not set
+        fname = self.__getattribute__(attr_name)
+        if fname is None:
+            object.__setattr__(self,
+                               attr_name,
+                               '_'.join((self.run_name, suffix)))
+
+        # Check suffix is correct (i.e. if manually set)
+        fname = self.__getattribute__(attr_name)
+        assert(Path(fname).suffix == Path(suffix).suffix)
+
     def __post_init__(self):
-        assert self.log_level.lower() in ["critical","error","warning","info","debug"], \
+        """Sanity check & set defaults"""
+        assert self.log_level.lower() in ["critical",
+                                          "error",
+                                          "warning",
+                                          "info",
+                                          "debug"], \
             "Invalid log level"
 
-        if self.inversion_file is None:
-            object.__setattr__(self,
-                               'inversion_file',
-                               self.run_name+"_invout.h5")
-        else:
-            assert Path(self.inversion_file).suffix == '.h5'
+        fname_default_suff = {
+            'inversion_file': 'invout.h5',
+            'eigenvecs_file': 'vr.h5',
+            'eigenvalue_file': 'eigvals.p',
+            'sigma_file': 'sigma.p',
+            'sigma_prior_file': 'sigma_prior.p',
+            'qoi_file': 'Qval_ts.p',
+            'dqoi_h5file': 'dQ_ts.h5'
+        }
 
-        if self.eigenvecs_file is None:
-            object.__setattr__(self,
-                               'eigenvecs_file',
-                               self.run_name+"_vr.h5")
-        else:
-            assert Path(self.inversion_file).suffix == '.h5'
+        for fname in fname_default_suff:
+            self.set_default_filename(fname, fname_default_suff[fname])
 
 @dataclass(frozen=True)
 class TimeCfg(ConfigPrinter):
