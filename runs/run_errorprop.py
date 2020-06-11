@@ -1,7 +1,7 @@
 import sys
-
 import os
-import argparse
+from pathlib import Path
+
 from dolfin import *
 from tlm_adjoint import *
 
@@ -22,9 +22,10 @@ from IPython import embed
 
 def run_errorprop(config_file):
 
-    #Read run config file
+    # Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
+    inout.log_git_info()
 
     log.info("=======================================")
     log.info("=== RUNNING ERROR PROPAGATION PHASE ===")
@@ -34,66 +35,48 @@ def run_errorprop(config_file):
 
     dd = params.io.input_dir
     outdir = params.io.output_dir
-    eigendir = outdir
+
+    # Load the static model data (geometry, smb, etc)
+    data_file = params.io.data_file
+    input_data = inout.InputData(Path(dd) / data_file)
+
     lamfile = params.io.eigenvalue_file
-    vecfile = 'vr.h5' #TODO unharcode
+    vecfile = params.io.eigenvecs_file
     threshlam = params.eigendec.eigenvalue_thresh
     dqoi_h5file = params.io.dqoi_h5file
 
-    #Load Data
-    mesh = Mesh(os.path.join(outdir,'mesh.xml'))
+    # Get model mesh
+    mesh = fice_mesh.get_mesh(params)
 
-    #Set up Function spaces
-    Q = FunctionSpace(mesh,'Lagrange',1)
-    M = FunctionSpace(mesh,'DG',0)
+    # Define the model
+    mdl = model.model(mesh, input_data, params)
 
-    #Handle function with optional periodic boundary conditions
-    if not params.mesh.periodic_bc:
-       Qp = Q
-       V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
-    else:
-       Qp = fice_mesh.get_periodic_space(params, mesh, dim=1)
-       V = fice_mesh.get_periodic_space(params, mesh, dim=2)
-
-    #Load fields
-    U = Function(V,os.path.join(outdir,'U.xml'))
-
-    alpha = Function(Qp,os.path.join(outdir,'alpha.xml'))
-    beta = Function(Qp,os.path.join(outdir,'beta.xml'))
-    bed = Function(Q,os.path.join(outdir,'bed.xml'))
-
-    thick = Function(M,os.path.join(outdir,'thick.xml'))
-    mask = Function(M,os.path.join(outdir,'mask.xml'))
-    mask_vel = Function(M,os.path.join(outdir,'mask_vel.xml'))
-    u_obs = Function(M,os.path.join(outdir,'u_obs.xml'))
-    v_obs = Function(M,os.path.join(outdir,'v_obs.xml'))
-    u_std = Function(M,os.path.join(outdir,'u_std.xml'))
-    v_std = Function(M,os.path.join(outdir,'v_std.xml'))
-    uv_obs = Function(M,os.path.join(outdir,'uv_obs.xml'))
-
-
-    mdl = model.model(mesh, mask, params)
-    mdl.init_bed(bed)
-    mdl.init_thick(thick)
+    # Initialize fields from data_file
+    mdl.bed_from_data()
+    mdl.thick_from_data()
     mdl.gen_surf()
-    mdl.init_mask(mask)
-    mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
+    mdl.mask_from_data()
+    mdl.init_vel_obs()
     mdl.init_lat_dirichletbc()
+    mdl.bmelt_from_data()
+    mdl.smb_from_data()
     mdl.label_domain()
-    mdl.init_alpha(alpha)
+
+    # Load alpha/beta fields
+    mdl.alpha_from_inversion()
+    mdl.beta_from_inversion()
 
 
-
-    #Regularization operator using inversion delta/gamma values
-    #TODO - this won't handle dual inversion case
+    # Regularization operator using inversion delta/gamma values
+    # TODO - this won't handle dual inversion case
     if params.inversion.alpha_active:
         delta = params.inversion.delta_alpha
         gamma = params.inversion.gamma_alpha
-        cntrl = alpha
+        cntrl = mdl.alpha
     elif params.inversion.beta_active:
         delta = params.inversion.delta_beta
         gamma = params.inversion.gamma_beta
-        cntrl = beta
+        cntrl = mdl.beta
 
     reg_op = prior.laplacian(delta, gamma, cntrl.function_space())
 
@@ -101,8 +84,8 @@ def run_errorprop(config_file):
     x, y, z = [Function(space) for i in range(3)]
 
 
-    #TODO: not convinced this does anything at present
-    #Was used to test that eigenvectors are prior inverse orthogonal
+    # TODO: not convinced this does anything at present
+    # Was used to test that eigenvectors are prior inverse orthogonal
     test, trial = TestFunction(space), TrialFunction(space)
     mass = assemble(inner(test,trial)*dx)
     mass_solver = KrylovSolver("cg", "sor")
@@ -111,15 +94,15 @@ def run_errorprop(config_file):
     mass_solver.set_operator(mass)
 
 
-    #Loads eigenvalues from slepceig_all.p
-    with open(os.path.join(eigendir, lamfile), 'rb') as ff:
+    # Loads eigenvalues from slepceig_all.p
+    with open(os.path.join(outdir, lamfile), 'rb') as ff:
         eigendata = pickle.load(ff)
         lam = eigendata[0].real.astype(np.float64)
         nlam = len(lam)
 
-    #and eigenvectors from .h5 files
+    # and eigenvectors from .h5 files
     W = np.zeros((x.vector().size(),nlam))
-    with HDF5File(MPI.comm_world, os.path.join(eigendir, vecfile), 'r') as hdf5data:
+    with HDF5File(MPI.comm_world, os.path.join(outdir, vecfile), 'r') as hdf5data:
         for i in range(nlam):
             hdf5data.read(x, f'v/vector_{i}')
             v = x.vector().get_local()
@@ -127,13 +110,13 @@ def run_errorprop(config_file):
 
             tmp = y.vector().get_local()
             sc = np.sqrt(np.dot(v,tmp))
-            #eigenvectors are scaled by something to do with the prior action...
-            #sc <- isaac between Eqs. 17, 18 <- normalised
+            # eigenvectors are scaled by something to do with the prior action...
+            # sc <- isaac between Eqs. 17, 18 <- normalised
             W[:,i] = v/sc
 
 
 
-    #Take only the largest eigenvalues
+    # Take only the largest eigenvalues
     pind = np.flatnonzero(lam>threshlam)
     lam = lam[pind]
     W = W[:,pind]

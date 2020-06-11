@@ -1,6 +1,7 @@
 import sys
 import os
-import argparse
+from pathlib import Path
+
 from dolfin import *
 from tlm_adjoint import *
 
@@ -21,10 +22,10 @@ from petsc4py import PETSc
 from IPython import embed
 
 def run_invsigma(config_file):
-
     #Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
+    inout.log_git_info()
 
     log.info("=======================================")
     log.info("========== RUNNING INV SIGMA ==========")
@@ -34,56 +35,28 @@ def run_invsigma(config_file):
 
     dd = params.io.input_dir
     outdir = params.io.output_dir
+
+    # Load the static model data (geometry, smb, etc)
+    data_file = params.io.data_file
+    input_data = inout.InputData(Path(dd) / data_file)
+
     eigendir = outdir
     lamfile = params.io.eigenvalue_file
-    vecfile = 'vr.h5' #TODO unharcode
+    vecfile = params.io.eigenvecs_file
     threshlam = params.eigendec.eigenvalue_thresh
 
-    #Load Data
-    mesh = Mesh(os.path.join(outdir,'mesh.xml'))
+    # Get model mesh
+    mesh = fice_mesh.get_mesh(params)
 
-    #Set up Function spaces
-    Q = FunctionSpace(mesh,'Lagrange',1)
-    M = FunctionSpace(mesh,'DG',0)
+    # Define the model (only need alpha & beta though)
+    mdl = model.model(mesh, input_data, params)
 
-    #Handle function with optional periodic boundary conditions
-    if not params.mesh.periodic_bc:
-       Qp = Q
-       V = VectorFunctionSpace(mesh,'Lagrange',1,dim=2)
-    else:
-       Qp = fice_mesh.get_periodic_space(params, mesh, dim=1)
-       V = fice_mesh.get_periodic_space(params, mesh, dim=2)
+    # Load alpha/beta fields
+    mdl.alpha_from_inversion()
+    mdl.beta_from_inversion()
 
-    #Load fields
-    #U = Function(V,os.path.join(dd,'U.xml'))
-
-    alpha = Function(Qp,os.path.join(outdir, 'alpha.xml'))
-    beta = Function(Qp,os.path.join(outdir, 'beta.xml'))
-    bed = Function(Q,os.path.join(outdir, 'bed.xml'))
-
-    thick = Function(M,os.path.join(outdir, 'thick.xml'))
-    mask = Function(M,os.path.join(outdir, 'mask.xml'))
-    mask_vel = Function(M,os.path.join(outdir, 'mask_vel.xml'))
-    u_obs = Function(M,os.path.join(outdir, 'u_obs.xml'))
-    v_obs = Function(M,os.path.join(outdir, 'v_obs.xml'))
-    u_std = Function(M,os.path.join(outdir, 'u_std.xml'))
-    v_std = Function(M,os.path.join(outdir, 'v_std.xml'))
-    uv_obs = Function(M,os.path.join(outdir, 'uv_obs.xml'))
-    Bglen = Function(M,os.path.join(outdir, 'Bglen.xml'))
-
-
-    mdl = model.model(mesh,mask, params)
-    mdl.init_bed(bed)
-    mdl.init_thick(thick)
-    mdl.gen_surf()
-    mdl.init_mask(mask)
-    mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
-    mdl.init_lat_dirichletbc()
-    mdl.label_domain()
-    mdl.init_alpha(alpha)
-
-    #Regularization operator using inversion delta/gamma values
-    #TODO - this won't handle dual inversion case
+    # Regularization operator using inversion delta/gamma values
+    # TODO - this won't handle dual inversion case
     if params.inversion.alpha_active:
         delta = params.inversion.delta_alpha
         gamma = params.inversion.gamma_alpha
@@ -98,7 +71,6 @@ def run_invsigma(config_file):
     sigma, sigma_prior, x, y, z = [Function(space) for i in range(5)]
 
     reg_op = prior.laplacian(delta, gamma, space)
-
 
     test, trial = TestFunction(space), TrialFunction(space)
     mass = assemble(inner(test,trial)*dx)
