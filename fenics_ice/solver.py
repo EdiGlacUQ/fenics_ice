@@ -1,15 +1,14 @@
-import sys
+import timeit
+import time
+from pathlib import Path
+import numpy as np
 
 from fenics import *
 from tlm_adjoint_fenics import *
 from tlm_adjoint_fenics.hessian_optimization import *
 #from dolfin_adjoint import *
 #from dolfin_adjoint_custom import EquationSolver
-import numpy as np
 import ufl
-import os
-import timeit
-import time
 
 
 
@@ -324,7 +323,7 @@ class ssa_solver:
         a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
         solve(a==L,H_nps, bcs = self.H_bcs)
 
-    def timestep(self, save = 1, adjoint_flag=1, qoi_func= None ):
+    def timestep(self, save=1, adjoint_flag=1, qoi_func= None ):
         """
         Time evolving model
         Returns the QoI
@@ -385,17 +384,16 @@ class ssa_solver:
             new_block()
 
         if save:
-            hdf_hts = HDF5File(self.mesh.mpi_comm(), os.path.join(outdir, 'H_ts.h5'), 'w')
-            hdf_uts = HDF5File(self.mesh.mpi_comm(), os.path.join(outdir, 'U_ts.h5'), 'w')
+            Hfile = Path(outdir) / "_".join((self.params.io.run_name,
+                                             'H_ts.xdmf'))
+            Ufile = Path(outdir) / "_".join((self.params.io.run_name,
+                                             'U_ts.xdmf'))
 
-            #pvd_hts = File(os.path.join(outdir, "H_ts.pvd"), "compressed")
-            #pvd_uts = File(os.path.join(outdir, "U_ts.pvd"), "compressed")
+            xdmf_hts = XDMFFile(self.mesh.mpi_comm(), str(Hfile))
+            xdmf_uts = XDMFFile(self.mesh.mpi_comm(), str(Ufile))
 
-            hdf_hts.write(H_np, 'H', 0.0)
-            hdf_uts.write(U_np, 'U', 0.0)
-
-            #pvd_hts << (H_np, 0.0)
-            #pvd_uts << (U_np, 0.0)
+            xdmf_hts.write(H_np, 0.0)
+            xdmf_uts.write(U_np, 0.0)
 
 
 
@@ -445,15 +443,13 @@ class ssa_solver:
                         Q.addto()
 
             if save:
-                hdf_hts.write(H_np, 'H', t)
-                hdf_uts.write(U_np, 'U', t)
-
-                #pvd_hts << (H_np, t)
-                #pvd_uts << (U_np, t)
+                xdmf_hts.write(H_np, t)
+                xdmf_uts.write(U_np, t)
 
         if save:
-            hdf_hts.close()
-            hdf_uts.close()
+            xdmf_hts.close()
+            xdmf_uts.close()
+
         manager_info()
         return Q_is if qoi_func is not None else None
 

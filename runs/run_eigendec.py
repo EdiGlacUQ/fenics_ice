@@ -7,7 +7,7 @@ from fenics import *
 from tlm_adjoint_fenics import *
 import pickle
 from pathlib import Path
-from IPython import embed
+import datetime
 
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
