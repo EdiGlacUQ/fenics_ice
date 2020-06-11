@@ -53,8 +53,9 @@ for i, rf in enumerate(run_folders):
     params = config.ConfigParser(param_file, top_dir=run_dir)
 
     outdir = run_dir / params.io.output_dir
+    indir = run_dir / params.io.input_dir
 
-    mesh = Mesh(str(outdir/'mesh.xml'))
+    mesh = Mesh(str(indir/'ismip_mesh.xml'))
 
 #    param = pickle.load( open( os.path.join(base_folder, rf,'param.p'), "rb" ) )
 
@@ -73,7 +74,8 @@ for i, rf in enumerate(run_folders):
     y    = mesh.coordinates()[:,1]
     t    = mesh.cells()
 
-    hdf5data = HDF5File(MPI.comm_world, str(outdir/'dQ_ts.h5'), 'r')
+    hdffile = str(next(outdir.glob("*dQ_ts.h5")))
+    hdf5data = HDF5File(MPI.comm_world, hdffile, 'r')
     hdf5data.read(dQ, f'dQ/vector_{n_sens}')
 
 

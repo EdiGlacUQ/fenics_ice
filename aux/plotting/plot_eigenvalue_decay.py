@@ -11,9 +11,9 @@ from pathlib import Path
 
 base_folder = Path(os.environ['FENICS_ICE_BASE_DIR']) / "example_cases"
 
-run_folders = ['ismipc_rc_1e6/output',
-    'ismipc_30x30/output',
-    'ismipc_40x40/output'
+run_folders = ['ismipc_rc_1e6',
+    'ismipc_30x30',
+    'ismipc_40x40'
     ]
 
 #Legend values for simulations
@@ -28,9 +28,9 @@ plt.figure()
 for i, rf in enumerate(run_folders):
     print(rf)
 
-    lamfile = 'slepc_eig_all.p'
+    lamfile = "_".join((rf,'eigvals.p'))
 
-    pd = pickle.load(open(os.path.join(base_folder, rf, lamfile), 'rb'))
+    pd = pickle.load(open(os.path.join(base_folder, rf, 'output', lamfile), 'rb'))
     lam = pd[0]
     lpos = np.argwhere(lam > 0)
     lneg = np.argwhere(lam < 0)

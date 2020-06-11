@@ -28,9 +28,9 @@ for i, rf in enumerate(run_folders):
 
     run_dir = base_folder / rf
     result_dir = run_dir / "output"
-    Qfile = 'Qval_ts.p'
-    sigmafile = 'sigma.p'
-    sigmapriorfile = 'sigma_prior.p'
+    Qfile = "_".join((rf, 'Qval_ts.p'))
+    sigmafile = "_".join((rf, 'sigma.p'))
+    sigmapriorfile = "_".join((rf, 'sigma_prior.p'))
 
     # pd = pickle.load(open(os.path.join(base_folder, rf, Qfile), 'rb'))
     pd = pickle.load((result_dir / Qfile).open('rb'))
