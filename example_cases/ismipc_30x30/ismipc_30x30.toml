@@ -6,8 +6,17 @@
 run_name = "ismipc_30x30"
 input_dir = "./input"
 output_dir = "./output"
+data_file = "ismipc_input.h5"
 
-eigenvalue_file = "slepc_eig_all.p"
+# All these take default values prefixed by run_name
+# They are settable to enable restarting from different sims
+#inversion_file = "isimpc_rc_1e6_invout.h5" # default is $(run_name)_invout.h5
+#eigenvecs_file = "vr.h5" # default is $(run_name)_vr.h5
+#eigenvalue_file = "slepc_eig_all.p"
+#sigma_file = "sigma.p"
+#sigma_prior_file = "sigma_prior.p"
+#qoi_file = "Qval_ts.p"
+#dqoi_h5file = "dQ_ts.h5"
 
 log_level = "info" #This is default
 
@@ -21,21 +30,12 @@ random_seed = 0
 
 [mesh]
 
-#Not totally happy about the logic here
-#A lot of fenics_ice atm is hardcoded for ismip_c
-
-#mesh_filename = "data_mesh.xml"
-data_mesh_filename = "data_mesh.xml"
-data_mask_filename = "data_mask.xml"
-
+mesh_filename = "ismip_mesh.xml"
 periodic_bc = true
-#what to do about these (not general):
-nx = 30
-ny = 30
-length = 40000.0
 
 [obs]
 
+vel_file = "U_noisy.h5"
 pts_len = 2000.0
 
 [inversion]

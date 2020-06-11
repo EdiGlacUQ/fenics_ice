@@ -109,8 +109,8 @@ def run_inv(config_file):
     inout.write_variable(mdl.u_std_Q, params, name="u_std")
     inout.write_variable(mdl.v_std_Q, params, name="v_std")
 
-    U_obs = project((mdl.v_obs_Q**2 + mdl.u_obs_Q**2)**(1.0/2.0), mdl.Q)
-    inout.write_variable(U_obs, params, name="U_obs")
+    U_obs = project((mdl.v_obs_Q**2 + mdl.u_obs_Q**2)**(1.0/2.0), mdl.M)
+    inout.write_variable(U_obs, params, name="uv_obs")
 
     inout.write_variable(slvr.alpha, params, name="alpha")
 

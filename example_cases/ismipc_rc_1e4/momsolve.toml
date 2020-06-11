@@ -4,6 +4,7 @@
 
 run_name = "momsolve_init"
 input_dir = "./input"
+data_file = "ismipc_input.h5"
 output_dir = "./output_momsolve"
 
 eigenvalue_file = "slepc_eig_all.p"
@@ -20,18 +21,8 @@ random_seed = 0
 
 [mesh]
 
-#Not totally happy about the logic here
-#A lot of fenics_ice atm is hardcoded for ismip_c
-
-mesh_filename = "data_mesh.xml"
-data_mesh_filename = "data_mesh.xml"
-data_mask_filename = "data_mask.xml"
-
+mesh_filename = "momsolve_mesh.xml"
 periodic_bc = true
-#what to do about these (not general):
-# nx = 20
-# ny = 20
-length = 40000.0
 
 [obs]
 
