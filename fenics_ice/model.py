@@ -16,7 +16,7 @@ class model:
     def __init__(self, mesh_in, input_data, param_in):
 
         #Initiate parameters
-        self.param = param_in
+        self.params = param_in
         self.input_data = input_data
 
         #Full mask/mesh
@@ -33,12 +33,12 @@ class model:
         self.RT = FunctionSpace(self.mesh,'RT',1)
 
         #Based on IsmipC: alpha, beta, and U are periodic.
-        if not self.param.mesh.periodic_bc:
+        if not self.params.mesh.periodic_bc:
             self.Qp = self.Q
             self.V = VectorFunctionSpace(self.mesh, 'Lagrange', 1, dim=2)
         else:
-            self.Qp = fice_mesh.get_periodic_space(self.param, self.mesh, dim=1)
-            self.V = fice_mesh.get_periodic_space(self.param, self.mesh, dim=2)
+            self.Qp = fice_mesh.get_periodic_space(self.params, self.mesh, dim=1)
+            self.V = fice_mesh.get_periodic_space(self.params, self.mesh, dim=2)
 
         #Default velocity mask and Beta fields
         self.def_vel_mask()
@@ -112,8 +112,9 @@ class model:
         self.mask_vel_M = project(Constant(0.0), self.M)
 
     def def_B_field(self):
-        A = self.param.constants.A
-        n = self.param.constants.glen_n
+        """Define beta field from constants in config file"""
+        A = self.params.constants.A
+        n = self.params.constants.glen_n
         self.beta = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
         self.beta_bgd = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
         self.beta.rename('beta', 'a Function')
@@ -170,7 +171,7 @@ class model:
         # Read the obs from HDF5 file
         # Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
         # self.uv_obs_pts, self.mask_vel
-        inout.read_vel_obs(self.param, self)
+        inout.read_vel_obs(self.params, self)
 
         # Functions for repeated ungridded interpolation
         def interp_weights(xy, uv, d=2):
@@ -267,16 +268,16 @@ class model:
         self.latbc = latbc
 
     def gen_thick(self):
-        rhoi = self.param.constants.rhoi
-        rhow = self.param.constants.rhow
+        rhoi = self.params.constants.rhoi
+        rhow = self.params.constants.rhow
 
         h_diff = self.surf-self.bed
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
         self.H = project(Min(h_diff,h_hyd),self.M)
 
     def gen_surf(self):
-        rhoi = self.param.constants.rhoi
-        rhow = self.param.constants.rhow
+        rhoi = self.params.constants.rhoi
+        rhow = self.params.constants.rhow
         bed = self.bed
         H = self.H
 
@@ -289,7 +290,7 @@ class model:
         """
         UNUSED - would overwrite self.mask w/ extent of ice sheet (H > 0)
         """
-        tol = self.param.constants.float_eps
+        tol = self.params.constants.float_eps
         self.mask = project(conditional(gt(self.H,tol),1,0), self.M)
 
     def gen_alpha(self, a_bgd=500.0, a_lb = 1e2, a_ub = 1e4):
@@ -299,12 +300,12 @@ class model:
 
         bed = self.bed
         H = self.H
-        g = self.param.constants.g
-        rhoi = self.param.constants.rhoi
-        rhow = self.param.constants.rhow
+        g = self.params.constants.g
+        rhoi = self.params.constants.rhoi
+        rhow = self.params.constants.rhow
         u_obs = self.u_obs_M
         v_obs = self.v_obs_M
-        vel_rp = self.param.constants.vel_rp
+        vel_rp = self.params.constants.vel_rp
 
         U = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
@@ -331,7 +332,7 @@ class model:
         B2_tmp1 = ufl.Max(B2_, a_lb)
         B2_tmp2 = ufl.Min(B2_tmp1, a_ub)
 
-        sl = self.param.ice_dynamics.sliding_law
+        sl = self.params.ice_dynamics.sliding_law
         if sl == 'linear':
             alpha = sqrt(B2_tmp2)
         elif sl == 'weertman':
@@ -348,7 +349,7 @@ class model:
         Takes the input mesh (self.mesh_ext) and produces the submesh
         where mask==1, which becomes self.mesh
         """
-        tol = self.param.constants.float_eps
+        tol = self.params.constants.float_eps
         cf_mask = MeshFunction('size_t',  self.mesh_ext, self.mesh_ext.geometric_dimension())
 
         for c in cells(self.mesh_ext):
@@ -364,12 +365,12 @@ class model:
 
 
     def label_domain(self):
-        tol = self.param.constants.float_eps
+        tol = self.params.constants.float_eps
         bed = self.bed
         H = self.H
-        g = self.param.constants.g
-        rhoi = self.param.constants.rhoi
-        rhow = self.param.constants.rhow
+        g = self.params.constants.g
+        rhoi = self.params.constants.rhoi
+        rhow = self.params.constants.rhow
 
         #Flotation Criterion
         H_s = -rhow/rhoi * bed

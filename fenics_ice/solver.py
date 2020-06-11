@@ -24,7 +24,7 @@ class ssa_solver:
 
 
         self.model = model
-        self.param = model.param
+        self.params = model.params
 
         #Fields
         self.bed = model.bed
@@ -115,12 +115,12 @@ class ssa_solver:
         self.dObs_gnd = self.dx(self.OMEGA_ICE_FLT_OBS)
         self.dObs_flt = self.dx(self.OMEGA_ICE_GND_OBS)
 
-        self.dt = Constant(self.param.time.dt)
+        self.dt = Constant(self.params.time.dt)
 
 
     def set_inv_params(self):
 
-        invparam = self.param.inversion
+        invparam = self.params.inversion
         self.delta_alpha = invparam.delta_alpha
         self.gamma_alpha = invparam.gamma_alpha
         self.delta_beta = invparam.delta_beta
@@ -135,13 +135,13 @@ class ssa_solver:
 
     def get_qoi_func(self):
         qoi_dict = {'vaf':self.comp_Q_vaf, 'h2':self.comp_Q_h2}
-        choice = self.param.error_prop.qoi
+        choice = self.params.error_prop.qoi
         return qoi_dict[choice.lower()] #flexible case
 
     def def_mom_eq(self):
 
         #Simplify accessing fields and parameters
-        constants = self.param.constants
+        constants = self.params.constants
         bed = self.bed
         H = self.H
         mask = self.mask
@@ -156,7 +156,7 @@ class ssa_solver:
         tol = constants.float_eps
         dIce = self.dIce
         ds = self.ds
-        sl = self.param.ice_dynamics.sliding_law
+        sl = self.params.ice_dynamics.sliding_law
         vel_rp = constants.vel_rp
 
         #Vector components of trial function
@@ -215,14 +215,14 @@ class ssa_solver:
 
     def sliding_law(self,alpha,U):
 
-        constants = self.param.constants
+        constants = self.params.constants
 
         bed = self.bed
         H = self.H
         rhoi = constants.rhoi
         rhow = constants.rhow
         g = constants.g
-        sl = self.param.ice_dynamics.sliding_law
+        sl = self.params.ice_dynamics.sliding_law
         vel_rp = constants.vel_rp
 
         H_s = -rhow/rhoi * bed
@@ -246,7 +246,7 @@ class ssa_solver:
 
         self.bcs = []
 
-        if not self.param.mesh.periodic_bc:
+        if not self.params.mesh.periodic_bc:
             ff_array = self.ff.array()
             bc0 = DirichletBC(self.V, self.latbc, self.ff, self.GAMMA_LAT) if self.GAMMA_LAT in ff_array else False
             bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF) if self.GAMMA_NF in ff_array else False
@@ -257,8 +257,8 @@ class ssa_solver:
 
         t0 = time.time()
 
-        newton_params = self.param.momsolve.newton_params
-        picard_params = self.param.momsolve.picard_params
+        newton_params = self.params.momsolve.newton_params
+        picard_params = self.params.momsolve.picard_params
         J_p = self.mom_Jac_p
         MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, J_p=J_p, picard_params = picard_params, solver_parameters = newton_params).solve(annotate=annotate_flag)
 
@@ -331,12 +331,12 @@ class ssa_solver:
         """
 
         #Read timestep info
-        config = self.param.time
+        config = self.params.time
         n_steps = config.total_steps
         dt = config.dt
         run_length = config.run_length
 
-        outdir = self.param.io.output_dir
+        outdir = self.params.io.output_dir
 
         t = 0.0
 
@@ -353,7 +353,7 @@ class ssa_solver:
 
 
         if adjoint_flag:
-            num_sens = self.param.time.num_sens
+            num_sens = self.params.time.num_sens
             t_sens = np.array([run_length]) if num_sens == 1 else np.linspace(0.0, run_length, num_sens)
             n_sens = np.round(t_sens/dt)
 
@@ -525,7 +525,7 @@ class ssa_solver:
         control params (i.e. alpha and/or beta)
         """
 
-        config = self.param.inversion
+        config = self.params.inversion
         cntrl = []
         if config.alpha_active:
             cntrl.append(self.alpha)
@@ -536,7 +536,7 @@ class ssa_solver:
 
     def inversion(self):
 
-        config = self.param.inversion
+        config = self.params.inversion
 
         cntrl_input = self.get_control()
         nparam = len(cntrl_input)
@@ -599,7 +599,7 @@ class ssa_solver:
         """
         return the effective strain rate squared.
         """
-        eps_rp = self.param.constants.eps_rp
+        eps_rp = self.params.constants.eps_rp
 
         eps = self.epsilon(U)
         exx = eps[0,0]
@@ -613,7 +613,7 @@ class ssa_solver:
 
     def viscosity(self,U):
         B = self.beta_to_bglen(self.beta)
-        n = self.param.constants.glen_n
+        n = self.params.constants.glen_n
 
         eps_2 = self.effective_strain_rate(U)
         nu = 0.5 * B * eps_2**((1.0-n)/(2.0*n))
@@ -626,7 +626,7 @@ class ssa_solver:
         Note: 'verbose' significantly decreases speed
         """
 
-        invconfig = self.param.inversion
+        invconfig = self.params.inversion
 
         #What are we inverting for?:
         do_alpha = invconfig.alpha_active
@@ -777,7 +777,7 @@ class ssa_solver:
 
         print("WARNING: Think comp_Q_vaf returns zero on first timestep - ",
               "check initialisation of H_nps")
-        cnst = self.param.constants
+        cnst = self.params.constants
 
         H = self.H_nps
         #B stands in for self.bed, which leads to a taping error
