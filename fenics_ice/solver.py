@@ -692,34 +692,38 @@ class ssa_solver:
         uf = project(u, self.M)
         vf = project(v, self.M)
 
-        uf.rename("uf","")
-        vf.rename("uf","")
+        uf.rename("uf", "")
+        vf.rename("vf", "")
 
         interper2 = InterpolationSolver(uf,
                                         u_pts,
                                         X_coords=uv_obs_pts[obs_local])
         interper2.solve()
-        P=interper2._B[0]._A._P
-        P_T=interper2._B[0]._A._P_T
+        P = interper2._B[0]._A._P
+        P_T = interper2._B[0]._A._P_T
         InterpolationSolver(vf, v_pts, P=P, P_T=P_T).solve()
 
         J = Functional(name="J")
 
-        ## Continuous
-        #data misfit component of J (Isaac 12), with diagonal noise covariance matrix
-        #J_ls = lambda_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*(v-v_obs)**2.0)*self.dObs
+        # Continuous
+        # data misfit component of J (Isaac 12), with
+        # diagonal noise covariance matrix
+        # J_ls = lambda_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*\
+        # (v-v_obs)**2.0)*self.dObs
 
         # Inner product
         J_ls_term_new = new_real_function(name=f"J_term")
 
-        #Result of NormSqSolver is added to J_ls_term_new, so calling twice is a sum
+        # Result of NormSqSolver is added to J_ls_term_new
+        # so calling twice is a sum
         u_mismatch = ((u_pts-u_obs_pts)/u_std_pts)
         NormSqSolver(project(u_mismatch, obs_space), J_ls_term_new).solve()
         v_mismatch = ((v_pts-v_obs_pts)/v_std_pts)
         NormSqSolver(project(v_mismatch, obs_space), J_ls_term_new).solve()
 
         # J_ls_term_final = new_real_function()
-        # ExprEvaluationSolver(J_ls_term_new * lambda_a, J_ls_term_final).solve()
+        # ExprEvaluationSolver(J_ls_term_new * \
+        # lambda_a, J_ls_term_final).solve()
 
         J.addto(J_ls_term_new)
 
@@ -729,38 +733,41 @@ class ssa_solver:
         f_alpha = Function(self.Qp, name="f_alpha")
         f_beta = Function(self.Qp, name="f_beta")
 
-        #cf. Isaac 5, delta component ensures invertiblity, gamma -> smoothness
+        # cf. Isaac 5, delta component -> invertiblity, gamma -> smoothness
         a = f*self.pTau*dIce
 
         if(do_alpha):
-            #This L is equivalent to scriptF in reg_operator.pdf
-            #Prior.py contains vector equivalent of this (this operates on fem functions)
-            L = (delta_a * alpha * self.pTau - gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
-            solve(a == L, f_alpha )
-            J_reg_alpha = inner(f_alpha,f_alpha)*dIce
+            # This L is equivalent to scriptF in reg_operator.pdf
+            # Prior.py contains vector equivalent of this
+            # (this operates on fem functions)
+            L = (delta_a * alpha * self.pTau -
+                 gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
+            solve(a == L, f_alpha)
+            J_reg_alpha = inner(f_alpha, f_alpha)*dIce
             J.addto(J_reg_alpha)
 
             # if not self.f_alpha_file:
-            #     self.f_alpha_file = File(os.path.join('invoutput_data','f_alpha_test.pvd'))
+            #     self.f_alpha_file = \
+            # File(os.path.join('invoutput_data', 'f_alpha_test.pvd'))
             # self.f_alpha_file << f_alpha
 
         if(do_beta):
-            L = (delta_b * betadiff * self.pTau - gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
-            solve(a == L, f_beta )
-            J_reg_beta = inner(f_beta,f_beta)*dIce
+            L = (delta_b * betadiff * self.pTau - \
+                 gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
+            solve(a == L, f_beta)
+            J_reg_beta = inner(f_beta, f_beta)*dIce
             J.addto(J_reg_beta)
 
-
-        ## Continous
-        #J = J_ls + J_reg_alpha + J_reg_beta
+        # Continuous
+        # J = J_ls + J_reg_alpha + J_reg_beta
 
         if verbose:
             J_ls = new_real_function(name="J_ls_term")
             ExprEvaluationSolver(J_ls_term_new, J_ls).solve()
 
-            #Print out results
+            # Print out results
             J1 = J.value()
-            J2 =  J_ls.values()[0]
+            J2 = J_ls.values()[0]
             J3 = assemble(J_reg_alpha) if do_alpha else 0.0
             J4 = assemble(J_reg_beta) if do_beta else 0.0
 
@@ -771,7 +778,7 @@ class ssa_solver:
             info('gamma_b: %.5e' % gamma_b)
             info('J: %.5e' % J1)
             info('J_ls: %.5e' % J2)
-            info('J_reg: %.5e' % sum([J3,J4]))
+            info('J_reg: %.5e' % sum([J3, J4]))
             info('J_reg_alpha: %.5e' % J3)
             info('J_reg_beta: %.5e' % J4)
             info('J_reg/J_cst: %.5e' % ((J3+J4)/(J2)))
@@ -780,16 +787,14 @@ class ssa_solver:
         return J
 
     def comp_Q_vaf(self, verbose=False):
-        """
-        QOI: Volume above flotation
-        """
+        """QOI: Volume above flotation"""
 
         print("WARNING: Think comp_Q_vaf returns zero on first timestep - ",
               "check initialisation of H_nps")
         cnst = self.params.constants
 
         H = self.H_nps
-        #B stands in for self.bed, which leads to a taping error
+        # B stands in for self.bed, which leads to a taping error
         B = Function(self.M)
         B.assign(self.bed, annotate=False)
         rhoi = Constant(cnst.rhoi)
@@ -806,16 +811,15 @@ class ssa_solver:
 
         return Q_vaf
 
-    def comp_Q_h2(self,verbose=False):
+    def comp_Q_h2(self, verbose=False):
         """
         QOI: Square integral of thickness
         """
 
-        Q_h2 = self.H_np*self.H_np*self.dIce
+        Q_h2 = self.H_np * self.H_np * self.dIce
         if verbose: print('Q_h2: {0}'.format(Q_h2))
 
         return Q_h2
-
 
     def set_dQ_vaf(self, cntrl):
         Q_vaf = self.timestep(adjoint_flag=1, qoi_func=self.comp_Q_vaf)
@@ -827,14 +831,16 @@ class ssa_solver:
         dQ = compute_gradient(Q_h2, cntrl)
         self.dQ_ts = dQ
 
-
     def set_hessian_action(self, cntrl):
         """
         Construct the Hessian object (defined by tlm_adjoint)
         with the functional J
         """
         if type(cntrl) is not list: cntrl = [cntrl]
-        fopts = {'alpha': self.forward_alpha, 'beta': self.forward_beta, 'dual': self.forward_dual}
+        fopts = {'alpha': self.forward_alpha,
+                 'beta': self.forward_beta,
+                 'dual': self.forward_dual}
+
         forward = fopts['dual'] if len(cntrl) > 1 else fopts[cntrl[0].name()]
 
         reset()
@@ -844,7 +850,6 @@ class ssa_solver:
         stop_manager()
 
         self.ddJ = SingleBlockHessian(J)
-
 
     def save_ts_zero(self):
         self.H_init = Function(self.H_np.function_space())
@@ -867,7 +872,7 @@ class ddJ_wrapper(object):
         self.ddJ_action = ddJ_action
         self.ddJ_F = Function(cntrl.function_space())
 
-    def apply(self,x):
+    def apply(self, x):
         self.ddJ_F.vector().set_local(x.getArray())
         self.ddJ_F.vector().apply('insert')
         return self.ddJ_action(self.ddJ_F).vector().get_local()
@@ -884,26 +889,27 @@ class MomentumSolver(EquationSolver):
         super(MomentumSolver, self).replace(replace_map)
         self.J_p = ufl.replace(self.J_p, replace_map)
 
-    def forward_solve(self, x, deps = None):
+    def forward_solve(self, x, deps=None):
         if deps is None:
-          deps = self.dependencies()
-          replace_deps = lambda form : form
+            deps = self.dependencies()
+            replace_deps = lambda form: form
         else:
-          from collections import OrderedDict
-          replace_map = OrderedDict(zip(self.dependencies(), deps))
-          replace_map[self.x()] = x
-          replace_deps = lambda form : ufl.replace(form, replace_map)
-        #for i, (dep_x, dep) in enumerate(zip(self.dependencies(), deps)):
-          #info("%i %s %.16e" % (i, dep_x.name(), dep.vector().norm("l2")))
-        if not self._initial_guess_index is None:
-          function_assign(x, deps[self._initial_guess_index])
+            from collections import OrderedDict
+            replace_map = OrderedDict(zip(self.dependencies(), deps))
+            replace_map[self.x()] = x
+            replace_deps = lambda form: ufl.replace(form, replace_map)
+            # for i, (dep_x, dep) in enumerate(zip(self.dependencies(), deps)):
+            # info("%i %s %.16e" % (i, dep_x.name(), dep.vector().norm("l2")))
+        if self._initial_guess_index is not None:
+            function_assign(x, deps[self._initial_guess_index])
 
         for i, bc in enumerate(self._bcs):
-          keys, values = bc.get_boundary_values().keys(), bc.get_boundary_values().items()
-          keys = list(keys)
-          import numpy
-          values = numpy.array(list(values))
-          info("BC %i %i %.16e" % (i, len(keys), (values * values).sum()))
+            keys = bc.get_boundary_values().keys()
+            values = bc.get_boundary_values().items()
+            keys = list(keys)
+            import numpy
+            values = numpy.array(list(values))
+            info("BC %i %i %.16e" % (i, len(keys), (values * values).sum()))
 
         lhs = replace_deps(self._lhs)
         rhs = 0 if self._rhs == 0 else replace_deps(self._rhs)
