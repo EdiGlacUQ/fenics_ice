@@ -43,19 +43,23 @@ class laplacian(object):
         comm = self.A.mpi_comm()  # TODO - is this correct?
         dim = space.dim()
 
-        self.M_l = Vector(comm, dim)
+        self.M_l, self.M_il, = Vector(), Vector()
+        self.M_rl, self.M_irl = Vector(), Vector()
+
+        self.A.init_vector(self.M_l, 0)
+        self.A.init_vector(self.M_il, 0)
+        self.A.init_vector(self.M_rl, 0)
+        self.A.init_vector(self.M_irl, 0)
+
         self.M_l.set_local(lump_diag)
         self.M_l.apply("insert")
 
-        self.M_il = Vector(comm, dim)
         self.M_il.set_local(inv_lump_diag)
         self.M_il.apply("insert")
 
-        self.M_rl = Vector(comm, dim)
         self.M_rl.set_local(root_lump_diag)
         self.M_rl.apply("insert")
 
-        self.M_irl = Vector(comm, dim)
         self.M_irl.set_local(inv_root_lump_diag)
         self.M_irl.apply("insert")
 

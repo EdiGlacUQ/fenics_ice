@@ -637,6 +637,16 @@ class ssa_solver:
         v_std = self.v_std
         uv_obs_pts = self.uv_obs_pts
 
+        # Determine observations within our mesh partition
+        # TODO find a faster way to do this
+        cell_max = self.mesh.cells().shape[0]
+        obs_local = np.zeros_like(u_obs, dtype=np.bool)
+        for i, pt in enumerate(uv_obs_pts):
+            obs_local[i] = self.mesh.bounding_box_tree().\
+                compute_first_entity_collision(Point(pt)) <= cell_max
+
+        local_cnt = np.sum(obs_local)
+
         alpha = self.alpha
         beta = self.beta
         beta_bgd = self.beta_bgd
@@ -656,17 +666,17 @@ class ssa_solver:
         # Sample Discrete Points
         
         #Arbitrary mesh to define function for interpolated variables
-        obs_mesh = UnitIntervalMesh(uv_obs_pts.shape[0])
+        obs_mesh = UnitIntervalMesh(MPI.comm_self, local_cnt)
         obs_space = FunctionSpace(obs_mesh, "Discontinuous Lagrange", 0)
         u_obs_pts = Function(obs_space, name='u_obs_pts')
         v_obs_pts = Function(obs_space, name='v_obs_pts')
         u_std_pts = Function(obs_space, name='u_std_pts')
         v_std_pts = Function(obs_space, name='v_std_pts')
 
-        u_obs_pts.vector()[:] = u_obs
-        v_obs_pts.vector()[:] = v_obs
-        u_std_pts.vector()[:] = u_std
-        v_std_pts.vector()[:] = v_std
+        u_obs_pts.vector()[:] = u_obs[obs_local]
+        v_obs_pts.vector()[:] = v_obs[obs_local]
+        u_std_pts.vector()[:] = u_std[obs_local]
+        v_std_pts.vector()[:] = v_std[obs_local]
 
         u_obs_pts.vector().apply("insert")
         v_obs_pts.vector().apply("insert")
@@ -677,13 +687,17 @@ class ssa_solver:
         u_pts = Function(obs_space, name='u_pts')
         v_pts = Function(obs_space, name='v_pts')
 
-        uf = project(u,self.Q)
-        vf = project(v,self.Q)
+        # TODO - is projection to M instead of Q OK here?
+        # it's necessary for InterpolationSolver to work
+        uf = project(u, self.M)
+        vf = project(v, self.M)
 
         uf.rename("uf","")
         vf.rename("uf","")
 
-        interper2 = InterpolationSolver(uf, u_pts, X_coords=uv_obs_pts)
+        interper2 = InterpolationSolver(uf,
+                                        u_pts,
+                                        X_coords=uv_obs_pts[obs_local])
         interper2.solve()
         P=interper2._B[0]._A._P
         P_T=interper2._B[0]._A._P_T

@@ -18,6 +18,9 @@ def get_mesh(params):
     mesh_filename = params.mesh.mesh_filename
     meshfile = os.path.join(dd, mesh_filename)
 
+    #Ghost elements for DG in parallel
+    parameters['ghost_mode'] = 'shared_facet'
+
     assert mesh_filename
     assert os.path.isfile(meshfile), "Mesh file '%s' not found" % meshfile
 
@@ -53,32 +56,9 @@ def get_periodic_space(params, mesh, deg=1, dim=1):
 
     mesh_length = get_mesh_length(mesh)
 
-    #TODO - I've replaced some rather complicated logic here (see below), is this OK?
-    #TODO - what about parallel?
-
-    # # If we're on a new mesh
-    # if nx and ny:
-    #     L1 = xlim[-1] - xlim[0]
-    #     L2 = ylim[-1] - ylim[0]
-    #     assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
-    #     mesh_length = L1
-
-    # # If previous run   
-    # elif os.path.isfile(os.path.join(dd,'param.p')):
-    #     mesh_length = pickle.load(open(os.path.join(dd,'param.p'), 'rb'))['periodic_bc']
-    #     assert(mesh_length), 'Need to run periodic bc using original files'
-
-    # # Assume we're on a data_mesh
-    # else:
-    #     gf = 'grid_data.npz'
-    #     npzfile = np.load(os.path.join(dd,'grid_data.npz'))
-    #     xlim = npzfile['xlim']
-    #     ylim = npzfile['ylim']
-    #     L1 = xlim[-1] - xlim[0]
-    #     L2 = ylim[-1] - ylim[0]
-    #     assert( L1==L2), 'Periodic Boundary Conditions require a square domain'
-    #     mesh_length = L1
-
+    # Periodic BCs don't work with ghost_mode = shared_facet...
+    # https://fenicsproject.discourse.group/t/use-mpirun-for-dg-with-periodic-bc/2846
+    # Seems like a common issue
     if(dim==1):
         periodic_space = FunctionSpace(
             mesh,
@@ -95,6 +75,5 @@ def get_periodic_space(params, mesh, deg=1, dim=1):
             dim,
             constrained_domain=model.PeriodicBoundary(mesh_length)
         )
-
 
     return periodic_space

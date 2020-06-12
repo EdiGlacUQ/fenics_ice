@@ -6,7 +6,6 @@ from pathlib import Path
 import scipy.spatial.qhull as qhull
 from fenics_ice import inout
 from fenics_ice import mesh as fice_mesh
-from IPython import embed
 from numpy.random import randn
 import logging
 
@@ -20,13 +19,20 @@ class model:
         self.params = param_in
         self.input_data = input_data
 
+        self.parallel = MPI.size(mesh_in.mpi_comm()) > 1
+
         #Full mask/mesh
         self.mesh_ext = Mesh(mesh_in)
         M_in = FunctionSpace(self.mesh_ext, 'DG', 0)
         self.mask_ext = self.input_data.interpolate("data_mask", M_in)
 
-        #Generate Domain and Function Spaces
-        self.gen_domain()
+        # Generate Domain and Function Spaces
+        # TODO - should just get rid of gen_domain, submesh stuff
+        if self.parallel:
+            self.mesh = self.mesh_ext
+        else:
+            self.gen_domain()
+
         self.nm = FacetNormal(self.mesh)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
 
@@ -402,7 +408,6 @@ class model:
 
         self.mesh = SubMesh(self.mesh_ext, cf_mask, 1)
 
-
     def label_domain(self):
         tol = self.params.constants.float_eps
         bed = self.bed
@@ -509,8 +514,6 @@ class model:
 
                 elif near(mv,self.MASK_XD,tol):
                     self.ff[f] = self.GAMMA_NF
-
-
 
 class PeriodicBoundary(SubDomain):
     def __init__(self,L):
