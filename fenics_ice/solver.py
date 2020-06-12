@@ -630,8 +630,7 @@ class ssa_solver:
 
         u,v = split(self.U)
 
-        #TODO - these obs are already interpolated onto the model mesh.
-        #Change this so that obs are available at original resolution.
+        # Observed velocities
         u_obs = self.u_obs
         v_obs = self.v_obs
         u_std = self.u_std

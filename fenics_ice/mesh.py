@@ -33,12 +33,18 @@ def get_mesh_length(mesh):
     xmin, ymin = np.min(mesh.coordinates(), axis=0)
     xmax, ymax = np.max(mesh.coordinates(), axis=0)
 
+    comm = mesh.mpi_comm()
+
+    xmin = MPI.min(comm, xmin)
+    xmax = MPI.max(comm, xmax)
+    ymin = MPI.min(comm, ymin)
+    ymax = MPI.max(comm, ymax)
+
     L1 = xmax - xmin
     L2 = ymax - ymin
     assert L1 == L2, 'Periodic Boundary Conditions require a square domain'
 
-    mesh_length = L1
-    return mesh_length
+    return L1
 
 def get_periodic_space(params, mesh, deg=1, dim=1):
     """
