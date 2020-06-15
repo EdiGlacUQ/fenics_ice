@@ -11,7 +11,7 @@ from fenics_ice.config import ConfigParser
 import fenics_ice.fenics_util as fu
 
 import matplotlib as mpl
-mpl.use("Agg")
+#mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import time
@@ -45,6 +45,7 @@ def run_inv(config_file):
     mesh = fice_mesh.get_mesh(params)
     mdl = model.model(mesh, input_data, params)
 
+    # TODO use this or get rid of it
     pts_lengthscale = params.obs.pts_len
 
     mdl.bed_from_data()
