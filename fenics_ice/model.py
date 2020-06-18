@@ -109,10 +109,12 @@ class model:
 
         self.param = param
 
-    def bglen_to_beta(self,x):
+    @staticmethod
+    def bglen_to_beta(x):
         return sqrt(x)
 
-    def beta_to_bglen(self,x):
+    @staticmethod
+    def beta_to_bglen(x):
         return x*x
 
     def def_vel_mask(self):

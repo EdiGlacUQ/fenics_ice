@@ -356,7 +356,7 @@ class ssa_solver:
             t_sens = np.array([run_length]) if num_sens == 1 else np.linspace(0.0, run_length, num_sens)
             n_sens = np.round(t_sens/dt)
 
-            reset()
+            reset_manager()
             start_annotating()
 #            configure_checkpointing("periodic_disk", {'period': 2, "format":"pickle"})
             configure_checkpointing("multistage", {"blocks":n_steps,
@@ -555,7 +555,7 @@ class ssa_solver:
                 cc = self.beta
                 forward = self.forward_beta
 
-            reset()
+            reset_manager()
             clear_caches()
             start_annotating()
             J = forward(cc)
@@ -567,14 +567,14 @@ class ssa_solver:
 
             cntrl_opt, result = minimize_scipy(forward, cc, J, method='L-BFGS-B',
                                                options=config.inv_options)
-              #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
+            #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
 
             cc.assign(cntrl_opt)
 
         self.def_mom_eq()
 
         #Re-compute velocities with inversion results
-        reset()
+        reset_manager()
         clear_caches()
         start_annotating()
         self.solve_mom_eq()
@@ -843,7 +843,7 @@ class ssa_solver:
 
         forward = fopts['dual'] if len(cntrl) > 1 else fopts[cntrl[0].name()]
 
-        reset()
+        reset_manager()
         clear_caches()
         start_manager()
         J = forward(cntrl[0])

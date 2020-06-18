@@ -58,26 +58,6 @@ def write_dqval(dQ_ts, params):
 
     hdf5out.close()
 
-def read_variable(name, space, params, indir=False, filename=None):
-    """
-    Read variable from file, assumed prefixed with run_name
-    unless filename is given.
-    By default, looks in output dir (unless indir=True)
-    """
-
-    if indir:
-        tgt_dir = params.io.input_dir
-    else:
-        tgt_dir = params.io.output_dir
-
-    if not filename:
-        infname = (Path(tgt_dir)/ \
-                  "_".join((params.io.run_name, name))).with_suffix(".xml")
-        filename = str(infname)
-
-    var = Function(space, filename)
-    return var
-
 def write_variable(var, params, name=None):
     """
     Produce xml & vtk output of supplied variable (prefixed with run name)
@@ -192,7 +172,7 @@ class InputData(object):
         except AttributeError:
             # Fill with default, if supplied, else raise error
             if default is not None:
-                logging.warn(f"No data found for {name},"
+                logging.warning(f"No data found for {name},"
                              f"filling with default value {default}")
                 function.vector()[:] = default
                 function.vector().apply("insert")
