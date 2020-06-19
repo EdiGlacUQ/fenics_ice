@@ -35,7 +35,7 @@ periodic_bc = true
 
 [obs]
 
-vel_file = "U_noisy.h5"
+vel_file = "ismipc_U_obs.h5"
 pts_len = 2000.0
 
 [inversion]
