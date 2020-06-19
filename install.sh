@@ -48,8 +48,9 @@ conda activate fenics_ice
 conda install -y conda-build
 
 pip install --upgrade pip
+
 conda install -y matplotlib numpy ipython scipy seaborn h5py
-pip install mpi4py toml git "meshio[all]"
+pip install mpi4py toml git "meshio[all]" pytest pytest-benchmark pytest-mpi
 
 #get pyrevolve
 git clone https://github.com/opesci/pyrevolve.git
