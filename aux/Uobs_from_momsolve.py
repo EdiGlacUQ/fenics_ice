@@ -96,19 +96,19 @@ def main(dd, infile, outfile, noise_sdev, L, seed=0):
     noise_arr = np.zeros_like(x)
     noise_arr[:] = noise_sdev
 
-    outfile.create_dataset("u_std",
+    output.create_dataset("u_std",
                            x.shape,
                            dtype=np.float64,
                            data=noise_arr)
 
-    outfile.create_dataset("v_std",
+    output.create_dataset("v_std",
                            x.shape,
                            dtype=np.float64,
                            data=noise_arr)
 
     mask_arr = np.ones_like(x)
 
-    outfile.create_dataset("mask_vel",
+    output.create_dataset("mask_vel",
                            x.shape,
                            dtype=np.float64,
                            data=mask_arr)
