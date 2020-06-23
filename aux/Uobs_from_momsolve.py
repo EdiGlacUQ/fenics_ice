@@ -51,24 +51,33 @@ def main(dd, infile, outfile, noise_sdev, L, seed=0):
     U = Function(V)
     infile.read(U, 'U')
 
-    if(periodic_bc):
-        U = project(U, V_np)
+    # How many points?
+    ndofs = int(U.vector()[:].shape[0] / 2)
 
-    uu, vv = U.split(True)
-
-    u_array = uu.vector().get_local()
-    v_array = vv.vector().get_local()
-
+    # Generate the random noise
     np.random.seed(seed)
-    u_noise = np.random.normal(scale=noise_sdev, size=u_array.size)
-    v_noise = np.random.normal(scale=noise_sdev, size=v_array.size)
+    u_noise = np.random.normal(scale=noise_sdev, size=ndofs)
+    v_noise = np.random.normal(scale=noise_sdev, size=ndofs)
 
-    u_array += u_noise
-    v_array += v_noise
+    # Grab the two components of the velocity vector, and add noise
+    U_vec = U.vector()[:]
+    U_vec[0::2] += u_noise
+    U_vec[1::2] += v_noise
+
+    # Bit of trickery if we're in a periodic space
+    # We need to project into non-periodic space because gridded
+    # H5 output has no concept of periodicity
+    if(periodic_bc):
+        U.vector()[:] = U_vec
+        U = project(U, V_np)
+        U_vec = U.vector()[:]
+
+    u_array = U_vec[0::2]
+    v_array = U_vec[1::2]
 
     # [::2] because tabulate_dof_coordinates produces two copies
     # (because 2 dofs per node...)
-    x, y = np.hsplit(uu.function_space().tabulate_dof_coordinates(), 2)
+    x, y = np.hsplit(U.function_space().tabulate_dof_coordinates()[::2], 2)
 
     # Produce output as raw points & vel
     output = h5py.File(Path(dd)/outfile, 'w')
