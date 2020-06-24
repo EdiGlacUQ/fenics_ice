@@ -10,7 +10,10 @@ def main(dd, infile, outfile, noise_sdev, L, seed=0):
     """
     Take velocity data from run_momsolve.py and add gaussian noise
 
-    Expects an HDF5 file (containing both mesh & velocity function) as input
+    Expects an HDF5 file (containing both mesh & velocity function) as input.
+    In the case of a periodic boundary condition with NxN elements, this
+    produces NxN velocity observations (NOT N+1 x N+1) because otherwise
+    boundary nodes would be doubly constrained.
     """
     assert Path(infile).suffix == ".h5"
     assert Path(outfile).suffix == ".h5"
@@ -31,21 +34,11 @@ def main(dd, infile, outfile, noise_sdev, L, seed=0):
                                 dim=2,
                                 constrained_domain=model.PeriodicBoundary(L))
 
-        # Create a non-periodic space for projection
-        # (want to write out a non-periodic field)
-        V_np = VectorFunctionSpace(mesh,
-                                   'Lagrange',
-                                   1,
-                                   dim=2)
-
     else:
         V = VectorFunctionSpace(mesh,
                                 'Lagrange',
                                 1,
                                 dim=2)
-
-    # M = FunctionSpace(mesh, 'DG', 0)
-    # Q = FunctionSpace(mesh, 'Lagrange', 1)
 
     # Read the velocity
     U = Function(V)
@@ -63,14 +56,6 @@ def main(dd, infile, outfile, noise_sdev, L, seed=0):
     U_vec = U.vector()[:]
     U_vec[0::2] += u_noise
     U_vec[1::2] += v_noise
-
-    # Bit of trickery if we're in a periodic space
-    # We need to project into non-periodic space because gridded
-    # H5 output has no concept of periodicity
-    if(periodic_bc):
-        U.vector()[:] = U_vec
-        U = project(U, V_np)
-        U_vec = U.vector()[:]
 
     u_array = U_vec[0::2]
     v_array = U_vec[1::2]
