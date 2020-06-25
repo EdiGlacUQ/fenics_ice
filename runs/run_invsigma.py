@@ -150,25 +150,12 @@ def run_invsigma(config_file):
     sigma_prior.vector().set_local(sigma_prior_vector)
     sigma_prior.vector().apply('insert')
 
-    # Construct filenames
-    sigma_fname = Path("_".join((params.io.run_name,
-                                 cntrl.name(),
-                                 'sigma')))
-    sigma_prior_fname = Path("_".join((params.io.run_name,
-                                       cntrl.name(),
-                                       'sigma_prior')))
-    outdirp = Path(outdir)
+    # Write sigma & sigma_prior to files
+    inout.write_variable(sigma, params,
+                         name="_".join((cntrl.name(), "sigma")))
+    inout.write_variable(sigma_prior, params,
+                         name="_".join((cntrl.name(), "sigma_prior")))
 
-    # Write out to pvd & xml
-    vtkfile = File(str(outdirp/sigma_fname.with_suffix('.pvd')))
-    xmlfile = File(str(outdirp/sigma_fname.with_suffix('.xml')))
-    vtkfile << sigma
-    xmlfile << sigma
-
-    vtkfile = File(str(outdirp/sigma_prior_fname.with_suffix('.pvd')))
-    xmlfile = File(str(outdirp/sigma_prior_fname.with_suffix('.xml')))
-    vtkfile << sigma_prior
-    xmlfile << sigma_prior
 
 if __name__ == "__main__":
     stop_annotating()
