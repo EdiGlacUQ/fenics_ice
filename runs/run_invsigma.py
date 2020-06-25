@@ -19,10 +19,11 @@ import time
 import datetime
 import pickle
 from petsc4py import PETSc
-from IPython import embed
 
 def run_invsigma(config_file):
-    #Read run config file
+    """Compute control sigma values from eigendecomposition"""
+
+    # Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
     inout.log_git_info()
@@ -73,36 +74,33 @@ def run_invsigma(config_file):
     reg_op = prior.laplacian(delta, gamma, space)
 
     test, trial = TestFunction(space), TrialFunction(space)
-    mass = assemble(inner(test,trial)*dx)
+    mass = assemble(inner(test, trial)*dx)
     mass_solver = KrylovSolver("cg", "sor")
-    mass_solver.parameters.update({"absolute_tolerance":1.0e-32,
-                               "relative_tolerance":1.0e-14})
+    mass_solver.parameters.update({"absolute_tolerance": 1.0e-32,
+                                   "relative_tolerance": 1.0e-14})
     mass_solver.set_operator(mass)
-
 
     with open(os.path.join(eigendir, lamfile), 'rb') as ff:
         eigendata = pickle.load(ff)
         lam = eigendata[0].real.astype(np.float64)
         nlam = len(lam)
 
-
-    W = np.zeros((x.vector().size(),nlam))
-    with HDF5File(MPI.comm_world, os.path.join(eigendir, vecfile), 'r') as hdf5data:
+    W = np.zeros((x.vector().size(), nlam))
+    with HDF5File(MPI.comm_world,
+                  os.path.join(eigendir, vecfile), 'r') as hdf5data:
         for i in range(nlam):
             hdf5data.read(x, f'v/vector_{i}')
             v = x.vector().get_local()
             reg_op.action(x.vector(), y.vector())
             tmp = y.vector().get_local()
-            sc = np.sqrt(np.dot(v,tmp))
-            W[:,i] = v/sc
+            sc = np.sqrt(np.dot(v, tmp))
+            W[:, i] = v/sc
 
-
-    pind = np.flatnonzero(lam>threshlam)
+    pind = np.flatnonzero(lam > threshlam)
     lam = lam[pind]
-    W = W[:,pind]
+    W = W[:, pind]
 
     D = np.diag(lam / (lam + 1))
-
 
     sigma_vector = np.zeros(space.dim())
     sigma_prior_vector = np.zeros(space.dim())
@@ -117,21 +115,20 @@ def run_invsigma(config_file):
         y.vector().set_local(ivec)
         y.vector().apply('insert')
 
-        tmp1 = np.dot(W.T,ivec)
-        tmp2 = np.dot(D,tmp1 )
-        P1 = np.dot(W,tmp2)
+        tmp1 = np.dot(W.T, ivec)
+        tmp2 = np.dot(D, tmp1)
+        P1 = np.dot(W, tmp2)
 
-        reg_op.inv_action(y.vector(),x.vector())
+        reg_op.inv_action(y.vector(), x.vector())
         P2 = x.vector().get_local()
 
         P = P2-P1
         dprod = np.dot(ivec, P)
         dprod_prior = np.dot(ivec, P2)
 
-
         if dprod < 0:
             log.warning(f'WARNING: Negative Sigma: {dprod}')
-            log.warning(f'Setting as Zero and Continuing.')
+            log.warning('Setting as Zero and Continuing.')
             neg_flag = 1
             continue
 
