@@ -73,18 +73,22 @@ def run_invsigma(config_file):
 
     reg_op = prior.laplacian(delta, gamma, space)
 
-    test, trial = TestFunction(space), TrialFunction(space)
-    mass = assemble(inner(test, trial)*dx)
-    mass_solver = KrylovSolver("cg", "sor")
-    mass_solver.parameters.update({"absolute_tolerance": 1.0e-32,
-                                   "relative_tolerance": 1.0e-14})
-    mass_solver.set_operator(mass)
+    # test, trial = TestFunction(space), TrialFunction(space)
+    # mass = assemble(inner(test, trial)*dx)
+    # mass_solver = KrylovSolver("cg", "sor")
+    # mass_solver.parameters.update({"absolute_tolerance": 1.0e-32,
+    #                                "relative_tolerance": 1.0e-14})
+    # mass_solver.set_operator(mass)
 
+    # Load the eigenvalues
     with open(os.path.join(eigendir, lamfile), 'rb') as ff:
         eigendata = pickle.load(ff)
         lam = eigendata[0].real.astype(np.float64)
         nlam = len(lam)
 
+    # Read in the eigenvectors and check they are normalised
+    # w.r.t. the prior (i.e. the B matrix in our GHEP)
+    eps = params.constants.float_eps
     W = np.zeros((x.vector().size(), nlam))
     with HDF5File(MPI.comm_world,
                   os.path.join(eigendir, vecfile), 'r') as hdf5data:
@@ -93,9 +97,11 @@ def run_invsigma(config_file):
             v = x.vector().get_local()
             reg_op.action(x.vector(), y.vector())
             tmp = y.vector().get_local()
-            sc = np.sqrt(np.dot(v, tmp))
-            W[:, i] = v/sc
+            norm_in_prior = np.sqrt(np.dot(v, tmp))
+            assert (abs(norm_in_prior - 1.0) < eps)
+            W[:, i] = v
 
+    # Which eigenvalues are larger than our threshold?
     pind = np.flatnonzero(lam > threshlam)
     lam = lam[pind]
     W = W[:, pind]
@@ -108,6 +114,11 @@ def run_invsigma(config_file):
 
     neg_flag = 0
 
+    # Isaac Eq. 20
+    # P2 = prior
+    # P1 = WDW
+    # Note - don't think we're considering the cross terms
+    # in the posterior covariance.
     for j in range(sigma_vector.size):
 
         ivec.fill(0)
@@ -115,8 +126,8 @@ def run_invsigma(config_file):
         y.vector().set_local(ivec)
         y.vector().apply('insert')
 
-        tmp1 = np.dot(W.T, ivec)
-        tmp2 = np.dot(D, tmp1)
+        tmp1 = np.dot(W.T, ivec)  # take the ith row from W
+        tmp2 = np.dot(D, tmp1)  # just a vector-vector product
         P1 = np.dot(W, tmp2)
 
         reg_op.inv_action(y.vector(), x.vector())
@@ -135,6 +146,11 @@ def run_invsigma(config_file):
         sigma_vector[j] = np.sqrt(dprod)
         sigma_prior_vector[j] = np.sqrt(dprod_prior)
 
+
+    # For testing - whole thing at once:
+    # wdw = (np.matrix(W) * np.matrix(D) * np.matrix(W).T)
+    # wdw[:,0] == P1 for j = 0
+
     if neg_flag:
         log.warning('Negative value(s) of sigma encountered.'
                     'Examine the range of eigenvalues and check if '
@@ -148,10 +164,16 @@ def run_invsigma(config_file):
     sigma_prior.vector().apply('insert')
 
     # Write sigma & sigma_prior to files
+    sigma_var_name = "_".join((cntrl.name(), "sigma"))
+    sigma_prior_var_name = "_".join((cntrl.name(), "sigma_prior"))
+
+    sigma.rename(sigma_var_name, "")
+    sigma_prior.rename(sigma_prior_var_name, "")
+
     inout.write_variable(sigma, params,
-                         name="_".join((cntrl.name(), "sigma")))
+                         name=sigma_var_name)
     inout.write_variable(sigma_prior, params,
-                         name="_".join((cntrl.name(), "sigma_prior")))
+                         name=sigma_prior_var_name)
 
 
 if __name__ == "__main__":
