@@ -353,7 +353,8 @@ class ssa_solver:
 
         if adjoint_flag:
             num_sens = self.params.time.num_sens
-            t_sens = np.array([run_length]) if num_sens == 1 else np.linspace(0.0, run_length, num_sens)
+            t_sens = np.flip(np.linspace(run_length, 0, num_sens))
+
             n_sens = np.round(t_sens/dt)
 
             reset_manager()
@@ -821,11 +822,13 @@ class ssa_solver:
 
         return Q_h2
 
+    # Unused?
     def set_dQ_vaf(self, cntrl):
         Q_vaf = self.timestep(adjoint_flag=1, qoi_func=self.comp_Q_vaf)
         dQ = compute_gradient(Q_vaf, cntrl)
         self.dQ_ts = dQ
 
+    # Unused?
     def set_dQ_h2(self, cntrl):
         Q_h2 = self.timestep(adjoint_flag=1, qoi_func=self.comp_Q_h2)
         dQ = compute_gradient(Q_h2, cntrl)

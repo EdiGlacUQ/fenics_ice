@@ -88,12 +88,13 @@ def run_eigendec(config_file):
 
     # Mass matrix solver
     xg, xb = Function(space), Function(space)
-    test, trial = TestFunction(space), TrialFunction(space)
-    mass = assemble(inner(test, trial) * slvr.dx)
-    mass_solver = KrylovSolver("cg", "sor")
-    mass_solver.parameters.update({"absolute_tolerance": 1.0e-32,
-                                   "relative_tolerance": 1.0e-14})
-    mass_solver.set_operator(mass)
+
+    # test, trial = TestFunction(space), TrialFunction(space)
+    # mass = assemble(inner(test, trial) * slvr.dx)
+    # mass_solver = KrylovSolver("cg", "sor")
+    # mass_solver.parameters.update({"absolute_tolerance": 1.0e-32,
+    #                                "relative_tolerance": 1.0e-14})
+    # mass_solver.set_operator(mass)
 
     # Regularization operator using inversion delta/gamma values
     # TODO - this won't handle dual inversion case
@@ -260,4 +261,4 @@ if __name__ == "__main__":
     run_eigendec(sys.argv[1])
 
     mem_high_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    print("Memory high water mark: %s" % mem_high_kb)  # TODO - log, and put in a module
+    print("Memory high water mark: %s kb" % mem_high_kb)  # TODO - log, and put in a module

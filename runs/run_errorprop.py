@@ -86,21 +86,21 @@ def run_errorprop(config_file):
 
     # TODO: not convinced this does anything at present
     # Was used to test that eigenvectors are prior inverse orthogonal
-    test, trial = TestFunction(space), TrialFunction(space)
-    mass = assemble(inner(test,trial)*dx)
-    mass_solver = KrylovSolver("cg", "sor")
-    mass_solver.parameters.update({"absolute_tolerance":1.0e-32,
-                               "relative_tolerance":1.0e-14})
-    mass_solver.set_operator(mass)
+    # test, trial = TestFunction(space), TrialFunction(space)
+    # mass = assemble(inner(test,trial)*dx)
+    # mass_solver = KrylovSolver("cg", "sor")
+    # mass_solver.parameters.update({"absolute_tolerance":1.0e-32,
+    #                            "relative_tolerance":1.0e-14})
+    # mass_solver.set_operator(mass)
 
 
-    # Loads eigenvalues from slepceig_all.p
+    # Loads eigenvalues from file
     with open(os.path.join(outdir, lamfile), 'rb') as ff:
         eigendata = pickle.load(ff)
         lam = eigendata[0].real.astype(np.float64)
         nlam = len(lam)
 
-    # and eigenvectors from .h5 files
+    # and eigenvectors from .h5 file
     W = np.zeros((x.vector().size(),nlam))
     with HDF5File(MPI.comm_world, os.path.join(outdir, vecfile), 'r') as hdf5data:
         for i in range(nlam):
@@ -123,16 +123,16 @@ def run_errorprop(config_file):
 
     D = np.diag(lam / (lam + 1)) #D_r Isaac 20
 
+    # File containing dQoi_dCntrl (i.e. Jacobian of parameter to observable (Qoi))
     hdf5data = HDF5File(MPI.comm_world, os.path.join(outdir, dqoi_h5file), 'r')
 
     dQ_cntrl = Function(space)
 
     run_length = params.time.run_length
     num_sens = params.time.num_sens
-    t_sens = run_length if num_sens == 1 else np.linspace(0, run_length,num_sens)
+    t_sens = np.flip(np.linspace(run_length, 0, num_sens))
     sigma = np.zeros(num_sens)
     sigma_prior = np.zeros(num_sens)
-
 
     for j in range(num_sens):
         hdf5data.read(dQ_cntrl, f'dQ/vector_{j}')
