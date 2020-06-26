@@ -206,7 +206,8 @@ class MomsolveCfg(ConfigPrinter):
 
     picard_params: dict = field(default_factory=lambda: {
         'nonlinear_solver': 'newton',
-        'newton_solver': {'linear_solver': 'umfpack',
+        'newton_solver': {'linear_solver': 'cg',
+                          'preconditioner': 'hypre_amg',
                           'maximum_iterations': 200,
                           'absolute_tolerance': 1.0,
                           'relative_tolerance': 0.001,
@@ -215,7 +216,8 @@ class MomsolveCfg(ConfigPrinter):
 
     newton_params: dict = field(default_factory=lambda: {
         'nonlinear_solver': 'newton',
-        'newton_solver': {'linear_solver': 'umfpack',
+        'newton_solver': {'linear_solver': 'cg',
+                          'preconditioner': 'hypre_amg',
                           'maximum_iterations': 25,
                           'absolute_tolerance': 1e-07,
                           'relative_tolerance': 1e-08,
