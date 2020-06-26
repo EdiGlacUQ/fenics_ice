@@ -52,63 +52,6 @@ class model:
         self.def_B_field()
         self.def_lat_dirichletbc()
 
-    def init_param(self, param_in):
-        """
-        Sets parameter values to defaults, then overwrites with param_in
-        """
-        #TODO - UNUSED - DELETE ONCE DEFAULTS EXTRACTED
-        #Constants for ice sheet modelling
-        param = {}
-        param['ty'] = 365*24*60*60.0  #seconds in year
-        param['rhoi'] =  917.0      #density ice
-        param['rhow'] =   1000.0     #density water
-        param['g'] =  9.81           #acceleration due to gravity
-        param['n'] =  3.0            #glen's flow law exponent
-        param['eps_rp'] =  1e-5      #effective strain regularization
-        param['vel_rp'] =  1e-2      #velocity regularization parameter
-        param['A'] =  3.5e-25 * param['ty']     #Creep paramater
-        param['tol'] =  1e-6         #Tolerance for tests
-        param['rc_inv'] =  [0.0]       #regularization constants for inversion
-
-        #Sliding law
-        param['sliding_law'] =  0.0  #Alternatively 'weertman'
-
-        #Output
-        param['outdir'] = './output/'
-
-        #Timestepping
-        param['run_length'] = 1.0
-        param['n_steps'] = 24
-        param['num_sens'] = 0.0
-
-        #Solver options
-        param['picard_params'] = {"nonlinear_solver":"newton",
-                    "newton_solver":{"linear_solver":"umfpack",
-                    "maximum_iterations":25,
-                    "absolute_tolerance":1.0e-8,
-                    "relative_tolerance":5.0e-2,
-                    "convergence_criterion":"incremental",}}
-
-        param['newton_params'] = {"nonlinear_solver":"newton",
-                    "newton_solver":{"linear_solver":"umfpack",
-                    "maximum_iterations":25,
-                    "absolute_tolerance":1.0e-5,
-                    "relative_tolerance":1.0e-5,
-                    "convergence_criterion":"incremental",
-                    "error_on_nonconvergence":True,}}
-
-        #Boundary Conditions
-        param['periodic_bc'] = False
-
-        #Inversion options
-        param['inv_options'] = {'disp': True, 'maxiter': 5}
-
-        #Update default values based on input
-        param.update(param_in)
-        param['dt'] = param['run_length']/param['n_steps']
-
-        self.param = param
-
     @staticmethod
     def bglen_to_beta(x):
         return sqrt(x)
