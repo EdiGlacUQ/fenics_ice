@@ -22,6 +22,8 @@ from IPython import embed
 
 def run_errorprop(config_file):
 
+    assert MPI.size(MPI.comm_world) == 1, "Run this stage in serial!"
+
     # Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
@@ -101,7 +103,9 @@ def run_errorprop(config_file):
         nlam = len(lam)
 
     # and eigenvectors from .h5 file
+    eps = params.constants.float_eps
     W = np.zeros((x.vector().size(),nlam))
+
     with HDF5File(MPI.comm_world, os.path.join(outdir, vecfile), 'r') as hdf5data:
         for i in range(nlam):
             hdf5data.read(x, f'v/vector_{i}')
@@ -109,10 +113,9 @@ def run_errorprop(config_file):
             reg_op.action(x.vector(), y.vector())
 
             tmp = y.vector().get_local()
-            sc = np.sqrt(np.dot(v,tmp))
-            # eigenvectors are scaled by something to do with the prior action...
-            # sc <- isaac between Eqs. 17, 18 <- normalised
-            W[:,i] = v/sc
+            norm_in_prior = np.sqrt(np.dot(v,tmp))
+            assert (abs(norm_in_prior - 1.0) < eps)
+            W[:,i] = v
 
 
 
