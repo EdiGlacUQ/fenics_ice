@@ -22,7 +22,7 @@ random_seed = 0
 [mesh]
 
 mesh_filename = "momsolve_mesh.xml"
-periodic_bc = true
+periodic_bc = false
 
 [obs]
 

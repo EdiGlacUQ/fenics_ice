@@ -164,6 +164,9 @@ class model:
         inout.read_vel_obs(self.params, self)
 
         # Functions for repeated ungridded interpolation
+        # TODO - this will not handle extrapolation/missing data
+        # nicely - unfound simplex are returned '-1' which takes the last
+        # tri.simplices...
         def interp_weights(xy, uv, d=2):
             """Compute the nearest vertices & weights (for reuse)"""
             tri = qhull.Delaunay(xy)
