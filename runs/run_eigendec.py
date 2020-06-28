@@ -36,13 +36,7 @@ def run_eigendec(config_file):
     # Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
-    inout.log_git_info()
-
-    log.info("=======================================")
-    log.info("=== RUNNING EIGENDECOMPOSITION PHASE ==")
-    log.info("=======================================")
-
-    inout.print_config(params)
+    inout.log_preamble("eigendecomp", params)
 
     dd = params.io.input_dir
     outdir = params.io.output_dir
@@ -253,6 +247,7 @@ def run_eigendec(config_file):
     if msft_flag:
         slvr.set_inv_params()
 
+    return mdl
 
 if __name__ == "__main__":
     stop_annotating()

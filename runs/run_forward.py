@@ -25,13 +25,7 @@ def run_forward(config_file):
     #Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
-    inout.log_git_info()
-
-    log.info("\n\n==================================")
-    log.info("==  RUNNING FORWARD MODEL PHASE ==")
-    log.info("==================================\n\n")
-
-    inout.print_config(params)
+    inout.log_preamble("forward", params)
 
     dd = params.io.input_dir
     outdir = params.io.output_dir
@@ -105,6 +99,8 @@ def run_forward(config_file):
 
     H = project(mdl.H, mdl.Q)
     inout.write_variable(H, params, name="H_fwd")
+
+    return mdl
 
 if __name__ == "__main__":
     stop_annotating()

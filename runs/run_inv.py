@@ -28,13 +28,8 @@ def run_inv(config_file):
     params = ConfigParser(config_file)
 
     log = inout.setup_logging(params)
-    inout.log_git_info()
+    inout.log_preamble("inverse", params)
 
-    log.info("\n\n==================================")
-    log.info("==  RUNNING INVERSE MODEL PHASE ==")
-    log.info("==================================\n\n")
-
-    inout.print_config(params)
     dd = params.io.input_dir
 
     # Load the static model data (geometry, smb, etc)
@@ -120,6 +115,8 @@ def run_inv(config_file):
     inout.write_variable(slvr.bmelt, params, name="bmelt")
     inout.write_variable(slvr.smb, params, name="smb")
     inout.write_variable(mdl.surf, params, name="surf")
+
+    return mdl
 
 if __name__ == "__main__":
     stop_annotating()

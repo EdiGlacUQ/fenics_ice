@@ -309,3 +309,17 @@ def log_git_info():
     log.info("==   git branch  : %s" % branch)
     log.info("==   commit hash : %s" % sha)
     log.info("==========================================")
+
+def log_preamble(phase, params):
+    """Print out git info, model phase and config"""
+
+    log_git_info()
+
+    log = logging.getLogger("fenics_ice")
+    phase_str = f"==  RUNNING {phase.upper()} MODEL PHASE =="
+    log.info("\n\n==================================")
+    log.info(phase_str)
+    log.info("==================================\n\n")
+
+    print_config(params)
+

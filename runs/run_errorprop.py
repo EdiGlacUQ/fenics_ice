@@ -27,13 +27,7 @@ def run_errorprop(config_file):
     # Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
-    inout.log_git_info()
-
-    log.info("=======================================")
-    log.info("=== RUNNING ERROR PROPAGATION PHASE ===")
-    log.info("=======================================")
-
-    inout.print_config(params)
+    inout.log_preamble("errorprop", params)
 
     dd = params.io.input_dir
     outdir = params.io.output_dir
@@ -172,6 +166,7 @@ def run_errorprop(config_file):
     pickle.dump( [sigma, t_sens], open( os.path.join(outdir,sigma_file), "wb" ) )
     pickle.dump( [sigma_prior, t_sens], open( os.path.join(outdir,sigma_prior_file), "wb" ) )
 
+    return mdl
 
 if __name__ == "__main__":
     stop_annotating()

@@ -32,8 +32,7 @@ def main(config_file):
     params = ConfigParser(config_file)
 
     log = inout.setup_logging(params)
-
-    inout.print_config(params)
+    inout.log_preamble("balance meltrates", params)
 
     dd = params.io.input_dir
     outdir = params.io.output_dir
@@ -154,7 +153,7 @@ def main(config_file):
     vtkfile << bmelt
     xmlfile << bmelt
 
-
+    return mdl
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

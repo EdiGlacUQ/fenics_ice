@@ -23,6 +23,7 @@ class ssa_solver:
 
 
         self.model = model
+        self.model.solvers.append(self)
         self.params = model.params
 
         #Fields

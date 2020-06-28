@@ -26,13 +26,7 @@ def run_invsigma(config_file):
     # Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
-    inout.log_git_info()
-
-    log.info("=======================================")
-    log.info("========== RUNNING INV SIGMA ==========")
-    log.info("=======================================")
-
-    inout.print_config(params)
+    inout.log_preamble("inv sigma", params)
 
     dd = params.io.input_dir
     outdir = params.io.output_dir
@@ -175,6 +169,7 @@ def run_invsigma(config_file):
     inout.write_variable(sigma_prior, params,
                          name=sigma_prior_var_name)
 
+    return mdl
 
 if __name__ == "__main__":
     stop_annotating()
