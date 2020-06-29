@@ -47,17 +47,6 @@ def run_errorprop(config_file):
     # Define the model
     mdl = model.model(mesh, input_data, params)
 
-    # Initialize fields from data_file
-    mdl.bed_from_data()
-    mdl.thick_from_data()
-    mdl.gen_surf()
-    mdl.mask_from_data()
-    mdl.init_vel_obs()
-    mdl.init_lat_dirichletbc()
-    mdl.bmelt_from_data()
-    mdl.smb_from_data()
-    mdl.label_domain()
-
     # Load alpha/beta fields
     mdl.alpha_from_inversion()
     mdl.beta_from_inversion()

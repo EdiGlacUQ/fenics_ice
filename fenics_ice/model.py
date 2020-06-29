@@ -13,7 +13,8 @@ log = logging.getLogger("fenics_ice")
 
 class model:
 
-    def __init__(self, mesh_in, input_data, param_in):
+    def __init__(self, mesh_in, input_data, param_in, init_fields=True,
+                 init_vel_obs=True):
 
         #Initiate parameters
         self.params = param_in
@@ -52,6 +53,14 @@ class model:
         self.def_B_field()
         self.def_lat_dirichletbc()
 
+        if init_fields:
+            self.init_fields_from_data()
+            self.label_domain()  # Set up BC and Body IDs
+
+        if init_vel_obs:
+            self.vel_obs_from_data()  # Load the velocity observations
+            self.init_lat_dirichletbc()  # TODO - generalize BCs
+
     @staticmethod
     def bglen_to_beta(x):
         return sqrt(x)
@@ -59,6 +68,19 @@ class model:
     @staticmethod
     def beta_to_bglen(x):
         return x*x
+
+    def init_fields_from_data(self):
+        """Create functions for input data (geom, smb, etc)"""
+        self.bed = self.field_from_data("bed", self.Q)
+        self.mask = self.field_from_data("data_mask", self.M)
+        self.bmelt = self.field_from_data("bmelt", self.M, 0.0)
+        self.smb = self.field_from_data("smb", self.M, 0.0)
+        self.H_np = self.field_from_data("thick", self.M)
+
+        self.H_s = self.H_np.copy(deepcopy=True)
+        self.H = 0.5*(self.H_np + self.H_s)
+
+        self.gen_surf()  # surf = bed + thick
 
     def def_vel_mask(self):
         self.mask_vel_M = project(Constant(0.0), self.M)
@@ -75,27 +97,17 @@ class model:
         """Homogenous dirichlet conditions on lateral boundaries"""
         self.latbc = Constant([0.0,0.0])
 
-    def mask_from_data(self):
-        """Get data mask field from initial input"""
-        self.mask = self.input_data.interpolate("data_mask", self.M)
-
-    def surf_from_data(self):
-        """Get surf elevation field from initial input"""
-        self.surf = self.input_data.interpolate("surf", self.Q)
-
-    def bed_from_data(self):
-        """Get bed elevation field from initial input"""
-        self.bed = self.input_data.interpolate("bed", self.Q)
-
-    def thick_from_data(self):
-        """Get thickness field from initial input & setup H_s, H_np"""
-        self.H_np = self.input_data.interpolate("thick", self.M)
-        self.H_s = self.H_np.copy(deepcopy=True)
-        self.H = 0.5*(self.H_np + self.H_s)
+    def field_from_data(self, name, space, default=None):
+        """Interpolate a named field from input data"""
+        return self.input_data.interpolate(name, space, default)
 
     def alpha_from_data(self):
         """Get alpha field from initial input data (run_momsolve only)"""
         self.alpha = self.input_data.interpolate("alpha", self.Qp)
+
+    def bglen_from_data(self):
+        """Get bglen field from initial input data"""
+        self.bglen = self.input_data.interpolate("Bglen", self.Q)
 
     def alpha_from_inversion(self):
         """Get alpha field from inversion step"""
@@ -120,18 +132,6 @@ class model:
             infile.read(self.beta, 'beta')
             self.beta_bgd = self.beta.copy(deepcopy=True)
 
-    def bmelt_from_data(self):
-        """Get basal melt field from initial input (default 0.0)"""
-        self.bmelt = self.input_data.interpolate("bmelt", self.M, 0)
-
-    def smb_from_data(self):
-        """Get smb field from initial input (default 0.0)"""
-        self.smb = self.input_data.interpolate("smb", self.M, 0)
-
-    def bglen_from_data(self):
-        """Get bglen field from initial input data"""
-        self.bglen = self.input_data.interpolate("Bglen", self.Q)
-
     def init_beta(self, beta, pert=False):
         """
         Define the beta field from input
@@ -150,7 +150,7 @@ class model:
 
         self.beta.rename('beta', 'a Function')
 
-    def init_vel_obs(self):
+    def vel_obs_from_data(self):
         """
         Read velocity observations & uncertainty from HDF5 file
 

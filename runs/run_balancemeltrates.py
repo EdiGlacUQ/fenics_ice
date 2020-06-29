@@ -95,7 +95,7 @@ def main(config_file):
     v_std = Function(M,os.path.join(outdir,'v_std.xml'))
     uv_obs = Function(M,os.path.join(outdir,'uv_obs.xml'))
 
-    mdl = model.model(mesh, data_mask, params)
+    mdl = model.model(mesh, data_mask, params, init_fields=False)  # TODO initialization
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()

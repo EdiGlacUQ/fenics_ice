@@ -44,7 +44,7 @@ def run_invsigma(config_file):
     mesh = fice_mesh.get_mesh(params)
 
     # Define the model (only need alpha & beta though)
-    mdl = model.model(mesh, input_data, params)
+    mdl = model.model(mesh, input_data, params, init_fields=False)
 
     # Load alpha/beta fields
     mdl.alpha_from_inversion()

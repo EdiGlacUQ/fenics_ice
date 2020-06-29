@@ -29,17 +29,10 @@ def run_momsolve(config_file):
 
     # Get model mesh
     mesh = fice_mesh.get_mesh(params)
-
-    mdl = model.model(mesh, input_data, params)
-
-    mdl.bed_from_data()
-    mdl.thick_from_data()
-    mdl.gen_surf()
-    mdl.mask_from_data()
-    mdl.bmelt_from_data()
-    mdl.smb_from_data()
+    # Initialize model
+    mdl = model.model(mesh, input_data, params, init_vel_obs=False)
+    # Get alpha from file
     mdl.alpha_from_data()
-    mdl.label_domain()
 
     try:
         Bglen = mdl.input_data.interpolate("Bglen", mdl.M)

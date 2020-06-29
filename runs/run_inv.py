@@ -43,16 +43,6 @@ def run_inv(config_file):
     # TODO use this or get rid of it
     pts_lengthscale = params.obs.pts_len
 
-    mdl.bed_from_data()
-    mdl.thick_from_data()
-    mdl.gen_surf()
-    mdl.mask_from_data()
-    mdl.init_vel_obs()
-    mdl.bmelt_from_data()
-    mdl.smb_from_data()
-    mdl.init_lat_dirichletbc()
-    mdl.label_domain()
-
     mdl.gen_alpha()
 
     # Add random noise to Beta field iff we're inverting for it
