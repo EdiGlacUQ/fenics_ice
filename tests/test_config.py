@@ -11,15 +11,16 @@ from pathlib import Path
 #     CONFIG      #
 ###################
 
-# TODO - run this for every example case
 @pytest.mark.short
-def test_parse_config(ismipc_temp_model):
+def test_parse_config(temp_model):
     """Test the parsing of configuration files"""
 
-    case_dir, toml_file = ismipc_temp_model
-    assert (case_dir/toml_file).exists()
+    work_dir = temp_model["work_dir"]
+    toml_file = temp_model["toml_filename"]
 
-    params = config.ConfigParser(case_dir/toml_file, case_dir)
+    assert (work_dir/toml_file).exists()
+
+    params = config.ConfigParser(work_dir/toml_file, work_dir)
 
     assert params
     return params
@@ -35,32 +36,34 @@ def test_git_info():
     inout.log_git_info()
 
 @pytest.mark.short
-def test_print_config(ismipc_temp_model):
+def test_print_config(temp_model):
     """Testing printing out config"""
-    params = test_parse_config(ismipc_temp_model)
+    params = test_parse_config(temp_model)
     inout.print_config(params)
 
 @pytest.mark.short
-def test_setup_logger(ismipc_temp_model):
+def test_setup_logger(temp_model):
     """Test setting up the logger"""
-    params = test_parse_config(ismipc_temp_model)
+    params = test_parse_config(temp_model)
     inout.setup_logging(params)
 
 @pytest.mark.short
-def test_input_data_read_and_interp(ismipc_temp_model, monkeypatch):
+def test_input_data_read_and_interp(temp_model, monkeypatch):
     """Test the reading & interpolation of input data into InputData object"""
-    case_dir, toml_file = ismipc_temp_model
+
+    work_dir = temp_model["work_dir"]
+    toml_file = temp_model["toml_filename"]
 
     # Switch to the working directory
-    monkeypatch.chdir(case_dir)
+    monkeypatch.chdir(work_dir)
 
-    params = test_parse_config(ismipc_temp_model)
+    params = test_parse_config(temp_model)
     dd = params.io.input_dir
     data_file = params.io.data_file
 
     # Load the mesh & input data
     inmesh = fice.mesh.get_mesh(params)
-    indata = inout.InputData(case_dir / dd / data_file)
+    indata = inout.InputData(work_dir / dd / data_file)
 
     # Create a function space for interpolation
     test_space = fe.FunctionSpace(inmesh, 'Lagrange', 1)
@@ -76,8 +79,7 @@ def test_input_data_read_and_interp(ismipc_temp_model, monkeypatch):
     test_y = np.hsplit(test_space.tabulate_dof_coordinates(), 2)[1][:, 0]
     test_bed = 1e4 - test_y*np.tan(0.1*np.pi/180.0) - 1e3
 
-    assert np.all(test_bed == bed_interp)
-
+    assert np.linalg.norm(test_bed - bed_interp) < 1e-10
     outfun = indata.interpolate("data_mask", test_space)
     assert outfun is not None
 
