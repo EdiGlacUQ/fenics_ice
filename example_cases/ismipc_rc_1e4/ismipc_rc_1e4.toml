@@ -128,3 +128,17 @@ qoi = 'h2' #or 'vaf'
 [[boundaries]]
     name = "Bottom Edge"
     id = 4
+
+[testing]
+
+expected_init_alpha = 354.4076349907514
+expected_J_inv = 22577.155448320886
+expected_cntrl_norm = 634.7899759276587
+expected_delta_qoi = 15686709246.25
+expected_u_norm = 679117.7794315288
+expected_evals_sum = 9121852883.397577
+expected_evec0_norm = 19955272.75978691
+expected_cntrl_sigma_norm = 1202057.5699076725
+expected_cntrl_sigma_prior_norm = 25214460.77914992
+expected_Q_sigma = 12501380769.652431
+expected_Q_sigma_prior = 3966484733612.5054

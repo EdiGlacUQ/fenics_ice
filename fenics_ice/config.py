@@ -60,6 +60,12 @@ class ConfigParser(object):
         self.obs = ObsCfg(**self.config_dict['obs'])
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
+
+        try:  # Optional
+            self.testing = TestCfg(**self.config_dict['testing'])
+        except KeyError:
+            pass
+
         #TODO - boundaries
 
     def check_dirs(self):
@@ -315,6 +321,24 @@ class TimeCfg(ConfigPrinter):
         else: #dt provided
             object.__setattr__(self, 'total_steps', math.ceil(self.run_length/self.dt))
             object.__setattr__(self, 'steps_per_year', 1.0/self.dt)
+
+@dataclass(frozen=True)
+class TestCfg(ConfigPrinter):
+    """
+    Expected values for testing
+    """
+
+    expected_J_inv: float = None
+    expected_init_alpha: float = None
+    expected_cntrl_norm: float = None
+    expected_delta_qoi: float = None
+    expected_u_norm: float = None
+    expected_evals_sum: float = None
+    expected_evec0_norm: float = None
+    expected_cntrl_sigma_norm: float = None
+    expected_cntrl_sigma_prior_norm: float = None
+    expected_Q_sigma: float = None
+    expected_Q_sigma_prior: float = None
 
 
 def cleanNullTerms(d):
