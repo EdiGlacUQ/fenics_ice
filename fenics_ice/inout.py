@@ -263,6 +263,11 @@ def setup_logging(params):
     logger = logging.getLogger("fenics_ice")
     logger.setLevel(numeric_level)
 
+    # Clear out any existing handlers
+    # Prevents multiple SO handlers when running multiple phases
+    # in same python session/program.
+    logger.handlers = []
+
     so = logging.StreamHandler(sys.stdout)
     so.setFormatter(fmt)
     so.setLevel(numeric_level)
