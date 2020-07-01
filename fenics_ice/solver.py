@@ -117,6 +117,8 @@ class ssa_solver:
 
         self.dt = Constant(self.params.time.dt)
 
+        self.eigenvals = None
+        self.eigenfuncs = None
 
     def set_inv_params(self):
 

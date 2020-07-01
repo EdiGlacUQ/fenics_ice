@@ -169,6 +169,8 @@ def run_invsigma(config_file):
     inout.write_variable(sigma_prior, params,
                          name=sigma_prior_var_name)
 
+    mdl.cntrl_sigma = sigma
+    mdl.cntrl_sigma_prior = sigma_prior
     return mdl
 
 if __name__ == "__main__":

@@ -215,6 +215,9 @@ def run_eigendec(config_file):
     else:
         raise NotImplementedError
 
+    slvr.eigenvals = lam
+    slvr.eigenfuncs = vr
+
     # Save eigenvals and some associated info - TODO HDF5File?
     fileout = params.io.eigenvalue_file
     pfile = open(os.path.join(outdir, fileout), "wb")

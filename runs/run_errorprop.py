@@ -155,6 +155,10 @@ def run_errorprop(config_file):
     pickle.dump( [sigma, t_sens], open( os.path.join(outdir,sigma_file), "wb" ) )
     pickle.dump( [sigma_prior, t_sens], open( os.path.join(outdir,sigma_prior_file), "wb" ) )
 
+    # This simplifies testing - is it OK? Should we hold all data in the solver object?
+    mdl.Q_sigma = sigma
+    mdl.Q_sigma_prior = sigma_prior
+    mdl.t_sens = t_sens
     return mdl
 
 if __name__ == "__main__":

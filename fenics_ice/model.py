@@ -61,6 +61,12 @@ class model:
             self.vel_obs_from_data()  # Load the velocity observations
             self.init_lat_dirichletbc()  # TODO - generalize BCs
 
+        self.Q_sigma = None
+        self.Q_sigma_prior = None
+        self.t_sens = None
+        self.cntrl_sigma = None
+        self.cntrl_sigma_prior = None
+
     @staticmethod
     def bglen_to_beta(x):
         return sqrt(x)
