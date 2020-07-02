@@ -103,7 +103,7 @@ def test_run_forward(existing_temp_model, monkeypatch, benchmark, setup_deps, re
 
 
 @pytest.mark.dependency()
-#@pytest.mark.runs
+@pytest.mark.runs
 @pytest.mark.benchmark()
 def test_run_eigendec(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
 
@@ -144,7 +144,7 @@ def test_run_eigendec(existing_temp_model, monkeypatch, benchmark, setup_deps, r
     check_float_result(evec0_norm, expected_evec0_norm)
 
 @pytest.mark.dependency()
-#@pytest.mark.runs
+@pytest.mark.runs
 @pytest.mark.benchmark()
 def test_run_errorprop(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
 
@@ -180,7 +180,7 @@ def test_run_errorprop(existing_temp_model, monkeypatch, benchmark, setup_deps, 
     check_float_result(Q_sigma_prior, expected_Q_sigma_prior)
 
 @pytest.mark.dependency()
-#@pytest.mark.runs
+@pytest.mark.runs
 @pytest.mark.benchmark()
 def test_run_invsigma(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
 
