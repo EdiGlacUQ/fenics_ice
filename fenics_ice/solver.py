@@ -891,9 +891,9 @@ class MomentumSolver(EquationSolver):
         self.J_p = kwargs.pop("J_p", None)
         super(MomentumSolver, self).__init__(*args, **kwargs)
 
-    def replace(self, replace_map):
-        super(MomentumSolver, self).replace(replace_map)
-        self.J_p = ufl.replace(self.J_p, replace_map)
+    def drop_references(self):
+        super().drop_references()
+        self.J_p = replaced_form(self.J_p)
 
     def forward_solve(self, x, deps=None):
         if deps is None:
