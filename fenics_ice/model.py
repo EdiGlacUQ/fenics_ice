@@ -77,10 +77,10 @@ class model:
 
     def init_fields_from_data(self):
         """Create functions for input data (geom, smb, etc)"""
-        self.bed = self.field_from_data("bed", self.Q)
-        self.mask = self.field_from_data("data_mask", self.M)
-        self.bmelt = self.field_from_data("bmelt", self.M, 0.0)
-        self.smb = self.field_from_data("smb", self.M, 0.0)
+        self.bed = self.field_from_data("bed", self.Q, static=True)
+        self.mask = self.field_from_data("data_mask", self.M, static=True)
+        self.bmelt = self.field_from_data("bmelt", self.M, 0.0, static=True)
+        self.smb = self.field_from_data("smb", self.M, 0.0, static=True)
         self.H_np = self.field_from_data("thick", self.M)
 
         self.H_s = self.H_np.copy(deepcopy=True)
@@ -103,9 +103,9 @@ class model:
         """Homogenous dirichlet conditions on lateral boundaries"""
         self.latbc = Constant([0.0,0.0])
 
-    def field_from_data(self, name, space, default=None):
+    def field_from_data(self, name, space, default=None, static=False):
         """Interpolate a named field from input data"""
-        return self.input_data.interpolate(name, space, default)
+        return self.input_data.interpolate(name, space, default, static)
 
     def alpha_from_data(self):
         """Get alpha field from initial input data (run_momsolve only)"""
@@ -196,17 +196,17 @@ class model:
         vtx_M, wts_M = interp_weights(self.uv_obs_pts, M_coords)
 
         # Define new functions to hold results
-        self.u_obs_Q = Function(self.Q)
-        self.v_obs_Q = Function(self.Q)
-        self.u_std_Q = Function(self.Q)
-        self.v_std_Q = Function(self.Q)
+        self.u_obs_Q = Function(self.Q, static=True, checkpoint=False)
+        self.v_obs_Q = Function(self.Q, static=True, checkpoint=False)
+        self.u_std_Q = Function(self.Q, static=True, checkpoint=False)
+        self.v_std_Q = Function(self.Q, static=True, checkpoint=False)
         # self.mask_vel_Q = Function(self.Q)
 
-        self.u_obs_M = Function(self.M)
-        self.v_obs_M = Function(self.M)
+        self.u_obs_M = Function(self.M, static=True, checkpoint=False)
+        self.v_obs_M = Function(self.M, static=True, checkpoint=False)
         # self.u_std_M = Function(self.M)
         # self.v_std_M = Function(self.M)
-        self.mask_vel_M = Function(self.M)
+        self.mask_vel_M = Function(self.M, static=True, checkpoint=False)
 
         # Fill via interpolation
         self.u_obs_Q.vector()[:] = interpolate(self.u_obs, vtx_Q, wts_Q)
@@ -284,6 +284,8 @@ class model:
         fl_ex = conditional(H <= H_s, 1.0, 0.0)
 
         self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
+        self.surf._Function_static__ = True
+        self.surf._Function_checkpoint__ = False
 
     def gen_ice_mask(self):
         """

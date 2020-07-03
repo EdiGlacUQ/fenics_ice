@@ -209,11 +209,14 @@ class ssa_solver:
                 #Boundary condition
                 + inner(Phi * sigma_n, self.nm) * self.ds )
 
+        self.mom_Jac_p = ufl.algorithms.expand_derivatives(
+            ufl.replace(derivative(self.mom_F, self.U), {U_marker: self.U}))
 
-        # Note - could wrap these 3 statements in ufl.algorithms.expand_derivatives()
-        self.mom_Jac_p = ufl.replace(derivative(self.mom_F, self.U), {U_marker:self.U})
-        self.mom_F = ufl.replace(self.mom_F, {U_marker:self.U})
-        self.mom_Jac = derivative(self.mom_F, self.U)
+        self.mom_F = ufl.algorithms.expand_derivatives(
+            ufl.replace(self.mom_F, {U_marker: self.U}))
+
+        self.mom_Jac = ufl.algorithms.expand_derivatives(
+            derivative(self.mom_F, self.U))
 
     def sliding_law(self,alpha,U):
 

@@ -182,7 +182,6 @@ class InputData(object):
         "thick_data_file" is specified, returns this, otherwise
         assume that the data are in the generic "data_file"
         """
-    def interpolate(self, name, space, default=None):
         field_file_str = field_name.lower() + "_data_file"
         field_name_str = field_name.lower() + "_field_name"
 
@@ -200,6 +199,7 @@ class InputData(object):
             assert field_file.exists(), f"No input file found for field {field_name}"
             return field_file, field_name
 
+    def interpolate(self, name, space, default=None, static=False):
         """
         Interpolate named variable onto function space
 
@@ -207,12 +207,13 @@ class InputData(object):
         name : the variable to be interpolated (need not necessarily exist!)
         space : function space onto which to interpolate
         default : value to return if field is absent (otherwise raise error)
+        static : if True, set _Function_static__ = True to save always-zero differentials
 
         Returns:
         function : the interpolated function
         """
 
-        function = Function(space, name=name)
+        function = Function(space, name=name, static=static, checkpoint=not static)
 
         try:
             field = self.fields[name]
