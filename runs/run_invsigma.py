@@ -28,12 +28,10 @@ def run_invsigma(config_file):
     log = inout.setup_logging(params)
     inout.log_preamble("inv sigma", params)
 
-    dd = params.io.input_dir
     outdir = params.io.output_dir
 
     # Load the static model data (geometry, smb, etc)
-    data_file = params.io.data_file
-    input_data = inout.InputData(Path(dd) / data_file)
+    input_data = inout.InputData(params)
 
     eigendir = outdir
     lamfile = params.io.eigenvalue_file

@@ -23,9 +23,7 @@ def run_momsolve(config_file):
 
     log = inout.setup_logging(params)
 
-    dd = params.io.input_dir
-    data_file = params.io.data_file
-    input_data = inout.InputData(Path(dd) / data_file)
+    input_data = inout.InputData(params)
 
     # Get model mesh
     mesh = fice_mesh.get_mesh(params)

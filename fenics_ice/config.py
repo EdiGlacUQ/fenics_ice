@@ -238,7 +238,22 @@ class IOCfg(ConfigPrinter):
     run_name: str
     input_dir: str
     output_dir: str
-    data_file: str
+
+    data_file: str = None
+
+    thick_data_file: str = None
+    bed_data_file: str = None
+    data_mask_data_file: str = None
+    bmelt_data_file: str = None
+    smb_data_file: str = None
+    bglen_data_file: str = None
+
+    thick_field_name: str = "thick"
+    bed_field_name: str = "bed"
+    data_mask_field_name: str = "data_mask"
+    bmelt_field_name: str = "bmelt"
+    smb_field_name: str = "smb"
+    bglen_field_name: str = "Bglen"
 
     inversion_file: str = None
     qoi_file: str = None  # "Qval_ts.p"

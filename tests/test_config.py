@@ -63,7 +63,7 @@ def test_input_data_read_and_interp(temp_model, monkeypatch):
 
     # Load the mesh & input data
     inmesh = fice.mesh.get_mesh(params)
-    indata = inout.InputData(work_dir / dd / data_file)
+    indata = inout.InputData(params)
 
     # Create a function space for interpolation
     test_space = fe.FunctionSpace(inmesh, 'Lagrange', 1)
@@ -84,7 +84,7 @@ def test_input_data_read_and_interp(temp_model, monkeypatch):
     assert outfun is not None
 
     # Check unfound data raises error...
-    with pytest.raises(AttributeError):
+    with pytest.raises(KeyError):
         indata.interpolate("a_madeup_name", test_space)
 
     # ...unless a default is supplied

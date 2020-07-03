@@ -21,7 +21,7 @@ def init_model(model_dir, toml_file):
     data_file = params.io.data_file
 
     # Read the input data & mesh
-    indata = inout.InputData(model_dir / dd / data_file)
+    indata = inout.InputData(params)
     inmesh = fice.mesh.get_mesh(params)
 
     # Create the model object

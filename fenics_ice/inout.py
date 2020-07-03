@@ -113,45 +113,93 @@ def read_vel_obs(params, model=None):
     else:
         return uv_obs_pts, u_obs, v_obs, u_std, v_std, mask_vel
 
+class DataNotFound(Exception):
+    """Custom exception for unfound data"""
+    pass
+
+class InputDataField(object):
+    """Holds a single datafield as part of the InputData object"""
+
+    def __init__(self, infile, field_name=None):
+        """Set filename, check valid, and read the data"""
+        self.infile = infile
+        self.field_name = field_name
+
+        if None in (infile, field_name):
+            raise DataNotFound
+
+        filetype = infile.suffix
+        if filetype == '.h5':
+            self.read_from_h5()
+        else:
+            raise NotImplementedError
+
+    def read_from_h5(self):
+        """Load data field from HDF5 file"""
+        indata = h5py.File(self.infile, 'r')
+        try:
+            self.xx = indata['x'][:]
+            self.yy = indata['y'][:]
+            self.field = indata[self.field_name][:]
+        except:
+            raise DataNotFound
+
+
 class InputData(object):
     """Loads gridded data & defines interpolators"""
 
-    def __init__(self, infile):
-        self.infile = Path(infile)
+    def __init__(self, params):
 
-        # Check the input file is a HDF5
-        assert self.infile.exists(), "No input file found"
-        assert self.infile.suffix == '.h5'
+        self.params = params
+        self.input_dir = params.io.input_dir
 
-        self.read_data()
+        # List of fields to search for
+        field_list = ["thick", "bed", "data_mask", "bmelt", "smb", "Bglen"]
 
-    def read_data(self):
+        # Dictionary of filenames & field names (i.e. field to get from HDF5 file)
+        # Possibly equal to None for variables which have sensible defaults
+        # e.g. Basal Melting = 0.0
+        self.field_file_dict = {}
+
+        # Dictionary of InputDataField objects for each field
+        self.fields = {}
+
+        for f in field_list:
+            self.field_file_dict[f] = self.get_field_file(f)
+            try:
+                self.fields[f] = InputDataField(*self.field_file_dict[f])
+            except DataNotFound:
+                logging.warning(f"No data found for {f}, "
+                                f"field will be filled with default value if appropriate")
+
+        # self.read_data()
+
+    def get_field_file(self, field_name):
         """
-        Load metadata attributes & fields (as numpy arrays) from infile
+        Get the filename & fieldname for a data field from params
 
-        Note that the fields to find are not prescribed - all are read
-        TODO - is this a good idea?
+        For a given field (e.g. 'thick'), if the parameter
+        "thick_data_file" is specified, returns this, otherwise
+        assume that the data are in the generic "data_file"
         """
-        indata = h5py.File(self.infile, 'r')
-        self.nx   = indata.attrs['nx']
-        self.ny   = indata.attrs['ny']
-        self.xmin = indata.attrs['xmin']
-        self.xmax = indata.attrs['xmax']
-        self.ymin = indata.attrs['ymin']
-        self.ymax = indata.attrs['ymax']
-
-        for name, data in indata.items():
-            setattr(self, name, data[:])
-
-        # self.thick = indata['thick'][:]
-        # self.surf = indata['surf'][:]
-        # self.bed = indata['bed'][:]
-        # self.alpha = indata['alpha'][:]
-        # self.bmelt = indata['bmelt'][:]
-        # self.smb = indata['smb'][:]
-        # self.B2 = indata['B2'][:]
-
     def interpolate(self, name, space, default=None):
+        field_file_str = field_name.lower() + "_data_file"
+        field_name_str = field_name.lower() + "_field_name"
+
+        field_filename = self.params.io.__getattribute__(field_file_str)
+        field_name = self.params.io.__getattribute__(field_name_str)
+
+        if field_filename is None:
+            field_filename = self.params.io.data_file
+
+        if field_filename is None:
+            return None, None
+
+        else:
+            field_file = Path(self.input_dir)/field_filename
+            assert field_file.exists(), f"No input file found for field {field_name}"
+            return field_file, field_name
+
         """
         Interpolate named variable onto function space
 
@@ -167,9 +215,9 @@ class InputData(object):
         function = Function(space, name=name)
 
         try:
-            field = getattr(self, name)
+            field = self.fields[name]
 
-        except AttributeError:
+        except KeyError:
             # Fill with default, if supplied, else raise error
             if default is not None:
                 logging.warning(f"No data found for {name},"
@@ -178,16 +226,16 @@ class InputData(object):
                 function.vector().apply("insert")
                 return function
             else:
-                print(f"Failed to find field {name} in"
-                      f" input file {self.infile}")
+                print(f"Failed to find data for field {name}")
                 raise
 
-        interper = interp.RegularGridInterpolator((self.x, self.y), field)
+        interper = interp.RegularGridInterpolator((field.xx, field.yy), field.field)
         out_coords = space.tabulate_dof_coordinates()
 
         result = interper(out_coords)
         function.vector()[:] = result
         function.vector().apply("insert")
+
         return function
 
 # Custom formatter

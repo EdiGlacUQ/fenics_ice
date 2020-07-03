@@ -30,11 +30,8 @@ def run_inv(config_file):
     log = inout.setup_logging(params)
     inout.log_preamble("inverse", params)
 
-    dd = params.io.input_dir
-
     # Load the static model data (geometry, smb, etc)
-    data_file = params.io.data_file
-    input_data = inout.InputData(Path(dd) / data_file)
+    input_data = inout.InputData(params)
 
     # Get the model mesh
     mesh = fice_mesh.get_mesh(params)
