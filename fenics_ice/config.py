@@ -84,7 +84,6 @@ class InversionCfg(ConfigPrinter):
     """
     Configuration related to inversion
     """
-    active: bool = False
 
     max_iter: int = 15
     ftol: float = 1e-4

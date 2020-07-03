@@ -30,7 +30,6 @@ pts_len = 2000.0
 
 [inversion]
 
-active = false
 
 max_iter = 200
 
