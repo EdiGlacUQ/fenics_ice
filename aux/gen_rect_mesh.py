@@ -7,7 +7,7 @@ from mpi4py import MPI
 import argparse
 from fenics import RectangleMesh, Point, File
 
-def main(nx, ny, xmin, xmax, ymin, ymax, outfile, direction='right'):
+def gen_rect_mesh(nx, ny, xmin, xmax, ymin, ymax, outfile, direction='right'):
 
     mesh = RectangleMesh(MPI.COMM_SELF,
                          Point(xmin, ymin),
@@ -38,6 +38,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    main(args.nx, args.ny, args.xmin,
+    gen_rect_mesh(args.nx, args.ny, args.xmin,
          args.xmax, args.ymin, args.ymax,
          args.outfile, args.direction)

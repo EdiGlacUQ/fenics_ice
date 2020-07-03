@@ -151,7 +151,7 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
 
         # Generate mesh if it doesn't exist
         if not (destdir/case_gen["mesh_filename"]).exists():
-            gen_rect_mesh.main(case_gen['mesh_nx'],
+            gen_rect_mesh.gen_rect_mesh(case_gen['mesh_nx'],
                                case_gen['mesh_ny'],
                                0, case_gen['mesh_L'],
                                0, case_gen['mesh_L'],
