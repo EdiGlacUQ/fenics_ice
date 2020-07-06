@@ -29,13 +29,13 @@ install:
   - conda config --set channel_priority strict
 
   #Create & activate env
-  - conda create -q -n fenics_ice -c conda-forge fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl
+  - conda create -q -n fenics_ice -c conda-forge python=3.8 fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl
   - conda activate fenics_ice
 
   #Install dependencies
-  - conda install -y matplotlib numpy ipython scipy seaborn h5py
+  - conda install -y matplotlib numpy ipython scipy seaborn h5py conda-build
   - pip install --upgrade pip
-  - pip install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency conda-build cytoolz
+  - pip install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency cytoolz
 
   #get pyrevolve
   - git clone https://github.com/opesci/pyrevolve.git
