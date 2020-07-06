@@ -38,6 +38,15 @@ pytest.case_list.append({"case_dir": "ismipc_30x30",
                          "mesh_L": 40000,
                          "mesh_filename": "ismip_mesh.xml"})
 
+def check_float_result(value, expected):
+    """Compare scalar float against expected value"""
+    # TODO unhardcode?
+    rel_change = abs((value - expected) / value)
+    assert rel_change < 1.0e-9, f"Expected value: {expected}\nComputed value: {value}"
+
+
+pytest.check_float_result = check_float_result
+
 def pytest_addoption(parser):
     """Option to run all (currently 3) test cases - or just 1 (default)"""
     parser.addoption("--all", action="store_true", help="run all combinations")
