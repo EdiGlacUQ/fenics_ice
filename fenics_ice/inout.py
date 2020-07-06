@@ -213,7 +213,7 @@ class InputData(object):
         function : the interpolated function
         """
 
-        function = Function(space, name=name, static=static, checkpoint=not static)
+        function = Function(space, name=name, static=static)
 
         try:
             field = self.fields[name]

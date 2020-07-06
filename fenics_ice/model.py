@@ -25,7 +25,7 @@ class model:
         #Full mask/mesh
         self.mesh_ext = Mesh(mesh_in)
         M_in = FunctionSpace(self.mesh_ext, 'DG', 0)
-        self.mask_ext = self.input_data.interpolate("data_mask", M_in)
+        self.mask_ext = self.input_data.interpolate("data_mask", M_in, static=True)
 
         # Generate Domain and Function Spaces
         # TODO - should just get rid of gen_domain, submesh stuff
@@ -105,7 +105,7 @@ class model:
 
     def field_from_data(self, name, space, default=None, static=False):
         """Interpolate a named field from input data"""
-        return self.input_data.interpolate(name, space, default, static)
+        return self.input_data.interpolate(name, space, default, static=static)
 
     def alpha_from_data(self):
         """Get alpha field from initial input data (run_momsolve only)"""
@@ -196,17 +196,17 @@ class model:
         vtx_M, wts_M = interp_weights(self.uv_obs_pts, M_coords)
 
         # Define new functions to hold results
-        self.u_obs_Q = Function(self.Q, static=True, checkpoint=False)
-        self.v_obs_Q = Function(self.Q, static=True, checkpoint=False)
-        self.u_std_Q = Function(self.Q, static=True, checkpoint=False)
-        self.v_std_Q = Function(self.Q, static=True, checkpoint=False)
+        self.u_obs_Q = Function(self.Q, static=True)
+        self.v_obs_Q = Function(self.Q, static=True)
+        self.u_std_Q = Function(self.Q, static=True)
+        self.v_std_Q = Function(self.Q, static=True)
         # self.mask_vel_Q = Function(self.Q)
 
-        self.u_obs_M = Function(self.M, static=True, checkpoint=False)
-        self.v_obs_M = Function(self.M, static=True, checkpoint=False)
+        self.u_obs_M = Function(self.M, static=True)
+        self.v_obs_M = Function(self.M, static=True)
         # self.u_std_M = Function(self.M)
         # self.v_std_M = Function(self.M)
-        self.mask_vel_M = Function(self.M, static=True, checkpoint=False)
+        self.mask_vel_M = Function(self.M, static=True)
 
         # Fill via interpolation
         self.u_obs_Q.vector()[:] = interpolate(self.u_obs, vtx_Q, wts_Q)
