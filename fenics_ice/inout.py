@@ -61,18 +61,30 @@ def write_dqval(dQ_ts, params):
 def write_variable(var, params, name=None):
     """
     Produce xml & vtk output of supplied variable (prefixed with run name)
+
     Name is taken from variable structure if not provided
+    If 'name' is provided and variable structure is unnamed (e.g. "f_124")
+    the variable will be renamed accordingly.
     """
 
-    #Take variable's inbuilt name by default
-    if not name:
-        name = var.name()
-        if unnamed_re.match(name):
+    var_name = var.name()
+    unnamed_var = unnamed_re.match(var_name) is not None
+
+    if unnamed_var:
+        if name is None:
+            # Error if variable is unnamed & no name provided
             logging.error("Attempted to write out an unnamed variable %s" % name)
             raise Exception
+        else:
+            # Rename var to 'name' if provided (and if currently unnamed)
+            var.rename(name, "")
+
+    else:
+        # Use variable's current name if 'name' not supplied
+        name = var_name
 
     #Prefix the run name
-    outfname = Path(params.io.output_dir)/"_".join((params.io.run_name,name))
+    outfname = Path(params.io.output_dir)/"_".join((params.io.run_name, name))
     vtk_fname = str(outfname.with_suffix(".pvd"))
     xml_fname = str(outfname.with_suffix(".xml"))
 

@@ -80,25 +80,31 @@ def run_inv(config_file):
 
     inout.write_variable(slvr.U, params)
     inout.write_variable(slvr.beta, params)
-    inout.write_variable(slvr.beta_bgd, params, name="beta_bgd")
-    inout.write_variable(mdl.bed, params, name="bed")
+
+    slvr.beta_bgd.rename("beta_bgd","")
+    inout.write_variable(slvr.beta_bgd, params)
+
+    inout.write_variable(mdl.bed, params)
     H = project(mdl.H, mdl.M)
-    inout.write_variable(H, params, name="thick")
+    H.rename("thick", "")
+    inout.write_variable(H, params)
     inout.write_variable(mdl.mask, params, name="mask")
     inout.write_variable(mdl.mask_vel_M, params, name="mask_vel")
 
-    inout.write_variable(mdl.u_obs_Q, params, name="u_obs")
-    inout.write_variable(mdl.v_obs_Q, params, name="v_obs")
-    inout.write_variable(mdl.u_std_Q, params, name="u_std")
-    inout.write_variable(mdl.v_std_Q, params, name="v_std")
+    inout.write_variable(mdl.u_obs_Q, params)
+    inout.write_variable(mdl.v_obs_Q, params)
+    inout.write_variable(mdl.u_std_Q, params)
+    inout.write_variable(mdl.v_std_Q, params)
 
     U_obs = project((mdl.v_obs_Q**2 + mdl.u_obs_Q**2)**(1.0/2.0), mdl.M)
+    U_obs.rename("uv_obs", "")
     inout.write_variable(U_obs, params, name="uv_obs")
 
-    inout.write_variable(slvr.alpha, params, name="alpha")
+    inout.write_variable(slvr.alpha, params)
 
     Bglen = project(slvr.beta_to_bglen(slvr.beta), mdl.M)
-    inout.write_variable(Bglen, params, name="Bglen")
+    Bglen.rename("Bglen", "")
+    inout.write_variable(Bglen, params)
     inout.write_variable(slvr.bmelt, params, name="bmelt")
     inout.write_variable(slvr.smb, params, name="smb")
     inout.write_variable(mdl.surf, params, name="surf")

@@ -98,6 +98,7 @@ class model:
         self.beta = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
         self.beta_bgd = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
         self.beta.rename('beta', 'a Function')
+        self.beta_bgd.rename('beta_bgd', 'a Function')
 
     def def_lat_dirichletbc(self):
         """Homogenous dirichlet conditions on lateral boundaries"""
@@ -192,21 +193,22 @@ class model:
         # and compute (once) the interpolating arrays
         Q_coords = self.Q.tabulate_dof_coordinates()
         M_coords = self.M.tabulate_dof_coordinates()
+
         vtx_Q, wts_Q = interp_weights(self.uv_obs_pts, Q_coords)
         vtx_M, wts_M = interp_weights(self.uv_obs_pts, M_coords)
 
         # Define new functions to hold results
-        self.u_obs_Q = Function(self.Q, static=True)
-        self.v_obs_Q = Function(self.Q, static=True)
-        self.u_std_Q = Function(self.Q, static=True)
-        self.v_std_Q = Function(self.Q, static=True)
+        self.u_obs_Q = Function(self.Q, name="u_obs", static=True)
+        self.v_obs_Q = Function(self.Q, name="v_obs", static=True)
+        self.u_std_Q = Function(self.Q, name="u_std", static=True)
+        self.v_std_Q = Function(self.Q, name="v_std", static=True)
         # self.mask_vel_Q = Function(self.Q)
 
-        self.u_obs_M = Function(self.M, static=True)
-        self.v_obs_M = Function(self.M, static=True)
+        self.u_obs_M = Function(self.M, name="u_obs", static=True)
+        self.v_obs_M = Function(self.M, name="v_obs", static=True)
         # self.u_std_M = Function(self.M)
         # self.v_std_M = Function(self.M)
-        self.mask_vel_M = Function(self.M, static=True)
+        self.mask_vel_M = Function(self.M, name="mask_vel", static=True)
 
         # Fill via interpolation
         self.u_obs_Q.vector()[:] = interpolate(self.u_obs, vtx_Q, wts_Q)
@@ -286,6 +288,7 @@ class model:
         self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
         self.surf._Function_static__ = True
         self.surf._Function_checkpoint__ = False
+        self.surf.rename("surf","")
 
     def gen_ice_mask(self):
         """

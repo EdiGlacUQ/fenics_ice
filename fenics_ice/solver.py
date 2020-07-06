@@ -484,6 +484,7 @@ class ssa_solver:
             #TODO - 'boundary_correct(self.alpha)'?
         else:
             self.alpha = f
+            self.alpha.rename("alpha","")
 
         # if not self.test_outfile:
         #     self.test_outfile = File(os.path.join('invoutput_data','alpha_test.pvd'))
@@ -516,6 +517,10 @@ class ssa_solver:
         clear_caches()
         self.alpha = f[0]
         self.beta = f[1]
+
+        self.alpha.rename("alpha","")
+        self.beta.rename("beta","")
+
         self.def_mom_eq()
         self.solve_mom_eq()
         J = self.comp_J_inv(verbose=True)
