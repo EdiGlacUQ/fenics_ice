@@ -35,7 +35,7 @@ install:
   #Install dependencies
   - conda install -y matplotlib numpy ipython scipy seaborn h5py
   - pip install --upgrade pip
-  - pip install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency conda-build
+  - pip install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency conda-build cytoolz
 
   #get pyrevolve
   - git clone https://github.com/opesci/pyrevolve.git
