@@ -45,8 +45,11 @@ install:
 
   #install tlm_adjoint & fenics_ice
   - git clone https://github.com/jrmaddison/tlm_adjoint.git
-  - conda develop $INSTALL_DIR/tlm_adjoint/python/
-  - conda develop $FENICS_ICE_BASE_DIR
+  - cd $INSTALL_DIR/tlm_adjoint
+  - git checkout -b quorum-devel origin/quorum-devel
+  - git checkout -b 'quorum-devel'
+  - conda-develop $INSTALL_DIR/tlm_adjoint/python/
+  - conda-develop $FENICS_ICE_BASE_DIR
 
 script:
   - pytest -v --color=yes
