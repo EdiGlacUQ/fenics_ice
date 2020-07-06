@@ -93,13 +93,13 @@ def read_vel_obs(params, model=None):
 
     infile = h5py.File(infile, 'r')
 
-    x_obs = infile['x'][:, 0]
-    y_obs = infile['y'][:, 0]
-    u_obs = infile['u_obs'][:, 0]
-    v_obs = infile['v_obs'][:, 0]
-    u_std = infile['u_std'][:, 0]
-    v_std = infile['v_std'][:, 0]
-    mask_vel = infile['mask_vel'][:, 0]
+    x_obs = infile['x'][:]
+    y_obs = infile['y'][:]
+    u_obs = infile['u_obs'][:]
+    v_obs = infile['v_obs'][:]
+    u_std = infile['u_std'][:]
+    v_std = infile['v_std'][:]
+    mask_vel = infile['mask_vel'][:]
 
     uv_obs_pts = np.vstack((x_obs, y_obs)).T
 
@@ -135,7 +135,11 @@ class InputDataField(object):
             raise NotImplementedError
 
     def read_from_h5(self):
-        """Load data field from HDF5 file"""
+        """
+        Load data field from HDF5 file
+
+        Expects to find data matrix arranged [y,x], but stores as [x,y]
+        """
         indata = h5py.File(self.infile, 'r')
         try:
             self.xx = indata['x'][:]
@@ -144,6 +148,28 @@ class InputDataField(object):
         except:
             raise DataNotFound
 
+        # Convert from [y,x] (numpy standard [sort of]) to [x,y]
+        self.field = self.field.T
+
+        assert self.field.shape == (self.xx.size, self.yy.size), \
+            f"Data have wrong shape! {self.infile}"
+
+        # Take care of data which may be provided y-decreasing, or more rarely
+        # x-decreasing...
+        if not np.all(np.diff(self.xx) > 0):
+            logging.warn(f"Field {self.infile} has x-decreasing - flipping...")
+            self.field = np.flipud(self.field)
+            self.xx = self.xx[::-1]
+
+        if not np.all(np.diff(self.yy) > 0):
+            logging.info(f"Field {self.infile} has y-decreasing - flipping...")
+            self.field = np.fliplr(self.field)
+            self.yy = self.yy[::-1]
+
+        assert np.unique(np.diff(self.xx)).size == 1,\
+            f"{self.infile} not specified on regular grid"
+        assert np.unique(np.diff(self.yy)).size == 1,\
+            f"{self.infile} not specified on regular grid"
 
 class InputData(object):
     """Loads gridded data & defines interpolators"""

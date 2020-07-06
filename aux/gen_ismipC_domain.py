@@ -1,4 +1,8 @@
-"""Generate ismipC domain in HDF5 grid format"""
+"""
+Generate ismipC domain in HDF5 grid format
+
+Note that this produces arrays which are arranged [y,x]
+"""
 
 import os
 import argparse
