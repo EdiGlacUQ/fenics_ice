@@ -42,7 +42,7 @@ def check_float_result(value, expected):
     """Compare scalar float against expected value"""
     # TODO unhardcode?
     rel_change = abs((value - expected) / value)
-    assert rel_change < 1.0e-9, f"Expected value: {expected}\nComputed value: {value}"
+    assert rel_change < 1.0e-9, f"Expected value: {expected} Computed value: {value}"
 
 
 pytest.check_float_result = check_float_result

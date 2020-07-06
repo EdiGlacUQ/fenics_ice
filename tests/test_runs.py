@@ -20,7 +20,7 @@ def EQReset():
 @pytest.mark.dependency()
 @pytest.mark.runs
 @pytest.mark.benchmark()  # <- just run it once
-def test_run_inv(persistent_temp_model, monkeypatch, benchmark):
+def test_run_inversion(persistent_temp_model, monkeypatch, benchmark):
 
     work_dir = persistent_temp_model["work_dir"]
     toml_file = persistent_temp_model["toml_filename"]
@@ -59,7 +59,7 @@ def test_run_inv(persistent_temp_model, monkeypatch, benchmark):
 @pytest.mark.benchmark()
 def test_run_forward(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
 
-    setup_deps.set_case_dependency(request, ["test_run_inv"])
+    setup_deps.set_case_dependency(request, ["test_run_inversion"])
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
@@ -101,7 +101,7 @@ def test_run_forward(existing_temp_model, monkeypatch, benchmark, setup_deps, re
 @pytest.mark.benchmark()
 def test_run_eigendec(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
 
-    setup_deps.set_case_dependency(request, ["test_run_inv"])
+    setup_deps.set_case_dependency(request, ["test_run_inversion"])
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
