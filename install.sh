@@ -60,7 +60,7 @@ conda install -y conda-build
 pip install --upgrade pip
 
 conda install -y matplotlib numpy ipython scipy seaborn h5py
-pip install mpi4py toml git "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency
+pip install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency
 
 #get pyrevolve
 git clone https://github.com/opesci/pyrevolve.git
