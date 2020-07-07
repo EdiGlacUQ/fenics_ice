@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 from mpi4py import MPI
 import toml
+import pickle
 
 import fenics_ice as fice
 from aux import gen_rect_mesh
@@ -38,11 +39,28 @@ pytest.case_list.append({"case_dir": "ismipc_30x30",
                          "mesh_L": 40000,
                          "mesh_filename": "ismip_mesh.xml"})
 
-def check_float_result(value, expected):
-    """Compare scalar float against expected value"""
-    # TODO unhardcode?
-    rel_change = abs((value - expected) / value)
-    assert rel_change < 1.0e-9, f"Expected value: {expected} Computed value: {value}"
+def check_float_result(value, expected, work_dir, value_name):
+    """
+    Compare scalar float against expected value.
+
+    Also helps to document new expected values when cases/code changes.
+    This functionality uses 'work_dir' to check which of
+    pytest.active_cases is to be appended to. There's probably a better way
+    to do this, though.
+    """
+
+    if not pytest.remake_cases:
+        # Check against expected value
+        # TODO unhardcode float tol?
+        rel_change = abs((value - expected) / value)
+        assert rel_change < 1.0e-9, f"Expected value: {expected} Computed value: {value}"
+    else:
+        # Store new 'expected' value rather than actually testing
+        # TODO - is there a more robust way of checking this is the correct case?
+        # Case dirs should be unique by design...
+        for c in pytest.active_cases:
+            if c['work_dir'] == work_dir:
+                c[value_name] = value
 
 
 pytest.check_float_result = check_float_result
@@ -50,6 +68,8 @@ pytest.check_float_result = check_float_result
 def pytest_addoption(parser):
     """Option to run all (currently 3) test cases - or just 1 (default)"""
     parser.addoption("--all", action="store_true", help="run all combinations")
+    parser.addoption("--remake", action="store_true",
+                     help="Store new 'expectd values' to file instead of testing")
 
 def pytest_configure(config):
     config.addinivalue_line(
@@ -107,6 +127,8 @@ def pytest_generate_tests(metafunc):
         else:
             end = 1
         metafunc.parametrize("case_gen", list(range(end)), indirect=True)
+
+    pytest.remake_cases = metafunc.config.option.remake
 
 @pytest.fixture
 def temp_model(mpi_tmpdir, case_gen):
@@ -182,3 +204,10 @@ def existing_temp_model(case_gen):
     for i in range(ncases):
         if pytest.active_cases[i]['case_dir'] == case_gen['case_dir']:
             return pytest.active_cases[i]
+
+def pytest_sessionfinish(session, exitstatus):
+    """Write out expected values if requested"""
+
+    if pytest.remake_cases:
+        with open("new_expected_solution_values.p", 'wb') as pickle_out:
+            pickle.dump(pytest.active_cases, pickle_out)

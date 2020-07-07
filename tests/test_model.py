@@ -120,8 +120,11 @@ def test_gen_init_alpha(request, setup_deps, temp_model):
     # Generate initial guess for alpha
     mdl.gen_alpha()
 
+    # TODO - won't properly set expected value when --remake, because
+    # pytest.active_cases doesn't exist yet
     pytest.check_float_result(np.linalg.norm(mdl.alpha.vector()[:]),
-                              expected_init_alpha)
+                              expected_init_alpha,
+                              work_dir, 'expected_init_alpha')
 
 # Unused!
 def override_param(param_section, name, value):
