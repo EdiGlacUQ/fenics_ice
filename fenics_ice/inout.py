@@ -192,7 +192,7 @@ class InputData(object):
         self.input_dir = params.io.input_dir
 
         # List of fields to search for
-        field_list = ["thick", "bed", "data_mask", "bmelt", "smb", "Bglen"]
+        field_list = ["thick", "bed", "data_mask", "bmelt", "smb", "Bglen", "alpha"]
 
         # Dictionary of filenames & field names (i.e. field to get from HDF5 file)
         # Possibly equal to None for variables which have sensible defaults
