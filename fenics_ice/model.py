@@ -178,6 +178,11 @@ class model:
             """Compute the nearest vertices & weights (for reuse)"""
             tri = qhull.Delaunay(xy)
             simplex = tri.find_simplex(uv)
+
+            if not np.all(simplex >= 0):
+                log.warn("Some points missing in interpolation "
+                         "of velocity obs to function space.")
+
             vertices = np.take(tri.simplices, simplex, axis=0)
             temp = np.take(tri.transform, simplex, axis=0)
             delta = uv - temp[:, d]

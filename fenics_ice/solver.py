@@ -183,7 +183,8 @@ class ssa_solver:
 
         B2 = self.sliding_law(alpha,U_marker)
 
-        #Driving stress quantities
+        # Driving stress quantities
+        # TODO - shouldn't surface slope feature here somewhere?
         F = (1 - fl_ex) * 0.5*rhoi*g*H**2 + \
             (fl_ex) * 0.5*rhoi*g*(delta*H**2 + (1-delta)*H_s**2 )
 
