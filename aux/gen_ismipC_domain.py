@@ -12,7 +12,7 @@ from pathlib import Path
 from fenics import File, RectangleMesh, Point
 from fenics_ice import test_domains
 
-def main(outfname, L, nx, ny):
+def main(outfname, L, nx, ny, reflect):
 
     # Check valid filename & create dir if necessary
     outpath = Path(outfname)
@@ -21,7 +21,7 @@ def main(outfname, L, nx, ny):
     outdir.mkdir(exist_ok=True, parents=True)
 
     # Data on grid
-    domain = test_domains.ismipC(L, nx=nx+1, ny=ny+1, tiles=1.0)
+    domain = test_domains.ismipC(L, nx=nx+1, ny=ny+1, tiles=1.0, reflect=reflect)
 
     # Dictionary linking variable names to domain objects
     var_dict = {
@@ -72,11 +72,14 @@ if __name__ == "__main__":
 
     parser.add_argument('-o', '--outfile', dest='outfname', type=str, help='Filename to store the output')
 
+    parser.add_argument('-r', '--reflect', action='store_true', help='Produce a reflected/transposed ismipc domain (backwards compatibility)')
+
     parser.set_defaults(outfname='../input/ismipC/ismipC_input.h5',
                         L=40e3,
                         nx=100,
-                        ny=100)
+                        ny=100,
+                        reflect=False)
 
     args = parser.parse_args()
 
-    main(args.outfname, args.L, args.nx, args.ny)
+    main(args.outfname, args.L, args.nx, args.ny, args.reflect)
