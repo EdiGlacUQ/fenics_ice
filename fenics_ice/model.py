@@ -180,8 +180,12 @@ class model:
             simplex = tri.find_simplex(uv)
 
             if not np.all(simplex >= 0):
-                log.warn("Some points missing in interpolation "
-                         "of velocity obs to function space.")
+                if not self.params.mesh.periodic_bc:
+                    log.error("Some points missing in interpolation "
+                              "of velocity obs to function space.")
+                else:
+                    log.warning("Some points missing in interpolation "
+                             "of velocity obs to function space.")
 
             vertices = np.take(tri.simplices, simplex, axis=0)
             temp = np.take(tri.transform, simplex, axis=0)

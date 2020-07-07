@@ -183,7 +183,7 @@ class InputDataField(object):
         # Take care of data which may be provided y-decreasing, or more rarely
         # x-decreasing...
         if not np.all(np.diff(self.xx) > 0):
-            logging.warn(f"Field {self.infile} has x-decreasing - flipping...")
+            logging.warning(f"Field {self.infile} has x-decreasing - flipping...")
             self.field = np.flipud(self.field)
             self.xx = self.xx[::-1]
 
