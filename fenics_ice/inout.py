@@ -93,6 +93,17 @@ def write_variable(var, params, name=None):
 
     logging.info("Writing function %s to file %s" % (name, outfname))
 
+def field_from_vel_file(infile, field_name):
+    """Return a field from HDF5 file containing velocity"""
+
+    field = infile[field_name]
+    # Check that only one dimension greater than 1 exists
+    # i.e. valid: [100], [100,1], [100,1,1], invalid: [100,2]
+    assert len([i for i in field.shape if i != 1]) == 1, \
+        f"Invalid dimension of field {field_name} from file {infile}"
+
+    return np.ravel(field[:])
+
 def read_vel_obs(params, model=None):
     """
     Read velocity observations & uncertainty from HDF5 file
@@ -105,13 +116,16 @@ def read_vel_obs(params, model=None):
 
     infile = h5py.File(infile, 'r')
 
-    x_obs = infile['x'][:]
-    y_obs = infile['y'][:]
-    u_obs = infile['u_obs'][:]
-    v_obs = infile['v_obs'][:]
-    u_std = infile['u_std'][:]
-    v_std = infile['v_std'][:]
-    mask_vel = infile['mask_vel'][:]
+    x_obs = field_from_vel_file(infile, 'x')
+    y_obs = field_from_vel_file(infile, 'y')
+    u_obs = field_from_vel_file(infile, 'u_obs')
+    v_obs = field_from_vel_file(infile, 'v_obs')
+    u_std = field_from_vel_file(infile, 'u_std')
+    v_std = field_from_vel_file(infile, 'v_std')
+    mask_vel = field_from_vel_file(infile, 'mask_vel')
+
+    assert x_obs.size == y_obs.size == u_obs.size == v_obs.size
+    assert v_obs.size == u_std.size == v_std.size == mask_vel.size
 
     uv_obs_pts = np.vstack((x_obs, y_obs)).T
 
