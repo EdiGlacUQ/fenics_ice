@@ -39,7 +39,7 @@ pytest.case_list.append({"case_dir": "ismipc_30x30",
                          "mesh_L": 40000,
                          "mesh_filename": "ismip_mesh.xml"})
 
-def check_float_result(value, expected, work_dir, value_name):
+def check_float_result(value, expected, work_dir, value_name, tol=1e-9):
     """
     Compare scalar float against expected value.
 
@@ -51,9 +51,9 @@ def check_float_result(value, expected, work_dir, value_name):
 
     if not pytest.remake_cases:
         # Check against expected value
-        # TODO unhardcode float tol?
         rel_change = abs((value - expected) / value)
-        assert rel_change < 1.0e-9, f"Expected value: {expected} Computed value: {value}"
+        assert rel_change < tol, f"Expected value: {expected} " \
+            f"Computed value: {value} Tolerance: {tol}"
     else:
         # Store new 'expected' value rather than actually testing
         # TODO - is there a more robust way of checking this is the correct case?

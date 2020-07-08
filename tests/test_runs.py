@@ -185,10 +185,12 @@ def test_run_errorprop(existing_temp_model, monkeypatch, benchmark, setup_deps, 
 
     pytest.check_float_result(Q_sigma,
                               expected_Q_sigma,
-                              work_dir, 'expected_Q_sigma')
+                              work_dir,
+                              'expected_Q_sigma', tol=1e-7)
     pytest.check_float_result(Q_sigma_prior,
                               expected_Q_sigma_prior,
-                              work_dir, 'expected_Q_sigma_prior')
+                              work_dir,
+                              'expected_Q_sigma_prior', tol=1e-7)
 
 @pytest.mark.dependency()
 @pytest.mark.runs
@@ -228,8 +230,10 @@ def test_run_invsigma(existing_temp_model, monkeypatch, benchmark, setup_deps, r
 
     pytest.check_float_result(cntrl_sigma_norm,
                               expected_cntrl_sigma_norm,
-                              work_dir, "expected_cntrl_sigma_norm")
+                              work_dir,
+                              "expected_cntrl_sigma_norm", tol=1e-7)
 
     pytest.check_float_result(cntrl_sigma_prior_norm,
                               expected_cntrl_sigma_prior_norm,
-                              work_dir, "expected_cntrl_sigma_prior_norm")
+                              work_dir,
+                              "expected_cntrl_sigma_prior_norm", tol=1e-7)
