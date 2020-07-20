@@ -710,7 +710,7 @@ class ssa_solver:
 
         interper2 = InterpolationSolver(uf,
                                         u_pts,
-                                        X_coords=uv_obs_pts[obs_local])
+                                        x_coords=uv_obs_pts[obs_local])
         interper2.solve()
         P = interper2._B[0]._A._P
         P_T = interper2._B[0]._A._P_T
