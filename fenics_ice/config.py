@@ -8,8 +8,8 @@ import toml
 from dataclasses import dataclass, field
 import numpy as np
 from pathlib import Path
-from IPython import embed
 import pprint
+from fenics import parameters as fenics_params
 
 class ConfigPrinter(object):
     """
@@ -31,6 +31,7 @@ class ConfigParser(object):
     # pylint: disable=too-many-instance-attributes
 
     def __str__(self):
+        """Pretty print each member of the ConfigParser object"""
         lines = [self.__class__.__name__ + ':']
         for key, val in vars(self).items():
             if key == "config_dict":
@@ -44,6 +45,7 @@ class ConfigParser(object):
         self.config_dict = toml.load(self.config_file)
         self.parse()
         self.check_dirs()
+        self.set_tlm_adjoint_params()
 
     def parse(self):
         """
@@ -61,6 +63,12 @@ class ConfigParser(object):
         self.obs = ObsCfg(**self.config_dict['obs'])
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
+
+        try:  # Optional
+            self.testing = TestCfg(**self.config_dict['testing'])
+        except KeyError:
+            pass
+
         #TODO - boundaries
 
     def check_dirs(self):
@@ -74,12 +82,19 @@ class ConfigParser(object):
         if not outdir.is_dir():
             outdir.mkdir(parents=True, exist_ok=True)
 
+    def set_tlm_adjoint_params(self):
+        """Set some parameters for tlm_adjoint"""
+
+        # These ensure Jacobian is assembled with the same quadrature rule as
+        # the residual, and are required for Newton's method to be second order.
+        fenics_params["tlm_adjoint"]["AssembleSolver"]["match_quadrature"] = True
+        fenics_params["tlm_adjoint"]["EquationSolver"]["match_quadrature"] = True
+
 @dataclass(frozen=True)
 class InversionCfg(ConfigPrinter):
     """
     Configuration related to inversion
     """
-    active: bool = False
 
     max_iter: int = 15
     ftol: float = 1e-4
@@ -119,6 +134,7 @@ class ObsCfg(ConfigPrinter):
     """
     Configuration related to observations
     """
+    vel_file: str = None
     pts_len: float = None
 
 @dataclass(frozen=True)
@@ -177,12 +193,7 @@ class MeshCfg(ConfigPrinter):
     """
     Configuration related to mesh
     """
-    mesh_filename: str = None
-    data_mesh_filename: str = None
-    data_mask_filename: str = None
-    nx: int = None
-    ny: int = None
-    length: float = None
+    mesh_filename: str = 'mesh.xml'
     periodic_bc: bool = False
 
     def __post_init__(self):
@@ -190,23 +201,7 @@ class MeshCfg(ConfigPrinter):
         Check sanity of provided options & set conditional defaults
         Use setattr so dataclass can be frozen
         """
-
-        assert (self.nx is None) == (self.ny is None), \
-            "Mesh nx, ny: provide both or neither!"
-
-        assert (self.nx is None) != (self.mesh_filename is None), \
-            "Mesh: provide either mesh_filename or nx,ny"
-
-        assert self.data_mask_filename, "Please provide data_mask_filename"
-
-        if self.nx is not None:
-            assert self.data_mesh_filename is not None, "Please provide data_mesh_filename"
-
-        #Default filenames
-        if self.data_mesh_filename is None:
-            object.__setattr__(self, 'data_mesh_filename', "data_mesh.xml")
-        if self.data_mask_filename is None: #TODO - check logic here
-            object.__setattr__(self, 'data_mask_filename', "data_mask.xml")
+        pass
 
 @dataclass(frozen=True)
 class IceDynamicsCfg(ConfigPrinter):
@@ -227,7 +222,8 @@ class MomsolveCfg(ConfigPrinter):
 
     picard_params: dict = field(default_factory=lambda: {
         'nonlinear_solver': 'newton',
-        'newton_solver': {'linear_solver': 'umfpack',
+        'newton_solver': {'linear_solver': 'cg',
+                          'preconditioner': 'hypre_amg',
                           'maximum_iterations': 200,
                           'absolute_tolerance': 1.0,
                           'relative_tolerance': 0.001,
@@ -236,7 +232,8 @@ class MomsolveCfg(ConfigPrinter):
 
     newton_params: dict = field(default_factory=lambda: {
         'nonlinear_solver': 'newton',
-        'newton_solver': {'linear_solver': 'umfpack',
+        'newton_solver': {'linear_solver': 'cg',
+                          'preconditioner': 'hypre_amg',
                           'maximum_iterations': 25,
                           'absolute_tolerance': 1e-07,
                           'relative_tolerance': 1e-08,
@@ -253,20 +250,69 @@ class IOCfg(ConfigPrinter):
     input_dir: str
     output_dir: str
 
-    #TODO - should these be here, or in ErrorPropCfg?
-    qoi_file: str = "Qval_ts.p"
-    dqoi_h5file: str = "dQ_ts.h5"
-    dqoi_vtkfile: str = "dQ_ts.pvd"
-    eigenvalue_file: str = "eigvals.p"
+    data_file: str = None
 
-    sigma_file: str = "sigma.p"
-    sigma_prior_file: str = "sigma_prior.p"
+    thick_data_file: str = None
+    bed_data_file: str = None
+    data_mask_data_file: str = None
+    bmelt_data_file: str = None
+    smb_data_file: str = None
+    bglen_data_file: str = None
+    alpha_data_file: str = None
+
+    thick_field_name: str = "thick"
+    bed_field_name: str = "bed"
+    data_mask_field_name: str = "data_mask"
+    bmelt_field_name: str = "bmelt"
+    smb_field_name: str = "smb"
+    bglen_field_name: str = "Bglen"
+    alpha_field_name: str = "alpha"
+
+    inversion_file: str = None
+    qoi_file: str = None  # "Qval_ts.p"
+    dqoi_h5file: str = None  # "dQ_ts.h5"
+    eigenvalue_file: str = None  # "eigvals.p"
+    eigenvecs_file: str = None
+    sigma_file: str = None  # "sigma.p"
+    sigma_prior_file: str = None  # "sigma_prior.p"
 
     log_level: str = "info"
 
+    def set_default_filename(self, attr_name, suffix):
+        """Sets a default filename (prefixed with run_name) & check suffix"""
+
+        # Set default if not set
+        fname = self.__getattribute__(attr_name)
+        if fname is None:
+            object.__setattr__(self,
+                               attr_name,
+                               '_'.join((self.run_name, suffix)))
+
+        # Check suffix is correct (i.e. if manually set)
+        fname = self.__getattribute__(attr_name)
+        assert(Path(fname).suffix == Path(suffix).suffix)
+
     def __post_init__(self):
-        assert self.log_level.lower() in ["critical","error","warning","info","debug"], \
+        """Sanity check & set defaults"""
+        assert self.log_level.lower() in ["critical",
+                                          "error",
+                                          "warning",
+                                          "info",
+                                          "debug"], \
             "Invalid log level"
+
+        fname_default_suff = {
+            'inversion_file': 'invout.h5',
+            'eigenvecs_file': 'vr.h5',
+            'eigenvalue_file': 'eigvals.p',
+            'sigma_file': 'sigma.p',
+            'sigma_prior_file': 'sigma_prior.p',
+            'qoi_file': 'Qval_ts.p',
+            'dqoi_h5file': 'dQ_ts.h5'
+        }
+
+        for fname in fname_default_suff:
+            self.set_default_filename(fname, fname_default_suff[fname])
 
 @dataclass(frozen=True)
 class TimeCfg(ConfigPrinter):
@@ -302,6 +348,24 @@ class TimeCfg(ConfigPrinter):
         else: #dt provided
             object.__setattr__(self, 'total_steps', math.ceil(self.run_length/self.dt))
             object.__setattr__(self, 'steps_per_year', 1.0/self.dt)
+
+@dataclass(frozen=True)
+class TestCfg(ConfigPrinter):
+    """
+    Expected values for testing
+    """
+
+    expected_J_inv: float = None
+    expected_init_alpha: float = None
+    expected_cntrl_norm: float = None
+    expected_delta_qoi: float = None
+    expected_u_norm: float = None
+    expected_evals_sum: float = None
+    expected_evec0_norm: float = None
+    expected_cntrl_sigma_norm: float = None
+    expected_cntrl_sigma_prior_norm: float = None
+    expected_Q_sigma: float = None
+    expected_Q_sigma_prior: float = None
 
 
 def cleanNullTerms(d):
@@ -355,12 +419,3 @@ picard_defaults_weertman = {"nonlinear_solver":"newton",
                                              "lu_solver":{"same_nonzero_pattern":False,
                                                           "symmetric":False,
                                                           "reuse_factorization":False}}}
-
-
-
-# infile = "./scripts/run_eg.toml"
-# configgy = ConfigParser(infile)
-# configgy.parse()
-# embed()
-
-

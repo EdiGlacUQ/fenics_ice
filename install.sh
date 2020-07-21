@@ -45,11 +45,22 @@ conda create -y -n fenics_ice -c conda-forge fenics fenics-dijitso fenics-dolfin
 #install more packages
 conda activate fenics_ice
 
+#Create env variables
+cd $CONDA_PREFIX
+mkdir -p ./etc/conda/activate.d
+mkdir -p ./etc/conda/deactivate.d
+touch ./etc/conda/activate.d/env_vars.sh
+touch ./etc/conda/deactivate.d/env_vars.sh
+echo "export OMP_NUM_THREADS=1" > ./etc/conda/activate.d/env_vars.sh
+echo "unset OMP_NUM_THREADS" > ./etc/conda/deactivate.d/env_vars.sh
+
+
 conda install -y conda-build
 
 pip install --upgrade pip
-conda install -y matplotlib numpy ipython scipy seaborn
-pip install h5py mpi4py toml git "meshio[all]"
+
+conda install -y matplotlib numpy ipython scipy seaborn h5py
+pip install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency
 
 #get pyrevolve
 git clone https://github.com/opesci/pyrevolve.git

@@ -1,125 +1,85 @@
-from fenics import *
-import scipy.interpolate as interp
-import numpy as np
-from fenics_ice import model
-import matplotlib.pyplot as plt
-import test_domains
+"""
+Generate ismipC domain in HDF5 grid format
+
+Note that this produces arrays which are arranged [y,x]
+"""
+
 import os
 import argparse
+import h5py
+from pathlib import Path
 
-def main(outdir, L, periodic_bc, nx, ny):
+from fenics import File, RectangleMesh, Point
+from fenics_ice import test_domains
 
+def main(outfname, L, nx, ny, reflect):
 
-    #Fenics mesh
-    mesh = RectangleMesh(Point(0,0), Point(L, L), nx, ny)
+    # Check valid filename & create dir if necessary
+    outpath = Path(outfname)
+    assert(outpath.suffix == ".h5")
+    outdir = outpath.parent
+    outdir.mkdir(exist_ok=True, parents=True)
 
-    #TODO - interpolation from data_mesh to DG mesh, then to L1 elements causes high gradient in surf & bed
-    M = FunctionSpace(mesh, 'DG', 0)
-    Q = FunctionSpace(mesh, 'Lagrange', 1)
-    Qp = Q
+    # Data on grid
+    domain = test_domains.ismipC(L, nx=nx+1, ny=ny+1, tiles=1.0, reflect=reflect)
 
-    if periodic_bc:
-        Qp = FunctionSpace(mesh,'Lagrange',1,constrained_domain=model.PeriodicBoundary(periodic_bc))
+    # Dictionary linking variable names to domain objects
+    var_dict = {
+        "bed": domain.bed,
+        "thick": domain.thick,
+        "data_mask": domain.mask,
+        "bmelt": domain.bmelt,
+        "smb": domain.smb,
+        "B2": domain.B2,
+        "alpha": domain.B2**0.5,
+        "Bglen": domain.Bglen
+    }
 
-    m = Function(M)
-    n = M.dim()
-    d = mesh.geometry().dim()
+    outfile = h5py.File(outpath, 'w')
 
-    dof_coordinates = M.tabulate_dof_coordinates()
-    dof_coordinates.resize((n, d))
-    dof_x = dof_coordinates[:, 0]
-    dof_y = dof_coordinates[:, 1]
+    # Metadata
+    outfile.attrs['nx'] = nx+1
+    outfile.attrs['ny'] = ny+1
+    outfile.attrs['xmin'] = 0
+    outfile.attrs['ymin'] = 0
+    outfile.attrs['xmax'] = L
+    outfile.attrs['ymax'] = L
 
-    #Sampling Mesh, identical to Fenics mesh
-    domain = test_domains.ismipC(L,nx=nx+1,ny=ny+1, tiles=1.0)
-    xcoord = domain.x
-    ycoord = domain.y
-    xycoord = (xcoord, ycoord)
+    outfile.create_dataset("x",
+                           domain.x.shape,
+                           dtype=domain.x.dtype,
+                           data=domain.x)
 
-    #Data is not stored in an ordered manner on the fencis mesh.
-    #Using interpolation function to get correct grid ordering
-    bed_interp = interp.RegularGridInterpolator(xycoord, domain.bed)
-    height_interp = interp.RegularGridInterpolator(xycoord, domain.thick)
-    bmelt_interp = interp.RegularGridInterpolator(xycoord, domain.bmelt)
-    smb_interp = interp.RegularGridInterpolator(xycoord, domain.smb)
-    mask_interp = interp.RegularGridInterpolator(xycoord, domain.mask)
-    B2_interp = interp.RegularGridInterpolator(xycoord, domain.B2)
-    Bglen_interp = interp.RegularGridInterpolator(xycoord, domain.Bglen)
+    outfile.create_dataset("y",
+                           domain.y.shape,
+                           dtype=domain.y.dtype,
+                           data=domain.y)
 
-    #Coordinates of DOFS of fenics mesh in order data is stored
-    dof_xy = (dof_x, dof_y)
-    bed = bed_interp(dof_xy)
-    height = height_interp(dof_xy)
-    bmelt = bmelt_interp(dof_xy)
-    smb = smb_interp(dof_xy)
-    mask = mask_interp(dof_xy)
-    B2 = B2_interp(dof_xy)
-    Bglen = Bglen_interp(dof_xy)
-
-
-
-    outfile = 'grid_data'
-    np.savez(os.path.join(outdir,outfile),nx=nx,ny=ny,xlim=[0,L],ylim=[0,L], Lx=L, Ly=L)
-
-    File(os.path.join(outdir,'data_mesh.xml')) << mesh
-
-    m.vector()[:] = bed.flatten()
-    q = project(m, Q)
-    File(os.path.join(outdir,'bed.xml')) <<  q
-
-    m.vector()[:] = height.flatten()
-    File(os.path.join(outdir,'thick.xml')) <<  m
-
-    m.vector()[:] = mask.flatten()
-    File(os.path.join(outdir,'data_mask.xml')) <<  m
-
-    m.vector()[:] = bmelt.flatten()
-    File(os.path.join(outdir,'bmelt.xml')) <<  m
-
-    m.vector()[:] = smb.flatten()
-    File(os.path.join(outdir,'smb.xml')) << m
-
-    m.vector()[:] = B2.flatten()
-    File(os.path.join(outdir,'B2.xml')) <<  m
-
-    m.vector()[:] = np.sqrt(B2.flatten())
-    qp = project(m, Qp)
-    File(os.path.join(outdir,'alpha.xml')) <<  qp
-
-    m.vector()[:] = Bglen.flatten()
-    File(os.path.join(outdir,'Bglen.xml')) <<  m
-
-
+    for key in var_dict.keys():
+        outfile.create_dataset(key,
+                               var_dict[key].shape,
+                               dtype=var_dict[key].dtype,
+                               data=var_dict[key])
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-b', '--boundaries', dest='periodic_bc', action='store_true', help='Periodic boundary conditions')
 
     parser.add_argument('-L', '--length', dest='L', type=int, help='Length of IsmipC domain.')
     parser.add_argument('-nx', '--nx', dest='nx', type=int, help='Number of cells along x-axis direction')
     parser.add_argument('-ny', '--ny', dest='ny', type=int, help='Number of cells along y-axis direction')
 
-    parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
+    parser.add_argument('-o', '--outfile', dest='outfname', type=str, help='Filename to store the output')
 
-    parser.set_defaults(outdir = '../input/ismipC/', periodic_bc=True, L = 40e3, nx = 100, ny=100) #TODO - because default = True, actually no way to run this code without periodic_bc
+    parser.add_argument('-r', '--reflect', action='store_true', help='Produce a reflected/transposed ismipc domain (backwards compatibility)')
+
+    parser.set_defaults(outfname='../input/ismipC/ismipC_input.h5',
+                        L=40e3,
+                        nx=100,
+                        ny=100,
+                        reflect=False)
+
     args = parser.parse_args()
 
-    outdir = args.outdir
-    periodic_bc = args.periodic_bc
-    L = args.L
-    nx = args.nx
-    ny = args.ny
-
-    #Set to mesh_length if true
-    if periodic_bc:
-        periodic_bc = L
-
-    #Create outdir if not currently in existence
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-    
-    main(outdir, L, periodic_bc, nx, ny)
-
-
+    main(args.outfname, args.L, args.nx, args.ny, args.reflect)

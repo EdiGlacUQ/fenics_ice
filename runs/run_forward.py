@@ -1,6 +1,6 @@
 import sys
 import os
-
+from pathlib import Path
 import argparse
 from fenics import *
 from tlm_adjoint_fenics import *
@@ -25,130 +25,29 @@ def run_forward(config_file):
     #Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
+    inout.log_preamble("forward", params)
 
-    log.info("\n\n==================================")
-    log.info("==  RUNNING FORWARD MODEL PHASE ==")
-    log.info("==================================\n\n")
-
-    inout.print_config(params)
-
-    #TODO - issue here - run_inv might need to use 'nx,ny' but run_forward should
-    #read mesh...
-    #Furthermore - previously this worked by feeding different 'input' & 'output' dir
-    #to each stage (run_inv, run_forward, run_errorprop, etc). This should be fixed.
-
-
-    dd = params.io.input_dir
     outdir = params.io.output_dir
 
-    # Determine Mesh
+    # Load the static model data (geometry, smb, etc)
+    input_data = inout.InputData(params)
 
-    #TODO - generalize/improve
-    mesh = Mesh(os.path.join(outdir, 'mesh.xml'))
+    # Get model mesh
+    mesh = fice_mesh.get_mesh(params)
 
-    #data_mesh = fice_mesh.get_data_mesh(params)
-    data_mesh = mesh
+    # Define the model
+    mdl = model.model(mesh, input_data, params)
 
-    # Define Function Spaces
-    M = FunctionSpace(mesh, 'DG', 0)
-    Q = FunctionSpace(mesh, 'Lagrange', 1)
+    mdl.alpha_from_inversion()
+    mdl.beta_from_inversion()
 
-    # Make necessary modification for periodic bc
-    if params.mesh.periodic_bc:
-        Qp = fice_mesh.get_periodic_space(params, mesh, dim=1)
-        V = fice_mesh.get_periodic_space(params, mesh, dim=2)
-    else:
-        Qp = Q
-        V = VectorFunctionSpace(mesh, 'Lagrange', 1, dim=2)
-
-    data_mask = fice_mesh.get_mask(params, M)
-
-
-    #Load fields
-    U = Function(V,os.path.join(outdir,'U.xml'))
-    alpha = Function(Qp,os.path.join(outdir,'alpha.xml'))
-    beta = Function(Qp,os.path.join(outdir,'beta.xml'))
-
-    bed = Function(Q,os.path.join(outdir, 'bed.xml'))
-    bmelt = Function(M,os.path.join(outdir, 'bmelt.xml'))
-    smb = Function(M,os.path.join(outdir, 'smb.xml'))
-    thick = Function(M,os.path.join(outdir, 'thick.xml'))
-    mask = Function(M,os.path.join(outdir, 'mask.xml'))
-    mask_vel = Function(M,os.path.join(outdir, 'mask_vel.xml'))
-    u_obs = Function(M,os.path.join(outdir, 'u_obs.xml'))
-    v_obs = Function(M,os.path.join(outdir, 'v_obs.xml'))
-    u_std = Function(M,os.path.join(outdir, 'u_std.xml'))
-    v_std = Function(M,os.path.join(outdir, 'v_std.xml'))
-    uv_obs = Function(M,os.path.join(outdir, 'uv_obs.xml'))
-
-    #TODO - these solver params differ from run_inv.py
-    # do we want to specify on a step-by-step basis?
-
-    #Load Data
-    # param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
-    # param['sliding_law'] = sl
-
-    # param['outdir'] = outdir
-    # if sl == 0:
-    #     param['picard_params'] =  {"nonlinear_solver":"newton",
-    #                             "newton_solver":{"linear_solver":"umfpack",
-    #                             "maximum_iterations":200,
-    #                             "absolute_tolerance":1.0e-0,
-    #                             "relative_tolerance":1.0e-3,
-    #                             "convergence_criterion":"incremental",
-    #                             "error_on_nonconvergence":False,
-    #                             }}
-    #     param['newton_params'] =  {"nonlinear_solver":"newton",
-    #                             "newton_solver":{"linear_solver":"umfpack",
-    #                             "maximum_iterations":25,
-    #                             "absolute_tolerance":1.0e-7,
-    #                             "relative_tolerance":1.0e-8,
-    #                             "convergence_criterion":"incremental",
-    #                             "error_on_nonconvergence":True,
-    #                             }}
-
-    # elif sl == 1:
-    #     param['picard_params'] =  {"nonlinear_solver":"newton",
-    #                             "newton_solver":{"linear_solver":"umfpack",
-    #                             "maximum_iterations":200,
-    #                             "absolute_tolerance":1.0e-4,
-    #                             "relative_tolerance":1.0e-10,
-    #                             "convergence_criterion":"incremental",
-    #                             "error_on_nonconvergence":False,
-    #                             }}
-    #     param['newton_params'] =  {"nonlinear_solver":"newton",
-    #                             "newton_solver":{"linear_solver":"umfpack",
-    #                             "maximum_iterations":25,
-    #                             "absolute_tolerance":1.0e-4,
-    #                             "relative_tolerance":1.0e-5,
-    #                             "convergence_criterion":"incremental",
-    #                             "error_on_nonconvergence":True,
-    #                             }}
-
-
-    # param['n_steps'] = n_steps
-    # param['num_sens'] = num_sens
-
-    mdl = model.model(mesh, data_mask, params)
-    mdl.init_bed(bed)
-    mdl.init_thick(thick)
-    mdl.gen_surf()
-    mdl.init_mask(mask)
-    mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std)
-    mdl.init_lat_dirichletbc()
-    mdl.init_bmelt(bmelt)
-    mdl.init_smb(smb)
-    mdl.init_alpha(alpha)
-    mdl.init_beta(beta, False)
-    mdl.label_domain()
-
-    #Solve
+    # Solve
     slvr = solver.ssa_solver(mdl)
     slvr.save_ts_zero()
 
     cntrl = slvr.get_control()[0] #TODO - generalise
 
-    qoi_func =  slvr.get_qoi_func()
+    qoi_func = slvr.get_qoi_func()
 
     #TODO here - cntrl now returns a list - so compute_gradient returns a list of tuples
 
@@ -174,100 +73,24 @@ def run_forward(config_file):
     #   J_val = J.value(), dJ = dJ, seed = 1e-2, size = 6)
     # sys.exit(os.EX_OK)
 
-    #Output model variables in ParaView+Fenics friendly format
+    # Output model variables in ParaView+Fenics friendly format
     outdir = params.io.output_dir
 
-    #File(os.path.join(outdir,'mesh_test.xml')) << mdl.mesh
-
-    #Output QOI & DQOI
+    # Output QOI & DQOI (needed for next steps)
     inout.write_qval(slvr.Qval_ts, params)
     inout.write_dqval(dQ_ts, params)
 
-    vtkfile = File(os.path.join(outdir,'U_fwd.pvd'))
-    xmlfile = File(os.path.join(outdir,'U_fwd.xml'))
-    vtkfile << slvr.U
-    xmlfile << slvr.U
+    # Output final velocity, surface & thickness (visualisation)
+    inout.write_variable(slvr.U, params, name="U_fwd")
+    inout.write_variable(mdl.surf, params, name="surf_fwd")
 
-    # vtkfile = File(os.path.join(outdir,'beta_fwd.pvd'))
-    # xmlfile = File(os.path.join(outdir,'beta_fwd.xml'))
-    # vtkfile << slvr.beta
-    # xmlfile << slvr.beta
+    H = project(mdl.H, mdl.Q)
+    inout.write_variable(H, params, name="H_fwd")
 
-    # vtkfile = File(os.path.join(outdir,'bed_fwd.pvd'))
-    # xmlfile = File(os.path.join(outdir,'bed_fwd.xml'))
-    # vtkfile << mdl.bed
-    # xmlfile << mdl.bed
-
-    vtkfile = File(os.path.join(outdir,'thick_fwd.pvd'))
-    xmlfile = File(os.path.join(outdir,'thick_fwd.xml'))
-    H = project(mdl.H, mdl.M)
-    vtkfile << H
-    xmlfile << H
-
-    # vtkfile = File(os.path.join(outdir,'mask_fwd.pvd'))
-    # xmlfile = File(os.path.join(outdir,'mask_fwd.xml'))
-    # vtkfile << mdl.mask
-    # xmlfile << mdl.mask
-
-    # vtkfile = File(os.path.join(outdir,'mask_vel_fwd.pvd'))
-    # xmlfile = File(os.path.join(outdir,'mask_vel_fwd.xml'))
-    # vtkfile << mdl.mask_vel
-    # xmlfile << mdl.mask_vel
-
-    # vtkfile = File(os.path.join(outdir,'u_obs_fwd.pvd'))
-    # xmlfile = File(os.path.join(outdir,'u_obs_fwd.xml'))
-    # vtkfile << mdl.u_obs
-    # xmlfile << mdl.u_obs
-
-    # vtkfile = File(os.path.join(outdir,'v_obs_fwd.pvd'))
-    # xmlfile = File(os.path.join(outdir,'v_obs_fwd.xml'))
-    # vtkfile << mdl.v_obs
-    # xmlfile << mdl.v_obs
-
-    # vtkfile = File(os.path.join(outdir,'u_std_fwd.pvd'))
-    # xmlfile = File(os.path.join(outdir,'u_std_fwd.xml'))
-    # vtkfile << mdl.u_std
-    # xmlfile << mdl.u_std
-
-    # vtkfile = File(os.path.join(outdir,'v_std_fwd.pvd'))
-    # xmlfile = File(os.path.join(outdir,'v_std_fwd.xml'))
-    # vtkfile << mdl.v_std
-    # xmlfile << mdl.v_std
-
-    # vtkfile = File(os.path.join(outdir,'uv_obs_fwd.pvd'))
-    # xmlfile = File(os.path.join(outdir,'uv_obs_fwd.xml'))
-    # U_obs = project((mdl.v_obs**2 + mdl.u_obs**2)**(1.0/2.0), mdl.M)
-    # vtkfile << U_obs
-    # xmlfile << U_obs
-
-    # vtkfile = File(os.path.join(outdir,'alpha_fwd.pvd'))
-    # xmlfile = File(os.path.join(outdir,'alpha_fwd.xml'))
-    # vtkfile << slvr.alpha
-    # xmlfile << slvr.alpha
-
-
-    # vtkfile = File(os.path.join(outdir,'surf_fwd.pvd'))
-    # xmlfile = File(os.path.join(outdir,'surf_fwd.xml'))
-    # vtkfile << mdl.surf
-    # xmlfile << mdl.surf
-
+    return mdl
 
 if __name__ == "__main__":
     stop_annotating()
-
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('-t', '--time', dest='run_length', type=float, required=True, help='Number of years to run for')
-    # parser.add_argument('-n', '--num_timesteps', dest='n_steps', type=int, required=True, help='Number of timesteps')
-    # parser.add_argument('-s', '--num_sens', dest='num_sens', type=int, help='Number of samples of cost function')
-    # parser.add_argument('-i', '--quantity_of_interest', dest='qoi', type=float,  help = 'Quantity of interest (0: VAF (default), 1: H^2 (for ISMIPC))')
-
-    # parser.set_defaults(periodic_bc = False, nx=False,ny=False, outdir=False, num_sens = 1.0, pflag=0,sl=0, qoi=0)
-    # args = parser.parse_args()
-
-    # n_steps = args.n_steps
-    # run_length = args.run_length
-    # num_sens = args.num_sens
-    # qoi = args.qoi
 
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_forward(sys.argv[1])

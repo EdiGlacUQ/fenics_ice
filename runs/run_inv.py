@@ -1,6 +1,7 @@
 import sys
 import os
 import argparse
+from pathlib import Path
 from dolfin import *
 from tlm_adjoint_fenics import *
 
@@ -10,7 +11,7 @@ from fenics_ice.config import ConfigParser
 import fenics_ice.fenics_util as fu
 
 import matplotlib as mpl
-mpl.use("Agg")
+#mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import time
@@ -18,194 +19,97 @@ import datetime
 import pickle
 from IPython import embed
 
-import git
-
 def run_inv(config_file):
     """
     Run the inversion part of the simulation
     """
 
-    #Read run config file
+    # Read run config file
     params = ConfigParser(config_file)
 
     log = inout.setup_logging(params)
+    inout.log_preamble("inverse", params)
 
-    repo = git.Repo(__file__, search_parent_directories=True)
-    try:
-        branch = repo.active_branch.name
-    except TypeError:
-        branch = "DETACHED"
-    sha = repo.head.object.hexsha[:7]
+    # Load the static model data (geometry, smb, etc)
+    input_data = inout.InputData(params)
 
-    log.info("=============== Fenics Ice ===============")
-    log.info("==   git branch  : %s" % branch)
-    log.info("==   commit hash : %s" % sha)
-    log.info("==========================================")
+    # Get the model mesh
+    mesh = fice_mesh.get_mesh(params)
+    mdl = model.model(mesh, input_data, params)
 
-    log.info("\n\n==================================")
-    log.info("==  RUNNING INVERSE MODEL PHASE ==")
-    log.info("==================================\n\n")
-
-    inout.print_config(params)
-
-    dd = params.io.input_dir
-
-    # Determine Mesh (1. create ismip or 2. from file)
-    if params.mesh.nx:
-        mesh = fice_mesh.create_ismip_mesh(params)
-    else:
-        mesh = fice_mesh.get_mesh(params)
-
-    data_mesh = fice_mesh.get_data_mesh(params)
-
-    # Define Function Spaces
-    M = FunctionSpace(data_mesh, 'DG', 0)
-    Q = FunctionSpace(data_mesh, 'Lagrange', 1)
-
-    # Make necessary modification for periodic bc
-    if params.mesh.periodic_bc:
-        Qp = fice_mesh.get_periodic_space(params, data_mesh, dim=1)
-    else:
-        Qp = Q
-
-    data_mask = fice_mesh.get_data_mask(params, M)
-
-    bed = Function(Q,os.path.join(dd,'bed.xml'))
-
-    thick = Function(M,os.path.join(dd,'thick.xml'))
-    u_obs = Function(M,os.path.join(dd,'u_obs.xml'))
-    v_obs = Function(M,os.path.join(dd,'v_obs.xml'))
-    u_std = Function(M,os.path.join(dd,'u_std.xml'))
-    v_std = Function(M,os.path.join(dd,'v_std.xml'))
-    mask_vel = Function(M,os.path.join(dd,'mask_vel.xml'))
-    Bglen = Function(M,os.path.join(dd,'Bglen.xml'))
-    bmelt = Function(M,os.path.join(dd,'bmelt.xml'))
-    smb = Function(M,os.path.join(dd,'smb.xml'))
-
+    # TODO use this or get rid of it
     pts_lengthscale = params.obs.pts_len
 
-    mdl = model.model(mesh,data_mask, params)
-    mdl.init_bed(bed)
-    mdl.init_thick(thick)
-    mdl.gen_surf()
-    mdl.init_mask(data_mask)
-    mdl.init_vel_obs(u_obs,v_obs,mask_vel,u_std,v_std, pts_lengthscale)
-    mdl.init_lat_dirichletbc()
-    mdl.init_bmelt(bmelt)
-    mdl.init_smb(smb)
-    mdl.label_domain()
-
     mdl.gen_alpha()
-    #Add random noise to Beta field iff we're inverting for it
-    mdl.init_beta(mdl.bglen_to_beta(Bglen), params.inversion.beta_active)
 
-    #Next line will output the initial guess for alpha fed into the inversion
-    #File(os.path.join(outdir,'alpha_initguess.pvd')) << mdl.alpha
+    # Add random noise to Beta field iff we're inverting for it
+    mdl.bglen_from_data()
+    mdl.init_beta(mdl.bglen_to_beta(mdl.bglen), params.inversion.beta_active)
 
-    #Inversion
+    # Next line will output the initial guess for alpha fed into the inversion
+    # File(os.path.join(outdir,'alpha_initguess.pvd')) << mdl.alpha
+
+    #####################
+    # Run the Inversion #
+    #####################
+
     slvr = solver.ssa_solver(mdl)
     slvr.inversion()
 
+    ###########################
+    #  Write out variables    #
+    ###########################
 
-    #Output model variables in ParaView+Fenics friendly format
     outdir = params.io.output_dir
 
-    #TODO - is this used to pass info between run_ parts?
-    #pickle.dump( mdl.param, open( os.path.join(outdir,'param.p'), "wb" ) )
+    # Required for next phase (HDF5):
 
-    File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
+    invout_file = params.io.inversion_file
+    invout = HDF5File(mesh.mpi_comm(), str(Path(outdir)/invout_file), 'w')
 
+    invout.parameters.add("gamma_alpha", slvr.gamma_alpha)
+    invout.parameters.add("delta_alpha", slvr.delta_alpha)
+    invout.parameters.add("gamma_beta", slvr.gamma_beta)
+    invout.parameters.add("delta_beta", slvr.delta_beta)
+    invout.parameters.add("timestamp", str(datetime.datetime.now()))
 
-    vtkfile = File(os.path.join(outdir,'U.pvd'))
-    xmlfile = File(os.path.join(outdir,'U.xml'))
-    vtkfile << slvr.U
-    xmlfile << slvr.U
+    invout.write(mdl.alpha, 'alpha')
+    invout.write(mdl.beta, 'beta')
 
-    vtkfile = File(os.path.join(outdir,'beta.pvd'))
-    xmlfile = File(os.path.join(outdir,'beta.xml'))
-    vtkfile << slvr.beta
-    xmlfile << slvr.beta
+    # For visualisation (XML & VTK):
 
-    vtkfile = File(os.path.join(outdir,'beta_bgd.pvd'))
-    xmlfile = File(os.path.join(outdir,'beta_bgd.xml'))
-    vtkfile << slvr.beta_bgd
-    xmlfile << slvr.beta_bgd
+    inout.write_variable(slvr.U, params)
+    inout.write_variable(slvr.beta, params)
 
-    vtkfile = File(os.path.join(outdir,'bed.pvd'))
-    xmlfile = File(os.path.join(outdir,'bed.xml'))
-    vtkfile << mdl.bed
-    xmlfile << mdl.bed
+    slvr.beta_bgd.rename("beta_bgd","")
+    inout.write_variable(slvr.beta_bgd, params)
 
-    vtkfile = File(os.path.join(outdir,'thick.pvd'))
-    xmlfile = File(os.path.join(outdir,'thick.xml'))
+    inout.write_variable(mdl.bed, params)
     H = project(mdl.H, mdl.M)
-    vtkfile << H
-    xmlfile << H
+    H.rename("thick", "")
+    inout.write_variable(H, params)
+    inout.write_variable(mdl.mask, params, name="mask")
+    inout.write_variable(mdl.mask_vel_M, params, name="mask_vel")
 
-    vtkfile = File(os.path.join(outdir,'mask.pvd'))
-    xmlfile = File(os.path.join(outdir,'mask.xml'))
-    vtkfile << mdl.mask
-    xmlfile << mdl.mask
+    inout.write_variable(mdl.u_obs_Q, params)
+    inout.write_variable(mdl.v_obs_Q, params)
+    inout.write_variable(mdl.u_std_Q, params)
+    inout.write_variable(mdl.v_std_Q, params)
 
+    U_obs = project((mdl.v_obs_Q**2 + mdl.u_obs_Q**2)**(1.0/2.0), mdl.M)
+    U_obs.rename("uv_obs", "")
+    inout.write_variable(U_obs, params, name="uv_obs")
 
-    vtkfile = File(os.path.join(outdir,'mask_vel.pvd'))
-    xmlfile = File(os.path.join(outdir,'mask_vel.xml'))
-    vtkfile << mdl.mask_vel
-    xmlfile << mdl.mask_vel
+    inout.write_variable(slvr.alpha, params)
 
-    vtkfile = File(os.path.join(outdir,'u_obs.pvd'))
-    xmlfile = File(os.path.join(outdir,'u_obs.xml'))
-    vtkfile << mdl.u_obs
-    xmlfile << mdl.u_obs
+    Bglen = project(slvr.beta_to_bglen(slvr.beta), mdl.M)
+    Bglen.rename("Bglen", "")
+    inout.write_variable(Bglen, params)
+    inout.write_variable(slvr.bmelt, params, name="bmelt")
+    inout.write_variable(slvr.smb, params, name="smb")
+    inout.write_variable(mdl.surf, params, name="surf")
 
-    vtkfile = File(os.path.join(outdir,'v_obs.pvd'))
-    xmlfile = File(os.path.join(outdir,'v_obs.xml'))
-    vtkfile << mdl.v_obs
-    xmlfile << mdl.v_obs
-
-    vtkfile = File(os.path.join(outdir,'u_std.pvd'))
-    xmlfile = File(os.path.join(outdir,'u_std.xml'))
-    vtkfile << mdl.u_std
-    xmlfile << mdl.u_std
-
-    vtkfile = File(os.path.join(outdir,'v_std.pvd'))
-    xmlfile = File(os.path.join(outdir,'v_std.xml'))
-    vtkfile << mdl.v_std
-    xmlfile << mdl.v_std
-
-    vtkfile = File(os.path.join(outdir,'uv_obs.pvd'))
-    xmlfile = File(os.path.join(outdir,'uv_obs.xml'))
-    U_obs = project((mdl.v_obs**2 + mdl.u_obs**2)**(1.0/2.0), mdl.M)
-    vtkfile << U_obs
-    xmlfile << U_obs
-
-    vtkfile = File(os.path.join(outdir,'alpha.pvd'))
-    xmlfile = File(os.path.join(outdir,'alpha.xml'))
-    vtkfile << slvr.alpha
-    xmlfile << slvr.alpha
-
-    vtkfile = File(os.path.join(outdir,'Bglen.pvd'))
-    xmlfile = File(os.path.join(outdir,'Bglen.xml'))
-    Bglen = project(slvr.beta_to_bglen(slvr.beta),mdl.M)
-    vtkfile << Bglen
-    xmlfile << Bglen
-
-    vtkfile = File(os.path.join(outdir,'bmelt.pvd'))
-    xmlfile = File(os.path.join(outdir,'bmelt.xml'))
-    vtkfile << slvr.bmelt
-    xmlfile << slvr.bmelt
-
-    vtkfile = File(os.path.join(outdir,'smb.pvd'))
-    xmlfile = File(os.path.join(outdir,'smb.xml'))
-    vtkfile << slvr.smb
-    xmlfile << slvr.smb
-
-    vtkfile = File(os.path.join(outdir,'surf.pvd'))
-    xmlfile = File(os.path.join(outdir,'surf.xml'))
-    vtkfile << mdl.surf
-    xmlfile << mdl.surf
-
-    pickle.dump( mdl.uv_obs_pts, open( os.path.join(outdir,'obs_pts.p'), "wb" ) )
+    return mdl
 
 if __name__ == "__main__":
     stop_annotating()

@@ -3,7 +3,7 @@
 [io] #Directory specification
 
 #gamma_alpha =/= 1e6 (discrete cost func) but equivalent to initial test case
-run_name = "ismipc_40x40"
+run_name = "ismipc_rc_1e6"
 input_dir = "./input"
 output_dir = "./output"
 data_file = "ismipc_input.h5"
@@ -31,7 +31,7 @@ random_seed = 0
 [mesh]
 
 mesh_filename = "ismip_mesh.xml"
-periodic_bc = true
+periodic_bc = false
 
 [obs]
 
@@ -66,7 +66,8 @@ sliding_law = 'linear' #weertman, linear
 [momsolve.picard_params]
 nonlinear_solver = "newton"
 [momsolve.picard_params.newton_solver]
-linear_solver = "umfpack"
+linear_solver = "cg"
+preconditioner = "hypre_amg"
 maximum_iterations = 200
 absolute_tolerance = 1.0e-0
 relative_tolerance = 1.0e-3
@@ -76,7 +77,8 @@ error_on_nonconvergence =  false
 [momsolve.newton_params]
 nonlinear_solver = "newton"
 [momsolve.newton_params.newton_solver]
-linear_solver = "umfpack"
+linear_solver = "cg"
+preconditioner = "hypre_amg"
 maximum_iterations = 25
 absolute_tolerance = 1.0e-7
 relative_tolerance = 1.0e-8
@@ -99,7 +101,7 @@ num_sens = 5 #TODO rename
 
 [eigendec]
 
-#num_eig = 200
+num_eig = 90
 eig_algo = "slepc"
 misfit_only = true
 

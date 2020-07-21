@@ -50,7 +50,7 @@ fig.tight_layout()
 for i, rf in enumerate(run_folders):
 
     run_dir = base_folder / rf
-    mesh = Mesh(str(run_dir / "output" / "mesh.xml"))
+    mesh = Mesh(str(run_dir / "input" / "ismip_mesh.xml"))
 
     param_file = str((run_dir / rf).with_suffix(".toml"))
     params = config.ConfigParser(param_file, top_dir=run_dir)
@@ -72,7 +72,8 @@ for i, rf in enumerate(run_folders):
 
     for j in range(4):
         k = j + e_offset
-        hdf5data = HDF5File(MPI.comm_world, str(run_dir / 'output' / 'vr.h5'), 'r')
+        vr_file = str(next((run_dir / 'output').glob("*vr.h5")))
+        hdf5data = HDF5File(MPI.comm_world, vr_file, 'r')
         hdf5data.read(eigenfunc, f'v/vector_{k}')
 
         sind = j+1+i*4

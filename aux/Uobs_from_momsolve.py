@@ -1,103 +1,138 @@
 import numpy as np
-import sys
-import os
-from pylab import plt
-from matplotlib import colors
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+from pathlib import Path
+import h5py
 from fenics import *
-from IPython import embed
 from fenics_ice import model
 import argparse
 
 
-def main(dd,noise_sdev, bflag, L, seed=0):
+def main(dd, infile, outfile, noise_sdev, L, seed=0):
+    """
+    Take velocity data from run_momsolve.py and add gaussian noise
 
-    data_mesh = Mesh(os.path.join(dd,'mesh.xml'))
+    Expects an HDF5 file (containing both mesh & velocity function) as input.
+    In the case of a periodic boundary condition with NxN elements, this
+    produces NxN velocity observations (NOT N+1 x N+1) because otherwise
+    boundary nodes would be doubly constrained.
+    """
+    assert Path(infile).suffix == ".h5"
+    assert Path(outfile).suffix == ".h5"
+    assert L > 0.0
+    assert noise_sdev > 0.0
 
-    if bflag:
-        V = VectorFunctionSpace(data_mesh, 'Lagrange', 1, dim=2, constrained_domain=model.PeriodicBoundary(L))
+    infile = HDF5File(MPI.comm_world, str(Path(dd)/infile), 'r')
+
+    # Get mesh from file
+    mesh = Mesh()
+    infile.read(mesh, 'mesh', False)
+    periodic_bc = bool(infile.attributes('mesh')['periodic'])
+
+    if periodic_bc:
+        V = VectorFunctionSpace(mesh,
+                                'Lagrange',
+                                1,
+                                dim=2,
+                                constrained_domain=model.PeriodicBoundary(L))
+
     else:
-        V = VectorFunctionSpace(data_mesh, 'Lagrange', 1, dim=2)
+        V = VectorFunctionSpace(mesh,
+                                'Lagrange',
+                                1,
+                                dim=2)
 
+    # Read the velocity
+    U = Function(V)
+    infile.read(U, 'U')
 
-    
-    M = FunctionSpace(data_mesh, 'DG', 0)
+    # How many points?
+    ndofs = int(U.vector()[:].shape[0] / 2)
 
-    U = Function(V,os.path.join(dd,'U.xml'))
-    N = Function(M)
-
-    uu,vv = U.split(True)
-    u = project(uu,M)
-    v = project(vv,M)
-
-    u_array = u.vector().get_local()
-    v_array = v.vector().get_local()
-
+    # Generate the random noise
     np.random.seed(seed)
-    u_noise = np.random.normal(scale=noise_sdev, size=u_array.size)
-    v_noise = np.random.normal(scale=noise_sdev, size=v_array.size)
+    u_noise = np.random.normal(scale=noise_sdev, size=ndofs)
+    v_noise = np.random.normal(scale=noise_sdev, size=ndofs)
 
-    u.vector().set_local(u.vector().get_local() + u_noise)
-    v.vector().set_local(v.vector().get_local() + v_noise)
+    # Grab the two components of the velocity vector, and add noise
+    U_vec = U.vector()[:]
+    U_vec[0::2] += u_noise
+    U_vec[1::2] += v_noise
 
+    u_array = U_vec[0::2]
+    v_array = U_vec[1::2]
 
-    File(os.path.join(dd,'data_mesh.xml')) << data_mesh
+    # [::2] because tabulate_dof_coordinates produces two copies
+    # (because 2 dofs per node...)
+    x, y = np.hsplit(U.function_space().tabulate_dof_coordinates()[::2], 2)
 
+    # Produce output as raw points & vel
+    output = h5py.File(Path(dd)/outfile, 'w')
 
-    vtkfile = File(os.path.join(dd,'u_obs.pvd'))
-    xmlfile = File(os.path.join(dd,'u_obs.xml'))
-    vtkfile << u
-    xmlfile << u
+    output.create_dataset("x",
+                          x.shape,
+                          dtype=x.dtype,
+                          data=x)
 
+    output.create_dataset("y",
+                          x.shape,
+                          dtype=x.dtype,
+                          data=y)
 
-    vtkfile = File(os.path.join(dd,'v_obs.pvd'))
-    xmlfile = File(os.path.join(dd,'v_obs.xml'))
-    vtkfile << v
-    xmlfile << v
+    output.create_dataset("u_obs",
+                          x.shape,
+                          dtype=np.float64,
+                          data=u_array)
 
-    vtkfile = File(os.path.join(dd,'uv_obs.pvd'))
-    xmlfile = File(os.path.join(dd,'uv_obs.xml'))
-    U_obs = project((v**2 + u**2)**(1.0/2.0), M)
-    vtkfile << U_obs
-    xmlfile << U_obs
+    output.create_dataset("v_obs",
+                          x.shape,
+                          dtype=np.float64,
+                          data=v_array)
 
-    N.assign(Constant(noise_sdev))
-    xmlfile = File(os.path.join(dd,'u_std.xml'))
-    xmlfile << N
+    noise_arr = np.zeros_like(x)
+    noise_arr[:] = noise_sdev
 
-    xmlfile = File(os.path.join(dd,'v_std.xml'))
-    xmlfile << N
+    output.create_dataset("u_std",
+                           x.shape,
+                           dtype=np.float64,
+                           data=noise_arr)
 
-    N.assign(Constant(1.0))
-    xmlfile = File(os.path.join(dd,'mask_vel.xml'))
-    xmlfile << N
+    output.create_dataset("v_std",
+                           x.shape,
+                           dtype=np.float64,
+                           data=noise_arr)
 
+    mask_arr = np.ones_like(x)
 
+    output.create_dataset("mask_vel",
+                           x.shape,
+                           dtype=np.float64,
+                           data=mask_arr)
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')
-    parser.add_argument('-s', '--sigma', dest='noise_sdev', type=float,  help = 'Standard deviation of added Gaussian Noise')
-    parser.add_argument('-b', '--boundaries', dest='bflag', action='store_true', help='Periodic boundary conditions')
-    parser.add_argument('-L', '--length', dest='L', type=int, help='Length of IsmipC domain.')
-    parser.add_argument('-r', '--seed', dest='seed', type=int, help='Random seed for noise generation')
+    parser.add_argument('-d', '--datadir', dest='dd', type=str,
+                        required=True, help='Directory with input data')
+    parser.add_argument('-i', '--infile', dest='infile', type=str,
+                        required=True,
+                        help='HDF5 File containing mesh & function')
+    parser.add_argument('-o', '--outfile', dest='outfile', type=str,
+                        required=True, help='Filename for HDF5 output')
+    parser.add_argument('-s', '--sigma', dest='noise_sdev', type=float,
+                        help='Standard deviation of added Gaussian Noise')
+    parser.add_argument('-L', '--length', dest='L', type=int,
+                        help='Length of IsmipC domain.')
+    parser.add_argument('-r', '--seed', dest='seed', type=int,
+                        help='Random seed for noise generation')
 
-    parser.set_defaults(noise_sdev = 1.0, bflag = False, L = False, seed = 0)
+    parser.set_defaults(noise_sdev=1.0, L=False, seed=0)
     args = parser.parse_args()
 
     dd = args.dd
+    infile = args.infile
+    outfile = args.outfile
     noise_sdev = args.noise_sdev
-    bflag = args.bflag
     L = args.L
     seed = args.seed
 
-    if bflag and not L:
-        print('Periodic boundary conditions requiring specifying the domain length with -L')
-        raise SystemExit
-
-
-    main(dd, noise_sdev, bflag, L, seed)
-
-
+    main(dd, infile, outfile, noise_sdev, L, seed)

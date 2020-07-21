@@ -2,14 +2,14 @@
 set -e
 
 #Generate the input data (100x100 grid, and use this to generate 'obs_vel')
-python $FENICS_ICE_BASE_DIR/aux/gen_ismipC_domain.py -o ./input -b -L 40000 -nx 100 -ny 100 
-python $FENICS_ICE_BASE_DIR/runs/run_momsolve.py momsolve.toml
-python $FENICS_ICE_BASE_DIR/aux/Uobs_from_momsolve.py -b -L 40000 -d ./output_momsolve
+python $FENICS_ICE_BASE_DIR/aux/gen_rect_mesh.py -o ./input/momsolve_mesh.xml -xmax 40000 -ymax 40000 -nx 100 -ny 100
+python $FENICS_ICE_BASE_DIR/aux/gen_rect_mesh.py -o ./input/ismip_mesh.xml -xmax 40000 -ymax 40000 -nx 30 -ny 30
 
-#Copy vel files across
-cd output_momsolve
-cp u*xml v*xml mask_vel.xml ../input/
-cd ..
+python $FENICS_ICE_BASE_DIR/aux/gen_ismipC_domain.py -o ./input/ismipc_input.h5 -L 40000 -nx 100 -ny 100 --reflect
+python $FENICS_ICE_BASE_DIR/runs/run_momsolve.py momsolve.toml
+python $FENICS_ICE_BASE_DIR/aux/Uobs_from_momsolve.py -i "U.h5" -o "ismipc_U_obs.h5" -L 40000 -d ./output_momsolve
+
+cp output_momsolve/ismipc_U_obs.h5 input/
 
 #Run each phase of the model in turn
 RUN_DIR=$FENICS_ICE_BASE_DIR/runs/

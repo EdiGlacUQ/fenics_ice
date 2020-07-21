@@ -2,9 +2,10 @@ from fenics import *
 from dolfin import *
 import ufl
 import numpy as np
-import timeit
+from pathlib import Path
+import scipy.spatial.qhull as qhull
+from fenics_ice import inout
 from fenics_ice import mesh as fice_mesh
-from IPython import embed
 from numpy.random import randn
 import logging
 
@@ -12,17 +13,27 @@ log = logging.getLogger("fenics_ice")
 
 class model:
 
-    def __init__(self, mesh_in, mask_in, param_in):
+    def __init__(self, mesh_in, input_data, param_in, init_fields=True,
+                 init_vel_obs=True):
 
         #Initiate parameters
-        self.param = param_in
+        self.params = param_in
+        self.input_data = input_data
+        self.solvers = []
+        self.parallel = MPI.size(mesh_in.mpi_comm()) > 1
 
         #Full mask/mesh
         self.mesh_ext = Mesh(mesh_in)
-        self.mask_ext = mask_in.copy(deepcopy=True)
+        M_in = FunctionSpace(self.mesh_ext, 'DG', 0)
+        self.mask_ext = self.input_data.interpolate("data_mask", M_in, static=True)
 
-        #Generate Domain and Function Spaces
-        self.gen_domain()
+        # Generate Domain and Function Spaces
+        # TODO - should just get rid of gen_domain, submesh stuff
+        if self.parallel:
+            self.mesh = self.mesh_ext
+        else:
+            self.gen_domain()
+
         self.nm = FacetNormal(self.mesh)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
 
@@ -30,115 +41,115 @@ class model:
         self.RT = FunctionSpace(self.mesh,'RT',1)
 
         #Based on IsmipC: alpha, beta, and U are periodic.
-        if not self.param.mesh.periodic_bc:
+        if not self.params.mesh.periodic_bc:
             self.Qp = self.Q
             self.V = VectorFunctionSpace(self.mesh, 'Lagrange', 1, dim=2)
         else:
-            self.Qp = fice_mesh.get_periodic_space(self.param, self.mesh, dim=1)
-            self.V = fice_mesh.get_periodic_space(self.param, self.mesh, dim=2)
+            self.Qp = fice_mesh.get_periodic_space(self.params, self.mesh, dim=1)
+            self.V = fice_mesh.get_periodic_space(self.params, self.mesh, dim=2)
 
         #Default velocity mask and Beta fields
         self.def_vel_mask()
         self.def_B_field()
         self.def_lat_dirichletbc()
 
-    def init_param(self, param_in):
-        """
-        Sets parameter values to defaults, then overwrites with param_in
-        """
-        #TODO - UNUSED - DELETE ONCE DEFAULTS EXTRACTED
-        #Constants for ice sheet modelling
-        param = {}
-        param['ty'] = 365*24*60*60.0  #seconds in year
-        param['rhoi'] =  917.0      #density ice
-        param['rhow'] =   1000.0     #density water
-        param['g'] =  9.81           #acceleration due to gravity
-        param['n'] =  3.0            #glen's flow law exponent
-        param['eps_rp'] =  1e-5      #effective strain regularization
-        param['vel_rp'] =  1e-2      #velocity regularization parameter
-        param['A'] =  3.5e-25 * param['ty']     #Creep paramater
-        param['tol'] =  1e-6         #Tolerance for tests
-        param['rc_inv'] =  [0.0]       #regularization constants for inversion
+        if init_fields:
+            self.init_fields_from_data()
+            self.label_domain()  # Set up BC and Body IDs
 
-        #Sliding law
-        param['sliding_law'] =  0.0  #Alternatively 'weertman'
+        if init_vel_obs:
+            self.vel_obs_from_data()  # Load the velocity observations
+            self.init_lat_dirichletbc()  # TODO - generalize BCs
 
-        #Output
-        param['outdir'] = './output/'
+        self.Q_sigma = None
+        self.Q_sigma_prior = None
+        self.t_sens = None
+        self.cntrl_sigma = None
+        self.cntrl_sigma_prior = None
 
-        #Timestepping
-        param['run_length'] = 1.0
-        param['n_steps'] = 24
-        param['num_sens'] = 0.0
-
-        #Solver options
-        param['picard_params'] = {"nonlinear_solver":"newton",
-                    "newton_solver":{"linear_solver":"umfpack",
-                    "maximum_iterations":25,
-                    "absolute_tolerance":1.0e-8,
-                    "relative_tolerance":5.0e-2,
-                    "convergence_criterion":"incremental",}}
-
-        param['newton_params'] = {"nonlinear_solver":"newton",
-                    "newton_solver":{"linear_solver":"umfpack",
-                    "maximum_iterations":25,
-                    "absolute_tolerance":1.0e-5,
-                    "relative_tolerance":1.0e-5,
-                    "convergence_criterion":"incremental",
-                    "error_on_nonconvergence":True,}}
-
-        #Boundary Conditions
-        param['periodic_bc'] = False
-
-        #Inversion options
-        param['inv_options'] = {'disp': True, 'maxiter': 5}
-
-        #Update default values based on input
-        param.update(param_in)
-        param['dt'] = param['run_length']/param['n_steps']
-
-        self.param = param
-
-    def bglen_to_beta(self,x):
+    @staticmethod
+    def bglen_to_beta(x):
         return sqrt(x)
 
-    def beta_to_bglen(self,x):
+    @staticmethod
+    def beta_to_bglen(x):
         return x*x
 
+    def init_fields_from_data(self):
+        """Create functions for input data (geom, smb, etc)"""
+        self.bed = self.field_from_data("bed", self.Q, static=True)
+        self.mask = self.field_from_data("data_mask", self.M, static=True)
+        self.bmelt = self.field_from_data("bmelt", self.M, 0.0, static=True)
+        self.smb = self.field_from_data("smb", self.M, 0.0, static=True)
+        self.H_np = self.field_from_data("thick", self.M)
+
+        self.H_s = self.H_np.copy(deepcopy=True)
+        self.H = 0.5*(self.H_np + self.H_s)
+
+        self.gen_surf()  # surf = bed + thick
+
     def def_vel_mask(self):
-        self.mask_vel = project(Constant(0.0), self.M)
+        self.mask_vel_M = project(Constant(0.0), self.M)
 
     def def_B_field(self):
-        A = self.param.constants.A
-        n = self.param.constants.glen_n
+        """Define beta field from constants in config file"""
+        A = self.params.constants.A
+        n = self.params.constants.glen_n
         self.beta = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
         self.beta_bgd = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
         self.beta.rename('beta', 'a Function')
+        self.beta_bgd.rename('beta_bgd', 'a Function')
 
     def def_lat_dirichletbc(self):
+        """Homogenous dirichlet conditions on lateral boundaries"""
         self.latbc = Constant([0.0,0.0])
 
-    def init_surf(self,surf):
-        #Note - surf is not updated during forward sim
-        self.surf = project(surf,self.Q)
+    def field_from_data(self, name, space, default=None, static=False):
+        """Interpolate a named field from input data"""
+        return self.input_data.interpolate(name, space, default, static=static)
 
-    def init_bed(self,bed):
-        self.bed = project(bed,self.Q)
+    def alpha_from_data(self):
+        """Get alpha field from initial input data (run_momsolve only)"""
+        self.alpha = self.input_data.interpolate("alpha", self.Qp)
 
-    def init_thick(self,thick):
-        self.H_np = project(thick,self.M)
-        self.H_s = project(thick,self.M)
-        self.H = 0.5*(self.H_np + self.H_s)
+    def bglen_from_data(self):
+        """Get bglen field from initial input data"""
+        self.bglen = self.input_data.interpolate("Bglen", self.Q)
 
-    def init_alpha(self,alpha):
-        self.alpha = project(alpha,self.Qp)
-        self.alpha.rename('alpha', 'a Function')
+    def alpha_from_inversion(self):
+        """Get alpha field from inversion step"""
+        inversion_file = self.params.io.inversion_file
+        outdir = self.params.io.output_dir
 
-    def init_beta(self,beta, pert= True):
-        self.beta_bgd = project(beta,self.Qp)
-        self.beta = project(beta,self.Qp)
+        with HDF5File(self.mesh.mpi_comm(),
+                      str(Path(outdir)/inversion_file),
+                      'r') as infile:
+            self.alpha = Function(self.Qp, name='alpha')
+            infile.read(self.alpha, 'alpha')
+
+    def beta_from_inversion(self):
+        """Get beta field from inversion step"""
+        inversion_file = self.params.io.inversion_file
+        outdir = self.params.io.output_dir
+
+        with HDF5File(self.mesh.mpi_comm(),
+                      str(Path(outdir)/inversion_file),
+                      'r') as infile:
+            self.beta = Function(self.Qp, name='beta')
+            infile.read(self.beta, 'beta')
+            self.beta_bgd = self.beta.copy(deepcopy=True)
+
+    def init_beta(self, beta, pert=False):
+        """
+        Define the beta field from input
+
+        Optionally perturb the field slightly to prevent zero gradient
+        on first step of beta inversion.
+        """
+        self.beta_bgd = project(beta, self.Qp)
+        self.beta = project(beta, self.Qp)
         if pert:
-            #Perturbed field for nonzero gradient at first step of inversion
+            # Perturbed field for nonzero gradient at first step of inversion
             bv = self.beta.vector().get_local()
             pert_vec = 0.001*bv*randn(bv.size)
             self.beta.vector().set_local(bv + pert_vec)
@@ -146,14 +157,91 @@ class model:
 
         self.beta.rename('beta', 'a Function')
 
+    def vel_obs_from_data(self):
+        """
+        Read velocity observations & uncertainty from HDF5 file
 
-    def init_bmelt(self,bmelt):
-        self.bmelt = project(bmelt,self.M)
+        Additionally interpolates these arbitrarily spaced data
+        onto self.Q for use as boundary conditions etc
+        """
 
-    def init_smb(self,smb):
-        self.smb = project(smb,self.M)
+        # Read the obs from HDF5 file
+        # Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
+        # self.uv_obs_pts, self.mask_vel
+        inout.read_vel_obs(self.params, self)
 
-    def init_vel_obs(self, u, v, mv, ustd=Constant(1.0), vstd=Constant(1.0), ls = False):
+        # Functions for repeated ungridded interpolation
+        # TODO - this will not handle extrapolation/missing data
+        # nicely - unfound simplex are returned '-1' which takes the last
+        # tri.simplices...
+        def interp_weights(xy, uv, d=2):
+            """Compute the nearest vertices & weights (for reuse)"""
+            tri = qhull.Delaunay(xy)
+            simplex = tri.find_simplex(uv)
+
+            if not np.all(simplex >= 0):
+                if not self.params.mesh.periodic_bc:
+                    log.error("Some points missing in interpolation "
+                              "of velocity obs to function space.")
+                else:
+                    log.warning("Some points missing in interpolation "
+                             "of velocity obs to function space.")
+
+            vertices = np.take(tri.simplices, simplex, axis=0)
+            temp = np.take(tri.transform, simplex, axis=0)
+            delta = uv - temp[:, d]
+            bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
+            return vertices, np.hstack((bary, 1 - bary.sum(axis=1,
+                                                           keepdims=True)))
+
+        def interpolate(values, vtx, wts):
+            """Bilinear interpolation, given vertices & weights above"""
+            return np.einsum('nj,nj->n', np.take(values, vtx), wts)
+
+        # Grab coordinates of both Lagrangian & DG function spaces
+        # and compute (once) the interpolating arrays
+        Q_coords = self.Q.tabulate_dof_coordinates()
+        M_coords = self.M.tabulate_dof_coordinates()
+
+        vtx_Q, wts_Q = interp_weights(self.uv_obs_pts, Q_coords)
+        vtx_M, wts_M = interp_weights(self.uv_obs_pts, M_coords)
+
+        # Define new functions to hold results
+        self.u_obs_Q = Function(self.Q, name="u_obs", static=True)
+        self.v_obs_Q = Function(self.Q, name="v_obs", static=True)
+        self.u_std_Q = Function(self.Q, name="u_std", static=True)
+        self.v_std_Q = Function(self.Q, name="v_std", static=True)
+        # self.mask_vel_Q = Function(self.Q)
+
+        self.u_obs_M = Function(self.M, name="u_obs", static=True)
+        self.v_obs_M = Function(self.M, name="v_obs", static=True)
+        # self.u_std_M = Function(self.M)
+        # self.v_std_M = Function(self.M)
+        self.mask_vel_M = Function(self.M, name="mask_vel", static=True)
+
+        # Fill via interpolation
+        self.u_obs_Q.vector()[:] = interpolate(self.u_obs, vtx_Q, wts_Q)
+        self.v_obs_Q.vector()[:] = interpolate(self.v_obs, vtx_Q, wts_Q)
+        self.u_std_Q.vector()[:] = interpolate(self.u_std, vtx_Q, wts_Q)
+        self.v_std_Q.vector()[:] = interpolate(self.v_std, vtx_Q, wts_Q)
+        # self.mask_vel_Q.vector()[:] = interpolate(self.mask_vel, vtx_Q, wts_Q)
+
+        self.u_obs_M.vector()[:] = interpolate(self.u_obs, vtx_M, wts_M)
+        self.v_obs_M.vector()[:] = interpolate(self.v_obs, vtx_M, wts_M)
+        # self.u_std_M.vector()[:] = interpolate(self.u_std, vtx_M, wts_M)
+        # self.v_std_M.vector()[:] = interpolate(self.v_std, vtx_M, wts_M)
+        self.mask_vel_M.vector()[:] = interpolate(self.mask_vel, vtx_M, wts_M)
+
+    def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
+                         vstd=Constant(1.0), ls = False):
+        """
+        Set up velocity observations for inversion
+
+        Approach here involves velocity defined on functions (on mesh) which
+        are projected onto the current model mesh. uv_obs_pts is a set of numpy
+        coordinates which can be arbitrarily defined, and obs are then
+        interpolated (again) onto these points in comp_J_inv.
+        """
         self.u_obs = project(u,self.M)
         self.v_obs = project(v,self.M)
         self.mask_vel = project(mv,self.M)
@@ -183,30 +271,23 @@ class model:
         Set lateral vel BC from obs
         """
 
-        u_obs = project(self.u_obs,self.Q)
-        v_obs = project(self.v_obs,self.Q)
-
         latbc = Function(self.V)
-        assign(latbc.sub(0),u_obs)
-        assign(latbc.sub(1),v_obs)
+        assign(latbc.sub(0), self.u_obs_Q)
+        assign(latbc.sub(1), self.v_obs_Q)
 
         self.latbc = latbc
 
-
-    def init_mask(self,mask):
-        self.mask = project(mask,self.M)
-
     def gen_thick(self):
-        rhoi = self.param.constants.rhoi
-        rhow = self.param.constants.rhow
+        rhoi = self.params.constants.rhoi
+        rhow = self.params.constants.rhow
 
         h_diff = self.surf-self.bed
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
         self.H = project(Min(h_diff,h_hyd),self.M)
 
     def gen_surf(self):
-        rhoi = self.param.constants.rhoi
-        rhow = self.param.constants.rhow
+        rhoi = self.params.constants.rhoi
+        rhow = self.params.constants.rhow
         bed = self.bed
         H = self.H
 
@@ -214,12 +295,15 @@ class model:
         fl_ex = conditional(H <= H_s, 1.0, 0.0)
 
         self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
+        self.surf._Function_static__ = True
+        self.surf._Function_checkpoint__ = False
+        self.surf.rename("surf","")
 
     def gen_ice_mask(self):
         """
         UNUSED - would overwrite self.mask w/ extent of ice sheet (H > 0)
         """
-        tol = self.param.constants.float_eps
+        tol = self.params.constants.float_eps
         self.mask = project(conditional(gt(self.H,tol),1,0), self.M)
 
     def gen_alpha(self, a_bgd=500.0, a_lb = 1e2, a_ub = 1e4):
@@ -229,12 +313,12 @@ class model:
 
         bed = self.bed
         H = self.H
-        g = self.param.constants.g
-        rhoi = self.param.constants.rhoi
-        rhow = self.param.constants.rhow
-        u_obs = self.u_obs
-        v_obs = self.v_obs
-        vel_rp = self.param.constants.vel_rp
+        g = self.params.constants.g
+        rhoi = self.params.constants.rhoi
+        rhow = self.params.constants.rhow
+        u_obs = self.u_obs_M
+        v_obs = self.v_obs_M
+        vel_rp = self.params.constants.vel_rp
 
         U = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
@@ -261,7 +345,7 @@ class model:
         B2_tmp1 = ufl.Max(B2_, a_lb)
         B2_tmp2 = ufl.Min(B2_tmp1, a_ub)
 
-        sl = self.param.ice_dynamics.sliding_law
+        sl = self.params.ice_dynamics.sliding_law
         if sl == 'linear':
             alpha = sqrt(B2_tmp2)
         elif sl == 'weertman':
@@ -278,7 +362,7 @@ class model:
         Takes the input mesh (self.mesh_ext) and produces the submesh
         where mask==1, which becomes self.mesh
         """
-        tol = self.param.constants.float_eps
+        tol = self.params.constants.float_eps
         cf_mask = MeshFunction('size_t',  self.mesh_ext, self.mesh_ext.geometric_dimension())
 
         for c in cells(self.mesh_ext):
@@ -292,14 +376,13 @@ class model:
 
         self.mesh = SubMesh(self.mesh_ext, cf_mask, 1)
 
-
     def label_domain(self):
-        tol = self.param.constants.float_eps
+        tol = self.params.constants.float_eps
         bed = self.bed
         H = self.H
-        g = self.param.constants.g
-        rhoi = self.param.constants.rhoi
-        rhow = self.param.constants.rhow
+        g = self.params.constants.g
+        rhoi = self.params.constants.rhoi
+        rhow = self.params.constants.rhow
 
         #Flotation Criterion
         H_s = -rhow/rhoi * bed
@@ -346,7 +429,7 @@ class model:
             x_m       = c.midpoint().x()
             y_m       = c.midpoint().y()
             m_xy = self.mask_ext(x_m, y_m)
-            mv_xy = self.mask_vel(x_m, y_m)
+            mv_xy = self.mask_vel_M(x_m, y_m)
             fl_xy = fl_ex(x_m, y_m)
 
             #Determine whether cell is in the domain
@@ -399,8 +482,6 @@ class model:
 
                 elif near(mv,self.MASK_XD,tol):
                     self.ff[f] = self.GAMMA_NF
-
-
 
 class PeriodicBoundary(SubDomain):
     def __init__(self,L):

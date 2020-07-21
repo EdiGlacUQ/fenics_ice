@@ -7,7 +7,23 @@ run_name = "ismipc_rc_1e6"
 input_dir = "./input"
 output_dir = "./output"
 
-eigenvalue_file = "slepc_eig_all.p"
+data_file = "ismipc_input.h5"
+
+#Instead of specifying single 'data_file', can also set e.g.:
+# thick_data_file = "ismipc_thick.h5"
+
+### Output Filenames ###
+#
+#  All these take default values prefixed by run_name
+#  They are settable to enable restarting from different sims
+
+#inversion_file = "isimpc_rc_1e6_invout.h5" # default is $(run_name)_invout.h5
+#eigenvecs_file = "vr.h5" # default is $(run_name)_vr.h5
+#eigenvalue_file = "slepc_eig_all.p"
+#sigma_file = "sigma.p"
+#sigma_prior_file = "sigma_prior.p"
+#qoi_file = "Qval_ts.p"
+#dqoi_h5file = "dQ_ts.h5"
 
 log_level = "info" #This is default
 
@@ -21,26 +37,16 @@ random_seed = 0
 
 [mesh]
 
-#Not totally happy about the logic here
-#A lot of fenics_ice atm is hardcoded for ismip_c
-
-#mesh_filename = "data_mesh.xml"
-data_mesh_filename = "data_mesh.xml"
-data_mask_filename = "data_mask.xml"
-
+mesh_filename = "ismip_mesh.xml"
 periodic_bc = true
-#what to do about these (not general):
-nx = 20
-ny = 20
-length = 40000.0
 
 [obs]
 
+vel_file = "ismipc_U_obs.h5"
 pts_len = 2000.0
 
 [inversion]
 
-active = false
 
 max_iter = 200
 
@@ -100,7 +106,7 @@ num_sens = 5 #TODO rename
 
 [eigendec]
 
-#num_eig = 200
+num_eig = 100
 eig_algo = "slepc"
 misfit_only = true
 
@@ -128,3 +134,17 @@ qoi = 'h2' #or 'vaf'
 [[boundaries]]
     name = "Bottom Edge"
     id = 4
+
+[testing]
+
+expected_init_alpha = 354.4076349907514
+expected_J_inv = 22438.17284347995
+expected_cntrl_norm = 634.05180155226
+expected_delta_qoi = 9476784617.5
+expected_u_norm = 679402.9976997213
+expected_evals_sum = 904569.5303052077
+expected_evec0_norm = 199539.4112739644
+expected_cntrl_sigma_norm = 33246.312375370355
+expected_cntrl_sigma_prior_norm = 252144.6077914988
+expected_Q_sigma = 1229537878.8692384
+expected_Q_sigma_prior = 39484373556.001465

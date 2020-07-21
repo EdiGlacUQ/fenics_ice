@@ -6,7 +6,8 @@ import os
 from fenics import *
 from tlm_adjoint_fenics import *
 import pickle
-from IPython import embed
+from pathlib import Path
+import datetime
 
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
@@ -35,64 +36,23 @@ def run_eigendec(config_file):
     # Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
-
-    log.info("=======================================")
-    log.info("=== RUNNING EIGENDECOMPOSITION PHASE ==")
-    log.info("=======================================")
-
-    inout.print_config(params)
+    inout.log_preamble("eigendecomp", params)
 
     dd = params.io.input_dir
     outdir = params.io.output_dir
 
-    # Ice only mesh
-    mesh = Mesh(os.path.join(outdir, 'mesh.xml'))
+    # Load the static model data (geometry, smb, etc)
+    input_data = inout.InputData(params)
 
-    # Set up Function spaces
-    M = FunctionSpace(mesh, 'DG', 0)
-    Q = FunctionSpace(mesh, 'Lagrange', 1)
+    # Get model mesh
+    mesh = fice_mesh.get_mesh(params)
 
-    # Handle function with optional periodic boundary conditions
-    if not params.mesh.periodic_bc:
-        Qp = Q
-        V = VectorFunctionSpace(mesh, 'Lagrange', 1, dim=2)
-    else:
-        Qp = fice_mesh.get_periodic_space(params, mesh, dim=1)
-        V = fice_mesh.get_periodic_space(params, mesh, dim=2)
+    # Define the model
+    mdl = model.model(mesh, input_data, params)
 
-    # Load fields
-
-    U = Function(V, os.path.join(outdir, 'U.xml'))
-    alpha = Function(Qp, os.path.join(outdir, 'alpha.xml'))
-    beta = Function(Qp, os.path.join(outdir, 'beta.xml'))
-    bed = Function(Q, os.path.join(outdir, 'bed.xml'))
-
-    thick = Function(M, os.path.join(outdir, 'thick.xml'))
-    mask = Function(M, os.path.join(outdir, 'mask.xml'))
-    mask_vel = Function(M, os.path.join(outdir, 'mask_vel.xml'))
-    u_obs = Function(M, os.path.join(outdir, 'u_obs.xml'))
-    v_obs = Function(M, os.path.join(outdir, 'v_obs.xml'))
-    u_std = Function(M, os.path.join(outdir, 'u_std.xml'))
-    v_std = Function(M, os.path.join(outdir, 'v_std.xml'))
-    uv_obs = Function(M, os.path.join(outdir, 'uv_obs.xml'))
-    Bglen = Function(M, os.path.join(outdir, 'Bglen.xml'))
-
-    bmelt = Function(M, os.path.join(outdir, 'bmelt.xml'))
-    smb = Function(M, os.path.join(outdir, 'smb.xml'))
-
-    # Initialize our model object
-    mdl = model.model(mesh, mask, params)
-    mdl.init_bed(bed)
-    mdl.init_thick(thick)
-    mdl.gen_surf()
-    mdl.init_mask(mask)
-    mdl.init_vel_obs(u_obs, v_obs, mask_vel, u_std, v_std)
-    mdl.init_lat_dirichletbc()
-    mdl.init_bmelt(bmelt)
-    mdl.init_smb(smb)
-    mdl.init_alpha(alpha)
-    mdl.init_beta(beta, False)
-    mdl.label_domain()
+    # Load alpha/beta fields
+    mdl.alpha_from_inversion()
+    mdl.beta_from_inversion()
 
     # Setup our solver object
     slvr = solver.ssa_solver(mdl)
@@ -110,12 +70,13 @@ def run_eigendec(config_file):
 
     # Mass matrix solver
     xg, xb = Function(space), Function(space)
-    test, trial = TestFunction(space), TrialFunction(space)
-    mass = assemble(inner(test, trial) * slvr.dx)
-    mass_solver = KrylovSolver("cg", "sor")
-    mass_solver.parameters.update({"absolute_tolerance": 1.0e-32,
-                                   "relative_tolerance": 1.0e-14})
-    mass_solver.set_operator(mass)
+
+    # test, trial = TestFunction(space), TrialFunction(space)
+    # mass = assemble(inner(test, trial) * slvr.dx)
+    # mass_solver = KrylovSolver("cg", "sor")
+    # mass_solver.parameters.update({"absolute_tolerance": 1.0e-32,
+    #                                "relative_tolerance": 1.0e-14})
+    # mass_solver.set_operator(mass)
 
     # Regularization operator using inversion delta/gamma values
     # TODO - this won't handle dual inversion case
@@ -239,15 +200,24 @@ def run_eigendec(config_file):
         #     v.rename('v', v.label())
         #     vtkfile << v
 
-        hdf5file = HDF5File(slvr.mesh.mpi_comm(),
-                            os.path.join(outdir, 'vr.h5'), 'w')
-        for i, v in enumerate(vr):
-            hdf5file.write(v, 'v', i)
+        ev_file = params.io.eigenvecs_file
+        with HDF5File(slvr.mesh.mpi_comm(),
+                      os.path.join(outdir, ev_file), 'w') as hdf5file:
+            for i, v in enumerate(vr):
+                hdf5file.write(v, 'v', i)
+
+            hdf5file.parameters.add("num_eig", num_eig)
+            hdf5file.parameters.add("eig_algo", eig_algo)
+            hdf5file.parameters.add("timestamp", str(datetime.datetime.now()))
+
 
     else:
         raise NotImplementedError
 
-    # Save eigenvals and some associated info
+    slvr.eigenvals = lam
+    slvr.eigenfuncs = vr
+
+    # Save eigenvals and some associated info - TODO HDF5File?
     fileout = params.io.eigenvalue_file
     pfile = open(os.path.join(outdir, fileout), "wb")
     pickle.dump([lam, num_eig, n_iter, eig_algo, msft_flag, outdir, dd], pfile)
@@ -268,6 +238,7 @@ def run_eigendec(config_file):
     if msft_flag:
         slvr.set_inv_params()
 
+    return mdl
 
 if __name__ == "__main__":
     stop_annotating()
@@ -276,4 +247,4 @@ if __name__ == "__main__":
     run_eigendec(sys.argv[1])
 
     mem_high_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    print("Memory high water mark: %s" % mem_high_kb)  # TODO - log, and put in a module
+    print("Memory high water mark: %s kb" % mem_high_kb)  # TODO - log, and put in a module

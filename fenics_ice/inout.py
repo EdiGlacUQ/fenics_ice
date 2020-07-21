@@ -3,11 +3,20 @@ Module to handle model input & output
 """
 
 import sys
+import time
 from pathlib import Path
 import pickle
-import numpy as np
-from fenics import *
 import logging
+import re
+import h5py
+import git
+from scipy import interpolate as interp
+
+from fenics import *
+import numpy as np
+
+# Regex for catching unnamed vars
+unnamed_re = re.compile("f_[0-9]+")
 
 def write_qval(Qval, params):
     """
@@ -29,10 +38,10 @@ def write_dqval(dQ_ts, params):
     """
 
     outdir = params.io.output_dir
-    vtk_filename = params.io.dqoi_vtkfile
     h5_filename = params.io.dqoi_h5file
 
-    vtkfile = File(str(Path(outdir)/vtk_filename))
+    vtkfile = File(str((Path(outdir)/h5_filename).with_suffix(".pvd")))
+
     hdf5out = HDF5File(MPI.comm_world, str(Path(outdir)/h5_filename), 'w')
     n = 0.0
 
@@ -49,6 +58,238 @@ def write_dqval(dQ_ts, params):
 
     hdf5out.close()
 
+def write_variable(var, params, name=None):
+    """
+    Produce xml & vtk output of supplied variable (prefixed with run name)
+
+    Name is taken from variable structure if not provided
+    If 'name' is provided and variable structure is unnamed (e.g. "f_124")
+    the variable will be renamed accordingly.
+    """
+
+    var_name = var.name()
+    unnamed_var = unnamed_re.match(var_name) is not None
+
+    if unnamed_var:
+        if name is None:
+            # Error if variable is unnamed & no name provided
+            logging.error("Attempted to write out an unnamed variable %s" % name)
+            raise Exception
+        else:
+            # Rename var to 'name' if provided (and if currently unnamed)
+            var.rename(name, "")
+
+    else:
+        # Use variable's current name if 'name' not supplied
+        name = var_name
+
+    #Prefix the run name
+    outfname = Path(params.io.output_dir)/"_".join((params.io.run_name, name))
+    vtk_fname = str(outfname.with_suffix(".pvd"))
+    xml_fname = str(outfname.with_suffix(".xml"))
+
+    File(vtk_fname) << var
+    File(xml_fname) << var
+
+    logging.info("Writing function %s to file %s" % (name, outfname))
+
+def field_from_vel_file(infile, field_name):
+    """Return a field from HDF5 file containing velocity"""
+
+    field = infile[field_name]
+    # Check that only one dimension greater than 1 exists
+    # i.e. valid: [100], [100,1], [100,1,1], invalid: [100,2]
+    assert len([i for i in field.shape if i != 1]) == 1, \
+        f"Invalid dimension of field {field_name} from file {infile}"
+
+    return np.ravel(field[:])
+
+def read_vel_obs(params, model=None):
+    """
+    Read velocity observations & uncertainty from HDF5 file
+
+    For now, expects an HDF5 file
+    """
+
+    infile = Path(params.io.input_dir) / params.obs.vel_file
+    assert infile.exists(), f"Couldn't find velocity observations file: {infile}"
+
+    infile = h5py.File(infile, 'r')
+
+    x_obs = field_from_vel_file(infile, 'x')
+    y_obs = field_from_vel_file(infile, 'y')
+    u_obs = field_from_vel_file(infile, 'u_obs')
+    v_obs = field_from_vel_file(infile, 'v_obs')
+    u_std = field_from_vel_file(infile, 'u_std')
+    v_std = field_from_vel_file(infile, 'v_std')
+    mask_vel = field_from_vel_file(infile, 'mask_vel')
+
+    assert x_obs.size == y_obs.size == u_obs.size == v_obs.size
+    assert v_obs.size == u_std.size == v_std.size == mask_vel.size
+
+    uv_obs_pts = np.vstack((x_obs, y_obs)).T
+
+    if model is not None:
+        model.uv_obs_pts = uv_obs_pts
+        model.u_obs = u_obs
+        model.v_obs = v_obs
+        model.u_std = u_std
+        model.v_std = v_std
+        model.mask_vel = mask_vel
+    else:
+        return uv_obs_pts, u_obs, v_obs, u_std, v_std, mask_vel
+
+class DataNotFound(Exception):
+    """Custom exception for unfound data"""
+    pass
+
+class InputDataField(object):
+    """Holds a single datafield as part of the InputData object"""
+
+    def __init__(self, infile, field_name=None):
+        """Set filename, check valid, and read the data"""
+        self.infile = infile
+        self.field_name = field_name
+
+        if None in (infile, field_name):
+            raise DataNotFound
+
+        filetype = infile.suffix
+        if filetype == '.h5':
+            self.read_from_h5()
+        else:
+            raise NotImplementedError
+
+    def read_from_h5(self):
+        """
+        Load data field from HDF5 file
+
+        Expects to find data matrix arranged [y,x], but stores as [x,y]
+        """
+        indata = h5py.File(self.infile, 'r')
+        try:
+            self.xx = indata['x'][:]
+            self.yy = indata['y'][:]
+            self.field = indata[self.field_name][:]
+        except:
+            raise DataNotFound
+
+        # Convert from [y,x] (numpy standard [sort of]) to [x,y]
+        self.field = self.field.T
+
+        assert self.field.shape == (self.xx.size, self.yy.size), \
+            f"Data have wrong shape! {self.infile}"
+
+        # Take care of data which may be provided y-decreasing, or more rarely
+        # x-decreasing...
+        if not np.all(np.diff(self.xx) > 0):
+            logging.warning(f"Field {self.infile} has x-decreasing - flipping...")
+            self.field = np.flipud(self.field)
+            self.xx = self.xx[::-1]
+
+        if not np.all(np.diff(self.yy) > 0):
+            logging.info(f"Field {self.infile} has y-decreasing - flipping...")
+            self.field = np.fliplr(self.field)
+            self.yy = self.yy[::-1]
+
+        assert np.unique(np.diff(self.xx)).size == 1,\
+            f"{self.infile} not specified on regular grid"
+        assert np.unique(np.diff(self.yy)).size == 1,\
+            f"{self.infile} not specified on regular grid"
+
+class InputData(object):
+    """Loads gridded data & defines interpolators"""
+
+    def __init__(self, params):
+
+        self.params = params
+        self.input_dir = params.io.input_dir
+
+        # List of fields to search for
+        field_list = ["thick", "bed", "data_mask", "bmelt", "smb", "Bglen", "alpha"]
+
+        # Dictionary of filenames & field names (i.e. field to get from HDF5 file)
+        # Possibly equal to None for variables which have sensible defaults
+        # e.g. Basal Melting = 0.0
+        self.field_file_dict = {}
+
+        # Dictionary of InputDataField objects for each field
+        self.fields = {}
+
+        for f in field_list:
+            self.field_file_dict[f] = self.get_field_file(f)
+            try:
+                self.fields[f] = InputDataField(*self.field_file_dict[f])
+            except DataNotFound:
+                logging.warning(f"No data found for {f}, "
+                                f"field will be filled with default value if appropriate")
+
+        # self.read_data()
+
+    def get_field_file(self, field_name):
+        """
+        Get the filename & fieldname for a data field from params
+
+        For a given field (e.g. 'thick'), if the parameter
+        "thick_data_file" is specified, returns this, otherwise
+        assume that the data are in the generic "data_file"
+        """
+        field_file_str = field_name.lower() + "_data_file"
+        field_name_str = field_name.lower() + "_field_name"
+
+        field_filename = self.params.io.__getattribute__(field_file_str)
+        field_name = self.params.io.__getattribute__(field_name_str)
+
+        if field_filename is None:
+            field_filename = self.params.io.data_file
+
+        if field_filename is None:
+            return None, None
+
+        else:
+            field_file = Path(self.input_dir)/field_filename
+            assert field_file.exists(), f"No input file found for field {field_name}"
+            return field_file, field_name
+
+    def interpolate(self, name, space, default=None, static=False):
+        """
+        Interpolate named variable onto function space
+
+        Arguments:
+        name : the variable to be interpolated (need not necessarily exist!)
+        space : function space onto which to interpolate
+        default : value to return if field is absent (otherwise raise error)
+        static : if True, set _Function_static__ = True to save always-zero differentials
+
+        Returns:
+        function : the interpolated function
+        """
+
+        function = Function(space, name=name, static=static)
+
+        try:
+            field = self.fields[name]
+
+        except KeyError:
+            # Fill with default, if supplied, else raise error
+            if default is not None:
+                logging.warning(f"No data found for {name},"
+                             f"filling with default value {default}")
+                function.vector()[:] = default
+                function.vector().apply("insert")
+                return function
+            else:
+                print(f"Failed to find data for field {name}")
+                raise
+
+        interper = interp.RegularGridInterpolator((field.xx, field.yy), field.field)
+        out_coords = space.tabulate_dof_coordinates()
+
+        result = interper(out_coords)
+        function.vector()[:] = result
+        function.vector().apply("insert")
+
+        return function
 
 # Custom formatter
 class LogFormatter(logging.Formatter):
@@ -123,6 +364,11 @@ def setup_logging(params):
     logger = logging.getLogger("fenics_ice")
     logger.setLevel(numeric_level)
 
+    # Clear out any existing handlers
+    # Prevents multiple SO handlers when running multiple phases
+    # in same python session/program.
+    logger.handlers = []
+
     so = logging.StreamHandler(sys.stdout)
     so.setFormatter(fmt)
     so.setLevel(numeric_level)
@@ -147,10 +393,39 @@ def setup_logging(params):
 def print_config(params):
 
     log = logging.getLogger("fenics_ice")
-    log.info("\n==================================")
+    log.info("==================================")
     log.info("========= Configuration ==========")
     log.info("==================================\n\n")
     log.info(params)
     log.info("\n\n==================================")
     log.info("======= End of Configuration =====")
     log.info("==================================\n\n")
+
+def log_git_info():
+    """Get the current branch & commit hash for logging"""
+    repo = git.Repo(__file__, search_parent_directories=True)
+    try:
+        branch = repo.active_branch.name
+    except TypeError:
+        branch = "DETACHED"
+    sha = repo.head.object.hexsha[:7]
+
+    log = logging.getLogger("fenics_ice")
+    log.info("=============== Fenics Ice ===============")
+    log.info("==   git branch  : %s" % branch)
+    log.info("==   commit hash : %s" % sha)
+    log.info("==========================================")
+
+def log_preamble(phase, params):
+    """Print out git info, model phase and config"""
+
+    log_git_info()
+
+    log = logging.getLogger("fenics_ice")
+    phase_str = f"==  RUNNING {phase.upper()} MODEL PHASE =="
+    log.info("\n\n==================================")
+    log.info(phase_str)
+    log.info(f"==   {time.ctime()}   ==")
+    log.info("==================================\n\n")
+
+    print_config(params)

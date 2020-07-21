@@ -127,7 +127,7 @@ class gldbg2013:
 
 class ismipC:
 
-    def __init__(self, L, nx=151, ny=151, tiles=1.0):
+    def __init__(self, L, nx=151, ny=151, tiles=1.0, reflect=False):
         ''' Create the ISMIP-Hom Experiment C domain
         nx -- number of grid cells in x direction
         ny -- number of grid cell in y direction
@@ -142,7 +142,7 @@ class ismipC:
 
         self.init_surf(self.x,self.y)
         self.init_bed(self.x,self.y)
-        self.thick = self.surf - self.bed;
+        self.thick = self.surf - self.bed
 
         self.init_B2(self.x,self.y)
         self.init_bmelt(self.x,self.y)
@@ -150,6 +150,14 @@ class ismipC:
         self.init_Bglen(self.x,self.y)
 
         self.init_mask(self.x,self.y)
+
+        if reflect:
+            self.surf = self.surf.T
+            self.bed = self.bed.T
+            self.B2 = self.B2.T
+            self.bmelt = self.bmelt.T
+            self.Bglen = self.Bglen.T
+            self.mask = self.mask.T
 
     def init_surf(self,x,y):
         '''Return ice sheet surface elevation in metres

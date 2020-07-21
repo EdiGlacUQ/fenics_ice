@@ -1,0 +1,58 @@
+language: python
+dist: bionic
+python:
+  - "3.8"
+
+install:
+  - sudo apt update
+
+  # - export INSTALL_DIR="$HOME/test_fenics_ice"
+  # - export FENICS_ICE_BASE_DIR="$INSTALL_DIR/fenics_ice"
+  - export FENICS_ICE_BASE_DIR="$TRAVIS_BUILD_DIR"
+  - export INSTALL_DIR=$(dirname "$TRAVIS_BUILD_DIR") #parent directory
+
+  - cd $INSTALL_DIR
+
+  #Get, install & source miniconda
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - source "$HOME/miniconda/etc/profile.d/conda.sh"
+
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  # Useful for debugging any issues with conda
+  - conda info -a
+
+  #Add conda forge
+  - conda config --add channels conda-forge
+  - conda config --set channel_priority strict
+
+  #Create & activate env
+  - conda create -q -n fenics_ice -c conda-forge python=3.8 fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl
+  - conda activate fenics_ice
+
+  #Install dependencies
+  - conda install -y matplotlib numpy ipython scipy seaborn h5py conda-build
+  - pip install --upgrade pip
+  - pip install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency cytoolz
+
+  #get pyrevolve
+  - git clone https://github.com/opesci/pyrevolve.git
+  - cd pyrevolve/
+  - python setup.py install
+  - cd $INSTALL_DIR
+
+  #install tlm_adjoint & fenics_ice
+  - git clone https://github.com/jrmaddison/tlm_adjoint.git
+  - cd $INSTALL_DIR/tlm_adjoint
+  - git checkout master
+
+  #'Install' the projects
+  - conda-develop $INSTALL_DIR/tlm_adjoint/python/
+  - conda-develop $FENICS_ICE_BASE_DIR
+
+  - cd $FENICS_ICE_BASE_DIR
+
+script:
+  - pytest -v --color=yes

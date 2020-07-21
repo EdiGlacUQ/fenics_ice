@@ -1,15 +1,14 @@
-import sys
+import timeit
+import time
+from pathlib import Path
+import numpy as np
 
 from fenics import *
 from tlm_adjoint_fenics import *
 from tlm_adjoint_fenics.hessian_optimization import *
 #from dolfin_adjoint import *
 #from dolfin_adjoint_custom import EquationSolver
-import numpy as np
 import ufl
-import os
-import timeit
-import time
 
 
 
@@ -24,7 +23,8 @@ class ssa_solver:
 
 
         self.model = model
-        self.param = model.param
+        self.model.solvers.append(self)
+        self.params = model.params
 
         #Fields
         self.bed = model.bed
@@ -115,12 +115,14 @@ class ssa_solver:
         self.dObs_gnd = self.dx(self.OMEGA_ICE_FLT_OBS)
         self.dObs_flt = self.dx(self.OMEGA_ICE_GND_OBS)
 
-        self.dt = Constant(self.param.time.dt)
+        self.dt = Constant(self.params.time.dt)
 
+        self.eigenvals = None
+        self.eigenfuncs = None
 
     def set_inv_params(self):
 
-        invparam = self.param.inversion
+        invparam = self.params.inversion
         self.delta_alpha = invparam.delta_alpha
         self.gamma_alpha = invparam.gamma_alpha
         self.delta_beta = invparam.delta_beta
@@ -135,13 +137,13 @@ class ssa_solver:
 
     def get_qoi_func(self):
         qoi_dict = {'vaf':self.comp_Q_vaf, 'h2':self.comp_Q_h2}
-        choice = self.param.error_prop.qoi
+        choice = self.params.error_prop.qoi
         return qoi_dict[choice.lower()] #flexible case
 
     def def_mom_eq(self):
 
         #Simplify accessing fields and parameters
-        constants = self.param.constants
+        constants = self.params.constants
         bed = self.bed
         H = self.H
         mask = self.mask
@@ -156,7 +158,7 @@ class ssa_solver:
         tol = constants.float_eps
         dIce = self.dIce
         ds = self.ds
-        sl = self.param.ice_dynamics.sliding_law
+        sl = self.params.ice_dynamics.sliding_law
         vel_rp = constants.vel_rp
 
         #Vector components of trial function
@@ -181,7 +183,8 @@ class ssa_solver:
 
         B2 = self.sliding_law(alpha,U_marker)
 
-        #Driving stress quantities
+        # Driving stress quantities
+        # TODO - shouldn't surface slope feature here somewhere?
         F = (1 - fl_ex) * 0.5*rhoi*g*H**2 + \
             (fl_ex) * 0.5*rhoi*g*(delta*H**2 + (1-delta)*H_s**2 )
 
@@ -207,22 +210,25 @@ class ssa_solver:
                 #Boundary condition
                 + inner(Phi * sigma_n, self.nm) * self.ds )
 
+        self.mom_Jac_p = ufl.algorithms.expand_derivatives(
+            ufl.replace(derivative(self.mom_F, self.U), {U_marker: self.U}))
 
-        # Note - could wrap these 3 statements in ufl.algorithms.expand_derivatives()
-        self.mom_Jac_p = ufl.replace(derivative(self.mom_F, self.U), {U_marker:self.U})
-        self.mom_F = ufl.replace(self.mom_F, {U_marker:self.U})
-        self.mom_Jac = derivative(self.mom_F, self.U)
+        self.mom_F = ufl.algorithms.expand_derivatives(
+            ufl.replace(self.mom_F, {U_marker: self.U}))
+
+        self.mom_Jac = ufl.algorithms.expand_derivatives(
+            derivative(self.mom_F, self.U))
 
     def sliding_law(self,alpha,U):
 
-        constants = self.param.constants
+        constants = self.params.constants
 
         bed = self.bed
         H = self.H
         rhoi = constants.rhoi
         rhow = constants.rhow
         g = constants.g
-        sl = self.param.ice_dynamics.sliding_law
+        sl = self.params.ice_dynamics.sliding_law
         vel_rp = constants.vel_rp
 
         H_s = -rhow/rhoi * bed
@@ -246,7 +252,7 @@ class ssa_solver:
 
         self.bcs = []
 
-        if not self.param.mesh.periodic_bc:
+        if not self.params.mesh.periodic_bc:
             ff_array = self.ff.array()
             bc0 = DirichletBC(self.V, self.latbc, self.ff, self.GAMMA_LAT) if self.GAMMA_LAT in ff_array else False
             bc1 = DirichletBC(self.V, (0.0, 0.0), self.ff, self.GAMMA_NF) if self.GAMMA_NF in ff_array else False
@@ -257,8 +263,8 @@ class ssa_solver:
 
         t0 = time.time()
 
-        newton_params = self.param.momsolve.newton_params
-        picard_params = self.param.momsolve.picard_params
+        newton_params = self.params.momsolve.newton_params
+        picard_params = self.params.momsolve.picard_params
         J_p = self.mom_Jac_p
         MomentumSolver(self.mom_F == 0, self.U, bcs = self.bcs, J_p=J_p, picard_params = picard_params, solver_parameters = newton_params).solve(annotate=annotate_flag)
 
@@ -324,19 +330,19 @@ class ssa_solver:
         a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
         solve(a==L,H_nps, bcs = self.H_bcs)
 
-    def timestep(self, save = 1, adjoint_flag=1, qoi_func= None ):
+    def timestep(self, save=1, adjoint_flag=1, qoi_func= None ):
         """
         Time evolving model
         Returns the QoI
         """
 
         #Read timestep info
-        config = self.param.time
+        config = self.params.time
         n_steps = config.total_steps
         dt = config.dt
         run_length = config.run_length
 
-        outdir = self.param.io.output_dir
+        outdir = self.params.io.output_dir
 
         t = 0.0
 
@@ -353,11 +359,12 @@ class ssa_solver:
 
 
         if adjoint_flag:
-            num_sens = self.param.time.num_sens
-            t_sens = np.array([run_length]) if num_sens == 1 else np.linspace(0.0, run_length, num_sens)
+            num_sens = self.params.time.num_sens
+            t_sens = np.flip(np.linspace(run_length, 0, num_sens))
+
             n_sens = np.round(t_sens/dt)
 
-            reset()
+            reset_manager()
             start_annotating()
 #            configure_checkpointing("periodic_disk", {'period': 2, "format":"pickle"})
             configure_checkpointing("multistage", {"blocks":n_steps,
@@ -385,17 +392,16 @@ class ssa_solver:
             new_block()
 
         if save:
-            hdf_hts = HDF5File(self.mesh.mpi_comm(), os.path.join(outdir, 'H_ts.h5'), 'w')
-            hdf_uts = HDF5File(self.mesh.mpi_comm(), os.path.join(outdir, 'U_ts.h5'), 'w')
+            Hfile = Path(outdir) / "_".join((self.params.io.run_name,
+                                             'H_ts.xdmf'))
+            Ufile = Path(outdir) / "_".join((self.params.io.run_name,
+                                             'U_ts.xdmf'))
 
-            #pvd_hts = File(os.path.join(outdir, "H_ts.pvd"), "compressed")
-            #pvd_uts = File(os.path.join(outdir, "U_ts.pvd"), "compressed")
+            xdmf_hts = XDMFFile(self.mesh.mpi_comm(), str(Hfile))
+            xdmf_uts = XDMFFile(self.mesh.mpi_comm(), str(Ufile))
 
-            hdf_hts.write(H_np, 'H', 0.0)
-            hdf_uts.write(U_np, 'U', 0.0)
-
-            #pvd_hts << (H_np, 0.0)
-            #pvd_uts << (U_np, 0.0)
+            xdmf_hts.write(H_np, 0.0)
+            xdmf_uts.write(U_np, 0.0)
 
 
 
@@ -445,15 +451,13 @@ class ssa_solver:
                         Q.addto()
 
             if save:
-                hdf_hts.write(H_np, 'H', t)
-                hdf_uts.write(U_np, 'U', t)
-
-                #pvd_hts << (H_np, t)
-                #pvd_uts << (U_np, t)
+                xdmf_hts.write(H_np, t)
+                xdmf_uts.write(U_np, t)
 
         if save:
-            hdf_hts.close()
-            hdf_uts.close()
+            xdmf_hts.close()
+            xdmf_uts.close()
+
         manager_info()
         return Q_is if qoi_func is not None else None
 
@@ -481,6 +485,7 @@ class ssa_solver:
             #TODO - 'boundary_correct(self.alpha)'?
         else:
             self.alpha = f
+            self.alpha.rename("alpha","")
 
         # if not self.test_outfile:
         #     self.test_outfile = File(os.path.join('invoutput_data','alpha_test.pvd'))
@@ -513,6 +518,10 @@ class ssa_solver:
         clear_caches()
         self.alpha = f[0]
         self.beta = f[1]
+
+        self.alpha.rename("alpha","")
+        self.beta.rename("beta","")
+
         self.def_mom_eq()
         self.solve_mom_eq()
         J = self.comp_J_inv(verbose=True)
@@ -525,7 +534,7 @@ class ssa_solver:
         control params (i.e. alpha and/or beta)
         """
 
-        config = self.param.inversion
+        config = self.params.inversion
         cntrl = []
         if config.alpha_active:
             cntrl.append(self.alpha)
@@ -536,7 +545,7 @@ class ssa_solver:
 
     def inversion(self):
 
-        config = self.param.inversion
+        config = self.params.inversion
 
         cntrl_input = self.get_control()
         nparam = len(cntrl_input)
@@ -559,7 +568,7 @@ class ssa_solver:
                 cc = self.beta
                 forward = self.forward_beta
 
-            reset()
+            reset_manager()
             clear_caches()
             start_annotating()
             J = forward(cc)
@@ -571,14 +580,14 @@ class ssa_solver:
 
             cntrl_opt, result = minimize_scipy(forward, cc, J, method='L-BFGS-B',
                                                options=config.inv_options)
-              #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
+            #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
 
             cc.assign(cntrl_opt)
 
         self.def_mom_eq()
 
         #Re-compute velocities with inversion results
-        reset()
+        reset_manager()
         clear_caches()
         start_annotating()
         self.solve_mom_eq()
@@ -599,7 +608,7 @@ class ssa_solver:
         """
         return the effective strain rate squared.
         """
-        eps_rp = self.param.constants.eps_rp
+        eps_rp = self.params.constants.eps_rp
 
         eps = self.epsilon(U)
         exx = eps[0,0]
@@ -613,7 +622,7 @@ class ssa_solver:
 
     def viscosity(self,U):
         B = self.beta_to_bglen(self.beta)
-        n = self.param.constants.glen_n
+        n = self.params.constants.glen_n
 
         eps_2 = self.effective_strain_rate(U)
         nu = 0.5 * B * eps_2**((1.0-n)/(2.0*n))
@@ -626,7 +635,7 @@ class ssa_solver:
         Note: 'verbose' significantly decreases speed
         """
 
-        invconfig = self.param.inversion
+        invconfig = self.params.inversion
 
         #What are we inverting for?:
         do_alpha = invconfig.alpha_active
@@ -634,13 +643,22 @@ class ssa_solver:
 
         u,v = split(self.U)
 
-        #TODO - these obs are already interpolated onto the model mesh.
-        #Change this so that obs are available at original resolution.
+        # Observed velocities
         u_obs = self.u_obs
         v_obs = self.v_obs
         u_std = self.u_std
         v_std = self.v_std
         uv_obs_pts = self.uv_obs_pts
+
+        # Determine observations within our mesh partition
+        # TODO find a faster way to do this
+        cell_max = self.mesh.cells().shape[0]
+        obs_local = np.zeros_like(u_obs, dtype=np.bool)
+        for i, pt in enumerate(uv_obs_pts):
+            obs_local[i] = self.mesh.bounding_box_tree().\
+                compute_first_entity_collision(Point(pt)) <= cell_max
+
+        local_cnt = np.sum(obs_local)
 
         alpha = self.alpha
         beta = self.beta
@@ -653,71 +671,74 @@ class ssa_solver:
         nm = self.nm
 
         #regularization parameters
-        lambda_a = 1.0
         delta_a = self.delta_alpha
         delta_b = self.delta_beta
         gamma_a = self.gamma_alpha
         gamma_b = self.gamma_beta
 
-        #TODO: Good reason to think that lambda_a should *always* be 1
-        #So should we get rid of this parameter altogether?
-        assert(lambda_a == 1.0)
-
         # Sample Discrete Points
         
         #Arbitrary mesh to define function for interpolated variables
-        obs_mesh = UnitIntervalMesh(uv_obs_pts.shape[0])
+        obs_mesh = UnitIntervalMesh(MPI.comm_self, local_cnt)
         obs_space = FunctionSpace(obs_mesh, "Discontinuous Lagrange", 0)
         u_obs_pts = Function(obs_space, name='u_obs_pts')
         v_obs_pts = Function(obs_space, name='v_obs_pts')
         u_std_pts = Function(obs_space, name='u_std_pts')
         v_std_pts = Function(obs_space, name='v_std_pts')
 
-        #Interpolate obs (reusing matrices)
-        interper = InterpolationSolver(u_obs, u_obs_pts, X_coords=uv_obs_pts)
-        interper.solve()
-        P=interper._B[0]._A._P
-        P_T=interper._B[0]._A._P_T
+        u_obs_pts.vector()[:] = u_obs[obs_local]
+        v_obs_pts.vector()[:] = v_obs[obs_local]
+        u_std_pts.vector()[:] = u_std[obs_local]
+        v_std_pts.vector()[:] = v_std[obs_local]
 
-        InterpolationSolver(v_obs, v_obs_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
-        InterpolationSolver(u_std, u_std_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
-        InterpolationSolver(v_std, v_std_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
+        u_obs_pts.vector().apply("insert")
+        v_obs_pts.vector().apply("insert")
+        u_std_pts.vector().apply("insert")
+        v_std_pts.vector().apply("insert")
 
         # Interpolate from model
         u_pts = Function(obs_space, name='u_pts')
         v_pts = Function(obs_space, name='v_pts')
 
-        uf = project(u,self.Q)
-        vf = project(v,self.Q)
+        # TODO - is projection to M instead of Q OK here?
+        # it's necessary for InterpolationSolver to work
+        uf = project(u, self.M)
+        vf = project(v, self.M)
 
-        uf.rename("uf","")
-        vf.rename("uf","")
+        uf.rename("uf", "")
+        vf.rename("vf", "")
 
-        interper2 = InterpolationSolver(uf, u_pts, X_coords=uv_obs_pts)
+        interper2 = InterpolationSolver(uf,
+                                        u_pts,
+                                        x_coords=uv_obs_pts[obs_local])
         interper2.solve()
-        P=interper2._B[0]._A._P
-        P_T=interper2._B[0]._A._P_T
+        P = interper2._B[0]._A._P
+        P_T = interper2._B[0]._A._P_T
         InterpolationSolver(vf, v_pts, P=P, P_T=P_T).solve()
 
         J = Functional(name="J")
 
-        ## Continuous
-        #data misfit component of J (Isaac 12), with diagonal noise covariance matrix
-        #J_ls = lambda_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*(v-v_obs)**2.0)*self.dObs
+        # Continuous
+        # data misfit component of J (Isaac 12), with
+        # diagonal noise covariance matrix
+        # J_ls = lambda_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*\
+        # (v-v_obs)**2.0)*self.dObs
 
         # Inner product
         J_ls_term_new = new_real_function(name=f"J_term")
 
-        #Result of NormSqSolver is added to J_ls_term_new, so calling twice is a sum
+        # Result of NormSqSolver is added to J_ls_term_new
+        # so calling twice is a sum
         u_mismatch = ((u_pts-u_obs_pts)/u_std_pts)
         NormSqSolver(project(u_mismatch, obs_space), J_ls_term_new).solve()
         v_mismatch = ((v_pts-v_obs_pts)/v_std_pts)
         NormSqSolver(project(v_mismatch, obs_space), J_ls_term_new).solve()
 
-        J_ls_term_final = new_real_function()
-        ExprEvaluationSolver(J_ls_term_new * lambda_a, J_ls_term_final).solve()
+        # J_ls_term_final = new_real_function()
+        # ExprEvaluationSolver(J_ls_term_new * \
+        # lambda_a, J_ls_term_final).solve()
 
-        J.addto(J_ls_term_final)
+        J.addto(J_ls_term_new)
 
         # Regularization
 
@@ -725,38 +746,41 @@ class ssa_solver:
         f_alpha = Function(self.Qp, name="f_alpha")
         f_beta = Function(self.Qp, name="f_beta")
 
-        #cf. Isaac 5, delta component ensures invertiblity, gamma -> smoothness
+        # cf. Isaac 5, delta component -> invertiblity, gamma -> smoothness
         a = f*self.pTau*dIce
 
         if(do_alpha):
-            #This L is equivalent to scriptF in reg_operator.pdf
-            #Prior.py contains vector equivalent of this (this operates on fem functions)
-            L = (delta_a * alpha * self.pTau - gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
-            solve(a == L, f_alpha )
-            J_reg_alpha = inner(f_alpha,f_alpha)*dIce
+            # This L is equivalent to scriptF in reg_operator.pdf
+            # Prior.py contains vector equivalent of this
+            # (this operates on fem functions)
+            L = (delta_a * alpha * self.pTau -
+                 gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
+            solve(a == L, f_alpha)
+            J_reg_alpha = inner(f_alpha, f_alpha)*dIce
             J.addto(J_reg_alpha)
 
             # if not self.f_alpha_file:
-            #     self.f_alpha_file = File(os.path.join('invoutput_data','f_alpha_test.pvd'))
+            #     self.f_alpha_file = \
+            # File(os.path.join('invoutput_data', 'f_alpha_test.pvd'))
             # self.f_alpha_file << f_alpha
 
         if(do_beta):
-            L = (delta_b * betadiff * self.pTau - gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
-            solve(a == L, f_beta )
-            J_reg_beta = inner(f_beta,f_beta)*dIce
+            L = (delta_b * betadiff * self.pTau - \
+                 gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
+            solve(a == L, f_beta)
+            J_reg_beta = inner(f_beta, f_beta)*dIce
             J.addto(J_reg_beta)
 
-
-        ## Continous
-        #J = J_ls + J_reg_alpha + J_reg_beta
+        # Continuous
+        # J = J_ls + J_reg_alpha + J_reg_beta
 
         if verbose:
             J_ls = new_real_function(name="J_ls_term")
-            ExprEvaluationSolver(J_ls_term_final, J_ls).solve()
+            ExprEvaluationSolver(J_ls_term_new, J_ls).solve()
 
-            #Print out results
+            # Print out results
             J1 = J.value()
-            J2 =  J_ls.values()[0]
+            J2 = J_ls.values()[0]
             J3 = assemble(J_reg_alpha) if do_alpha else 0.0
             J4 = assemble(J_reg_beta) if do_beta else 0.0
 
@@ -767,7 +791,7 @@ class ssa_solver:
             info('gamma_b: %.5e' % gamma_b)
             info('J: %.5e' % J1)
             info('J_ls: %.5e' % J2)
-            info('J_reg: %.5e' % sum([J3,J4]))
+            info('J_reg: %.5e' % sum([J3, J4]))
             info('J_reg_alpha: %.5e' % J3)
             info('J_reg_beta: %.5e' % J4)
             info('J_reg/J_cst: %.5e' % ((J3+J4)/(J2)))
@@ -776,16 +800,14 @@ class ssa_solver:
         return J
 
     def comp_Q_vaf(self, verbose=False):
-        """
-        QOI: Volume above flotation
-        """
+        """QOI: Volume above flotation"""
 
         print("WARNING: Think comp_Q_vaf returns zero on first timestep - ",
               "check initialisation of H_nps")
-        cnst = self.param.constants
+        cnst = self.params.constants
 
         H = self.H_nps
-        #B stands in for self.bed, which leads to a taping error
+        # B stands in for self.bed, which leads to a taping error
         B = Function(self.M)
         B.assign(self.bed, annotate=False)
         rhoi = Constant(cnst.rhoi)
@@ -802,27 +824,27 @@ class ssa_solver:
 
         return Q_vaf
 
-    def comp_Q_h2(self,verbose=False):
+    def comp_Q_h2(self, verbose=False):
         """
         QOI: Square integral of thickness
         """
 
-        Q_h2 = self.H_np*self.H_np*self.dIce
+        Q_h2 = self.H_np * self.H_np * self.dIce
         if verbose: print('Q_h2: {0}'.format(Q_h2))
 
         return Q_h2
 
-
+    # Unused?
     def set_dQ_vaf(self, cntrl):
         Q_vaf = self.timestep(adjoint_flag=1, qoi_func=self.comp_Q_vaf)
         dQ = compute_gradient(Q_vaf, cntrl)
         self.dQ_ts = dQ
 
+    # Unused?
     def set_dQ_h2(self, cntrl):
         Q_h2 = self.timestep(adjoint_flag=1, qoi_func=self.comp_Q_h2)
         dQ = compute_gradient(Q_h2, cntrl)
         self.dQ_ts = dQ
-
 
     def set_hessian_action(self, cntrl):
         """
@@ -830,17 +852,19 @@ class ssa_solver:
         with the functional J
         """
         if type(cntrl) is not list: cntrl = [cntrl]
-        fopts = {'alpha': self.forward_alpha, 'beta': self.forward_beta, 'dual': self.forward_dual}
+        fopts = {'alpha': self.forward_alpha,
+                 'beta': self.forward_beta,
+                 'dual': self.forward_dual}
+
         forward = fopts['dual'] if len(cntrl) > 1 else fopts[cntrl[0].name()]
 
-        reset()
+        reset_manager()
         clear_caches()
         start_manager()
         J = forward(cntrl[0])
         stop_manager()
 
         self.ddJ = SingleBlockHessian(J)
-
 
     def save_ts_zero(self):
         self.H_init = Function(self.H_np.function_space())
@@ -863,7 +887,7 @@ class ddJ_wrapper(object):
         self.ddJ_action = ddJ_action
         self.ddJ_F = Function(cntrl.function_space())
 
-    def apply(self,x):
+    def apply(self, x):
         self.ddJ_F.vector().set_local(x.getArray())
         self.ddJ_F.vector().apply('insert')
         return self.ddJ_action(self.ddJ_F).vector().get_local()
@@ -876,30 +900,31 @@ class MomentumSolver(EquationSolver):
         self.J_p = kwargs.pop("J_p", None)
         super(MomentumSolver, self).__init__(*args, **kwargs)
 
-    def replace(self, replace_map):
-        super(MomentumSolver, self).replace(replace_map)
-        self.J_p = ufl.replace(self.J_p, replace_map)
+    def drop_references(self):
+        super().drop_references()
+        self.J_p = replaced_form(self.J_p)
 
-    def forward_solve(self, x, deps = None):
+    def forward_solve(self, x, deps=None):
         if deps is None:
-          deps = self.dependencies()
-          replace_deps = lambda form : form
+            deps = self.dependencies()
+            replace_deps = lambda form: form
         else:
-          from collections import OrderedDict
-          replace_map = OrderedDict(zip(self.dependencies(), deps))
-          replace_map[self.x()] = x
-          replace_deps = lambda form : ufl.replace(form, replace_map)
-        #for i, (dep_x, dep) in enumerate(zip(self.dependencies(), deps)):
-          #info("%i %s %.16e" % (i, dep_x.name(), dep.vector().norm("l2")))
-        if not self._initial_guess_index is None:
-          function_assign(x, deps[self._initial_guess_index])
+            from collections import OrderedDict
+            replace_map = OrderedDict(zip(self.dependencies(), deps))
+            replace_map[self.x()] = x
+            replace_deps = lambda form: ufl.replace(form, replace_map)
+            # for i, (dep_x, dep) in enumerate(zip(self.dependencies(), deps)):
+            # info("%i %s %.16e" % (i, dep_x.name(), dep.vector().norm("l2")))
+        if self._initial_guess_index is not None:
+            function_assign(x, deps[self._initial_guess_index])
 
         for i, bc in enumerate(self._bcs):
-          keys, values = bc.get_boundary_values().keys(), bc.get_boundary_values().items()
-          keys = list(keys)
-          import numpy
-          values = numpy.array(list(values))
-          info("BC %i %i %.16e" % (i, len(keys), (values * values).sum()))
+            keys = bc.get_boundary_values().keys()
+            values = bc.get_boundary_values().items()
+            keys = list(keys)
+            import numpy
+            values = numpy.array(list(values))
+            info("BC %i %i %.16e" % (i, len(keys), (values * values).sum()))
 
         lhs = replace_deps(self._lhs)
         rhs = 0 if self._rhs == 0 else replace_deps(self._rhs)

@@ -38,7 +38,7 @@ numlev = 20
 tick_options = {'axis':'both','which':'both','bottom':False,
     'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
 
-mesh = Mesh(str(dd / "output" / "mesh.xml"))
+mesh = Mesh(str(dd / "input" / "ismip_mesh.xml"))
 #param = pickle.load( open( os.path.join(dd,'param.p'), "rb" ) )
 
 param_file = str((dd/run_name).with_suffix(".toml"))
@@ -55,10 +55,16 @@ else:
     Qp = fice_mesh.get_periodic_space(params, mesh, dim=1)
     V =  fice_mesh.get_periodic_space(params, mesh, dim=2)
 
-U = Function(V,str(results_dir/'U.xml'))
-alpha = Function(Qp,str(results_dir/'alpha.xml'))
-uv_obs = Function(M, str(results_dir/'uv_obs.xml'))
-alpha_sigma = Function(Qp, str(results_dir/'alpha_sigma.xml'))
+U_file = str(next(results_dir.glob("*U.xml")))
+alpha_file = str(next(results_dir.glob("*alpha.xml")))
+uv_obs_file = str(next(results_dir.glob("*uv_obs.xml")))
+alpha_sigma_file = str(next(results_dir.glob("*alpha_sigma.xml")))
+
+
+U = Function(V, U_file)
+alpha = Function(Qp, alpha_file)
+uv_obs = Function(M, uv_obs_file)
+alpha_sigma = Function(Qp, alpha_sigma_file)
 # B2 = Function(M, os.path.join(dd,'B2.xml'))
 
 u, v = U.split()

@@ -32,8 +32,7 @@ def main(config_file):
     params = ConfigParser(config_file)
 
     log = inout.setup_logging(params)
-
-    inout.print_config(params)
+    inout.log_preamble("balance meltrates", params)
 
     dd = params.io.input_dir
     outdir = params.io.output_dir
@@ -96,7 +95,7 @@ def main(config_file):
     v_std = Function(M,os.path.join(outdir,'v_std.xml'))
     uv_obs = Function(M,os.path.join(outdir,'uv_obs.xml'))
 
-    mdl = model.model(mesh, data_mask, params)
+    mdl = model.model(mesh, data_mask, params, init_fields=False)  # TODO initialization
     mdl.init_bed(bed)
     mdl.init_thick(thick)
     mdl.gen_surf()
@@ -154,7 +153,7 @@ def main(config_file):
     vtkfile << bmelt
     xmlfile << bmelt
 
-
+    return mdl
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
