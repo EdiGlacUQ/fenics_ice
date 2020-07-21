@@ -3,6 +3,7 @@ Module to handle model input & output
 """
 
 import sys
+import time
 from pathlib import Path
 import pickle
 import logging
@@ -10,7 +11,6 @@ import re
 import h5py
 import git
 from scipy import interpolate as interp
-from IPython import embed
 
 from fenics import *
 import numpy as np
@@ -425,7 +425,7 @@ def log_preamble(phase, params):
     phase_str = f"==  RUNNING {phase.upper()} MODEL PHASE =="
     log.info("\n\n==================================")
     log.info(phase_str)
+    log.info(f"==   {time.ctime()}   ==")
     log.info("==================================\n\n")
 
     print_config(params)
-
