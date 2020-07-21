@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from pathlib import Path
 import pprint
+from fenics import parameters as fenics_params
 
 class ConfigPrinter(object):
     """
@@ -30,6 +31,7 @@ class ConfigParser(object):
     # pylint: disable=too-many-instance-attributes
 
     def __str__(self):
+        """Pretty print each member of the ConfigParser object"""
         lines = [self.__class__.__name__ + ':']
         for key, val in vars(self).items():
             if key == "config_dict":
@@ -43,6 +45,7 @@ class ConfigParser(object):
         self.config_dict = toml.load(self.config_file)
         self.parse()
         self.check_dirs()
+        self.set_tlm_adjoint_params()
 
     def parse(self):
         """
@@ -78,6 +81,14 @@ class ConfigParser(object):
         outdir = (self.top_dir / self.io.output_dir)
         if not outdir.is_dir():
             outdir.mkdir(parents=True, exist_ok=True)
+
+    def set_tlm_adjoint_params(self):
+        """Set some parameters for tlm_adjoint"""
+
+        # These ensure Jacobian is assembled with the same quadrature rule as
+        # the residual, and are required for Newton's method to be second order.
+        fenics_params["tlm_adjoint"]["AssembleSolver"]["match_quadrature"] = True
+        fenics_params["tlm_adjoint"]["EquationSolver"]["match_quadrature"] = True
 
 @dataclass(frozen=True)
 class InversionCfg(ConfigPrinter):
@@ -408,12 +419,3 @@ picard_defaults_weertman = {"nonlinear_solver":"newton",
                                              "lu_solver":{"same_nonzero_pattern":False,
                                                           "symmetric":False,
                                                           "reuse_factorization":False}}}
-
-
-
-# infile = "./scripts/run_eg.toml"
-# configgy = ConfigParser(infile)
-# configgy.parse()
-# embed()
-
-
