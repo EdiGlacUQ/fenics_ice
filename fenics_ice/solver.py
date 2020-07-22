@@ -6,6 +6,12 @@ import numpy as np
 from fenics import *
 from tlm_adjoint_fenics import *
 from tlm_adjoint_fenics.hessian_optimization import *
+
+import sys
+sys.path.append("/home/joe/sources/tlm_adjoint_l_bfgs/python")
+
+from minimize_l_bfgs import minimize_l_bfgs
+
 #from dolfin_adjoint import *
 #from dolfin_adjoint_custom import EquationSolver
 import ufl
@@ -578,8 +584,11 @@ class ssa_solver:
             #ddJ = Hessian(forward)
             #min_order = taylor_test(forward, self.alpha, J_val = J.value(), dJ = dJ, ddJ=ddJ, seed = 1.0e-6)
 
-            cntrl_opt, result = minimize_scipy(forward, cc, J, method='L-BFGS-B',
-                                               options=config.inv_options)
+            # cntrl_opt, result = minimize_scipy(forward, cc, J, method='L-BFGS-B',
+            #                                    options=config.inv_options)
+
+            cntrl_opt, result = minimize_l_bfgs(forward, cc, m=30, s_atol=1.0e1,
+                                                g_atol=0.0, J0=J, verbose=True)
             #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
 
             cc.assign(cntrl_opt)
