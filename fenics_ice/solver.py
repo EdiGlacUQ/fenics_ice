@@ -587,7 +587,7 @@ class ssa_solver:
             # cntrl_opt, result = minimize_scipy(forward, cc, J, method='L-BFGS-B',
             #                                    options=config.inv_options)
 
-            cntrl_opt, result = minimize_l_bfgs(forward, cc, m=30, s_atol=1.0e1,
+            cntrl_opt, result = minimize_l_bfgs(forward, cc, m=10, s_atol=1.0e1,
                                                 g_atol=0.0, J0=J, verbose=True)
             #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
 
