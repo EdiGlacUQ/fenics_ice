@@ -563,6 +563,9 @@ class ssa_solver:
         for j in range(num_iter):
             info('Inversion iteration: {0}/{1}'.format(j+1,num_iter) )
 
+
+            Qp_test, Qp_trial = TestFunction(self.Qp), TrialFunction(self.Qp)
+
             cntrl = cntrl_input[j % nparam]
             if cntrl.name() == 'alpha':
                 cc = self.alpha
@@ -571,9 +574,14 @@ class ssa_solver:
 
                 forward = self.forward_alpha
 
+                L_mat = assemble((self.delta_alpha * Qp_trial * Qp_test
+                                  + self.gamma_alpha * inner(grad(Qp_trial), grad(Qp_test))) * self.dIce)
             else:
                 cc = self.beta
                 forward = self.forward_beta
+
+                L_mat = assemble((self.delta_beta * Qp_trial * Qp_test
+                                  + self.gamma_beta * inner(grad(Qp_trial), grad(Qp_test))) * self.dIce)
 
             reset_manager()
             clear_caches()
@@ -608,6 +616,42 @@ class ssa_solver:
 
                 return False
 
+            L_solver = KrylovSolver("cg", "sor")
+            L_solver.parameters.update({"relative_tolerance": 1.0e-14,
+                                        "absolute_tolerance": 1.0e-32})
+            L_solver.set_operator(L_mat)
+
+            M_mat = assemble(Qp_trial * Qp_test * self.dIce)
+            M_solver = KrylovSolver("cg", "sor")
+            M_solver.parameters.update({"relative_tolerance": 1.0e-14,
+                                        "absolute_tolerance": 1.0e-32})
+            M_solver.set_operator(M_mat)
+
+            def B_0(x):
+                L_action = L_mat * x.vector()
+
+                M_inv_L_action = function_new(x, name="M_inv_L_action")
+                M_solver.solve(M_inv_L_action.vector(), L_action)
+
+                B_0_action = function_new(x, name="B_0_action")
+                B_0_action.vector().axpy(2.0, L_mat * M_inv_L_action.vector())
+
+                return B_0_action
+
+            def H_0(x):
+                L_inv_action = function_new(x, name="L_inv_action")
+                L_solver.solve(L_inv_action.vector(), x.vector())
+
+                M_L_inv_action = M_mat * L_inv_action.vector()
+
+                H_0_action = function_new(x, name="H_0_action")
+                L_solver.solve(H_0_action.vector(), M_L_inv_action)
+
+                function_set_values(H_0_action,
+                                    0.5 * function_get_values(H_0_action))
+
+                return H_0_action
+
             # L-BFGS-B line search configuration. For parameter values see
             # SciPy
             #     Git master 0a7bc723d105288f4b728305733ed8cb3c8feeb5
@@ -619,7 +663,8 @@ class ssa_solver:
                                                 c1=1.0e-3, c2=0.9,
                                                 converged=l_bfgs_converged,
                                                 line_search_rank0=line_search_rank0_scipy_scalar_search_wolfe1,
-                                                line_search_rank0_kwargs={"xtol": 0.1})
+                                                line_search_rank0_kwargs={"xtol": 0.1})  # ,
+                                                # H_0=H_0, M=B_0, M_inv=H_0)
             #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
 
             cc.assign(cntrl_opt)
