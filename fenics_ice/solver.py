@@ -10,7 +10,8 @@ from tlm_adjoint_fenics.hessian_optimization import *
 import sys
 sys.path.append("/home/joe/sources/tlm_adjoint_l_bfgs/python")
 
-from minimize_l_bfgs import minimize_l_bfgs
+from minimize_l_bfgs import minimize_l_bfgs, \
+    line_search_rank0_scipy_scalar_search_wolfe1
 
 #from dolfin_adjoint import *
 #from dolfin_adjoint_custom import EquationSolver
@@ -587,8 +588,38 @@ class ssa_solver:
             # cntrl_opt, result = minimize_scipy(forward, cc, J, method='L-BFGS-B',
             #                                    options=config.inv_options)
 
-            cntrl_opt, result = minimize_l_bfgs(forward, cc, m=10, s_atol=1.0e1,
-                                                g_atol=0.0, J0=J, verbose=True)
+            def l_bfgs_converged(it, old_J_val, new_J_val,
+                                 new_cc, new_dJ, cc_change, dJ_change):
+                # Convergence tests and defaults as described in SciPy 1.5.2
+                # scipy.optimize._minimize._minimize_lbfgsb documentation
+
+                f_criterion = ((old_J_val - new_J_val)
+                               / max(abs(old_J_val), abs(new_J_val), 1.0))
+                ftol = config.inv_options.get("ftol", 2.220446049250313e-09)
+                if f_criterion <= ftol:
+                    info("  ftol convergence")
+                    return True
+
+                g_criterion = function_linf_norm(new_dJ)
+                gtol = config.inv_options.get("gtol", 1e-05)
+                if g_criterion <= gtol:
+                    info("  gtol convergence")
+                    return True
+
+                return False
+
+            # L-BFGS-B line search configuration. For parameter values see
+            # SciPy
+            #     Git master 0a7bc723d105288f4b728305733ed8cb3c8feeb5
+            #     June 20 2020
+            #     scipy/optimize/lbfgsb_src/lbfgsb.f
+            #     lnsrlb subroutine
+            cntrl_opt, result = minimize_l_bfgs(forward, cc, m=10, s_atol=None,
+                                                g_atol=None, J0=J, verbose=True,
+                                                c1=1.0e-3, c2=0.9,
+                                                converged=l_bfgs_converged,
+                                                line_search_rank0=line_search_rank0_scipy_scalar_search_wolfe1,
+                                                line_search_rank0_kwargs={"xtol": 0.1})
             #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
 
             cc.assign(cntrl_opt)
