@@ -753,7 +753,7 @@ class ssa_solver:
             # This L is equivalent to scriptF in reg_operator.pdf
             # Prior.py contains vector equivalent of this
             # (this operates on fem functions)
-            L = (delta_a * alpha * self.pTau -
+            L = (delta_a * alpha * self.pTau +
                  gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
             solve(a == L, f_alpha)
             J_reg_alpha = inner(f_alpha, f_alpha)*dIce
@@ -765,7 +765,7 @@ class ssa_solver:
             # self.f_alpha_file << f_alpha
 
         if(do_beta):
-            L = (delta_b * betadiff * self.pTau - \
+            L = (delta_b * betadiff * self.pTau +
                  gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
             solve(a == L, f_beta)
             J_reg_beta = inner(f_beta, f_beta)*dIce
