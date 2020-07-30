@@ -756,7 +756,7 @@ class ssa_solver:
             L = (delta_a * alpha * self.pTau +
                  gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
             solve(a == L, f_alpha)
-            J_reg_alpha = inner(f_alpha, f_alpha)*dIce
+            J_reg_alpha = 0.5 * inner(f_alpha, f_alpha)*dIce
             J.addto(J_reg_alpha)
 
             # if not self.f_alpha_file:
@@ -768,7 +768,7 @@ class ssa_solver:
             L = (delta_b * betadiff * self.pTau +
                  gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
             solve(a == L, f_beta)
-            J_reg_beta = inner(f_beta, f_beta)*dIce
+            J_reg_beta = 0.5 * inner(f_beta, f_beta)*dIce
             J.addto(J_reg_beta)
 
         # Continuous
