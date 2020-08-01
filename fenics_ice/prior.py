@@ -114,6 +114,24 @@ class laplacian(object):
         self.tmp1 = self.M_rl * x_tmp
         self.A_solver.solve(y_tmp, self.tmp1)
 
+    def sqrt_action(self, x, y):     # sqrt of inv cov: Gamma -1 Gamma 1/2
+                                     #                  A M-1 A A-1 M1/2
+                                     #                  A M-1 M1/2
+        M_norm = self.M.norm("linf")
+        self.tmp1, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm)
+        self.M_solver.solve(self.tmp2, self.tmp1) 
+        self.A.mult(self.tmp2,self.tmp3)
+        y.set_local(self.tmp3.get_local())
+        y.apply("insert")
+        
+    def sqrt_inv_action(self, x, y): # sqrt of cov: Gamma 1/2
+                                     #                  A-1 M1/2
+        M_norm = self.M.norm("linf")        
+        self.tmp1, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm)
+        self.A_solver.solve(self.tmp2, self.tmp1)
+        y.set_local(self.tmp2.get_local())
+        y.apply("insert")
+
 
 class LumpedPC:
     """

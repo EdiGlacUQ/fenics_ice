@@ -324,6 +324,7 @@ class TimeCfg(ConfigPrinter):
     total_steps: int = None
     dt: float = None
     num_sens: int = 1
+    num_samples: int = 1
 
     def __post_init__(self):
         """
