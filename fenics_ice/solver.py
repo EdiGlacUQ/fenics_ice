@@ -677,14 +677,14 @@ class ssa_solver:
         v_std_pts = Function(obs_space, name='v_std_pts')
 
         #Interpolate obs (reusing matrices)
-        interper = InterpolationSolver(u_obs, u_obs_pts, X_coords=uv_obs_pts)
+        interper = InterpolationSolver(u_obs, u_obs_pts, x_coords=uv_obs_pts)
         interper.solve()
         P=interper._B[0]._A._P
         P_T=interper._B[0]._A._P_T
 
-        InterpolationSolver(v_obs, v_obs_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
-        InterpolationSolver(u_std, u_std_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
-        InterpolationSolver(v_std, v_std_pts, X_coords=uv_obs_pts, P=P, P_T=P_T).solve()
+        InterpolationSolver(v_obs, v_obs_pts, x_coords=uv_obs_pts, P=P, P_T=P_T).solve()
+        InterpolationSolver(u_std, u_std_pts, x_coords=uv_obs_pts, P=P, P_T=P_T).solve()
+        InterpolationSolver(v_std, v_std_pts, x_coords=uv_obs_pts, P=P, P_T=P_T).solve()
 
         # Interpolate from model
         u_pts = Function(obs_space, name='u_pts')
@@ -696,7 +696,7 @@ class ssa_solver:
         uf.rename("uf","")
         vf.rename("uf","")
 
-        interper2 = InterpolationSolver(uf, u_pts, X_coords=uv_obs_pts)
+        interper2 = InterpolationSolver(uf, u_pts, x_coords=uv_obs_pts)
         interper2.solve()
         P=interper2._B[0]._A._P
         P_T=interper2._B[0]._A._P_T
@@ -734,9 +734,9 @@ class ssa_solver:
         if(do_alpha):
             #This L is equivalent to scriptF in reg_operator.pdf
             #Prior.py contains vector equivalent of this (this operates on fem functions)
-            L = (delta_a * alpha * self.pTau - gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
+            L = (delta_a * alpha * self.pTau + gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
             solve(a == L, f_alpha )
-            J_reg_alpha = inner(f_alpha,f_alpha)*dIce
+            J_reg_alpha = .5*inner(f_alpha,f_alpha)*dIce
             J.addto(J_reg_alpha)
 
             # if not self.f_alpha_file:
@@ -744,9 +744,9 @@ class ssa_solver:
             # self.f_alpha_file << f_alpha
 
         if(do_beta):
-            L = (delta_b * betadiff * self.pTau - gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
+            L = (delta_b * betadiff * self.pTau + gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
             solve(a == L, f_beta )
-            J_reg_beta = inner(f_beta,f_beta)*dIce
+            J_reg_beta = .5*inner(f_beta,f_beta)*dIce
             J.addto(J_reg_beta)
 
 
