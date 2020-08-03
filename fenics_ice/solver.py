@@ -628,6 +628,11 @@ class ssa_solver:
             M_solver.set_operator(M_mat)
 
             def B_0(x):
+                """
+                Step length something...
+
+                2.0 * L M^-1 L
+                """
                 L_action = L_mat * x.vector()
 
                 M_inv_L_action = function_new(x, name="M_inv_L_action")
@@ -638,7 +643,20 @@ class ssa_solver:
 
                 return B_0_action
 
+            def B_M_0(x):
+                """
+                M^-1
+                """
+                M_inv_action = function_new(x, name="M_inv_action")
+                M_solver.solve(M_inv_action.vector(), x.vector())
+
+                return M_inv_action
+
             def H_0(x):
+                """
+                Initial guess for inverse hessian action
+                0.5 L^-1 M L^-1
+                """
                 L_inv_action = function_new(x, name="L_inv_action")
                 L_solver.solve(L_inv_action.vector(), x.vector())
 
@@ -649,6 +667,19 @@ class ssa_solver:
 
                 function_set_values(H_0_action,
                                     0.5 * function_get_values(H_0_action))
+
+                return H_0_action
+
+            def H_M_0(x):
+                """
+                Initial guess for inverse hessian action
+
+                M
+                """
+                H_0_action = function_new(x, name="H_0_action")
+                M_action = M_mat * x.vector()
+                H_0_action.vector()[:] = M_action
+                H_0_action.vector().apply("insert")
 
                 return H_0_action
 
@@ -663,8 +694,9 @@ class ssa_solver:
                                                 c1=1.0e-3, c2=0.9,
                                                 converged=l_bfgs_converged,
                                                 line_search_rank0=line_search_rank0_scipy_scalar_search_wolfe1,
-                                                line_search_rank0_kwargs={"xtol": 0.1})  # ,
-                                                # H_0=H_0, M=B_0, M_inv=H_0)
+                                                line_search_rank0_kwargs={"xtol": 0.1},
+                                                H_0=H_0, M=B_0, M_inv=H_0)
+
             #options = {"ftol":0.0, "gtol":1.0e-12, "disp":True, 'maxiter': 10})
 
             cc.assign(cntrl_opt)
