@@ -330,7 +330,7 @@ class ssa_solver:
         a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
         solve(a==L,H_nps, bcs = self.H_bcs)
 
-    def timestep(self, save=1, adjoint_flag=1, qoi_func= None ):
+    def timestep(self, save=1, adjoint_flag=1, cost_flag=1, qoi_func= None ):
         """
         Time evolving model
         Returns the QoI
@@ -358,7 +358,7 @@ class ssa_solver:
         H_nps = self.H_nps
 
 
-        if adjoint_flag:
+        if (adjoint_flag | cost_flag):
             num_sens = self.params.time.num_sens
             t_sens = np.flip(np.linspace(run_length, 0, num_sens))
 
@@ -382,7 +382,7 @@ class ssa_solver:
             qoi = qoi_func()
             self.Qval_ts[0] = assemble(qoi)
 
-        if adjoint_flag:
+        if (adjoint_flag | cost_flag):
             if 0.0 in n_sens:
                 Q_i = Functional()
                 Q_i.assign(qoi)
@@ -441,7 +441,7 @@ class ssa_solver:
                 qoi = qoi_func()
                 self.Qval_ts[n] = assemble(qoi)
 
-                if adjoint_flag:
+                if (adjoint_flag | cost_flag):
                     if n in n_sens:
                         Q_i = Functional()
                         Q_i.assign(qoi)

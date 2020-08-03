@@ -1,6 +1,7 @@
 from dolfin import *
 from tlm_adjoint import *
 from .decorators import count_calls, timer
+from fenics_ice.sqrt_mass_matrix_action import A_root_action
 
 class laplacian(object):
 
@@ -27,7 +28,7 @@ class laplacian(object):
 
         self.tmp1, self.tmp2 = Function(space), Function(space)
 
-        self.tmp1, self.tmp2 = Vector(), Vector()
+        self.tmp1, self.tmp2, self.tmp3 = Vector(), Vector(), Vector()
         self.A.init_vector(self.tmp1, 0)
         self.A.init_vector(self.tmp2, 1)
 
