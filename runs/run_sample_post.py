@@ -32,6 +32,8 @@ def run_sample_post(config_file):
     #Read run config file
 
     assert MPI.size(MPI.comm_world) == 1, "Run this stage in serial!"
+    
+    plotdir = Path(os.environ['FENICS_ICE_BASE_DIR']) / 'example_cases' / params.io.run_name / 'plots'
 
     # Read run config file
     params = ConfigParser(config_file)
@@ -156,43 +158,41 @@ def run_sample_post(config_file):
         slvr.alpha=a
         slvr.save_ts_zero()
 
-
-        xpts    = mesh.coordinates()[:,0]
-        ypts    = mesh.coordinates()[:,1]
-        t    = mesh.cells()
-        fig = plt.figure(figsize=(10,5))
-        ax = fig.add_subplot(1,2,1)
-        embed()
-        v    = z.compute_vertex_values(mesh)
-        minv = np.min(v)
-        maxv = np.max(v)
-        levels = np.linspace(minv,maxv,20)
-        ticks = np.linspace(minv,maxv,3)
-        tick_options = {'axis':'both','which':'both','bottom':False,
-                     'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
-        ax.tick_params(**tick_options)
-        ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
+        if(i==0):
+         xpts    = mdl.mesh.coordinates()[:,0]
+         ypts    = mdl.mesh.coordinates()[:,1]
+         t    = mdl.mesh.cells()
+         fig = plt.figure(figsize=(10,5))
+         ax = fig.add_subplot(1,2,1)
+         v    = z.compute_vertex_values(mdl.mesh)
+         minv = np.min(v)
+         maxv = np.max(v)
+         levels = np.linspace(minv,maxv,20)
+         ticks = np.linspace(minv,maxv,3)
+         tick_options = {'axis':'both','which':'both','bottom':False,
+                      'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
+         ax.tick_params(**tick_options)
+         ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
             fontsize=13, fontweight='bold', va='top')
-        c = ax.tricontourf(xpts, ypts, t, v, levels = levels, cmap='bwr')
-        cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
-        plt.tight_layout(2.0)
+         c = ax.tricontourf(xpts, ypts, t, v, levels = levels, cmap='bwr')
+         cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
+         plt.tight_layout(2.0)
     
-        ax = fig.add_subplot(1,2,2)
-        v    = a.compute_vertex_values(mesh)
-        minv = np.min(v)
-        maxv = np.max(v)
-        levels = np.linspace(minv,maxv,20)
-        ticks = np.linspace(minv,maxv,3)
-        tick_options = {'axis':'both','which':'both','bottom':False,
-                    'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
-        ax.tick_params(**tick_options)
-        ax.text(0.05, 0.95, 'b', transform=ax.transAxes,
-            fontsize=13, fontweight='bold', va='top')
-        c = ax.tricontourf(xpts, ypts, t, v, levels = levels, cmap='bwr')
-        cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
-        plt.tight_layout(2.0)
-        plt.show()
-        plt.savefig(os.path.join(plotdir, 'sample.pdf'))
+         ax = fig.add_subplot(1,2,2)
+         v    = a.compute_vertex_values(mdl.mesh)
+         minv = np.min(v)
+         maxv = np.max(v)
+         levels = np.linspace(minv,maxv,20)
+         ticks = np.linspace(minv,maxv,3)
+         tick_options = {'axis':'both','which':'both','bottom':False,
+                     'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
+         ax.tick_params(**tick_options)
+         ax.text(0.05, 0.95, 'b', transform=ax.transAxes,
+             fontsize=13, fontweight='bold', va='top')
+         c = ax.tricontourf(xpts, ypts, t, v, levels = levels, cmap='bwr')
+         cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
+         plt.tight_layout(2.0)
+         plt.savefig(os.path.join(plotdir, 'sample.pdf'))
 
         try:
             Q = slvr.timestep(save=1,adjoint_flag=0,cost_flag=1,qoi_func=slvr.comp_Q_h2 )
