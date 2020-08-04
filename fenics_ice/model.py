@@ -28,11 +28,14 @@ class model:
         self.mask_ext = self.input_data.interpolate("data_mask", M_in, static=True)
 
         # Generate Domain and Function Spaces
-        # TODO - should just get rid of gen_domain, submesh stuff
-        if self.parallel:
-            self.mesh = self.mesh_ext
-        else:
-            self.gen_domain()
+        self.mesh = self.mesh_ext
+        # NOTE - getting rid of SubMesh here because
+        # 1 - it has no effect on ismipc test cases (except changing DofMaps)
+        # 2 - all real cases will be parallel, and SubMesh only works in serial
+        # if self.parallel:
+        #     self.mesh = self.mesh_ext
+        # else:
+        #     self.gen_domain()
 
         self.nm = FacetNormal(self.mesh)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
@@ -361,6 +364,8 @@ class model:
         """
         Takes the input mesh (self.mesh_ext) and produces the submesh
         where mask==1, which becomes self.mesh
+
+        UNUSED
         """
         tol = self.params.constants.float_eps
         cf_mask = MeshFunction('size_t',  self.mesh_ext, self.mesh_ext.geometric_dimension())
