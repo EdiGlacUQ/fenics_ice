@@ -48,8 +48,8 @@ beta_active = false
 simultaneous = false
 alt_iter = 2
 
-gamma_alpha = 5.0e2 #6
-delta_alpha = 5.0e-6 #-2
+gamma_alpha = 7.071067e2 #5.0e2 #6
+delta_alpha = 7.071067e-06 #5.0e-6 #-2
 gamma_beta = 0.0
 delta_beta = 0.0
 
@@ -131,13 +131,13 @@ qoi = 'h2' #or 'vaf'
 [testing]
 
 expected_init_alpha = 531.6114524861194
-expected_cntrl_norm = 949.1237952770235
-expected_J_inv = 21014.82928338455
-expected_delta_qoi = 8039455658.5
-expected_u_norm = 684805.7799300624
-expected_evals_sum = 919071.4361928646
-expected_evec0_norm = 199502.8264984884
-expected_Q_sigma = 1265967280.5516615
-expected_Q_sigma_prior = 40133634489.327484
-expected_cntrl_sigma_norm = 33501.011423080854
-expected_cntrl_sigma_prior_norm = 252380.7852174729
+expected_cntrl_norm = 949.7600574759913
+expected_J_inv = 21111.34753008172
+expected_delta_qoi = 7980822617.5
+expected_u_norm = 684034.2311872914
+expected_evals_sum = 457202.2122043933
+expected_evec0_norm = 141069.5265195431
+expected_Q_sigma = 1116952919.1003282
+expected_Q_sigma_prior = 28339773326.308887
+expected_cntrl_sigma_norm = 25370.398320064185
+expected_cntrl_sigma_prior_norm = 178460.18515839582

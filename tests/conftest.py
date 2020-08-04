@@ -205,9 +205,54 @@ def existing_temp_model(case_gen):
         if pytest.active_cases[i]['case_dir'] == case_gen['case_dir']:
             return pytest.active_cases[i]
 
+def update_expected_values():
+    """
+    Use regex to update expected values in example_cases toml files
+
+    This *could* be achieved using toml_load and toml_dump, but this would
+    lose all formatting & comments (not ideal)
+    """
+
+    float_str = "([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)"
+
+    for case in pytest.active_cases:
+        toml_file = pytest.case_dir/case['case_dir']/case['toml_filename']
+        new_toml_file = toml_file.parent / (toml_file.name + ".new")
+        new_toml_output = open(new_toml_file, 'w')
+
+        with open(toml_file, 'r') as toml_input:
+
+            # Construct list of 'expected_' value regexes & replacements
+            expected_list = []
+            for k in case.keys():
+                if 'expected_' in k:
+                    var_name = k
+                    var_value = case[k]
+                    var_re = re.compile(var_name + " *= *"+float_str)
+                    var_str = var_name + f" = {var_value}"  # TODO - specify formatting?
+                    expected_list.append((var_re, var_str))
+
+            for line in toml_input:
+
+                # Cycle all expected values, searching line for match
+                for exp_re, exp_repl in expected_list:
+                    search = exp_re.search(line)
+                    if search is not None:
+                        print(search)
+                        line = exp_re.sub(exp_repl, line)
+                        break
+
+                new_toml_output.write(line)
+
+        #Replace the old toml file
+        new_toml_output.close()
+        new_toml_file.replace(toml_file)
+
 def pytest_sessionfinish(session, exitstatus):
     """Write out expected values if requested"""
 
     if pytest.remake_cases:
         with open("new_expected_solution_values.p", 'wb') as pickle_out:
             pickle.dump(pytest.active_cases, pickle_out)
+
+    update_expected_values()

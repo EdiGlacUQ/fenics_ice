@@ -87,8 +87,11 @@ class ConfigParser(object):
 
         # These ensure Jacobian is assembled with the same quadrature rule as
         # the residual, and are required for Newton's method to be second order.
-        fenics_params["tlm_adjoint"]["AssembleSolver"]["match_quadrature"] = True
-        fenics_params["tlm_adjoint"]["EquationSolver"]["match_quadrature"] = True
+        try:
+            fenics_params["tlm_adjoint"]["AssembleSolver"]["match_quadrature"] = True
+            fenics_params["tlm_adjoint"]["EquationSolver"]["match_quadrature"] = True
+        except RuntimeError:
+            print("Warning: unable to set tlm_adjoint param 'match_quadrature'")
 
 @dataclass(frozen=True)
 class InversionCfg(ConfigPrinter):

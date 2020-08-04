@@ -59,7 +59,7 @@ def get_periodic_space(params, mesh, deg=1, dim=1):
     # Periodic BCs don't work with ghost_mode = shared_facet...
     # https://fenicsproject.discourse.group/t/use-mpirun-for-dg-with-periodic-bc/2846
     # Seems like a common issue
-    if(dim==1):
+    if(dim == 1):
         periodic_space = FunctionSpace(
             mesh,
             'Lagrange',
