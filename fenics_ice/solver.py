@@ -643,8 +643,9 @@ class ssa_solver:
 
                 return B_0_action
 
-            def B_M_0(x):
+            def H_M_0(x):
                 """
+                Initial guess for inverse hessian action (mass matrix prec)
                 M^-1
                 """
                 M_inv_action = function_new(x, name="M_inv_action")
@@ -670,18 +671,18 @@ class ssa_solver:
 
                 return H_0_action
 
-            def H_M_0(x):
+            def B_M_0(x):
                 """
-                Initial guess for inverse hessian action
+                Initial guess for hessian action
 
                 M
                 """
-                H_0_action = function_new(x, name="H_0_action")
+                B_0_action = function_new(x, name="B_0_action")
                 M_action = M_mat * x.vector()
-                H_0_action.vector()[:] = M_action
-                H_0_action.vector().apply("insert")
+                B_0_action.vector()[:] = M_action
+                B_0_action.vector().apply("insert")
 
-                return H_0_action
+                return B_0_action
 
             # L-BFGS-B line search configuration. For parameter values see
             # SciPy
