@@ -100,7 +100,7 @@ class InversionCfg(ConfigPrinter):
     """
 
     max_iter: int = 15
-    ftol: float = 1e-4
+    ftol: float = None
     gtol: float = None
     verbose: bool = True
 
@@ -123,6 +123,10 @@ class InversionCfg(ConfigPrinter):
                        "ftol" : self.ftol,
                        "gtol" : self.gtol
         }
+
+        inv_options = cleanNullTerms(inv_options)
+        assert ("ftol" in inv_options) or ("gtol" in inv_options), \
+            "Specify either 'ftol' or 'gtol' in inversion options"
         return cleanNullTerms(inv_options)
 
     def __post_init__(self):
