@@ -7,6 +7,7 @@ from fenics import *
 from dolfin import *
 import numpy as np
 from fenics_ice import model
+from pathlib import Path
 import logging
 
 def get_mesh(params):
@@ -16,17 +17,27 @@ def get_mesh(params):
 
     dd = params.io.input_dir
     mesh_filename = params.mesh.mesh_filename
-    meshfile = os.path.join(dd, mesh_filename)
+    meshfile = Path(dd) / mesh_filename
+    filetype = meshfile.suffix
 
     #Ghost elements for DG in parallel
     parameters['ghost_mode'] = 'shared_facet'
 
     assert mesh_filename
-    assert os.path.isfile(meshfile), "Mesh file '%s' not found" % meshfile
+    assert meshfile.exists(), "Mesh file '%s' not found" % meshfile
 
-    mesh_out = Mesh(meshfile)
+    if filetype == '.xml':
+        mesh_in = Mesh(str(meshfile))
 
-    return mesh_out
+    elif filetype == '.xdmf':
+        mesh_in = Mesh()
+        mesh_xdmf = XDMFFile(MPI.comm_world, str(meshfile))
+        mesh_xdmf.read(mesh_in)
+
+    else:
+        raise ValueError("Don't understand the mesh filetype: %s" % meshfile.name)
+
+    return mesh_in
 
 def get_mesh_length(mesh):
     """
