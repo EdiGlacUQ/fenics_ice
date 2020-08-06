@@ -690,6 +690,12 @@ class ssa_solver:
             #     June 20 2020
             #     scipy/optimize/lbfgsb_src/lbfgsb.f
             #     lnsrlb subroutine
+
+            # For mass matrix preconditioner (still not working properly),
+            # use:
+            # c1=1.0e-4, c2=0.9999,
+            # H_0=H_M_0, M=B_M_0, M_inv=H_M_0)
+
             cntrl_opt, result = minimize_l_bfgs(forward, cc, m=10, s_atol=None,
                                                 g_atol=None, J0=J, verbose=True,
                                                 c1=1.0e-3, c2=0.9,
