@@ -616,16 +616,14 @@ class ssa_solver:
 
                 return False
 
-            L_solver = KrylovSolver("cg", "sor")
+            L_solver = KrylovSolver(L_mat.copy(), "cg", "sor")
             L_solver.parameters.update({"relative_tolerance": 1.0e-14,
                                         "absolute_tolerance": 1.0e-32})
-            L_solver.set_operator(L_mat)
 
             M_mat = assemble(Qp_trial * Qp_test * self.dIce)
-            M_solver = KrylovSolver("cg", "sor")
+            M_solver = KrylovSolver(M_mat.copy(), "cg", "sor")
             M_solver.parameters.update({"relative_tolerance": 1.0e-14,
                                         "absolute_tolerance": 1.0e-32})
-            M_solver.set_operator(M_mat)
 
             def B_0(x):
                 """
@@ -637,6 +635,7 @@ class ssa_solver:
 
                 M_inv_L_action = function_new(x, name="M_inv_L_action")
                 M_solver.solve(M_inv_L_action.vector(), L_action)
+                del L_action
 
                 B_0_action = function_new(x, name="B_0_action")
                 B_0_action.vector().axpy(2.0, L_mat * M_inv_L_action.vector())
@@ -649,7 +648,7 @@ class ssa_solver:
                 M^-1
                 """
                 M_inv_action = function_new(x, name="M_inv_action")
-                M_solver.solve(M_inv_action.vector(), x.vector())
+                M_solver.solve(M_inv_action.vector(), x.vector().copy())
 
                 return M_inv_action
 
@@ -659,12 +658,13 @@ class ssa_solver:
                 0.5 L^-1 M L^-1
                 """
                 L_inv_action = function_new(x, name="L_inv_action")
-                L_solver.solve(L_inv_action.vector(), x.vector())
+                L_solver.solve(L_inv_action.vector(), x.vector().copy())
 
                 M_L_inv_action = M_mat * L_inv_action.vector()
 
                 H_0_action = function_new(x, name="H_0_action")
                 L_solver.solve(H_0_action.vector(), M_L_inv_action)
+                del M_L_inv_action
 
                 function_set_values(H_0_action,
                                     0.5 * function_get_values(H_0_action))
