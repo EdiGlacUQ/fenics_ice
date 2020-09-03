@@ -930,10 +930,14 @@ class MomentumSolver(EquationSolver):
         rhs = 0 if self._rhs == 0 else replace_deps(self._rhs)
         J_p = replace_deps(self.J_p)
         J = replace_deps(self._J)
+        # First order approx - inconsistent jacobian
+        # 'replace_deps' is only used by forward replay - tlm_adjoint stuff
         solve(lhs == rhs, x, self._bcs, J=J_p,
               form_compiler_parameters=self._form_compiler_parameters,
               solver_parameters=self.picard_params)
         end()
+
+        # Newton solver
         solve(lhs == rhs, x, self._bcs, J=J,
               form_compiler_parameters=self._form_compiler_parameters,
               solver_parameters=self._solver_parameters)
