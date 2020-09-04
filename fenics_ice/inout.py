@@ -353,6 +353,10 @@ def setup_logging(params):
     # run_name = params.io.run_name
     # logfile = run_name + ".log"
 
+    # Get the FFC logger to shut up
+    ffc_logger = logging.getLogger('FFC')
+    ffc_logger.setLevel(logging.WARNING)
+
     log_level = params.io.log_level
 
     numeric_level = getattr(logging, log_level.upper(), None)
