@@ -32,11 +32,13 @@ def run_sample_post(config_file):
     #Read run config file
 
     assert MPI.size(MPI.comm_world) == 1, "Run this stage in serial!"
-    
-    plotdir = Path(os.environ['FENICS_ICE_BASE_DIR']) / 'example_cases' / params.io.run_name / 'plots'
 
     # Read run config file
     params = ConfigParser(config_file)
+
+    plotdir = Path(os.environ['FENICS_ICE_BASE_DIR']) / 'example_cases' / params.io.run_name / 'plots'
+    plotdir.mkdir(parents=True, exist_ok=True)
+
     log = inout.setup_logging(params)
     inout.log_preamble("errorprop", params)
 
@@ -152,12 +154,8 @@ def run_sample_post(config_file):
         
         a.vector().set_local(z.vector().get_local() + P1)
         a.vector().apply("insert")
-        a.vector()[:] += mdl.alpha.vector()[:]
-        z.vector()[:] += mdl.alpha.vector()[:]
-       
-        slvr.alpha=a
-        slvr.save_ts_zero()
 
+        """
         if(i==0):
          xpts    = mdl.mesh.coordinates()[:,0]
          ypts    = mdl.mesh.coordinates()[:,1]
@@ -193,9 +191,16 @@ def run_sample_post(config_file):
          cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
          plt.tight_layout(2.0)
          plt.savefig(os.path.join(plotdir, 'sample.pdf'))
+         plt.show()
+        """
+
+        a.vector()[:] += mdl.alpha.vector()[:]
+        z.vector()[:] += mdl.alpha.vector()[:]
+        slvr.alpha=a
+        slvr.save_ts_zero()
 
         try:
-            Q = slvr.timestep(save=1,adjoint_flag=0,cost_flag=1,qoi_func=slvr.comp_Q_h2 )
+            Q = slvr.timestep(save=0,adjoint_flag=0,cost_flag=1,qoi_func=slvr.comp_Q_h2 )
             for j in range(params.time.num_sens):
                 Qarray[j,i] = Q[j].value()
         except: 
