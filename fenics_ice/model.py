@@ -23,12 +23,15 @@ class model:
         self.parallel = MPI.size(mesh_in.mpi_comm()) > 1
 
         #Full mask/mesh
-        self.mesh_ext = Mesh(mesh_in)
-        M_in = FunctionSpace(self.mesh_ext, 'DG', 0)
-        self.mask_ext = self.input_data.interpolate("data_mask", M_in, static=True)
+        self.mesh = Mesh(mesh_in)
+        M_in = FunctionSpace(self.mesh, 'DG', 0)
+        self.mask_ext = self.input_data.interpolate("data_mask",
+                                                    M_in,
+                                                    static=True,
+                                                    method='nearest')
 
         # Generate Domain and Function Spaces
-        self.mesh = self.mesh_ext
+
         # NOTE - getting rid of SubMesh here because
         # 1 - it has no effect on ismipc test cases (except changing DofMaps)
         # 2 - all real cases will be parallel, and SubMesh only works in serial
@@ -360,28 +363,21 @@ class model:
         self.alpha.rename('alpha', 'a Function')
 
 
-    def gen_domain(self):
-        """
-        Takes the input mesh (self.mesh_ext) and produces the submesh
-        where mask==1, which becomes self.mesh
-
-        UNUSED
-        """
-        tol = self.params.constants.float_eps
-        cf_mask = MeshFunction('size_t',  self.mesh_ext, self.mesh_ext.geometric_dimension())
-
-        for c in cells(self.mesh_ext):
-            x_m       = c.midpoint().x()
-            y_m       = c.midpoint().y()
-            m_xy = self.mask_ext(x_m, y_m)
-
-            #Determine whether cell is in the domain
-            if near(m_xy,1, tol):
-                cf_mask[c] = 1
-
-        self.mesh = SubMesh(self.mesh_ext, cf_mask, 1)
-
     def label_domain(self):
+        """
+        Use the cell mask values to label both cells and facets.
+
+        Cell mask values are previously NN interpolated from the input raster. Facets are
+        marked based on topology (i.e. the mask of the two neighbouring cells), avoiding
+        any issues with interpolation & epsilon.
+
+        However, this strategy may be a dead end. The idea was to keep a whole rectangular
+        (though irregularly discretized) mesh and mask out ocean/nunatak regions, and solve
+        the equations only on the 'ice' subdomain. Unfortunately, it seems to be very
+        unwieldy to define boundary integrals on internal facets (dS) because it's not
+        easy to specify the normal direction.
+        """
+
         tol = self.params.constants.float_eps
         bed = self.bed
         H = self.H
@@ -406,6 +402,9 @@ class model:
         self.OMEGA_ICE_FLT_OBS  = 3
         self.OMEGA_ICE_GND_OBS  = 4
 
+        self.OMEGA_LO = 5
+        self.OMEGA_XD = 6
+
         #Facet labels
         self.GAMMA_DEF          = 0 #default value, appears in interior cells
         self.GAMMA_LAT          = 1 #Value at lateral domain boundaries
@@ -413,80 +412,103 @@ class model:
         self.GAMMA_NF           = 3 #No flow dirichlet bc
 
 
-
-
         #Cell and Facet Markers
         self.cf      = MeshFunction('size_t',  self.mesh, self.mesh.geometric_dimension())
         self.ff      = MeshFunction('size_t', self.mesh, self.mesh.geometric_dimension() - 1)
-
 
         #Initialize Values
         self.cf.set_all(self.OMEGA_DEF)
         self.ff.set_all(self.GAMMA_DEF)
 
-
         # Build connectivity between facets and cells
         D = self.mesh.topology().dim()
-        self.mesh.init(D-1,D)
+        self.mesh.init(D-1, D)
 
-        #Label ice sheet cells
-        for c in cells(self.mesh):
-            x_m       = c.midpoint().x()
-            y_m       = c.midpoint().y()
-            m_xy = self.mask_ext(x_m, y_m)
-            mv_xy = self.mask_vel_M(x_m, y_m)
-            fl_xy = fl_ex(x_m, y_m)
+        # Label ice sheet cells (ice/ocean/nunatak, and obs/no-obs)
+        dofmap = self.mask_ext.function_space().dofmap()
+
+        for c in cells(self.mesh, 'all'):  # iterate ghosts too
+            cdof = dofmap.cell_dofs(c.index())
+
+            # TODO - efficiency, get_local only one before loop?
+            m_xy = self.mask_ext.vector().get_local([cdof])
+            mv_xy = self.mask_vel_M.vector().get_local([cdof])
+            fl_xy = fl_ex.vector().get_local([cdof]) # (x_m, y_m)
 
             #Determine whether cell is in the domain
-            if near(m_xy,1.0, tol) & near(mv_xy,1.0, tol):
+            if near(m_xy, 1.0, tol) & near(mv_xy, 1.0, tol):  # obs ice
                 if fl_xy:
                     self.cf[c] = self.OMEGA_ICE_FLT_OBS
                 else:
                     self.cf[c] = self.OMEGA_ICE_GND_OBS
-            elif near(m_xy,1.0, tol):
+
+            elif near(m_xy, 1.0, tol):  # no obs ice
                 if fl_xy:
                     self.cf[c] = self.OMEGA_ICE_FLT
                 else:
                     self.cf[c] = self.OMEGA_ICE_GND
 
+            #  TODO - kind of redundant? basically just copying mask_ext to self.cf?
+            #  Could replace this whole loop w/ logic to turn 1.0 into 1-4 above?
+            elif near(m_xy, self.MASK_LO, tol):  # ocean
+                self.cf[c] = self.OMEGA_LO
+
+            elif near(m_xy, self.MASK_XD, tol):  # nunataks
+                self.cf[c] = self.OMEGA_XD
+
+            else:
+                raise Exception("Unrecognised mask value")
+
+        assert (not np.any(self.cf.array() == self.OMEGA_DEF)), "Bad cell marker!"
+
+        # Cycle and label facets topologically (based on 2 parent cells)
         for f in facets(self.mesh):
 
-            #Facet facet label based on mask and corresponding bc
+            # Get parent elements
+            parents = [Cell(self.mesh, p) for p in f.entities(2)]
+            p_mask = np.asarray([self.cf[p.index()] for p in parents])
+
+            # Don't need to distinguish between floating/grounded obs/unobs for BCs
+            p_mask[p_mask == self.OMEGA_ICE_FLT] = self.OMEGA_ICE_GND
+            p_mask[p_mask == self.OMEGA_ICE_FLT_OBS] = self.OMEGA_ICE_GND
+            p_mask[p_mask == self.OMEGA_ICE_GND_OBS] = self.OMEGA_ICE_GND
+
+            assert (len(parents) == 1) == f.exterior()
+
+            # Facets at edge of mesh
             if f.exterior():
-                mask        = self.mask_ext
-                x_m         = f.midpoint().x()
-                y_m         = f.midpoint().y()
-                tol         = 1e-2
 
-                CC = mask(x_m,y_m)
+                # ocean edge of domain - ignore
+                if(p_mask[0] in (self.OMEGA_LO, self.OMEGA_XD)):
+                    self.ff[f] = self.GAMMA_DEF
 
-                try:
-                    CE = mask(x_m + tol,y_m)
-                except:
-                    CE = np.Inf
-                try:
-                    CW = mask(x_m - tol ,y_m)
-                except:
-                    CW = np.Inf
-                try:
-                    CN = mask(x_m, y_m + tol)
-                except:
-                    CN = np.Inf
-                try:
-                    CS = mask(x_m, y_m - tol)
-                except:
-                    CS = np.Inf
-
-                mv = np.min([CC, CE, CW, CN, CS])
-
-                if near(mv,self.MASK_ICE,tol):
+                # ice/edge of domain
+                else:
                     self.ff[f] = self.GAMMA_LAT
 
-                elif near(mv,self.MASK_LO,tol):
+            # Interior facets
+            else:
+
+                p_masks = set(p_mask)
+                # No boundary between elements of same type
+                if len(p_masks) == 1:
+                    self.ff[f] = self.GAMMA_DEF
+
+                # No boundary between nunatak/ocean
+                elif p_masks == set((self.OMEGA_LO, self.OMEGA_XD)):
+                    self.ff[f] = self.GAMMA_DEF
+
+                # Ice/Ocean boundary
+                elif p_masks == set((self.OMEGA_ICE_GND, self.OMEGA_LO)):
                     self.ff[f] = self.GAMMA_TMN
 
-                elif near(mv,self.MASK_XD,tol):
+                # Ice/Nunatak
+                elif p_masks == set((self.OMEGA_ICE_GND, self.OMEGA_XD)):
                     self.ff[f] = self.GAMMA_NF
+
+                else:
+                    raise Exception("Unhandled case in BC marking")
+
 
 class PeriodicBoundary(SubDomain):
     def __init__(self,L):

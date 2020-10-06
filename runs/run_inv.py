@@ -54,6 +54,16 @@ def run_inv(config_file):
     #####################
 
     slvr = solver.ssa_solver(mdl)
+
+    # For testing
+    outfname = Path(params.io.output_dir)/"_".join((params.io.run_name, 'mesh_cf'))
+    vtk_fname = str(outfname.with_suffix(".pvd"))
+    File(vtk_fname) << mdl.cf
+
+    outfname = Path(params.io.output_dir)/"_".join((params.io.run_name, 'mesh_ff'))
+    vtk_fname = str(outfname.with_suffix(".pvd"))
+    File(vtk_fname) << mdl.ff
+
     slvr.inversion()
 
     ###########################
