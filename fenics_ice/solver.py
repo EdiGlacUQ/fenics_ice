@@ -307,6 +307,12 @@ class ssa_solver:
         ds = self.ds
         dS = self.dS
 
+        # Notes on use of DG(0) here:
+        # ==========================
+        # Thickness here is analogous to pressure in incompressible stokes system.
+        # Equal order elements result in pressure modes (wiggles, inf-sup stability, LBB)
+        # So 'thickness modes' will appear unless we use DG(0)
+
         #Crank Nicholson
         # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
         # - inner(grad(Ksi), U_np * 0.5 * (trial_H + H_np)) * dIce
