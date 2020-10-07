@@ -102,15 +102,21 @@ class ssa_solver:
         self.GAMMA_NF = model.GAMMA_NF
 
 
-        #Measures
+        # Measures
+        # Default
         self.dx = Measure('dx', domain=self.mesh, subdomain_data=self.cf)
         self.dS = Measure('dS', domain=self.mesh, subdomain_data=self.ff)
         self.ds = ufl.ds
 
-        self.dIce = self.dx
+        # Calving front (interior facets)
+        self.dS_tmn = self.dS(self.GAMMA_TMN)
+
+        # Ice cells
         self.dIce_flt = self.dx(self.OMEGA_ICE_FLT) + self.dx(self.OMEGA_ICE_FLT_OBS)
         self.dIce_gnd = self.dx(self.OMEGA_ICE_GND) + self.dx(self.OMEGA_ICE_GND_OBS)
+        self.dIce = self.dIce_flt + self.dIce_gnd
 
+        # Ice cells w/ obs
         self.dObs = self.dx(self.OMEGA_ICE_FLT_OBS) + self.dx(self.OMEGA_ICE_GND_OBS)
         self.dObs_gnd = self.dx(self.OMEGA_ICE_FLT_OBS)
         self.dObs_flt = self.dx(self.OMEGA_ICE_GND_OBS)
@@ -208,7 +214,10 @@ class ssa_solver:
                 + ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
 
                 #Boundary condition
-                + inner(Phi * sigma_n, self.nm) * self.ds )
+                + inner( (Phi("+") * sigma_n("+")), self.nm("+") ) * self.dS_tmn
+
+                # Adding this following: MiroK answer: https://bit.ly/3d9f61p
+                + Constant(0) * dx(domain=self.mesh, subdomain_data=self.cf))
 
         self.mom_Jac_p = ufl.algorithms.expand_derivatives(
             ufl.replace(derivative(self.mom_F, self.U), {U_marker: self.U}))
