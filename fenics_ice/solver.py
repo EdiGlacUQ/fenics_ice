@@ -51,14 +51,14 @@ class ssa_solver:
             LumpedMassSolver(self.alpha, self.alpha_l, p=0.5).solve(annotate=False, tlm=False)
 
 
-        #Parameterization of alpha/beta
+        # Parameterization of alpha/beta
         self.bglen_to_beta = model.bglen_to_beta
         self.beta_to_bglen = model.beta_to_bglen
 
-        #Facet normals
+        # Facet normals
         self.nm = model.nm
 
-        #Save observations for inversions
+        # Save observations for inversions
         try:
             self.u_obs = model.u_obs
             self.v_obs = model.v_obs
@@ -68,7 +68,7 @@ class ssa_solver:
         except:
             pass
 
-        #Mesh/Function Spaces
+        # Mesh/Function Spaces
         self.mesh = model.mesh
         self.V = model.V
         self.Q = model.Q
@@ -76,7 +76,7 @@ class ssa_solver:
         self.M = model.M
         self.RT = model.RT
 
-        #Trial/Test Functions
+        # Trial/Test Functions
         self.U = Function(self.V, name = "U")
         self.U_np = Function(self.V, name = "U_np")
         self.Phi = TestFunction(self.V)
@@ -86,7 +86,7 @@ class ssa_solver:
         self.trial_H = TrialFunction(self.M)
         self.H_nps = Function(self.M)
 
-        #Cells
+        # Cells
         self.cf = model.cf
         self.OMEGA_DEF = model.OMEGA_DEF
         self.OMEGA_ICE_FLT = model.OMEGA_ICE_FLT
@@ -94,7 +94,7 @@ class ssa_solver:
         self.OMEGA_ICE_FLT_OBS = model.OMEGA_ICE_FLT_OBS
         self.OMEGA_ICE_GND_OBS = model.OMEGA_ICE_GND_OBS
 
-        #Facets
+        # Facets
         self.ff = model.ff
         self.GAMMA_DEF = model.GAMMA_DEF
         self.GAMMA_LAT = model.GAMMA_LAT
@@ -762,6 +762,7 @@ class ssa_solver:
             # This L is equivalent to scriptF in reg_operator.pdf
             # Prior.py contains vector equivalent of this
             # (this operates on fem functions)
+            # TODO - dIce here causes issues in parallel
             L = (delta_a * alpha * self.pTau +
                  gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
             solve(a == L, f_alpha)
