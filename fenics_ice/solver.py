@@ -202,6 +202,30 @@ class ssa_solver:
         #Terminating margin boundary condition
         sigma_n = 0.5 * rhoi * g * ((H ** 2) - (rhow / rhoi) * (draft ** 2)) - F
 
+        # Temp location for indicator function:
+        ice_ocean = self.cf.array()
+
+        def ice_cell(x):
+            return x in (self.OMEGA_ICE_FLT,
+                         self.OMEGA_ICE_GND,
+                         self.OMEGA_ICE_FLT_OBS,
+                         self.OMEGA_ICE_GND_OBS)
+
+        # indexing is C vectorized, so because
+        # we have few unique values this is a lot faster
+        vals, idx = np.unique(ice_ocean, return_inverse=True)
+        ice_ocean_mapped = np.array([ice_cell(x) for x in vals])[idx]
+
+        self.indic = Function(FunctionSpace(self.mesh, 'DG', 0))
+        self.indic.vector().set_local(ice_ocean_mapped)
+        self.indic.vector().apply('insert')
+
+
+        #neumann_term = inner(Phi * sigma_n, self.nm)("+") * jump(self.indic) * self.dS_tmn
+        #neumann_term = inner(avg(Phi), Constant((0.0, 0.0))("+")) * self.dS_tmn
+        #neumann_term = inner(Phi, Constant((0.0, 0.0)))("+") * self.dS_tmn
+        neumann_term = inner(Phi("+"), Constant((0.0, 0.0))("+")) * self.dS_tmn
+
         self.mom_F = (
                 #Membrance Stresses
                 -inner(grad(Phi_x), H * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * self.dIce
@@ -214,10 +238,8 @@ class ssa_solver:
                 + ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
 
                 #Boundary condition
-                + inner( (Phi("+") * sigma_n("+")), self.nm("+") ) * self.dS_tmn
+                + neumann_term)
 
-                # Adding this following: MiroK answer: https://bit.ly/3d9f61p
-                + Constant(0) * dx(domain=self.mesh, subdomain_data=self.cf))
 
         self.mom_Jac_p = ufl.algorithms.expand_derivatives(
             ufl.replace(derivative(self.mom_F, self.U), {U_marker: self.U}))
