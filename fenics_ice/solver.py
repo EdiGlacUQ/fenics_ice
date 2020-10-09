@@ -221,11 +221,6 @@ class ssa_solver:
         self.indic.vector().apply('insert')
 
 
-        #neumann_term = inner(Phi * sigma_n, self.nm)("+") * jump(self.indic) * self.dS_tmn
-        #neumann_term = inner(avg(Phi), Constant((0.0, 0.0))("+")) * self.dS_tmn
-        #neumann_term = inner(Phi, Constant((0.0, 0.0)))("+") * self.dS_tmn
-        neumann_term = inner(Phi("+"), Constant((0.0, 0.0))("+")) * self.dS_tmn
-
         self.mom_F = (
                 #Membrance Stresses
                 -inner(grad(Phi_x), H * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x])) * self.dIce
@@ -237,8 +232,11 @@ class ssa_solver:
                 #Driving Stress
                 + ( div(Phi)*F - inner(grad(bed),W*Phi) ) * self.dIce
 
+                # need this, or keep_diagonal (where are assembler options??)
+                + inner(Constant(1.0e-15) * Phi, self.U) * self.dx
+
                 #Boundary condition
-                + neumann_term)
+                + inner(Phi * sigma_n, self.nm)("+") * jump(self.indic) * self.dS_tmn)
 
 
         self.mom_Jac_p = ufl.algorithms.expand_derivatives(
