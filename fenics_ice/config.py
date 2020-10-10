@@ -1,3 +1,20 @@
+# For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
+# root directory
+
+# This file is part of fenics_ice.
+#
+# fenics_ice is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# fenics_ice is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
+
 """
 Classes & methods for parsing fenics_ice configuration files.
 """
@@ -87,8 +104,11 @@ class ConfigParser(object):
 
         # These ensure Jacobian is assembled with the same quadrature rule as
         # the residual, and are required for Newton's method to be second order.
-        fenics_params["tlm_adjoint"]["AssembleSolver"]["match_quadrature"] = True
-        fenics_params["tlm_adjoint"]["EquationSolver"]["match_quadrature"] = True
+        try:
+            fenics_params["tlm_adjoint"]["AssembleSolver"]["match_quadrature"] = True
+            fenics_params["tlm_adjoint"]["EquationSolver"]["match_quadrature"] = True
+        except RuntimeError:
+            print("Warning: unable to set tlm_adjoint param 'match_quadrature'")
 
 @dataclass(frozen=True)
 class InversionCfg(ConfigPrinter):

@@ -1,3 +1,20 @@
+# For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
+# root directory
+
+# This file is part of fenics_ice.
+#
+# fenics_ice is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# fenics_ice is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
+
 import timeit
 import time
 from pathlib import Path
@@ -289,6 +306,12 @@ class ssa_solver:
         dIce_flt = self.dIce_flt
         ds = self.ds
         dS = self.dS
+
+        # Notes on use of DG(0) here:
+        # ==========================
+        # Thickness here is analogous to pressure in incompressible stokes system.
+        # Equal order elements result in pressure modes (wiggles, inf-sup stability, LBB)
+        # So 'thickness modes' will appear unless we use DG(0)
 
         #Crank Nicholson
         # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
