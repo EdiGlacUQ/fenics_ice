@@ -26,6 +26,7 @@ from tlm_adjoint_fenics.hessian_optimization import *
 #from dolfin_adjoint import *
 #from dolfin_adjoint_custom import EquationSolver
 import ufl
+from IPython import embed
 
 
 
@@ -97,11 +98,11 @@ class ssa_solver:
         self.U = Function(self.V, name = "U")
         self.U_np = Function(self.V, name = "U_np")
         self.Phi = TestFunction(self.V)
-        self.Ksi = TestFunction(self.M)
+        self.Ksi = TestFunction(self.Qp)
         self.pTau = TestFunction(self.Qp)
 
-        self.trial_H = TrialFunction(self.M)
-        self.H_nps = Function(self.M)
+        self.trial_H = TrialFunction(self.Qp)
+        self.H_nps = Function(self.Qp)
 
         #Cells
         self.cf = model.cf
@@ -325,8 +326,8 @@ class ssa_solver:
         self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
         - inner(grad(Ksi), U_np * trial_H) * dIce
         + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * trial_H)) * dS
-        + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * trial_H, nm))*ds #Outflow at boundaries
-        + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow at boundaries
+#        + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * trial_H, nm))*ds #Outflow at boundaries
+#        + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds #Inflow at boundaries
         + bmelt*Ksi*dIce_flt #basal melting
         - smb*Ksi*dIce) #surface mass balance
 
@@ -387,10 +388,11 @@ class ssa_solver:
 
             n_sens = np.round(t_sens/dt)
 
-            reset_manager()
-            start_annotating()
-#            configure_checkpointing("periodic_disk", {'period': 2, "format":"pickle"})
-            configure_checkpointing("multistage", {"blocks":n_steps,
+            if (adjoint_flag):
+
+                reset_manager()
+                start_annotating()
+                configure_checkpointing("multistage", {"blocks":n_steps,
                                                    "snaps_on_disk":4000,
                                                    "snaps_in_ram":10,
                                                    "verbose":True,
