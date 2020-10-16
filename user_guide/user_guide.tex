@@ -185,6 +185,27 @@ The core structure and key files are: \\
 .3 user\_guide.pdf.
 }
 
+\section{Running Tests}
+
+fenics\_ice is equipped with a pytest test suite. Tests are roughly split into unit tests (test\_config.py, test\_model.py) and integration tests (test\_runs.py).
+
+To run all tests, simply:
+\begin{spverbatim}
+> pytest .
+\end{spverbatim}
+in the fenics\_ice directory. To test a specific run step (i.e. the inversion) run:
+
+\begin{spverbatim}
+> pytest -k 'run_inversion'
+> pytest -k 'run_eigendec'
+\end{spverbatim}
+
+To run tests with iPython embed statements:
+\begin{spverbatim}
+> pytest -s
+\end{spverbatim}
+
+For now, the tests only run on the IsmipC domain in serial.
 
 \section{Tutorial: A Walkthrough of IsmipC}
 
