@@ -974,8 +974,8 @@ def mass_matrix_diagonal(space, name="M_l"):
 
 class LumpedMassSolver(Equation):
     def __init__(self, m, m_l, p=1):
-        Equation.__init__(self, m_l, deps=[m_l, m], nl_deps=[], ic_deps=[],
-                          adj_ic_deps=[])
+        Equation.__init__(self, m_l, deps=[m_l, m], nl_deps=[],
+                          ic=False, adj_ic=False)
         self._M_l = mass_matrix_diagonal(function_space(m_l))
         self._M_l_p = p
 
