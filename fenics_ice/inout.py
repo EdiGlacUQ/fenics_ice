@@ -251,7 +251,7 @@ class InputData(object):
             assert field_file.exists(), f"No input file found for field {field_name}"
             return field_file, field_name
 
-    def interpolate(self, name, space, default=None, static=False):
+    def interpolate(self, name, space, default=None, static=False, method='linear'):
         """
         Interpolate named variable onto function space
 
@@ -260,11 +260,13 @@ class InputData(object):
         space : function space onto which to interpolate
         default : value to return if field is absent (otherwise raise error)
         static : if True, set _Function_static__ = True to save always-zero differentials
+        method: "nearest" or "linear"
 
         Returns:
         function : the interpolated function
         """
 
+        assert (method in ["linear", "nearest"]), f"Unrecognised interpolation method: {method}"
         function = Function(space, name=name, static=static)
 
         try:
@@ -282,7 +284,9 @@ class InputData(object):
                 print(f"Failed to find data for field {name}")
                 raise
 
-        interper = interp.RegularGridInterpolator((field.xx, field.yy), field.field)
+        interper = interp.RegularGridInterpolator((field.xx, field.yy),
+                                                  field.field,
+                                                  method=method)
         out_coords = space.tabulate_dof_coordinates()
 
         result = interper(out_coords)
