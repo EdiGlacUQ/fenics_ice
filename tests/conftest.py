@@ -213,7 +213,7 @@ def update_expected_values():
     lose all formatting & comments (not ideal)
     """
 
-    float_str = "([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)"
+    float_str = r"([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)"
 
     for case in pytest.active_cases:
         toml_file = pytest.case_dir/case['case_dir']/case['toml_filename']
