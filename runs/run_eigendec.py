@@ -22,6 +22,7 @@ import resource
 import os
 from fenics import *
 from tlm_adjoint_fenics import *
+from tlm_adjoint_fenics.eigendecomposition import PythonMatrix
 import pickle
 from pathlib import Path
 import datetime
@@ -29,7 +30,7 @@ import datetime
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
-from fenics_ice.decorators import count_calls, flag_errors, timer
+from fenics_ice.decorators import count_calls, timer
 
 import slepc4py.SLEPc as SLEPc
 import petsc4py.PETSc as PETSc
@@ -128,22 +129,6 @@ def run_eigendec(config_file):
         reg_op.approx_action(x.vector(), xg.vector())
         return function_get_values(xg)
 
-    class PythonMatrix:
-        """
-        Define a 'shell' matrix defined only by its
-        action (mult) on a vector (x)
-        Copied from tlm_adjoint eigendecomposition.py
-        """
-
-        def __init__(self, action, X):
-            self._action = action
-            self._X = X
-
-        @flag_errors
-        def mult(self, A, x, y):
-            function_set_values(self._X, x.getArray(readonly=True))
-            y.setArray(self._action(self._X))
-
     def slepc_config_callback(config):
         log.info("Got to the callback")
 
@@ -160,12 +145,16 @@ def run_eigendec(config_file):
         # A_matrix already defined so just grab it
         A_matrix, _ = config.getOperators()
 
-        # Equivalent code to tlm_adjoint for defining the shell matrix
-        Y = space_new(space)
-        n, N = function_local_size(Y), function_global_size(Y)
+        (n, N), (n_col, N_col) = A_matrix.getSizes()
+        assert n == n_col
+        assert N == N_col
+        del n_col, N_col
+
+        comm = A_matrix.getComm()
+
         B_matrix = PETSc.Mat().createPython(((n, N), (n, N)),
-                                            PythonMatrix(prior_action, Y),
-                                            comm=function_comm(Y))
+                                            PythonMatrix(prior_action, space),
+                                            comm=comm)
         B_matrix.setUp()
 
         config.view()  # TODO - should this go to log?
