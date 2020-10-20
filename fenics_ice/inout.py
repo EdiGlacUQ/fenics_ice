@@ -251,7 +251,7 @@ class InputData(object):
             assert field_file.exists(), f"No input file found for field {field_name}"
             return field_file, field_name
 
-    def interpolate(self, name, space, default=None, static=False, method='linear'):
+    def interpolate(self, name, space, **kwargs):
         """
         Interpolate named variable onto function space
 
@@ -265,6 +265,12 @@ class InputData(object):
         Returns:
         function : the interpolated function
         """
+
+        default = kwargs.get("default", None)
+        static = kwargs.get("static", False)
+        method = kwargs.get("method", 'linear')
+        min_val = kwargs.get("min_val", None)
+        max_val = kwargs.get("max_val", None)
 
         assert (method in ["linear", "nearest"]), f"Unrecognised interpolation method: {method}"
         function = Function(space, name=name, static=static)
@@ -290,6 +296,10 @@ class InputData(object):
         out_coords = space.tabulate_dof_coordinates()
 
         result = interper(out_coords)
+
+        if (min_val is not None) or (max_val is not None):
+            result = np.clip(result, min_val, max_val)
+
         function.vector()[:] = result
         function.vector().apply("insert")
 

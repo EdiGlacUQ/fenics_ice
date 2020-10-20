@@ -80,11 +80,14 @@ class model:
 
     def init_fields_from_data(self):
         """Create functions for input data (geom, smb, etc)"""
+
+        min_thick = self.params.ice_dynamics.min_thickness
+
         self.bed = self.field_from_data("bed", self.Q, static=True)
         self.mask = self.field_from_data("data_mask", self.M, static=True)
-        self.bmelt = self.field_from_data("bmelt", self.M, 0.0, static=True)
-        self.smb = self.field_from_data("smb", self.M, 0.0, static=True)
-        self.H_np = self.field_from_data("thick", self.M)
+        self.bmelt = self.field_from_data("bmelt", self.M, default=0.0, static=True)
+        self.smb = self.field_from_data("smb", self.M, default=0.0, static=True)
+        self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
 
         self.H_s = self.H_np.copy(deepcopy=True)
         self.H = 0.5*(self.H_np + self.H_s)
@@ -107,9 +110,9 @@ class model:
         """Homogenous dirichlet conditions on lateral boundaries"""
         self.latbc = Constant([0.0,0.0])
 
-    def field_from_data(self, name, space, default=None, static=False):
+    def field_from_data(self, name, space, **kwargs):
         """Interpolate a named field from input data"""
-        return self.input_data.interpolate(name, space, default, static=static)
+        return self.input_data.interpolate(name, space, **kwargs)#default=default, static=static)
 
     def alpha_from_data(self):
         """Get alpha field from initial input data (run_momsolve only)"""

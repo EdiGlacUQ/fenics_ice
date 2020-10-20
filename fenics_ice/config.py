@@ -212,13 +212,16 @@ class MeshCfg(ConfigPrinter):
 
 @dataclass(frozen=True)
 class IceDynamicsCfg(ConfigPrinter):
-    """
-    Configuration related to modelling ice dynamics
-    """
+    """Configuration related to modelling ice dynamics"""
+
     sliding_law: str = "linear"
+    min_thickness: float = None
 
     def __post_init__(self):
-        assert(self.sliding_law in ['linear', 'weertman'])
+        """Check options valid"""
+        assert self.sliding_law in ['linear', 'weertman']
+        if self.min_thickness is not None:
+            assert self.min_thickness >= 0.0
 
 
 @dataclass(frozen=True)
