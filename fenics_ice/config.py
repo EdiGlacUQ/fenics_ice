@@ -232,6 +232,7 @@ class BCCfg(ConfigPrinter):
 
         # Convert label list to tuple for immutability
         assert isinstance(self.labels, list)
+        assert 0 not in self.labels, "Boundary labels must be positive integers"
         object.__setattr__(self, 'labels', tuple(self.labels))
 
 
