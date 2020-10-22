@@ -43,9 +43,9 @@ class model:
         self.def_B_field()
         self.def_lat_dirichletbc()
 
+        self.mark_BCs()
         if init_fields:
             self.init_fields_from_data()
-            self.label_domain()  # Set up BC and Body IDs
 
         if init_vel_obs:
             self.vel_obs_from_data()  # Load the velocity observations
@@ -341,134 +341,26 @@ class model:
         self.alpha = project(alpha,self.Qp)
         self.alpha.rename('alpha', 'a Function')
 
-
-    def gen_domain(self):
+    def mark_BCs(self):  # noqa: N802
         """
-        Takes the input mesh (self.mesh_ext) and produces the submesh
-        where mask==1, which becomes self.mesh
+        Set up Facet Functions defining BCs
 
-        UNUSED
+        If no bc_filename defined, check no BCs requested in TOML file (error),
+        and check that the domain is periodic (warn)
         """
-        tol = self.params.constants.float_eps
-        cf_mask = MeshFunction('size_t',  self.mesh_ext, self.mesh_ext.geometric_dimension())
+        # Do nothing if BCs aren't defined
+        if self.params.mesh.bc_filename is None:
+            assert len(self.params.bcs) == 0, \
+                "Boundary Conditions [[BC]] defined but no bc_filename specified"
 
-        for c in cells(self.mesh_ext):
-            x_m       = c.midpoint().x()
-            y_m       = c.midpoint().y()
-            m_xy = self.mask_ext(x_m, y_m)
+            if not self.params.mesh.periodic_bc:
+                logging.warn("No BCs defined but mesh is not periodic?")
 
-            #Determine whether cell is in the domain
-            if near(m_xy,1, tol):
-                cf_mask[c] = 1
+            self.ff = None
 
-        self.mesh = SubMesh(self.mesh_ext, cf_mask, 1)
-
-    def label_domain(self):
-        tol = self.params.constants.float_eps
-        bed = self.bed
-        H = self.H
-        g = self.params.constants.g
-        rhoi = self.params.constants.rhoi
-        rhow = self.params.constants.rhow
-
-        #Flotation Criterion
-        H_s = -rhow/rhoi * bed
-        fl_ex_ = conditional(H <= H_s, 1.0, 0.0)
-        fl_ex = project(fl_ex_, self.M)
-
-        #Mask labels
-        self.MASK_ICE           = 1 #Ice
-        self.MASK_LO            = 0 #Land/Ocean
-        self.MASK_XD            = -10 #Out of domain
-
-        #Cell labels
-        self.OMEGA_DEF          = 0     #default value; should not appear in cc after processing
-        self.OMEGA_ICE_FLT      = 1
-        self.OMEGA_ICE_GND      = 2
-        self.OMEGA_ICE_FLT_OBS  = 3
-        self.OMEGA_ICE_GND_OBS  = 4
-
-        #Facet labels
-        self.GAMMA_DEF          = 0 #default value, appears in interior cells
-        self.GAMMA_LAT          = 1 #Value at lateral domain boundaries
-        self.GAMMA_TMN          = 2 #Value at ice terminus
-        self.GAMMA_NF           = 3 #No flow dirichlet bc
-
-
-
-
-        #Cell and Facet Markers
-        self.cf      = MeshFunction('size_t',  self.mesh, self.mesh.geometric_dimension())
-        self.ff      = MeshFunction('size_t', self.mesh, self.mesh.geometric_dimension() - 1)
-
-
-        #Initialize Values
-        self.cf.set_all(self.OMEGA_DEF)
-        self.ff.set_all(self.GAMMA_DEF)
-
-
-        # Build connectivity between facets and cells
-        D = self.mesh.topology().dim()
-        self.mesh.init(D-1,D)
-
-        #Label ice sheet cells
-        for c in cells(self.mesh):
-            x_m       = c.midpoint().x()
-            y_m       = c.midpoint().y()
-            m_xy = self.mask_ext(x_m, y_m)
-            mv_xy = self.mask_vel_M(x_m, y_m)
-            fl_xy = fl_ex(x_m, y_m)
-
-            #Determine whether cell is in the domain
-            if near(m_xy,1.0, tol) & near(mv_xy,1.0, tol):
-                if fl_xy:
-                    self.cf[c] = self.OMEGA_ICE_FLT_OBS
-                else:
-                    self.cf[c] = self.OMEGA_ICE_GND_OBS
-            elif near(m_xy,1.0, tol):
-                if fl_xy:
-                    self.cf[c] = self.OMEGA_ICE_FLT
-                else:
-                    self.cf[c] = self.OMEGA_ICE_GND
-
-        for f in facets(self.mesh):
-
-            #Facet facet label based on mask and corresponding bc
-            if f.exterior():
-                mask        = self.mask_ext
-                x_m         = f.midpoint().x()
-                y_m         = f.midpoint().y()
-                tol         = 1e-2
-
-                CC = mask(x_m,y_m)
-
-                try:
-                    CE = mask(x_m + tol,y_m)
-                except:
-                    CE = np.Inf
-                try:
-                    CW = mask(x_m - tol ,y_m)
-                except:
-                    CW = np.Inf
-                try:
-                    CN = mask(x_m, y_m + tol)
-                except:
-                    CN = np.Inf
-                try:
-                    CS = mask(x_m, y_m - tol)
-                except:
-                    CS = np.Inf
-
-                mv = np.min([CC, CE, CW, CN, CS])
-
-                if near(mv,self.MASK_ICE,tol):
-                    self.ff[f] = self.GAMMA_LAT
-
-                elif near(mv,self.MASK_LO,tol):
-                    self.ff[f] = self.GAMMA_TMN
-
-                elif near(mv,self.MASK_XD,tol):
-                    self.ff[f] = self.GAMMA_NF
+        else:
+            # Read the facet function from a file containing a sparse MeshValueCollection
+            self.ff = fice_mesh.get_ff_from_file(self.params, model=self, fill_val=0)
 
 class PeriodicBoundary(SubDomain):
     def __init__(self,L):
