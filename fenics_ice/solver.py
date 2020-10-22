@@ -399,7 +399,7 @@ class ssa_solver:
         # H = self.H
         H_np = self.H_np
         # H_s = self.H_s
-        # h_nps = self.H_nps
+        H_nps = self.H_nps
 
         if adjoint_flag:
             num_sens = self.params.time.num_sens
