@@ -46,8 +46,8 @@ def write_dqval(dQ_ts, params):
     n = 0.0
 
     for j in dQ_ts:
-        #TODO - if we generalise cntrl in run_forward.py to be always a list
-        #(possible dual inversion), should change this.
+        # TODO - if we generalise cntrl in run_forward.py to be always a list
+        # (possible dual inversion), should change this.
         # assert len(j) == 1, "Not yet implemented for dual inversion"
         # output = j[0]
         output = j
@@ -66,7 +66,6 @@ def write_variable(var, params, name=None):
     If 'name' is provided and variable structure is unnamed (e.g. "f_124")
     the variable will be renamed accordingly.
     """
-
     var_name = var.name()
     unnamed_var = unnamed_re.match(var_name) is not None
 
@@ -83,7 +82,7 @@ def write_variable(var, params, name=None):
         # Use variable's current name if 'name' not supplied
         name = var_name
 
-    #Prefix the run name
+    # Prefix the run name
     outfname = Path(params.io.output_dir)/"_".join((params.io.run_name, name))
     vtk_fname = str(outfname.with_suffix(".pvd"))
     xml_fname = str(outfname.with_suffix(".xml"))
@@ -95,7 +94,6 @@ def write_variable(var, params, name=None):
 
 def field_from_vel_file(infile, field_name):
     """Return a field from HDF5 file containing velocity"""
-
     field = infile[field_name]
     # Check that only one dimension greater than 1 exists
     # i.e. valid: [100], [100,1], [100,1,1], invalid: [100,2]
@@ -110,7 +108,6 @@ def read_vel_obs(params, model=None):
 
     For now, expects an HDF5 file
     """
-
     infile = Path(params.io.input_dir) / params.obs.vel_file
     assert infile.exists(), f"Couldn't find velocity observations file: {infile}"
 
@@ -141,6 +138,7 @@ def read_vel_obs(params, model=None):
 
 class DataNotFound(Exception):
     """Custom exception for unfound data"""
+
     pass
 
 class InputDataField(object):
@@ -264,8 +262,8 @@ class InputData(object):
 
         Returns:
         function : the interpolated function
-        """
 
+        """
         default = kwargs.get("default", None)
         static = kwargs.get("static", False)
         method = kwargs.get("method", 'linear')
@@ -282,7 +280,7 @@ class InputData(object):
             # Fill with default, if supplied, else raise error
             if default is not None:
                 logging.warning(f"No data found for {name},"
-                             f"filling with default value {default}")
+                                f"filling with default value {default}")
                 function.vector()[:] = default
                 function.vector().apply("insert")
                 return function
@@ -307,6 +305,7 @@ class InputData(object):
 
 # Custom formatter
 class LogFormatter(logging.Formatter):
+    """A custom formatter for fenics_ice logs"""
 
     critical_fmt = "CRITICAL ERROR: %(msg)s"
     err_fmt  = "ERROR: %(msg)s"
@@ -315,10 +314,11 @@ class LogFormatter(logging.Formatter):
     info_fmt = "%(msg)s"
 
     def __init__(self):
+        """Initialize the parent class"""
         super().__init__(fmt="%(levelno)d: %(msg)s", datefmt=None, style='%')
 
     def format(self, record):
-
+        """Format incoming error messages according to log level"""
         # Save the original format configured by the user
         # when the logger formatter was instantiated
         format_orig = self._style._fmt
@@ -348,7 +348,7 @@ class LogFormatter(logging.Formatter):
         return result
 
 
-#TODO - as yet unused - can't get stdout redirection to work
+# TODO - as yet unused - can't get stdout redirection to work
 class LoggerWriter:
     def __init__(self, logger, level):
         self.logger = logger
@@ -359,11 +359,8 @@ class LoggerWriter:
             self.logger.log(self.level, message)
 
 def setup_logging(params):
-    """
-    Set up logging to file specified in params
-    """
-
-    #TODO - Doesn't work yet - can't redirect output from fenics etc
+    """Set up logging to file specified in params"""
+    # TODO - Doesn't work yet - can't redirect output from fenics etc
     # run_name = params.io.run_name
     # logfile = run_name + ".log"
 
@@ -403,13 +400,13 @@ def setup_logging(params):
 
     return logger
 
-    #Consider adding %(process)d- when we move to parallel sims (at least for debug messages?)
+#    Consider adding %(process)d- when we move to parallel sims (at least for debug messages?)
 #    logging.basicConfig(level=numeric_level, format='%(levelname)s:%(message)s')
 #    logging.basicConfig(level=numeric_level, format=)
 
 
 def print_config(params):
-
+    """Log the configuration as read from TOML file"""
     log = logging.getLogger("fenics_ice")
     log.info("==================================")
     log.info("========= Configuration ==========")
@@ -436,7 +433,6 @@ def log_git_info():
 
 def log_preamble(phase, params):
     """Print out git info, model phase and config"""
-
     log_git_info()
 
     log = logging.getLogger("fenics_ice")

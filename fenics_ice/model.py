@@ -16,7 +16,7 @@ class model:
     def __init__(self, mesh_in, input_data, param_in, init_fields=True,
                  init_vel_obs=True):
 
-        #Initiate parameters
+        # Initiate parameters
         self.params = param_in
         self.input_data = input_data
         self.solvers = []
@@ -25,12 +25,12 @@ class model:
         # Generate Domain and Function Spaces
         self.mesh = mesh_in
         self.nm = FacetNormal(self.mesh)
-        self.Q = FunctionSpace(self.mesh,'Lagrange',1)
+        self.Q = FunctionSpace(self.mesh, 'Lagrange', 1)
 
-        self.M = FunctionSpace(self.mesh,'DG',0)
-        self.RT = FunctionSpace(self.mesh,'RT',1)
+        self.M = FunctionSpace(self.mesh, 'DG', 0)
+        self.RT = FunctionSpace(self.mesh, 'RT', 1)
 
-        #Based on IsmipC: alpha, beta, and U are periodic.
+        # Based on IsmipC: alpha, beta, and U are periodic.
         if not self.params.mesh.periodic_bc:
             self.Qp = self.Q
             self.V = VectorFunctionSpace(self.mesh, 'Lagrange', 1, dim=2)
@@ -38,7 +38,7 @@ class model:
             self.Qp = fice_mesh.get_periodic_space(self.params, self.mesh, dim=1)
             self.V = fice_mesh.get_periodic_space(self.params, self.mesh, dim=2)
 
-        #Default velocity mask and Beta fields
+        # Default velocity mask and Beta fields
         self.def_vel_mask()
         self.def_B_field()
         self.def_lat_dirichletbc()
@@ -48,8 +48,10 @@ class model:
             self.init_fields_from_data()
 
         if init_vel_obs:
-            self.vel_obs_from_data()  # Load the velocity observations
-            self.init_lat_dirichletbc()  # TODO - generalize BCs
+            # Load the velocity observations
+            self.vel_obs_from_data()
+            # Overwrite Constant(0,0) from def_lat_dirichletbc w/ obs
+            self.init_lat_dirichletbc()
 
         self.Q_sigma = None
         self.Q_sigma_prior = None
@@ -94,11 +96,11 @@ class model:
 
     def def_lat_dirichletbc(self):
         """Homogenous dirichlet conditions on lateral boundaries"""
-        self.latbc = Constant([0.0,0.0])
+        self.latbc = Constant([0.0, 0.0])
 
     def field_from_data(self, name, space, **kwargs):
         """Interpolate a named field from input data"""
-        return self.input_data.interpolate(name, space, **kwargs)#default=default, static=static)
+        return self.input_data.interpolate(name, space, **kwargs)
 
     def alpha_from_data(self):
         """Get alpha field from initial input data (run_momsolve only)"""
@@ -156,7 +158,6 @@ class model:
         Additionally interpolates these arbitrarily spaced data
         onto self.Q for use as boundary conditions etc
         """
-
         # Read the obs from HDF5 file
         # Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
         # self.uv_obs_pts, self.mask_vel
@@ -177,7 +178,7 @@ class model:
                               "of velocity obs to function space.")
                 else:
                     log.warning("Some points missing in interpolation "
-                             "of velocity obs to function space.")
+                                "of velocity obs to function space.")
 
             vertices = np.take(tri.simplices, simplex, axis=0)
             temp = np.take(tri.transform, simplex, axis=0)
@@ -225,7 +226,7 @@ class model:
         self.mask_vel_M.vector()[:] = interpolate(self.mask_vel, vtx_M, wts_M)
 
     def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
-                         vstd=Constant(1.0), ls = False):
+                         vstd=Constant(1.0), ls=False):
         """
         Set up velocity observations for inversion
 
@@ -234,35 +235,30 @@ class model:
         coordinates which can be arbitrarily defined, and obs are then
         interpolated (again) onto these points in comp_J_inv.
         """
-        self.u_obs = project(u,self.M)
-        self.v_obs = project(v,self.M)
-        self.mask_vel = project(mv,self.M)
-        self.u_std = project(ustd,self.M)
-        self.v_std = project(vstd,self.M)
+        self.u_obs = project(u, self.M)
+        self.v_obs = project(v, self.M)
+        self.mask_vel = project(mv, self.M)
+        self.u_std = project(ustd, self.M)
+        self.v_std = project(vstd, self.M)
 
         if ls:
             mc = self.mesh.coordinates()
-            xmin = mc[:,0].min()
-            xmax = mc[:,0].max()
+            xmin = mc[:, 0].min()
+            xmax = mc[:, 0].max()
 
-            ymin = mc[:,1].min()
-            ymax = mc[:,1].max()
+            ymin = mc[:, 1].min()
+            ymax = mc[:, 1].max()
 
-            xc = np.arange(xmin + ls/2.0, xmax, ls) 
+            xc = np.arange(xmin + ls/2.0, xmax, ls)
             yc = np.arange(ymin + ls/2.0, ymax, ls)
 
             self.uv_obs_pts = np.transpose([np.tile(xc, len(yc)), np.repeat(yc, len(xc))])
 
         else:
-            self.uv_obs_pts = self.M.tabulate_dof_coordinates().reshape(-1,2)
-
-        
+            self.uv_obs_pts = self.M.tabulate_dof_coordinates().reshape(-1, 2)
 
     def init_lat_dirichletbc(self):
-        """
-        Set lateral vel BC from obs
-        """
-
+        """Set lateral vel BC from obs"""
         latbc = Function(self.V)
         assign(latbc.sub(0), self.u_obs_Q)
         assign(latbc.sub(1), self.v_obs_Q)
@@ -275,7 +271,7 @@ class model:
 
         h_diff = self.surf-self.bed
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
-        self.H = project(Min(h_diff,h_hyd),self.M)
+        self.H = project(Min(h_diff, h_hyd), self.M)
 
     def gen_surf(self):
         rhoi = self.params.constants.rhoi
@@ -289,13 +285,10 @@ class model:
         self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
         self.surf._Function_static__ = True
         self.surf._Function_checkpoint__ = False
-        self.surf.rename("surf","")
+        self.surf.rename("surf", "")
 
-    def gen_alpha(self, a_bgd=500.0, a_lb = 1e2, a_ub = 1e4):
-        """
-        Initial guess for alpha (slip coeff)
-        """
-
+    def gen_alpha(self, a_bgd=500.0, a_lb=1e2, a_ub=1e4):
+        """Generate initial guess for alpha (slip coeff)"""
         bed = self.bed
         H = self.H
         g = self.params.constants.g
@@ -307,25 +300,24 @@ class model:
 
         U = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
-        #Flotation Criterion
+        # Flotation Criterion
         H_s = -rhow/rhoi * bed
         fl_ex = conditional(H <= H_s, 1.0, 0.0)
 
-        #Thickness Criterion
-        m_d = conditional(H > 0,1.0,0.0)
+        # Thickness Criterion
+        m_d = conditional(H > 0, 1.0, 0.0)
 
-        #Calculate surface gradient
+        # Calculate surface gradient
         R_f = ((1.0 - fl_ex) * bed
                + (fl_ex) * (-rhoi / rhow) * H)
 
-        s_ = ufl.Max(H + R_f,0)
-        s = project(s_,self.Q)
+        s_ = ufl.Max(H + R_f, 0)
+        s = project(s_, self.Q)
         grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
 
-        #Calculate alpha, apply background, apply bound
-        B2_ = ( (1.0 - fl_ex) *rhoi*g*H*grads/U
-           + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
-
+        # Calculate alpha, apply background, apply bound
+        B2_ = ( (1.0 - fl_ex) * rhoi*g*H*grads/U
+                + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
 
         B2_tmp1 = ufl.Max(B2_, a_lb)
         B2_tmp2 = ufl.Min(B2_tmp1, a_ub)
@@ -334,14 +326,14 @@ class model:
         if sl == 'linear':
             alpha = sqrt(B2_tmp2)
         elif sl == 'weertman':
-            N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed,0.0)*rhow*g)
+            N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
             U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
             alpha = (1-fl_ex)*sqrt(B2_tmp2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
 
-        self.alpha = project(alpha,self.Qp)
+        self.alpha = project(alpha, self.Qp)
         self.alpha.rename('alpha', 'a Function')
 
-    def mark_BCs(self):  # noqa: N802
+    def mark_BCs(self):
         """
         Set up Facet Functions defining BCs
 
@@ -363,16 +355,19 @@ class model:
             self.ff = fice_mesh.get_ff_from_file(self.params, model=self, fill_val=0)
 
 class PeriodicBoundary(SubDomain):
-    def __init__(self,L):
+    def __init__(self, L):
         self.L = L
         super(PeriodicBoundary, self).__init__()
 
     # Left boundary is "target domain" G
     def inside(self, x, on_boundary):
-        # return True if on left or bottom boundary AND NOT on one of the two corners (0, L) and (L, 0)
-        return bool((near(x[0], 0) or near(x[1], 0)) and
-                (not ((near(x[0], 0) and near(x[1], self.L)) or
-                        (near(x[0], self.L) and near(x[1], 0)))) and on_boundary)
+        """
+        Return True if on left or bottom boundary AND NOT on one of
+        the two corners (0, L) and (L, 0)
+        """
+        return bool((near(x[0], 0) or near(x[1], 0))
+                    and (not ((near(x[0], 0) and near(x[1], self.L))
+                              or (near(x[0], self.L) and near(x[1], 0)))) and on_boundary)
 
     def map(self, x, y):
         if near(x[0], self.L) and near(x[1], self.L):

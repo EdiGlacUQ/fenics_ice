@@ -1,6 +1,6 @@
+"""Run the inversion part of the simulation"""
+
 import sys
-import os
-import argparse
 from pathlib import Path
 from dolfin import *
 from tlm_adjoint_fenics import *
@@ -8,26 +8,22 @@ from tlm_adjoint_fenics import *
 from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
-import fenics_ice.fenics_util as fu
-
-import matplotlib as mpl
-#mpl.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
-import time
+# import fenics_ice.fenics_util as fu
+# import matplotlib as mpl
+# mpl.use("Agg")
+# import matplotlib.pyplot as plt
+# import numpy as np
+# import time
+# import pickle
 import datetime
-import pickle
-from IPython import embed
+
 
 def run_inv(config_file):
-    """
-    Run the inversion part of the simulation
-    """
-
+    """Run the inversion part of the simulation"""
     # Read run config file
     params = ConfigParser(config_file)
 
-    log = inout.setup_logging(params)
+    inout.setup_logging(params)
     inout.log_preamble("inverse", params)
 
     # Load the static model data (geometry, smb, etc)
@@ -37,8 +33,7 @@ def run_inv(config_file):
     mesh = fice_mesh.get_mesh(params)
     mdl = model.model(mesh, input_data, params)
 
-    # TODO use this or get rid of it
-    pts_lengthscale = params.obs.pts_len
+    # pts_lengthscale = params.obs.pts_len
 
     mdl.gen_alpha()
 
@@ -81,7 +76,7 @@ def run_inv(config_file):
     inout.write_variable(slvr.U, params)
     inout.write_variable(slvr.beta, params)
 
-    slvr.beta_bgd.rename("beta_bgd","")
+    slvr.beta_bgd.rename("beta_bgd", "")
     inout.write_variable(slvr.beta_bgd, params)
 
     inout.write_variable(mdl.bed, params)
@@ -109,6 +104,7 @@ def run_inv(config_file):
     inout.write_variable(mdl.surf, params, name="surf")
 
     return mdl
+
 
 if __name__ == "__main__":
     stop_annotating()
