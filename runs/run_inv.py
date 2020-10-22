@@ -88,7 +88,6 @@ def run_inv(config_file):
     H = project(mdl.H, mdl.M)
     H.rename("thick", "")
     inout.write_variable(H, params)
-    inout.write_variable(mdl.mask, params, name="mask")
     inout.write_variable(mdl.mask_vel_M, params, name="mask_vel")
 
     inout.write_variable(mdl.u_obs_Q, params)

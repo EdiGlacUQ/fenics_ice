@@ -80,8 +80,6 @@ def test_input_data_read_and_interp(temp_model, monkeypatch):
     test_bed = 1e4 - test_y*np.tan(0.1*np.pi/180.0) - 1e3
 
     assert np.linalg.norm(test_bed - bed_interp) < 1e-10
-    outfun = indata.interpolate("data_mask", test_space)
-    assert outfun is not None
 
     # Check unfound data raises error...
     with pytest.raises(KeyError):

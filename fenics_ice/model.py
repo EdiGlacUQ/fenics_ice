@@ -22,21 +22,8 @@ class model:
         self.solvers = []
         self.parallel = MPI.size(mesh_in.mpi_comm()) > 1
 
-        #Full mask/mesh
-        self.mesh_ext = Mesh(mesh_in)
-        M_in = FunctionSpace(self.mesh_ext, 'DG', 0)
-        self.mask_ext = self.input_data.interpolate("data_mask", M_in, static=True)
-
         # Generate Domain and Function Spaces
-        self.mesh = self.mesh_ext
-        # NOTE - getting rid of SubMesh here because
-        # 1 - it has no effect on ismipc test cases (except changing DofMaps)
-        # 2 - all real cases will be parallel, and SubMesh only works in serial
-        # if self.parallel:
-        #     self.mesh = self.mesh_ext
-        # else:
-        #     self.gen_domain()
-
+        self.mesh = mesh_in
         self.nm = FacetNormal(self.mesh)
         self.Q = FunctionSpace(self.mesh,'Lagrange',1)
 
@@ -84,7 +71,6 @@ class model:
         min_thick = self.params.ice_dynamics.min_thickness
 
         self.bed = self.field_from_data("bed", self.Q, static=True)
-        self.mask = self.field_from_data("data_mask", self.M, static=True)
         self.bmelt = self.field_from_data("bmelt", self.M, default=0.0, static=True)
         self.smb = self.field_from_data("smb", self.M, default=0.0, static=True)
         self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
@@ -304,13 +290,6 @@ class model:
         self.surf._Function_static__ = True
         self.surf._Function_checkpoint__ = False
         self.surf.rename("surf","")
-
-    def gen_ice_mask(self):
-        """
-        UNUSED - would overwrite self.mask w/ extent of ice sheet (H > 0)
-        """
-        tol = self.params.constants.float_eps
-        self.mask = project(conditional(gt(self.H,tol),1,0), self.M)
 
     def gen_alpha(self, a_bgd=500.0, a_lb = 1e2, a_ub = 1e4):
         """

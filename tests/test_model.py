@@ -31,7 +31,6 @@ def init_model(model_dir, toml_file):
 def initialize_fields(mdl):
     """Initialize data fields in model object"""
     mdl.init_fields_from_data()
-    mdl.label_domain()
 
     # Add random noise to Beta field iff we're inverting for it
     mdl.bglen_from_data()
@@ -82,7 +81,6 @@ def test_initialize_fields(request, setup_deps, temp_model):
 
     assert mdl.bed.vector()[:].size == Q_size
     assert mdl.surf.vector()[:].size == Q_size
-    assert mdl.mask.vector()[:].size == M_size
 
     return mdl
 

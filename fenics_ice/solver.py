@@ -34,7 +34,6 @@ class ssa_solver:
         #self.surf = model.surf
         self.beta = model.beta
         self.beta_bgd = model.beta_bgd
-        self.mask = model.mask
         self.alpha = model.alpha
         self.bmelt = model.bmelt
         self.smb = model.smb
@@ -146,7 +145,6 @@ class ssa_solver:
         constants = self.params.constants
         bed = self.bed
         H = self.H
-        mask = self.mask
         alpha = self.alpha
 
 
