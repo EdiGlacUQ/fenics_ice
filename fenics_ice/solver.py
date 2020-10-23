@@ -165,8 +165,10 @@ class ssa_solver:
         W = (1 - fl_ex) * rhoi*g*H + \
             (fl_ex) * rhoi*g*H_s
 
-        draft = ((fl_ex) * (rhoi / rhow) * H
-                 + (1 - fl_ex) * bed)
+        # Depth of the submarine portion of the calving front
+        # ufl.Max to avoid edge case of land termininating calving front
+        draft = ufl.Max(((fl_ex) * (rhoi / rhow) * H
+                 - (1 - fl_ex) * bed), Constant(0.0))
 
         # Terminating margin boundary condition
         # The -F term is related to the integration by parts in the weak form
