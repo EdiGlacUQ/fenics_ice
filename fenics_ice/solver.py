@@ -165,9 +165,11 @@ class ssa_solver:
         W = (1 - fl_ex) * rhoi*g*H + \
             (fl_ex) * rhoi*g*H_s
 
-        draft = (fl_ex) * (rhoi / rhow) * H
+        draft = ((fl_ex) * (rhoi / rhow) * H
+                 + (1 - fl_ex) * bed)
 
         # Terminating margin boundary condition
+        # The -F term is related to the integration by parts in the weak form
         sigma_n = 0.5 * rhoi * g * ((H ** 2) - (rhow / rhoi) * (draft ** 2)) - F
 
         self.mom_F = (
