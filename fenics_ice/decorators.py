@@ -49,24 +49,6 @@ class count_calls:  # noqa: N801
         return wrapped
 
 
-def flag_errors(fn):
-    """
-    Catch errors from SLEPc/PETSc
-
-    Copied from tlm_adjoint eigendecomposition.py. Not sure this
-    will work as intended, because eps_error is defined in this
-    decorator, whereas in tlm_adjoint it's in the main scope.
-    """
-    eps_error = [False]
-
-    def wrapped_fn(*args, **kwargs):
-        try:
-            return fn(*args, **kwargs)
-        except:  # noqa: E722
-            eps_error[0] = True
-            raise
-    return wrapped_fn
-
 def timer(func):
     """Print the runtime of the decorated function"""
 
