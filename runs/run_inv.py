@@ -83,6 +83,10 @@ def run_inv(config_file):
     H = project(mdl.H, mdl.M)
     H.rename("thick", "")
     inout.write_variable(H, params)
+
+    fl_ex = project(slvr.float_conditional(H), mdl.M)
+    inout.write_variable(fl_ex, params, name='float')
+
     inout.write_variable(mdl.mask_vel_M, params, name="mask_vel")
 
     inout.write_variable(mdl.u_obs_Q, params)

@@ -52,8 +52,7 @@ def run_momsolve(config_file):
     h5file.write(mesh, 'mesh')
     h5file.attributes('mesh')['periodic'] = params.mesh.periodic_bc
 
-    vtkfile = File(os.path.join(outdir,'U.pvd'))
-    vtkfile << slvr.U
+    inout.write_variable(slvr.U, params)
 
 
 
