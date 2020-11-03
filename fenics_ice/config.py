@@ -110,7 +110,6 @@ class InversionCfg(ConfigPrinter):
 
     alpha_active: bool = False
     beta_active: bool = False
-    simultaneous: bool = False
     alt_iter: int = 2
 
     gamma_alpha: float = 0.0
