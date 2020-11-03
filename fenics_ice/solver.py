@@ -550,6 +550,7 @@ class ssa_solver:
         """
         clear_caches()
         self.beta = f
+        self.beta.rename("beta", "")
         self.def_mom_eq()
         self.solve_mom_eq()
         J = self.comp_J_inv(verbose=True)
@@ -707,6 +708,7 @@ class ssa_solver:
 
         # Determine observations within our mesh partition
         # TODO find a faster way to do this
+        # TODO - this fails when obs points are vertices - is this a problem?
         cell_max = self.mesh.cells().shape[0]
         obs_local = np.zeros_like(u_obs, dtype=np.bool)
         for i, pt in enumerate(uv_obs_pts):
