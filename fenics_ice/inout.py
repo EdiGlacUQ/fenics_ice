@@ -9,6 +9,7 @@ import pickle
 import logging
 import re
 import h5py
+import netCDF4
 import git
 from scipy import interpolate as interp
 
@@ -153,18 +154,22 @@ class InputDataField(object):
             raise DataNotFound
 
         filetype = infile.suffix
-        if filetype == '.h5':
-            self.read_from_h5()
-        else:
-            raise NotImplementedError
+        assert filetype in [".h5", ".nc"], "Only NetCDF and HDF5 input supported"
+        self.read_from_file()
 
-    def read_from_h5(self):
+    def read_from_file(self):
         """
-        Load data field from HDF5 file
+        Load data field from HDF5 or NetCDF file
 
         Expects to find data matrix arranged [y,x], but stores as [x,y]
         """
-        indata = h5py.File(self.infile, 'r')
+        filetype = self.infile.suffix
+        if filetype == '.h5':
+            indata = h5py.File(self.infile, 'r')
+        else:
+            logging.warning("NetCDF input is untested!")
+            indata = netCDF4.Dataset(self.infile, 'r')
+
         try:
             self.xx = indata['x'][:]
             self.yy = indata['y'][:]
@@ -280,7 +285,7 @@ class InputData(object):
             # Fill with default, if supplied, else raise error
             if default is not None:
                 logging.warning(f"No data found for {name},"
-                                f"filling with default value {default}")
+                                f" filling with default value {default}")
                 function.vector()[:] = default
                 function.vector().apply("insert")
                 return function
