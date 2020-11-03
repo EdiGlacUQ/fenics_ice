@@ -172,7 +172,7 @@ class ssa_solver:
 
         # Terminating margin boundary condition
         # The -F term is related to the integration by parts in the weak form
-        sigma_n = 0.5 * rhoi * g * ((H ** 2) - (rhow / rhoi) * (draft ** 2)) - F
+        sigma_n = 0.5 * rhoi * g * ((H ** 2) - (rhow / rhoi) * (draft ** 2))
 
         self.mom_F = (
             # Membrance Stresses
@@ -189,6 +189,10 @@ class ssa_solver:
             # Driving Stress
             + ( div(Phi)*F - inner(grad(bed), W*Phi) )
             * self.dIce
+
+            # Natural BC term which falls out of weak form:
+            - inner(Phi * F, self.nm)
+            * ds
         )
 
         ##########################################
@@ -221,7 +225,7 @@ class ssa_solver:
         for bc in self.params.bcs:
             if bc.flow_bc == "calving":
                 condition = inner(Phi * sigma_n, self.nm)
-            else:
+            else:  # don't need to do anything for 'natural'
                 continue
 
             measure_list = [ds(i) for i in bc.labels]

@@ -226,7 +226,7 @@ class BCCfg(ConfigPrinter):
     def __post_init__(self):
         """Validate the BC config"""
 
-        possible_types = ["calving", "obs_vel", "no_slip", "free_slip"]
+        possible_types = ["calving", "obs_vel", "no_slip", "free_slip", "natural"]
         assert self.flow_bc in possible_types, f"Unrecognised BC type '{self.flow_bc}'"
 
         # Convert label list to tuple for immutability
