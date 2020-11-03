@@ -28,7 +28,6 @@ def main(dd, infile, outfile, noise_sdev, L, seed=0, ls=None):
 
     assert Path(infile).suffix == ".h5"
     assert Path(outfile).suffix == ".h5"
-    assert L > 0.0
     assert noise_sdev > 0.0
 
     infile = HDF5File(MPI.comm_world, str(Path(dd)/infile), 'r')
@@ -39,6 +38,7 @@ def main(dd, infile, outfile, noise_sdev, L, seed=0, ls=None):
     periodic_bc = bool(infile.attributes('mesh')['periodic'])
 
     if periodic_bc:
+        assert L > 0.0
         V = VectorFunctionSpace(mesh,
                                 'Lagrange',
                                 1,
