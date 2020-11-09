@@ -273,7 +273,7 @@ class ssa_solver:
             B2 = C
 
         elif sl == 'weertman':
-            N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
+            N = ufl.Max((1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g), 0.0)
             U_mag = sqrt(U[0]**2 + U[1]**2 + vel_rp**2)
             B2 = (1-fl_ex)*(C * N**(1.0/3.0) * U_mag**(-2.0/3.0))
 
