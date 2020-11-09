@@ -858,15 +858,12 @@ class ssa_solver:
 
     def comp_Q_vaf(self, verbose=False):
         """QOI: Volume above flotation"""
-        # TODO
-        print("WARNING: Think comp_Q_vaf returns zero on first timestep - ",
-              "check initialisation of H_nps")
         cnst = self.params.constants
 
         H = self.H_np
         # B stands in for self.bed, which leads to a taping error
-        B = Function(self.M)
-        B.assign(project(self.bed, self.M), annotate=False)
+        B = Function(self.bed.function_space())
+        B.assign(self.bed, annotate=False)
         rhoi = Constant(cnst.rhoi)
         rhow = Constant(cnst.rhow)
         dIce = self.dIce
