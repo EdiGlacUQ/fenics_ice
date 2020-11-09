@@ -316,7 +316,7 @@ class ssa_solver:
         ds = self.ds
         dS = self.dS
 
-        fl_ex = self.float_conditional(H)  # TODO - H or H_np?
+        fl_ex = self.float_conditional(H)
 
         # Crank Nicholson
         # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
@@ -875,8 +875,7 @@ class ssa_solver:
         Q_vaf = HAF * dIce
 
         if verbose:
-            rank = MPI.rank(MPI.comm_world)
-            print(f'{rank} Q_vaf: {assemble(Q_vaf)}')
+            info(f"Q_vaf: {assemble(Q_vaf)}")
 
         return Q_vaf
 
@@ -884,7 +883,7 @@ class ssa_solver:
         """QOI: Square integral of thickness"""
         Q_h2 = self.H_np * self.H_np * self.dIce
         if verbose:
-            print('Q_h2: {0}'.format(Q_h2))
+            info(f"Q_h2: {assemble(Q_h2)}")
 
         return Q_h2
 
