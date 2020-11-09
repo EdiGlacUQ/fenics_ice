@@ -47,11 +47,9 @@ def write_dqval(dQ_ts, params):
     n = 0.0
 
     for j in dQ_ts:
-        # TODO - if we generalise cntrl in run_forward.py to be always a list
-        # (possible dual inversion), should change this.
-        # assert len(j) == 1, "Not yet implemented for dual inversion"
-        # output = j[0]
-        output = j
+        # TODO - write out for both vars
+        assert len(j) == 1, "Not yet implemented for dual inversion"
+        output = j[0]
         output.rename('dQ', 'dQ')
         vtkfile << output
         hdf5out.write(output, 'dQ', n)

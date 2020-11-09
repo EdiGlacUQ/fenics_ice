@@ -189,11 +189,12 @@ class ssa_solver:
             # Driving Stress
             + ( div(Phi)*F - inner(grad(bed), W*Phi) )
             * self.dIce
-
-            # Natural BC term which falls out of weak form:
-            - inner(Phi * F, self.nm)
-            * ds
         )
+
+        # Natural BC term which falls out of weak form:
+        # Doesn't apply when domain is periodic
+        if not self.params.mesh.periodic_bc:
+            self.mom_F -= inner(Phi * F, self.nm) * ds
 
         ##########################################
         # Boundary Conditions

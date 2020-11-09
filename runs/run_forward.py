@@ -45,7 +45,7 @@ def run_forward(config_file):
     slvr = solver.ssa_solver(mdl)
     slvr.save_ts_zero()
 
-    cntrl = slvr.get_control()[0] #TODO - generalise
+    cntrl = slvr.get_control()
 
     qoi_func = slvr.get_qoi_func()
 
