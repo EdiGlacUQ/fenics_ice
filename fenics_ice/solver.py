@@ -273,9 +273,12 @@ class ssa_solver:
             B2 = C
 
         elif sl == 'weertman':
-            N = ufl.Max((1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g), 0.0)
+            N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
             U_mag = sqrt(U[0]**2 + U[1]**2 + vel_rp**2)
-            B2 = (1-fl_ex)*(C * N**(1.0/3.0) * U_mag**(-2.0/3.0))
+            # Need to catch N <= 0.0 here, as it's raised to
+            # 1/3 (forward) and -2/3 (adjoint)
+            N_term = ufl.conditional(N > 0.0, N ** (1.0/3.0), 0)
+            B2 = (1-fl_ex)*(C * N_term * U_mag**(-2.0/3.0))
 
         return B2
 
@@ -541,7 +544,7 @@ class ssa_solver:
 
         self.def_mom_eq()
         self.solve_mom_eq()
-        J = self.comp_J_inv()
+        J = self.comp_J_inv()  # TODO - make verbose TOML configurable
         return J
 
     def forward_beta(self, f):
