@@ -33,7 +33,7 @@ def write_qval(Qval, params):
 
     pickle.dump([Qval, ts], (Path(outdir)/filename).open('wb'))
 
-def write_dqval(dQ_ts, params):
+def write_dqval(dQ_ts, cntrl_names, params):
     """
     Produces .pvd & .h5 files with dQoi_dCntrl
     """
@@ -46,13 +46,19 @@ def write_dqval(dQ_ts, params):
     hdf5out = HDF5File(MPI.comm_world, str(Path(outdir)/h5_filename), 'w')
     n = 0.0
 
-    for j in dQ_ts:
-        # TODO - write out for both vars
-        assert len(j) == 1, "Not yet implemented for dual inversion"
-        output = j[0]
-        output.rename('dQ', 'dQ')
-        vtkfile << output
-        hdf5out.write(output, 'dQ', n)
+    # Loop dQ sample times ('num_sens')
+    for step in dQ_ts:
+
+        assert len(step) == len(cntrl_names)
+
+        # Loop (1 or 2) control vars (alpha, beta)
+        for cntrl_name, var in zip(cntrl_names, step):
+            output = var
+            name = "dQd"+cntrl_name
+            output.rename(name, name)
+            # vtkfile << output
+            hdf5out.write(output, name, n)
+
         n += 1.0
 
     hdf5out.close()

@@ -78,7 +78,7 @@ def run_forward(config_file):
 
     # Output QOI & DQOI (needed for next steps)
     inout.write_qval(slvr.Qval_ts, params)
-    inout.write_dqval(dQ_ts, params)
+    inout.write_dqval(dQ_ts, [var.name() for var in cntrl], params)
 
     # Output final velocity, surface & thickness (visualisation)
     inout.write_variable(slvr.U, params, name="U_fwd")

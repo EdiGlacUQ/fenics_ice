@@ -51,13 +51,13 @@ max_iter = 200
 # alpha only for now for debugging
 
 alpha_active = true
-beta_active = false
-alt_iter = 1
+beta_active = true
+alt_iter = 3
 
 gamma_alpha = 5.0e2 #6
 delta_alpha = 5.0e-6 #-2
-# gamma_beta = 5.0e2
-# delta_beta = 5.0e-6
+gamma_beta = 5.0e2
+delta_beta = 5.0e-6
 
 ftol = 1e-4
 gtol = 1e-12

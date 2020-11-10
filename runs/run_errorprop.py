@@ -18,7 +18,6 @@ import time
 import datetime
 import pickle
 from petsc4py import PETSc
-from IPython import embed
 
 def run_errorprop(config_file):
 
@@ -60,6 +59,10 @@ def run_errorprop(config_file):
         delta = params.inversion.delta_beta
         gamma = params.inversion.gamma_beta
         cntrl = mdl.beta
+
+    if params.inversion.alpha_active and params.inversion.beta_active:
+        log.warning("Dual inversion but error propagation isn't implemented yet!"
+                    "Doing alpha only!")
 
     reg_op = prior.laplacian(delta, gamma, cntrl.function_space())
 
@@ -119,7 +122,7 @@ def run_errorprop(config_file):
     sigma_prior = np.zeros(num_sens)
 
     for j in range(num_sens):
-        hdf5data.read(dQ_cntrl, f'dQ/vector_{j}')
+        hdf5data.read(dQ_cntrl, f'dQd{cntrl.name()}/vector_{j}')
 
         #TODO - is a mass matrix operation required here?
         #qd_cntrl - should be gradients
