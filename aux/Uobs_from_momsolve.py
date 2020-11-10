@@ -1,7 +1,7 @@
 import numpy as np
 from pathlib import Path
-import h5py
 from fenics import *
+import h5py
 from fenics_ice import model
 import argparse
 
@@ -54,6 +54,7 @@ def main(dd, infile, outfile, noise_sdev, L, seed=0, ls=None):
     # Read the velocity
     U = Function(V)
     infile.read(U, 'U')
+    infile.close()
 
     if ls is not None:
 
