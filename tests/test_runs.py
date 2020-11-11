@@ -5,8 +5,7 @@ from tlm_adjoint import *
 from fenics import norm
 from fenics_ice import config
 from pathlib import Path
-
-pytest.temp_results = "/home/joe/sources/fenics_ice/tests/expected_values.txt"
+from mpi4py import MPI
 
 def EQReset():
     """Take care of tlm_adjoint EquationManager"""
@@ -40,10 +39,6 @@ def test_run_inversion(persistent_temp_model, monkeypatch):
     cntrl_norm = np.linalg.norm(cntrl.vector()[:])
 
     J_inv = mdl_out.solvers[0].J_inv.value()
-
-    # with open(pytest.temp_results, 'a') as output:
-    #     output.write(f"{toml_file} - cntrl_norm - {cntrl_norm}\n")
-    # temp_model["expected_cntrl_norm"] = cntrl_norm
 
     pytest.check_float_result(cntrl_norm,
                               expected_cntrl_norm,
@@ -87,13 +82,6 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
                               expected_u_norm,
                               work_dir, 'expected_u_norm')
 
-    # with open(pytest.temp_results, 'a') as output:
-    #     output.write(f"{toml_file} - delta - {delta}\n")
-    #     output.write(f"{toml_file} - u_norm - {u_norm}\n")
-
-    # existing_temp_model["expected_delta_qoi"] = delta_qoi
-    # existing_temp_model["expected_u_norm"] = u_norm
-
 
 @pytest.mark.dependency()
 @pytest.mark.runs
@@ -120,13 +108,6 @@ def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps, request):
 
     evals_sum = np.sum(slvr.eigenvals)
     evec0_norm = norm(slvr.eigenfuncs[0])
-
-    # with open(pytest.temp_results, 'a') as output:
-    #     output.write(f"{toml_file} - evals_sum - {evals_sum}\n")
-    #     output.write(f"{toml_file} - evec0_norm - {evec0_norm}\n")
-
-    # existing_temp_model["expected_evals_sum"] = evals_sum
-    # existing_temp_model["expected_evec0_norm"] = evec0_norm
 
     pytest.check_float_result(evals_sum,
                               expected_evals_sum,

@@ -1,6 +1,6 @@
 [io] #Directory specification
 
-run_name = "ice_stream_calve"
+run_name = "ice_stream_test"
 input_dir = "./input"
 output_dir = "./output"
 
@@ -121,3 +121,18 @@ eigenvalue_thresh = 1.0e-1
 [errorprop]
 
 qoi = 'vaf'
+
+
+[testing]
+
+expected_init_alpha = 0.0
+expected_J_inv = 725.8521041028072
+expected_cntrl_norm = 167.23841537226656
+expected_delta_qoi = -50721225.09248757
+expected_u_norm = 1517263.6042061225
+expected_evals_sum = 1864.729175845595
+expected_evec0_norm = 194119.4985153445
+expected_cntrl_sigma_norm = 0.0
+expected_cntrl_sigma_prior_norm = 0.0
+expected_Q_sigma = 0.0
+expected_Q_sigma_prior = 0.0

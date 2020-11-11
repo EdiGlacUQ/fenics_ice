@@ -20,22 +20,42 @@ pytest.active_cases = []
 # Define the cases & their mesh characteristics (meshes generated on the fly)
 pytest.case_list = []
 pytest.case_list.append({"case_dir": "ismipc_rc_1e6",
+                         "toml_file": "ismipc_rc_1e6.toml",
+                         "serial": True,
                          "mesh_nx": 20,
                          "mesh_ny": 20,
                          "mesh_L": 40000,
+                         "indata_filename": pytest.data_dir / "ismipc_input.h5",
+                         "veldata_filename": pytest.data_dir / "ismipc_U_obs.h5",
                          "mesh_filename": "ismip_mesh.xml"})
 
 pytest.case_list.append({"case_dir": "ismipc_rc_1e4",
+                         "toml_file": "ismipc_rc_1e4.toml",
+                         "serial": True,
                          "mesh_nx": 20,
                          "mesh_ny": 20,
                          "mesh_L": 40000,
+                         "indata_filename": pytest.data_dir / "ismipc_input.h5",
+                         "veldata_filename": pytest.data_dir / "ismipc_U_obs.h5",
                          "mesh_filename": "ismip_mesh.xml"})
 
 pytest.case_list.append({"case_dir": "ismipc_30x30",
+                         "toml_file": "ismipc_30x30.toml",
+                         "serial": True,
                          "mesh_nx": 30,
                          "mesh_ny": 30,
                          "mesh_L": 40000,
+                         "indata_filename": pytest.data_dir / "ismipc_input.h5",
+                         "veldata_filename": pytest.data_dir / "ismipc_U_obs.h5",
                          "mesh_filename": "ismip_mesh.xml"})
+
+pytest.case_list.append({"case_dir": "ice_stream",
+                         "toml_file": "ice_stream.toml",
+                         "serial": False,
+                         "indata_filename": pytest.case_dir / "ice_stream/input" / "ice_stream_data.h5",
+                         "veldata_filename": pytest.case_dir / "ice_stream/input" / "ice_stream_U_obs.h5",
+                         "mesh_ff_filename": "ice_stream_ff.xdmf",
+                         "mesh_filename": "ice_stream.xdmf"})
 
 def check_float_result(value, expected, work_dir, value_name, tol=1e-9):
     """
@@ -78,6 +98,9 @@ def pytest_configure(config):
     )
     config.addinivalue_line(
         "markers", "runs: tests of whole run components"
+    )
+    config.addinivalue_line(
+        "markers", "parallel: tests which run in parallel"
     )
 
 class DependencyGetter:
@@ -144,15 +167,15 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
 
     Returns the path of the toml file
     """
+    from mpi4py import MPI
+
     tmpdir = mpi_tmpdir
     data_dir = pytest.data_dir
 
     case_dir = pytest.case_dir / case_gen['case_dir']
 
-    # Find the toml file for ismipc case
-    toml_files = [f for f in case_dir.glob("ismip*toml")]
-    assert len(toml_files) == 1
-    toml_file = toml_files[0]
+    # Find the toml file for case
+    toml_file = case_dir / case_gen['toml_file']
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -164,11 +187,11 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
         destdir.mkdir()
 
         # Copy the data files to tmpdir
-        indata_name = "ismipc_input.h5"
-        veldata_name = "ismipc_U_obs.h5"
+        indata_name = case_gen["indata_filename"]
+        veldata_name = case_gen["veldata_filename"]
 
-        shutil.copy(data_dir/indata_name, destdir)
-        shutil.copy(data_dir/veldata_name, destdir)
+        shutil.copy(indata_name, destdir)
+        shutil.copy(veldata_name, destdir)
 
         # Bit of a hack - turn off inversion verbose
         # to keep test output clean
@@ -178,13 +201,35 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
         with open(tmpdir/toml_file.name, 'w') as toml_out:
             toml.dump(config, toml_out)
 
+        mesh_filename = case_gen["mesh_filename"]
+        mesh_file = (case_dir / "input" / mesh_filename)
+
+        try:
+            mesh_ff_filename = case_gen['mesh_ff_filename']
+            mesh_ff_file = (case_dir / "input" / mesh_ff_filename)
+        except KeyError:
+            mesh_ff_file = None
+
         # Generate mesh if it doesn't exist
+        # TODO - not totally happy w/ logic here:
+        # ismipc tests generate their own meshes, ice_stream doesn't
         if not (destdir/case_gen["mesh_filename"]).exists():
-            gen_rect_mesh.gen_rect_mesh(case_gen['mesh_nx'],
-                               case_gen['mesh_ny'],
-                               0, case_gen['mesh_L'],
-                               0, case_gen['mesh_L'],
-                               str(destdir/case_gen["mesh_filename"]))
+
+            if(mesh_file.exists()):
+                shutil.copy(mesh_file, destdir)
+                if mesh_file.suffix == ".xdmf":
+                    shutil.copy(mesh_file.with_suffix(".h5"), destdir)
+
+                if mesh_ff_file:
+                    shutil.copy(mesh_ff_file, destdir)
+                    shutil.copy(mesh_ff_file.with_suffix(".h5"), destdir)
+
+            else:
+                gen_rect_mesh.gen_rect_mesh(case_gen['mesh_nx'],
+                                   case_gen['mesh_ny'],
+                                   0, case_gen['mesh_L'],
+                                   0, case_gen['mesh_L'],
+                                   str(destdir/case_gen["mesh_filename"]))
 
     comm.barrier()
 
@@ -253,4 +298,4 @@ def pytest_sessionfinish(session, exitstatus):
         with open("new_expected_solution_values.p", 'wb') as pickle_out:
             pickle.dump(pytest.active_cases, pickle_out)
 
-    update_expected_values()
+        update_expected_values()

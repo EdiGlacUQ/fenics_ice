@@ -72,12 +72,17 @@ def test_input_data_read_and_interp(temp_model, monkeypatch):
     bed_interp = indata.interpolate("bed", test_space).vector()[:]
 
     # Check the actual value of an interpolated field:
+    # TODO - this is a little ad hoc, can it be incorporated into test definition?
+    if "ismip" in toml_file:
+        # test_x = np.hsplit(test_space.tabulate_dof_coordinates(), 2)[0][:,0]
+        test_y = np.hsplit(test_space.tabulate_dof_coordinates(), 2)[1][:, 0]
+        test_bed = 1e4 - test_y*np.tan(0.1*np.pi/180.0) - 1e3
 
-    # TODO - ismipc domain ought to be inlined in X direction, but it's
-    # in y. If we change this, change this test!
-    # test_x = np.hsplit(test_space.tabulate_dof_coordinates(), 2)[0][:,0]
-    test_y = np.hsplit(test_space.tabulate_dof_coordinates(), 2)[1][:, 0]
-    test_bed = 1e4 - test_y*np.tan(0.1*np.pi/180.0) - 1e3
+    elif "ice_stream" in toml_file:
+        test_x = np.hsplit(test_space.tabulate_dof_coordinates(), 2)[0][:, 0]
+        test_bed = -500.0 - (test_x / 500.0)
+    else:
+        raise Exception("Unrecognised test setup")
 
     assert np.linalg.norm(test_bed - bed_interp) < 1e-10
 
