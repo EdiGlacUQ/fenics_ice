@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-import pytest_mpi
 from pytest_dependency import depends
 import re
 from pathlib import Path
 import shutil
-from mpi4py import MPI
 import toml
 import pickle
 

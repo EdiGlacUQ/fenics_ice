@@ -18,8 +18,7 @@ def EQReset():
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.benchmark()  # <- just run it once
-def test_run_inversion(persistent_temp_model, monkeypatch, benchmark):
+def test_run_inversion(persistent_temp_model, monkeypatch):
 
     work_dir = persistent_temp_model["work_dir"]
     toml_file = persistent_temp_model["toml_filename"]
@@ -35,11 +34,7 @@ def test_run_inversion(persistent_temp_model, monkeypatch, benchmark):
     EQReset()
 
     # Run the thing
-    mdl_out = benchmark.pedantic(run_inv.run_inv,
-                                 args=(toml_file,),
-                                 rounds=1,
-                                 warmup_rounds=0,
-                                 iterations=1)
+    mdl_out = run_inv.run_inv(toml_file)
 
     cntrl = mdl_out.solvers[0].get_control()[0]
     cntrl_norm = np.linalg.norm(cntrl.vector()[:])
@@ -60,8 +55,7 @@ def test_run_inversion(persistent_temp_model, monkeypatch, benchmark):
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.benchmark()
-def test_run_forward(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
+def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
     setup_deps.set_case_dependency(request, ["test_run_inversion"])
 
@@ -78,11 +72,7 @@ def test_run_forward(existing_temp_model, monkeypatch, benchmark, setup_deps, re
 
     EQReset()
 
-    mdl_out = benchmark.pedantic(run_forward.run_forward,
-                                 args=(toml_file,),
-                                 rounds=1,
-                                 warmup_rounds=0,
-                                 iterations=1)
+    mdl_out = run_forward.run_forward(toml_file)
 
     slvr = mdl_out.solvers[0]
 
@@ -107,8 +97,7 @@ def test_run_forward(existing_temp_model, monkeypatch, benchmark, setup_deps, re
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.benchmark()
-def test_run_eigendec(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
+def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps, request):
 
     setup_deps.set_case_dependency(request, ["test_run_inversion"])
 
@@ -125,11 +114,7 @@ def test_run_eigendec(existing_temp_model, monkeypatch, benchmark, setup_deps, r
 
     EQReset()
 
-    mdl_out = benchmark.pedantic(run_eigendec.run_eigendec,
-                                 args=(toml_file, ),
-                                 rounds=1,
-                                 warmup_rounds=0,
-                                 iterations=1)
+    mdl_out = run_eigendec.run_eigendec(toml_file)
 
     slvr = mdl_out.solvers[0]
 
@@ -152,8 +137,7 @@ def test_run_eigendec(existing_temp_model, monkeypatch, benchmark, setup_deps, r
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.benchmark()
-def test_run_errorprop(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
+def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
 
     setup_deps.set_case_dependency(request, ["test_run_eigendec", "test_run_forward"])
 
@@ -170,12 +154,7 @@ def test_run_errorprop(existing_temp_model, monkeypatch, benchmark, setup_deps, 
 
     EQReset()
 
-    mdl_out = benchmark.pedantic(run_errorprop.run_errorprop,
-                                 args=(toml_file, ),
-                                 rounds=1,
-                                 warmup_rounds=0,
-                                 iterations=1)
-
+    mdl_out = run_errorprop.run_errorprop(toml_file)
 
     Q_sigma = mdl_out.Q_sigma[-1]
     Q_sigma_prior = mdl_out.Q_sigma_prior[-1]
@@ -194,8 +173,7 @@ def test_run_errorprop(existing_temp_model, monkeypatch, benchmark, setup_deps, 
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.benchmark()
-def test_run_invsigma(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
+def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
 
     setup_deps.set_case_dependency(request, ["test_run_eigendec"])
 
@@ -212,11 +190,7 @@ def test_run_invsigma(existing_temp_model, monkeypatch, benchmark, setup_deps, r
 
     EQReset()
 
-    mdl_out = benchmark.pedantic(run_invsigma.run_invsigma,
-                                 args=(toml_file, ),
-                                 rounds=1,
-                                 warmup_rounds=0,
-                                 iterations=1)
+    mdl_out = run_invsigma.run_invsigma(toml_file)
 
     cntrl_sigma_norm = norm(mdl_out.cntrl_sigma)
     cntrl_sigma_prior_norm = norm(mdl_out.cntrl_sigma_prior)

@@ -7,7 +7,6 @@ from fenics import *
 from tlm_adjoint import *
 import fenics_ice as fice
 from fenics_ice import model, config, inout, solver
-from runs import run_inv
 
 def init_model(model_dir, toml_file):
 
