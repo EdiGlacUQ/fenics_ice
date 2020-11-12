@@ -8,6 +8,9 @@ from tlm_adjoint_fenics.hessian_optimization import *
 # from dolfin_adjoint import *
 # from dolfin_adjoint_custom import EquationSolver
 import ufl
+import logging
+
+log = logging.getLogger("fenics_ice")
 
 class ssa_solver:
 
@@ -713,11 +716,14 @@ class ssa_solver:
         # Determine observations within our mesh partition
         # TODO find a faster way to do this
         # TODO - this fails when obs points are vertices - is this a problem?
+
         cell_max = self.mesh.cells().shape[0]
         obs_local = np.zeros_like(u_obs, dtype=np.bool)
-        for i, pt in enumerate(uv_obs_pts):
-            obs_local[i] = self.mesh.bounding_box_tree().\
-                compute_first_entity_collision(Point(pt)) <= cell_max
+
+        bbox = self.mesh.bounding_box_tree()
+        for i in range(uv_obs_pts.shape[0]):
+            p = Point(uv_obs_pts[i, 0], uv_obs_pts[i, 1])
+            obs_local[i] = bbox.compute_first_entity_collision(p) <= cell_max
 
         local_cnt = np.sum(obs_local)
 
@@ -762,8 +768,15 @@ class ssa_solver:
 
         # TODO - is projection to M instead of Q OK here?
         # it's necessary for InterpolationSolver to work
+        #
+        # Attempted to fix this (below) but causes an error
+        # in InterpolationSolver
         uf = project(u, self.M)
         vf = project(v, self.M)
+
+        # interp_space = FunctionSpace(self.mesh, 'DG', 1)
+        # uf = project(u, interp_space)
+        # vf = project(v, interp_space)
 
         uf.rename("uf", "")
         vf.rename("vf", "")
