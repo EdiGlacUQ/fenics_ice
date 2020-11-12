@@ -57,7 +57,7 @@ pytest.case_list.append({"case_dir": "ice_stream",
                          "mesh_ff_filename": "ice_stream_ff.xdmf",
                          "mesh_filename": "ice_stream.xdmf"})
 
-def check_float_result(value, expected, work_dir, value_name, tol=1e-9):
+def check_float_result(value, expected, work_dir, value_name, tol=1e-8):
     """
     Compare scalar float against expected value.
 
