@@ -234,12 +234,10 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
 
             else:
                 gen_rect_mesh.gen_rect_mesh(case_gen['mesh_nx'],
-                                   case_gen['mesh_ny'],
-                                   0, case_gen['mesh_L'],
-                                   0, case_gen['mesh_L'],
-                                   str(destdir/case_gen["mesh_filename"]))
-
-    comm.barrier()
+                                            case_gen['mesh_ny'],
+                                            0, case_gen['mesh_L'],
+                                            0, case_gen['mesh_L'],
+                                            str(destdir/case_gen["mesh_filename"]))
 
     case_gen["work_dir"] = Path(tmpdir)
     case_gen["toml_filename"] = toml_file.name
