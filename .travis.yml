@@ -56,4 +56,4 @@ install:
 
 script:
   - pytest -v --color=yes
-  - mpirun -n 3 pytest -v --color=yes
+  - mpirun -n 3 pytest -vvv -s --color=yes
