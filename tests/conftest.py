@@ -245,6 +245,7 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
     if persist:
         pytest.active_cases.append(case_gen)
 
+    comm.barrier()
     return case_gen
 
 @pytest.fixture
