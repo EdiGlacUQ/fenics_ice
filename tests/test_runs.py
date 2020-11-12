@@ -36,7 +36,7 @@ def test_run_inversion(persistent_temp_model, monkeypatch):
     mdl_out = run_inv.run_inv(toml_file)
 
     cntrl = mdl_out.solvers[0].get_control()[0]
-    cntrl_norm = np.linalg.norm(cntrl.vector()[:])
+    cntrl_norm = norm(cntrl.vector())
 
     J_inv = mdl_out.solvers[0].J_inv.value()
 
@@ -140,9 +140,6 @@ def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
     Q_sigma = mdl_out.Q_sigma[-1]
     Q_sigma_prior = mdl_out.Q_sigma_prior[-1]
 
-    # existing_temp_model["expected_Q_sigma"] = Q_sigma
-    # existing_temp_model["expected_Q_sigma_prior"] = Q_sigma_prior
-
     pytest.check_float_result(Q_sigma,
                               expected_Q_sigma,
                               work_dir,
@@ -175,13 +172,6 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
 
     cntrl_sigma_norm = norm(mdl_out.cntrl_sigma)
     cntrl_sigma_prior_norm = norm(mdl_out.cntrl_sigma_prior)
-
-    # with open(pytest.temp_results, 'a') as output:
-    #     output.write(f"{toml_file} - cntrl_sigma - {mdl_out.cntrl_sigma}\n")
-    #     output.write(f"{toml_file} - cntrl_sigma_prior - {mdl_out.cntrl_sigma_prior}\n")
-
-    # existing_temp_model["expected_cntrl_sigma_norm"] = cntrl_sigma_norm
-    # existing_temp_model["expected_cntrl_sigma_prior_norm"] = cntrl_sigma_prior_norm
 
     pytest.check_float_result(cntrl_sigma_norm,
                               expected_cntrl_sigma_norm,

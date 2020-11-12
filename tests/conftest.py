@@ -99,9 +99,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "runs: tests of whole run components"
     )
-    config.addinivalue_line(
-        "markers", "parallel: tests which run in parallel"
-    )
+
+    pytest.remake_cases = config.option.remake
+
 
 class DependencyGetter:
     """
@@ -141,15 +141,23 @@ def case_gen(request):
 
 def pytest_generate_tests(metafunc):
     """This iterates the 'request' argument to case_gen above"""
-    if "case_gen" in metafunc.fixturenames:
-        num_cases = len(pytest.case_list)
-        if metafunc.config.getoption("all"):
-            end = num_cases
-        else:
-            end = 1
-        metafunc.parametrize("case_gen", list(range(end)), indirect=True)
 
-    pytest.remake_cases = metafunc.config.option.remake
+    # To select which cases to run in parallel/serial
+    from mpi4py import MPI
+    parallel = MPI.COMM_WORLD.size > 1
+
+    if "case_gen" in metafunc.fixturenames:
+
+        if parallel:
+            case_ids = [i for i, case in enumerate(pytest.case_list) if not case["serial"]]
+        else:
+            case_ids = [i for i, case in enumerate(pytest.case_list) if case["serial"]]
+
+        if not metafunc.config.getoption("all"):
+            case_ids = [case_ids[0]]
+
+        metafunc.parametrize("case_gen", case_ids, indirect=True)
+
 
 @pytest.fixture
 def temp_model(mpi_tmpdir, case_gen):
@@ -281,7 +289,6 @@ def update_expected_values():
                 for exp_re, exp_repl in expected_list:
                     search = exp_re.search(line)
                     if search is not None:
-                        print(search)
                         line = exp_re.sub(exp_repl, line)
                         break
 
@@ -294,7 +301,10 @@ def update_expected_values():
 def pytest_sessionfinish(session, exitstatus):
     """Write out expected values if requested"""
 
-    if pytest.remake_cases:
+    from mpi4py import MPI
+    root = (MPI.COMM_WORLD.rank == 0)
+
+    if pytest.remake_cases and root:
         with open("new_expected_solution_values.p", 'wb') as pickle_out:
             pickle.dump(pytest.active_cases, pickle_out)
 
