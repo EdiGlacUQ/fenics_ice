@@ -57,7 +57,7 @@ pytest.case_list.append({"case_dir": "ice_stream",
                          "mesh_ff_filename": "ice_stream_ff.xdmf",
                          "mesh_filename": "ice_stream.xdmf"})
 
-def check_float_result(value, expected, work_dir, value_name, tol=1e-8):
+def check_float_result(value, expected, work_dir, value_name, tol=None):
     """
     Compare scalar float against expected value.
 
@@ -66,6 +66,13 @@ def check_float_result(value, expected, work_dir, value_name, tol=1e-8):
     pytest.active_cases is to be appended to. There's probably a better way
     to do this, though.
     """
+
+    # MPI runs exhibit more variability (non-deterministic solvers?)
+    if tol is None:
+        if pytest.parallel:
+            tol = 1e-8
+        else:
+            tol = 1e-9
 
     if not pytest.remake_cases:
         # Check against expected value
@@ -90,6 +97,10 @@ def pytest_addoption(parser):
                      help="Store new 'expectd values' to file instead of testing")
 
 def pytest_configure(config):
+
+    from mpi4py import MPI
+    pytest.parallel = MPI.COMM_WORLD.size > 1
+
     config.addinivalue_line(
         "markers", "short: tests which run quickly"
     )
@@ -143,12 +154,9 @@ def pytest_generate_tests(metafunc):
     """This iterates the 'request' argument to case_gen above"""
 
     # To select which cases to run in parallel/serial
-    from mpi4py import MPI
-    parallel = MPI.COMM_WORLD.size > 1
-
     if "case_gen" in metafunc.fixturenames:
 
-        if parallel:
+        if pytest.parallel:
             case_ids = [i for i, case in enumerate(pytest.case_list) if not case["serial"]]
         else:
             case_ids = [i for i, case in enumerate(pytest.case_list) if case["serial"]]

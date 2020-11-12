@@ -54,5 +54,5 @@ install:
   - cd $FENICS_ICE_BASE_DIR
 
 script:
-  # - pytest -v --color=yes
+  - pytest -v --color=yes
   - mpirun -n 2 pytest -v --color=yes
