@@ -78,6 +78,7 @@ git checkout $BRANCH
 #PYTHONPATH equiv which doesn't pollute system environment namespace
 conda develop $INSTALL_DIR/tlm_adjoint/python/
 conda develop $FENICS_ICE_BASE_DIR
+#conda develop $INSTALL_DIR/fice_toolbox  <- system specific but this is how I use fice_toolbox
 
 #=================================
 #TEST SETUP WITH AN ISMIP-C CASE
