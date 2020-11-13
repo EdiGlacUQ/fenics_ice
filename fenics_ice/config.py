@@ -81,12 +81,16 @@ class ConfigParser(object):
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
 
-        try:  # Optional
+        try:  # Optional BC list
+            self.bcs = [BCCfg(**bc) for bc in self.config_dict['BC']]
+        except KeyError:
+            self.bcs = []
+            pass
+
+        try:  # Optional testing
             self.testing = TestCfg(**self.config_dict['testing'])
         except KeyError:
             pass
-
-        #TODO - boundaries
 
     def check_dirs(self):
         """
@@ -117,13 +121,12 @@ class InversionCfg(ConfigPrinter):
     """
 
     max_iter: int = 15
-    ftol: float = 1e-4
+    ftol: float = None
     gtol: float = None
     verbose: bool = True
 
     alpha_active: bool = False
     beta_active: bool = False
-    simultaneous: bool = False
     alt_iter: int = 2
 
     gamma_alpha: float = 0.0
@@ -140,6 +143,10 @@ class InversionCfg(ConfigPrinter):
                        "ftol" : self.ftol,
                        "gtol" : self.gtol
         }
+
+        inv_options = cleanNullTerms(inv_options)
+        assert ("ftol" in inv_options) or ("gtol" in inv_options), \
+            "Specify either 'ftol' or 'gtol' in inversion options"
         return cleanNullTerms(inv_options)
 
     def __post_init__(self):
@@ -215,23 +222,48 @@ class MeshCfg(ConfigPrinter):
     """
     mesh_filename: str = 'mesh.xml'
     periodic_bc: bool = False
+    bc_filename: str = None
 
     def __post_init__(self):
         """
         Check sanity of provided options & set conditional defaults
         Use setattr so dataclass can be frozen
         """
+        assert Path(self.mesh_filename).suffix in [".xml", ".xdmf"]
         pass
 
 @dataclass(frozen=True)
-class IceDynamicsCfg(ConfigPrinter):
-    """
-    Configuration related to modelling ice dynamics
-    """
-    sliding_law: str = "linear"
+class BCCfg(ConfigPrinter):
+    """Configuration of boundary conditions"""
+
+    labels: tuple  # though it begins as a list...
+    flow_bc: str
+    name: str = None
 
     def __post_init__(self):
-        assert(self.sliding_law in ['linear', 'weertman'])
+        """Validate the BC config"""
+
+        possible_types = ["calving", "obs_vel", "no_slip", "free_slip", "natural"]
+        assert self.flow_bc in possible_types, f"Unrecognised BC type '{self.flow_bc}'"
+
+        # Convert label list to tuple for immutability
+        assert isinstance(self.labels, list)
+        assert 0 not in self.labels, "Boundary labels must be positive integers"
+        object.__setattr__(self, 'labels', tuple(self.labels))
+
+
+@dataclass(frozen=True)
+class IceDynamicsCfg(ConfigPrinter):
+    """Configuration related to modelling ice dynamics"""
+
+    sliding_law: str = "linear"
+    min_thickness: float = None
+
+    def __post_init__(self):
+        """Check options valid"""
+        assert self.sliding_law in ['linear', 'weertman']
+        if self.min_thickness is not None:
+            assert self.min_thickness >= 0.0
 
 
 @dataclass(frozen=True)

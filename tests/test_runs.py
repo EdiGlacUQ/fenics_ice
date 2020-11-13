@@ -22,8 +22,7 @@ from tlm_adjoint import *
 from fenics import norm
 from fenics_ice import config
 from pathlib import Path
-
-pytest.temp_results = "/home/joe/sources/fenics_ice/tests/expected_values.txt"
+from mpi4py import MPI
 
 def EQReset():
     """Take care of tlm_adjoint EquationManager"""
@@ -35,8 +34,7 @@ def EQReset():
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.benchmark()  # <- just run it once
-def test_run_inversion(persistent_temp_model, monkeypatch, benchmark):
+def test_run_inversion(persistent_temp_model, monkeypatch):
 
     work_dir = persistent_temp_model["work_dir"]
     toml_file = persistent_temp_model["toml_filename"]
@@ -52,20 +50,12 @@ def test_run_inversion(persistent_temp_model, monkeypatch, benchmark):
     EQReset()
 
     # Run the thing
-    mdl_out = benchmark.pedantic(run_inv.run_inv,
-                                 args=(toml_file,),
-                                 rounds=1,
-                                 warmup_rounds=0,
-                                 iterations=1)
+    mdl_out = run_inv.run_inv(toml_file)
 
     cntrl = mdl_out.solvers[0].get_control()[0]
-    cntrl_norm = np.linalg.norm(cntrl.vector()[:])
+    cntrl_norm = norm(cntrl.vector())
 
     J_inv = mdl_out.solvers[0].J_inv.value()
-
-    # with open(pytest.temp_results, 'a') as output:
-    #     output.write(f"{toml_file} - cntrl_norm - {cntrl_norm}\n")
-    # temp_model["expected_cntrl_norm"] = cntrl_norm
 
     pytest.check_float_result(cntrl_norm,
                               expected_cntrl_norm,
@@ -77,8 +67,7 @@ def test_run_inversion(persistent_temp_model, monkeypatch, benchmark):
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.benchmark()
-def test_run_forward(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
+def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
     setup_deps.set_case_dependency(request, ["test_run_inversion"])
 
@@ -95,11 +84,7 @@ def test_run_forward(existing_temp_model, monkeypatch, benchmark, setup_deps, re
 
     EQReset()
 
-    mdl_out = benchmark.pedantic(run_forward.run_forward,
-                                 args=(toml_file,),
-                                 rounds=1,
-                                 warmup_rounds=0,
-                                 iterations=1)
+    mdl_out = run_forward.run_forward(toml_file)
 
     slvr = mdl_out.solvers[0]
 
@@ -114,18 +99,10 @@ def test_run_forward(existing_temp_model, monkeypatch, benchmark, setup_deps, re
                               expected_u_norm,
                               work_dir, 'expected_u_norm')
 
-    # with open(pytest.temp_results, 'a') as output:
-    #     output.write(f"{toml_file} - delta - {delta}\n")
-    #     output.write(f"{toml_file} - u_norm - {u_norm}\n")
-
-    # existing_temp_model["expected_delta_qoi"] = delta_qoi
-    # existing_temp_model["expected_u_norm"] = u_norm
-
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.benchmark()
-def test_run_eigendec(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
+def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps, request):
 
     setup_deps.set_case_dependency(request, ["test_run_inversion"])
 
@@ -142,23 +119,12 @@ def test_run_eigendec(existing_temp_model, monkeypatch, benchmark, setup_deps, r
 
     EQReset()
 
-    mdl_out = benchmark.pedantic(run_eigendec.run_eigendec,
-                                 args=(toml_file, ),
-                                 rounds=1,
-                                 warmup_rounds=0,
-                                 iterations=1)
+    mdl_out = run_eigendec.run_eigendec(toml_file)
 
     slvr = mdl_out.solvers[0]
 
     evals_sum = np.sum(slvr.eigenvals)
     evec0_norm = norm(slvr.eigenfuncs[0])
-
-    # with open(pytest.temp_results, 'a') as output:
-    #     output.write(f"{toml_file} - evals_sum - {evals_sum}\n")
-    #     output.write(f"{toml_file} - evec0_norm - {evec0_norm}\n")
-
-    # existing_temp_model["expected_evals_sum"] = evals_sum
-    # existing_temp_model["expected_evec0_norm"] = evec0_norm
 
     pytest.check_float_result(evals_sum,
                               expected_evals_sum,
@@ -169,8 +135,7 @@ def test_run_eigendec(existing_temp_model, monkeypatch, benchmark, setup_deps, r
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.benchmark()
-def test_run_errorprop(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
+def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
 
     setup_deps.set_case_dependency(request, ["test_run_eigendec", "test_run_forward"])
 
@@ -187,32 +152,28 @@ def test_run_errorprop(existing_temp_model, monkeypatch, benchmark, setup_deps, 
 
     EQReset()
 
-    mdl_out = benchmark.pedantic(run_errorprop.run_errorprop,
-                                 args=(toml_file, ),
-                                 rounds=1,
-                                 warmup_rounds=0,
-                                 iterations=1)
-
+    mdl_out = run_errorprop.run_errorprop(toml_file)
 
     Q_sigma = mdl_out.Q_sigma[-1]
     Q_sigma_prior = mdl_out.Q_sigma_prior[-1]
 
-    # existing_temp_model["expected_Q_sigma"] = Q_sigma
-    # existing_temp_model["expected_Q_sigma_prior"] = Q_sigma_prior
+    if pytest.parallel:
+        tol = 1e-6
+    else:
+        tol = 1e-7
 
     pytest.check_float_result(Q_sigma,
                               expected_Q_sigma,
                               work_dir,
-                              'expected_Q_sigma', tol=1e-7)
+                              'expected_Q_sigma', tol=tol)
     pytest.check_float_result(Q_sigma_prior,
                               expected_Q_sigma_prior,
                               work_dir,
-                              'expected_Q_sigma_prior', tol=1e-7)
+                              'expected_Q_sigma_prior', tol=tol)
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.benchmark()
-def test_run_invsigma(existing_temp_model, monkeypatch, benchmark, setup_deps, request):
+def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
 
     setup_deps.set_case_dependency(request, ["test_run_eigendec"])
 
@@ -229,28 +190,22 @@ def test_run_invsigma(existing_temp_model, monkeypatch, benchmark, setup_deps, r
 
     EQReset()
 
-    mdl_out = benchmark.pedantic(run_invsigma.run_invsigma,
-                                 args=(toml_file, ),
-                                 rounds=1,
-                                 warmup_rounds=0,
-                                 iterations=1)
+    mdl_out = run_invsigma.run_invsigma(toml_file)
 
     cntrl_sigma_norm = norm(mdl_out.cntrl_sigma)
     cntrl_sigma_prior_norm = norm(mdl_out.cntrl_sigma_prior)
 
-    # with open(pytest.temp_results, 'a') as output:
-    #     output.write(f"{toml_file} - cntrl_sigma - {mdl_out.cntrl_sigma}\n")
-    #     output.write(f"{toml_file} - cntrl_sigma_prior - {mdl_out.cntrl_sigma_prior}\n")
-
-    # existing_temp_model["expected_cntrl_sigma_norm"] = cntrl_sigma_norm
-    # existing_temp_model["expected_cntrl_sigma_prior_norm"] = cntrl_sigma_prior_norm
+    if pytest.parallel:
+        tol = 1e-6
+    else:
+        tol = 1e-7
 
     pytest.check_float_result(cntrl_sigma_norm,
                               expected_cntrl_sigma_norm,
                               work_dir,
-                              "expected_cntrl_sigma_norm", tol=1e-7)
+                              "expected_cntrl_sigma_norm", tol=tol)
 
     pytest.check_float_result(cntrl_sigma_prior_norm,
                               expected_cntrl_sigma_prior_norm,
                               work_dir,
-                              "expected_cntrl_sigma_prior_norm", tol=1e-7)
+                              "expected_cntrl_sigma_prior_norm", tol=tol)

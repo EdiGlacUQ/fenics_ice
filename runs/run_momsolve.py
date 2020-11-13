@@ -52,7 +52,7 @@ def run_momsolve(config_file):
     try:
         Bglen = mdl.input_data.interpolate("Bglen", mdl.M)
         mdl.init_beta(mdl.bglen_to_beta(Bglen), False)
-    except AttributeError:
+    except (AttributeError, KeyError) as e:
         log.warning('Using default bglen (constant)')
 
     # Forward Solve
@@ -69,8 +69,7 @@ def run_momsolve(config_file):
     h5file.write(mesh, 'mesh')
     h5file.attributes('mesh')['periodic'] = params.mesh.periodic_bc
 
-    vtkfile = File(os.path.join(outdir,'U.pvd'))
-    vtkfile << slvr.U
+    inout.write_variable(slvr.U, params)
 
 
 

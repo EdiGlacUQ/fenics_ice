@@ -18,12 +18,10 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-import pytest_mpi
 from pytest_dependency import depends
 import re
 from pathlib import Path
 import shutil
-from mpi4py import MPI
 import toml
 import pickle
 
@@ -39,24 +37,44 @@ pytest.active_cases = []
 # Define the cases & their mesh characteristics (meshes generated on the fly)
 pytest.case_list = []
 pytest.case_list.append({"case_dir": "ismipc_rc_1e6",
+                         "toml_file": "ismipc_rc_1e6.toml",
+                         "serial": True,
                          "mesh_nx": 20,
                          "mesh_ny": 20,
                          "mesh_L": 40000,
+                         "indata_filename": pytest.data_dir / "ismipc_input.h5",
+                         "veldata_filename": pytest.data_dir / "ismipc_U_obs.h5",
                          "mesh_filename": "ismip_mesh.xml"})
 
 pytest.case_list.append({"case_dir": "ismipc_rc_1e4",
+                         "toml_file": "ismipc_rc_1e4.toml",
+                         "serial": True,
                          "mesh_nx": 20,
                          "mesh_ny": 20,
                          "mesh_L": 40000,
+                         "indata_filename": pytest.data_dir / "ismipc_input.h5",
+                         "veldata_filename": pytest.data_dir / "ismipc_U_obs.h5",
                          "mesh_filename": "ismip_mesh.xml"})
 
 pytest.case_list.append({"case_dir": "ismipc_30x30",
+                         "toml_file": "ismipc_30x30.toml",
+                         "serial": True,
                          "mesh_nx": 30,
                          "mesh_ny": 30,
                          "mesh_L": 40000,
+                         "indata_filename": pytest.data_dir / "ismipc_input.h5",
+                         "veldata_filename": pytest.data_dir / "ismipc_U_obs.h5",
                          "mesh_filename": "ismip_mesh.xml"})
 
-def check_float_result(value, expected, work_dir, value_name, tol=1e-9):
+pytest.case_list.append({"case_dir": "ice_stream",
+                         "toml_file": "ice_stream.toml",
+                         "serial": False,
+                         "indata_filename": pytest.case_dir / "ice_stream/input" / "ice_stream_data.h5",
+                         "veldata_filename": pytest.case_dir / "ice_stream/input" / "ice_stream_U_obs.h5",
+                         "mesh_ff_filename": "ice_stream_ff.xdmf",
+                         "mesh_filename": "ice_stream.xdmf"})
+
+def check_float_result(value, expected, work_dir, value_name, tol=None):
     """
     Compare scalar float against expected value.
 
@@ -65,6 +83,13 @@ def check_float_result(value, expected, work_dir, value_name, tol=1e-9):
     pytest.active_cases is to be appended to. There's probably a better way
     to do this, though.
     """
+
+    # MPI runs exhibit more variability (non-deterministic solvers?)
+    if tol is None:
+        if pytest.parallel:
+            tol = 1e-8
+        else:
+            tol = 1e-9
 
     if not pytest.remake_cases:
         # Check against expected value
@@ -89,6 +114,10 @@ def pytest_addoption(parser):
                      help="Store new 'expectd values' to file instead of testing")
 
 def pytest_configure(config):
+
+    from mpi4py import MPI
+    pytest.parallel = MPI.COMM_WORLD.size > 1
+
     config.addinivalue_line(
         "markers", "short: tests which run quickly"
     )
@@ -98,6 +127,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "runs: tests of whole run components"
     )
+
+    pytest.remake_cases = config.option.remake
+
 
 class DependencyGetter:
     """
@@ -137,15 +169,20 @@ def case_gen(request):
 
 def pytest_generate_tests(metafunc):
     """This iterates the 'request' argument to case_gen above"""
-    if "case_gen" in metafunc.fixturenames:
-        num_cases = len(pytest.case_list)
-        if metafunc.config.getoption("all"):
-            end = num_cases
-        else:
-            end = 1
-        metafunc.parametrize("case_gen", list(range(end)), indirect=True)
 
-    pytest.remake_cases = metafunc.config.option.remake
+    # To select which cases to run in parallel/serial
+    if "case_gen" in metafunc.fixturenames:
+
+        if pytest.parallel:
+            case_ids = [i for i, case in enumerate(pytest.case_list) if not case["serial"]]
+        else:
+            case_ids = [i for i, case in enumerate(pytest.case_list) if case["serial"]]
+
+        if not metafunc.config.getoption("all"):
+            case_ids = [case_ids[0]]
+
+        metafunc.parametrize("case_gen", case_ids, indirect=True)
+
 
 @pytest.fixture
 def temp_model(mpi_tmpdir, case_gen):
@@ -163,15 +200,15 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
 
     Returns the path of the toml file
     """
+    from mpi4py import MPI
+
     tmpdir = mpi_tmpdir
     data_dir = pytest.data_dir
 
     case_dir = pytest.case_dir / case_gen['case_dir']
 
-    # Find the toml file for ismipc case
-    toml_files = [f for f in case_dir.glob("ismip*toml")]
-    assert len(toml_files) == 1
-    toml_file = toml_files[0]
+    # Find the toml file for case
+    toml_file = case_dir / case_gen['toml_file']
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -183,11 +220,11 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
         destdir.mkdir()
 
         # Copy the data files to tmpdir
-        indata_name = "ismipc_input.h5"
-        veldata_name = "ismipc_U_obs.h5"
+        indata_name = case_gen["indata_filename"]
+        veldata_name = case_gen["veldata_filename"]
 
-        shutil.copy(data_dir/indata_name, destdir)
-        shutil.copy(data_dir/veldata_name, destdir)
+        shutil.copy(indata_name, destdir)
+        shutil.copy(veldata_name, destdir)
 
         # Bit of a hack - turn off inversion verbose
         # to keep test output clean
@@ -197,15 +234,35 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
         with open(tmpdir/toml_file.name, 'w') as toml_out:
             toml.dump(config, toml_out)
 
-        # Generate mesh if it doesn't exist
-        if not (destdir/case_gen["mesh_filename"]).exists():
-            gen_rect_mesh.gen_rect_mesh(case_gen['mesh_nx'],
-                               case_gen['mesh_ny'],
-                               0, case_gen['mesh_L'],
-                               0, case_gen['mesh_L'],
-                               str(destdir/case_gen["mesh_filename"]))
+        mesh_filename = case_gen["mesh_filename"]
+        mesh_file = (case_dir / "input" / mesh_filename)
 
-    comm.barrier()
+        try:
+            mesh_ff_filename = case_gen['mesh_ff_filename']
+            mesh_ff_file = (case_dir / "input" / mesh_ff_filename)
+        except KeyError:
+            mesh_ff_file = None
+
+        # Generate mesh if it doesn't exist
+        # TODO - not totally happy w/ logic here:
+        # ismipc tests generate their own meshes, ice_stream doesn't
+        if not (destdir/case_gen["mesh_filename"]).exists():
+
+            if(mesh_file.exists()):
+                shutil.copy(mesh_file, destdir)
+                if mesh_file.suffix == ".xdmf":
+                    shutil.copy(mesh_file.with_suffix(".h5"), destdir)
+
+                if mesh_ff_file:
+                    shutil.copy(mesh_ff_file, destdir)
+                    shutil.copy(mesh_ff_file.with_suffix(".h5"), destdir)
+
+            else:
+                gen_rect_mesh.gen_rect_mesh(case_gen['mesh_nx'],
+                                            case_gen['mesh_ny'],
+                                            0, case_gen['mesh_L'],
+                                            0, case_gen['mesh_L'],
+                                            str(destdir/case_gen["mesh_filename"]))
 
     case_gen["work_dir"] = Path(tmpdir)
     case_gen["toml_filename"] = toml_file.name
@@ -213,6 +270,7 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
     if persist:
         pytest.active_cases.append(case_gen)
 
+    comm.barrier()
     return case_gen
 
 @pytest.fixture
@@ -230,7 +288,7 @@ def update_expected_values():
     lose all formatting & comments (not ideal)
     """
 
-    float_str = "([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)"
+    float_str = r"([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)"
 
     for case in pytest.active_cases:
         toml_file = pytest.case_dir/case['case_dir']/case['toml_filename']
@@ -255,7 +313,6 @@ def update_expected_values():
                 for exp_re, exp_repl in expected_list:
                     search = exp_re.search(line)
                     if search is not None:
-                        print(search)
                         line = exp_re.sub(exp_repl, line)
                         break
 
@@ -268,8 +325,11 @@ def update_expected_values():
 def pytest_sessionfinish(session, exitstatus):
     """Write out expected values if requested"""
 
-    if pytest.remake_cases:
+    from mpi4py import MPI
+    root = (MPI.COMM_WORLD.rank == 0)
+
+    if pytest.remake_cases and root:
         with open("new_expected_solution_values.p", 'wb') as pickle_out:
             pickle.dump(pytest.active_cases, pickle_out)
 
-    update_expected_values()
+        update_expected_values()

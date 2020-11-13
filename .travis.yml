@@ -1,11 +1,10 @@
+sudo: false
 language: python
 dist: bionic
 python:
   - "3.8"
 
 install:
-  - sudo apt update
-
   # - export INSTALL_DIR="$HOME/test_fenics_ice"
   # - export FENICS_ICE_BASE_DIR="$INSTALL_DIR/fenics_ice"
   - export FENICS_ICE_BASE_DIR="$TRAVIS_BUILD_DIR"
@@ -56,3 +55,4 @@ install:
 
 script:
   - pytest -v --color=yes
+  - mpirun -n 2 pytest -v --color=yes
