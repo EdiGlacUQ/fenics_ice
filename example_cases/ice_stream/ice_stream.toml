@@ -108,6 +108,14 @@ total_steps = 5
 #dt = 0.033333333
 num_sens = 5 #TODO rename
 
+[checkpointing]
+
+method = "memory"
+# method = "multistage" # periodic_disk, memory
+# snaps_on_disk = 4000
+# snaps_in_ram = 10
+# period = 2
+
 [eigendec]
 
 num_eig = 20

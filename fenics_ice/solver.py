@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 
 from fenics import *
+from fenics_ice import inout
 from tlm_adjoint_fenics import *
 from tlm_adjoint_fenics.hessian_optimization import *
 # from dolfin_adjoint import *
@@ -448,12 +449,8 @@ class ssa_solver:
 
             reset_manager()
             start_annotating()
-            # configure_checkpointing("periodic_disk", {'period': 2, "format":"pickle"})
-            configure_checkpointing("multistage", {"blocks": n_steps,
-                                                   "snaps_on_disk": 4000,
-                                                   "snaps_in_ram": 10,
-                                                   "verbose": True,
-                                                   "format": "pickle"})
+
+            inout.configure_tlm_checkpointing(self.params)
 
         self.def_thickadv_eq()
         self.def_mom_eq()

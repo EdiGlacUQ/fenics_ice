@@ -81,6 +81,12 @@ class ConfigParser(object):
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
 
+        try:
+            cpoint_dict = self.config_dict['checkpointing']
+        except KeyError:
+            cpoint_dict = {}
+        self.checkpointing = CheckpointCfg(**cpoint_dict)
+
         try:  # Optional BC list
             self.bcs = [BCCfg(**bc) for bc in self.config_dict['BC']]
         except KeyError:
@@ -400,6 +406,28 @@ class TimeCfg(ConfigPrinter):
         else: #dt provided
             object.__setattr__(self, 'total_steps', math.ceil(self.run_length/self.dt))
             object.__setattr__(self, 'steps_per_year', 1.0/self.dt)
+
+@dataclass(frozen=True)
+class CheckpointCfg(ConfigPrinter):
+    """Configuration of checkpointing"""
+
+    method: str = "memory"
+    snaps_on_disk: int = None
+    snaps_in_ram: int = None
+    period: int = None
+
+    def __post_init__(self):
+        """Validate the checkpointing config"""
+        assert self.method in ["multistage", "periodic_disk", "memory"]
+
+        if self.method == "multistage":
+            assert self.snaps_on_disk is not None
+            assert self.snaps_in_ram is not None
+        elif self.method == "periodic":
+            assert self.period is not None
+        else:  # memory (default)
+            pass
+
 
 @dataclass(frozen=True)
 class TestCfg(ConfigPrinter):

@@ -31,6 +31,7 @@ import git
 from scipy import interpolate as interp
 
 from fenics import *
+from tlm_adjoint_fenics import configure_checkpointing
 import numpy as np
 
 # Regex for catching unnamed vars
@@ -469,3 +470,27 @@ def log_preamble(phase, params):
     log.info("==================================\n\n")
 
     print_config(params)
+
+
+def configure_tlm_checkpointing(params):
+    """Set up tlm_adjoint's checkpointing"""
+
+    cparam = params.checkpointing
+    method = cparam.method
+
+    if method == 'multistage':
+        n_steps = params.time.total_steps
+        config_dict = {"blocks": n_steps,
+                       "snaps_on_disk": cparam.snaps_on_disk,
+                       "snaps_in_ram": cparam.snaps_in_ram,
+                       "verbose": True,
+                       "format": "pickle"}
+
+    elif method == 'periodic_disk':
+        config_dict = {"period": cparam.period,
+                       "format": "pickle"}
+
+    else:
+        config_dict = {}
+
+    configure_checkpointing(method, config_dict)
