@@ -94,8 +94,8 @@ class model:
         self.smb = self.field_from_data("smb", self.M, default=0.0, static=True)
         self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
 
-        self.H_s = self.H_np.copy(deepcopy=True)
-        self.H = 0.5*(self.H_np + self.H_s)
+        self.H = self.H_np.copy(deepcopy=True)
+        # self.H = 0.5*(self.H_np + self.H_s)
 
         self.gen_surf()  # surf = bed + thick
 
@@ -296,8 +296,8 @@ class model:
         bed = self.bed
         H = self.H
 
-        H_s = -rhow/rhoi * bed
-        fl_ex = conditional(H <= H_s, 1.0, 0.0)
+        H_flt = -rhow/rhoi * bed
+        fl_ex = conditional(H <= H_flt, 1.0, 0.0)
 
         self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
         self.surf._Function_static__ = True
@@ -318,8 +318,8 @@ class model:
         U = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
         # Flotation Criterion
-        H_s = -rhow/rhoi * bed
-        fl_ex = conditional(H <= H_s, 1.0, 0.0)
+        H_flt = -rhow/rhoi * bed
+        fl_ex = conditional(H <= H_flt, 1.0, 0.0)
 
         # Thickness Criterion
         m_d = conditional(H > 0, 1.0, 0.0)
