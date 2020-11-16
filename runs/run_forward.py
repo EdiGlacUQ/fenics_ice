@@ -39,7 +39,7 @@ stop_annotating()
 
 def run_forward(config_file):
 
-    #Read run config file
+    # Read run config file
     params = ConfigParser(config_file)
     log = inout.setup_logging(params)
     inout.log_preamble("forward", params)
@@ -66,14 +66,14 @@ def run_forward(config_file):
 
     qoi_func = slvr.get_qoi_func()
 
-    #TODO here - cntrl now returns a list - so compute_gradient returns a list of tuples
+    # TODO here - cntrl now returns a list - so compute_gradient returns a list of tuples
 
-    #Run the forward model
+    # Run the forward model
     Q = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)
-    #Run the adjoint model, computing gradient of Qoi w.r.t cntrl
-    dQ_ts = compute_gradient(Q, cntrl) #Isaac 27
+    # Run the adjoint model, computing gradient of Qoi w.r.t cntrl
+    dQ_ts = compute_gradient(Q, cntrl)  # Isaac 27
 
-    #Uncomment for Taylor Verification, Comment above two lines
+    # Uncomment for Taylor Verification, Comment above two lines
     # param['num_sens'] = 1
     # J = slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_Q_vaf)
     # dJ = compute_gradient(J, slvr.alpha)
@@ -91,8 +91,6 @@ def run_forward(config_file):
     # sys.exit(os.EX_OK)
 
     # Output model variables in ParaView+Fenics friendly format
-    outdir = params.io.output_dir
-
     # Output QOI & DQOI (needed for next steps)
     inout.write_qval(slvr.Qval_ts, params)
     inout.write_dqval(dQ_ts, [var.name() for var in cntrl], params)
@@ -105,6 +103,7 @@ def run_forward(config_file):
     inout.write_variable(H, params, name="H_fwd")
 
     return mdl
+
 
 if __name__ == "__main__":
     stop_annotating()

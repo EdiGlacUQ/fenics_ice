@@ -626,7 +626,7 @@ class ssa_solver:
         num_iter = config.alt_iter*nparam if nparam > 1 else nparam
 
         for j in range(num_iter):
-            info('Inversion iteration: {0}/{1}'.format(j+1,num_iter) )
+            info('Inversion iteration: {0}/{1}'.format(j+1, num_iter) )
 
             cntrl = cntrl_input[j % nparam]
             if cntrl.name() == 'alpha':
