@@ -65,6 +65,56 @@ def test_run_inversion(persistent_temp_model, monkeypatch):
                               expected_J_inv,
                               work_dir, 'expected_J_inv')
 
+    # Taylor verification
+    alpha_active = mdl_out.params.inversion.alpha_active
+    beta_active = mdl_out.params.inversion.beta_active
+
+    if alpha_active:
+
+        fwd_alpha = mdl_out.solvers[0].forward_alpha
+        alpha = mdl_out.solvers[0].alpha
+
+        min_order = taylor_test_tlm(fwd_alpha,
+                                    alpha,
+                                    tlm_order=1,
+                                    seed=1.0e-6)                  # mpi-2 ice stream, serial ismipc
+        print(f"min order alpha 1st order forward: {min_order}")  # 1.937, 2.0000
+
+        min_order = taylor_test_tlm_adjoint(fwd_alpha,
+                                            alpha,
+                                            adjoint_order=1,
+                                            seed=1.0e-6)
+        print(f"min order alpha 1st order adjoint: {min_order}")  # 1.000, 1.0001
+
+        min_order = taylor_test_tlm_adjoint(fwd_alpha,
+                                            alpha,
+                                            adjoint_order=2,
+                                            seed=1.0e-6)
+        print(f"min order alpha 2nd order adjoint: {min_order}")  # 1.000, 0.9998
+
+    if beta_active:
+
+        fwd_beta = mdl_out.solvers[0].forward_beta
+        beta = mdl_out.solvers[0].beta
+
+        min_order = taylor_test_tlm(fwd_beta,
+                                    beta,
+                                    tlm_order=1,
+                                    seed=1.0e-6)
+        print(f"min order beta 1st order forward: {min_order}")  # 1.9999, N/A
+
+        min_order = taylor_test_tlm_adjoint(fwd_beta,
+                                            beta,
+                                            adjoint_order=1,
+                                            seed=1.0e-6)
+        print(f"min order beta 1st order adjoint: {min_order}")  # 1.0055, N/A
+
+        min_order = taylor_test_tlm_adjoint(fwd_beta,
+                                            beta,
+                                            adjoint_order=2,
+                                            seed=1.0e-6)
+        print(f"min order beta 2nd order adjoint: {min_order}")  # 0.9999, N/A
+
 @pytest.mark.dependency()
 @pytest.mark.runs
 def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
