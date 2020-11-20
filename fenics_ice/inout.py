@@ -56,8 +56,10 @@ def write_dqval(dQ_ts, params):
 
     outdir = params.io.output_dir
     h5_filename = params.io.dqoi_h5file
+    
 
     vtkfile = File(str((Path(outdir)/h5_filename).with_suffix(".pvd")))
+    xmlfile = File(str((Path(outdir)/h5_filename).with_suffix(".xml")))
 
     hdf5out = HDF5File(MPI.comm_world, str(Path(outdir)/h5_filename), 'w')
     n = 0.0
@@ -70,6 +72,7 @@ def write_dqval(dQ_ts, params):
         output = j
         output.rename('dQ', 'dQ')
         vtkfile << output
+        xmlfile << output
         hdf5out.write(output, 'dQ', n)
         n += 1.0
 
