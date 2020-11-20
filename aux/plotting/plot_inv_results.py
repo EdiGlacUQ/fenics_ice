@@ -75,7 +75,7 @@ else:
 U_file = str(next(results_dir.glob("*U.xml")))
 alpha_file = str(next(results_dir.glob("*alpha.xml")))
 uv_obs_file = str(next(results_dir.glob("*uv_obs.xml")))
-alpha_sigma_file = str(next(results_dir.glob("*alpha_sigma.xml")))
+alpha_sigma_file = str(next(results_dir.glob("*dQ_ts.xml")))
 
 
 U = Function(V, U_file)
@@ -110,7 +110,7 @@ ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
     fontsize=13, fontweight='bold', va='top')
 c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap))
 cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
-cbar.ax.set_xlabel(r'${B^2}$ (Pa $m^{-1}$ yr)')
+cbar.ax.set_xlabel(r'${\beta^2}$ (Pa $m^{-1}$ yr)')
 
 ax  = fig.add_subplot(232)
 ax.set_aspect('equal')

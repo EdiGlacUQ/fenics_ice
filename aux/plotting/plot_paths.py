@@ -30,8 +30,7 @@ sns.set()
 
 base_folder = Path(os.environ['FENICS_ICE_BASE_DIR']) / "example_cases"
 
-run_folders = ['ismipc_rc_1e4',
-               'ismipc_rc_1e6']
+run_folders = ['ismipc_Q4','ismipc_rc_1e4']
 
 # Output Directory
 outdir = base_folder / "plots"
@@ -70,8 +69,8 @@ for i, rf in enumerate(run_folders):
     sp = 2*sigma_prior_interp
 
     axarr[0].plot(x, y, 'k' if i == 0 else 'k:')
-    axarr[0].fill_between(x, y-sp, y+sp, facecolor='b')
-    axarr[0].fill_between(x, y-s, y+s, facecolor='g')
+#    axarr[0].fill_between(x, y-sp, y+sp, facecolor='b')
+    axarr[0].fill_between(x, y-s, y+s)
 
     axarr[1].semilogy(x, sp, 'b' if i == 0 else 'b:')
     axarr[1].semilogy(x, s, 'g' if i == 0 else 'g:')
@@ -80,7 +79,7 @@ axarr[0].set_xlabel('Time (yrs)')
 axarr[1].set_xlabel('Time (yrs)')
 axarr[0].set_ylabel(r'$Q$ $(m^4)$')
 axarr[1].set_ylabel(r'$\sigma$ $(m^4)$')
-axarr[1].set_ylim([1,10**10])
+#axarr[1].set_ylim([1,10**10])
 axarr[0].text(0.05, 0.95, 'a', transform=axarr[0].transAxes,
 fontsize=13, fontweight='bold', va='top')
 

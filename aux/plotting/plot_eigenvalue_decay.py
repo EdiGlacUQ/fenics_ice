@@ -28,9 +28,7 @@ from pathlib import Path
 
 base_folder = Path(os.environ['FENICS_ICE_BASE_DIR']) / "example_cases"
 
-run_folders = ['ismipc_rc_1e6',
-    'ismipc_30x30',
-    'ismipc_40x40'
+run_folders = ['ismipc_rc_1e4'
     ]
 
 #Legend values for simulations

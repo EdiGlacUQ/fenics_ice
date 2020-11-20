@@ -41,14 +41,16 @@ base_folder = Path(os.environ['FENICS_ICE_BASE_DIR']) / "example_cases"
 # Simulation Directories: A list of one or more directories
 run_folders = [
     'ismipc_rc_1e6',
-    'ismipc_rc_1e4',
+    'ismipc_rc_1e4'
     ]
 
 #Figure size in inches (width, height). Passed to Pyplot figure();
-figsize = (18, 6)
+figsize = (12, 4)
 
 # Output Directory
 outdir = base_folder / "plots"
+if (len(sys.argv)>1):
+    outdir = Path(sys.argv[1])
 outdir.mkdir(parents=True, exist_ok=True)
 
 #########################
@@ -58,7 +60,7 @@ cmap_div='RdBu'
 numlev = 40
 tick_options = {'axis':'both','which':'both','bottom':False,
     'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
-labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h','i','j','k','l']
 
 
 fig = plt.figure(figsize=figsize)
@@ -110,5 +112,4 @@ for i, rf in enumerate(run_folders):
         cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="vertical")
 
 fig = plt.gcf()
-plt.show()
-fig.savefig(os.path.join(outdir,'leading_eigenvectors.pdf'), bbox_inches="tight")
+fig.savefig(os.path.join(outdir,'leading_eigenvectors.png'), bbox_inches="tight")
