@@ -92,6 +92,7 @@ class ssa_solver:
         self.Q = model.Q
         self.Qp = model.Qp
         self.M = model.M
+        self.M1 = FunctionSpace(self.mesh,'DG',1)
         self.RT = model.RT
 
         #Trial/Test Functions
@@ -654,7 +655,7 @@ class ssa_solver:
 
         return nu
 
-    def comp_J_inv(self, verbose=False):
+    def comp_J_inv(self, verbose=False, noMisfit=False, noReg=False):
         """
         Compute the value of the cost function
         Note: 'verbose' significantly decreases speed
@@ -727,8 +728,8 @@ class ssa_solver:
 
         # TODO - is projection to M instead of Q OK here?
         # it's necessary for InterpolationSolver to work
-        uf = project(u, self.M)
-        vf = project(v, self.M)
+        uf = project(u, self.M1)
+        vf = project(v, self.M1)
 
         uf.rename("uf", "")
         vf.rename("vf", "")
@@ -763,7 +764,10 @@ class ssa_solver:
         # ExprEvaluationSolver(J_ls_term_new * \
         # lambda_a, J_ls_term_final).solve()
 
-        J.addto(J_ls_term_new)
+        if not noMisfit:
+
+         J.addto(J_ls_term_new)
+
 
         # Regularization
 
@@ -774,7 +778,8 @@ class ssa_solver:
         # cf. Isaac 5, delta component -> invertiblity, gamma -> smoothness
         a = f*self.pTau*dIce
 
-        if(do_alpha):
+        if not noReg:
+         if(do_alpha):
             # This L is equivalent to scriptF in reg_operator.pdf
             # Prior.py contains vector equivalent of this
             # (this operates on fem functions)
@@ -789,7 +794,7 @@ class ssa_solver:
             # File(os.path.join('invoutput_data', 'f_alpha_test.pvd'))
             # self.f_alpha_file << f_alpha
 
-        if(do_beta):
+         if(do_beta):
             L = (delta_b * betadiff * self.pTau +
                  gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
             solve(a == L, f_beta)
@@ -854,7 +859,7 @@ class ssa_solver:
         QOI: Square integral of thickness
         """
 
-        Q_h2 = self.H_np * self.H_np * self.dIce
+        Q_h2 = (self.H_np - 1000) **4 * self.dIce
         if verbose: print('Q_h2: {0}'.format(Q_h2))
 
         return Q_h2
