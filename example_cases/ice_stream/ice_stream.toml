@@ -47,9 +47,6 @@ vel_file = "ice_stream_U_obs.h5"
 
 max_iter = 200
 
-# TODO - this test case should be a dual inversion
-# alpha only for now for debugging
-
 alpha_active = true
 beta_active = true
 alt_iter = 3

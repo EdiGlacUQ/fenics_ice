@@ -189,7 +189,7 @@ class ssa_solver:
         # Depth of the submarine portion of the calving front
         # ufl.Max to avoid edge case of land termininating calving front
         draft = ufl.Max(((fl_ex) * (rhoi / rhow) * H
-                 - (1 - fl_ex) * bed), Constant(0.0))
+                 - (1 - fl_ex) * bed), Constant(0.0, name="Const No Draft"))
 
         # Terminating margin boundary condition
         # The -F term is related to the integration by parts in the weak form
@@ -708,8 +708,8 @@ class ssa_solver:
 
         # Note: cell=triangle just suppresses a UFL warning ("missing cell")
         fl_ex = ufl.operators.Conditional(H <= H_float,
-                                          Constant(1.0, cell=triangle),
-                                          Constant(0.0, cell=triangle))
+                                          Constant(1.0, cell=triangle, name="Const Floating"),
+                                          Constant(0.0, cell=triangle, name="Const Grounded"))
 
         return fl_ex
 

@@ -95,6 +95,7 @@ class model:
         self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
 
         self.H_s = self.H_np.copy(deepcopy=True)
+        self.H_s.rename("thick_s", "")
         self.H = 0.5*(self.H_np + self.H_s)
 
         self.gen_surf()  # surf = bed + thick
@@ -150,6 +151,8 @@ class model:
             infile.read(self.beta, 'beta')
             self.beta_bgd = self.beta.copy(deepcopy=True)
 
+        self.beta_bgd.rename('beta_bgd', 'a Function')
+
     def init_beta(self, beta, pert=False):
         """
         Define the beta field from input
@@ -167,6 +170,7 @@ class model:
             self.beta.vector().apply('insert')
 
         self.beta.rename('beta', 'a Function')
+        self.beta_bgd.rename('beta_bgd', 'a Function')
 
     def vel_obs_from_data(self):
         """
