@@ -101,7 +101,7 @@ class model:
         self.mask = self.field_from_data("data_mask", self.M, static=True)
         self.bmelt = self.field_from_data("bmelt", self.M, 0.0, static=True)
         self.smb = self.field_from_data("smb", self.M, 0.0, static=True)
-        self.H_np = self.field_from_data("thick", self.M)
+        self.H_np = self.field_from_data("thick", self.Qp)
 
         self.H_s = self.H_np.copy(deepcopy=True)
         self.H = 0.5*(self.H_np + self.H_s)
@@ -303,7 +303,7 @@ class model:
 
         h_diff = self.surf-self.bed
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
-        self.H = project(Min(h_diff,h_hyd),self.M)
+        self.H = project(Min(h_diff,h_hyd),self.Qp)
 
     def gen_surf(self):
         rhoi = self.params.constants.rhoi
