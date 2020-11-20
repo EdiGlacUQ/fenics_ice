@@ -48,8 +48,8 @@ beta_active = false
 simultaneous = false
 alt_iter = 2
 
-gamma_alpha = 7.071067e2 #5.0e2 #6
-delta_alpha = 7.071067e-06 #5.0e-6 #-2
+gamma_alpha = 1.0e1 #6
+delta_alpha = 1.0e-5
 gamma_beta = 0.0
 delta_beta = 0.0
 
@@ -99,7 +99,7 @@ num_sens = 5 #TODO rename
 
 [eigendec]
 
-num_eig = 100
+#num_eig = 100
 eig_algo = "slepc"
 misfit_only = true
 

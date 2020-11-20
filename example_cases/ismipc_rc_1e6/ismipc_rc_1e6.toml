@@ -4,8 +4,8 @@
 
 #gamma_alpha =/= 1e6 (discrete cost func) but equivalent to initial test case
 run_name = "ismipc_rc_1e6"
-input_dir = "./input"
-output_dir = "./output"
+input_dir = "/exports/csce/datastore/geos/groups/geos_iceocean/dgoldber/fenics_ice/fenics_ice/example_cases/ismipc_rc_1e6/input"
+output_dir = "/exports/csce/datastore/geos/groups/geos_iceocean/dgoldber/fenics_ice/fenics_ice/example_cases/ismipc_rc_1e6/output"
 
 data_file = "ismipc_input.h5"
 
@@ -55,13 +55,13 @@ beta_active = false
 simultaneous = false
 alt_iter = 2
 
-gamma_alpha = 7.071067e2 #5.0e2 #6
-delta_alpha = 7.071067e-06 #5.0e-6 #-2
+gamma_alpha = 5.0e1 #6
+delta_alpha = 1.0e-5 #-2
 gamma_beta = 0.0
 delta_beta = 0.0
 
 ftol = 1e-4
-#gtol = 1e-12
+#gtol = 1e-5
 verbose = true
 
 [ice_dynamics]
@@ -103,10 +103,11 @@ run_length = 30.0
 total_steps = 120
 #dt = 0.033333333
 num_sens = 5 #TODO rename
+num_samples = 1000
 
 [eigendec]
 
-num_eig = 100
+#num_eig = 100
 eig_algo = "slepc"
 misfit_only = true
 
