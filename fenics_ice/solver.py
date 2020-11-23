@@ -747,6 +747,7 @@ class ssa_solver:
             obs_local[i] = bbox.compute_first_entity_collision(p) <= cell_max
 
         local_cnt = np.sum(obs_local)
+        local_obs_pts = [(u, v) for u, v in uv_obs_pts[obs_local]]
 
         alpha = self.alpha
         beta = self.beta
@@ -766,17 +767,62 @@ class ssa_solver:
         # Sample Discrete Points
 
         # Arbitrary mesh to define function for interpolated variables
-        obs_mesh = UnitIntervalMesh(MPI.comm_self, local_cnt)
-        obs_space = FunctionSpace(obs_mesh, "Discontinuous Lagrange", 0)
+
+        # Gather info from other partitions on global point counts etc
+        comm = self.mesh.mpi_comm()
+        rank = comm.rank
+
+        global_vcnts = comm.allgather(local_cnt)  # points on each partition
+        global_vcnt = sum(global_vcnts)  # total number of points
+
+        assert global_vcnt == len(obs_local), "Mismatch between total number of observation "
+        "points and the sum of those assigned to each partition. "
+        "Note that this might not necessarily be an error - should be handled better."
+
+        # each partition has 1 fewer elem than points
+        global_ecnts = [vc-1 for vc in global_vcnts]
+        global_ecnt = sum(global_ecnts)
+
+        # Compute global idx offsets
+        vidx_offset = 0
+        for i in range(rank):
+            vidx_offset += global_vcnts[i]
+
+        obs_mesh = Mesh()
+
+        editor = MeshEditor()
+        editor.open(obs_mesh, "interval", 1, 2)
+        editor.init_vertices_global(local_cnt, global_vcnt)
+        editor.init_cells_global(local_cnt-1, global_ecnt)
+
+        # Add vertices
+        for i in range(local_cnt):
+            editor.add_vertex_global(i, i+vidx_offset, local_obs_pts[i])
+
+        # and elements  - NOTE - possibly need to add cells to connect partitions
+        # Also possibly need to catch edge case where a partition has no obs pts
+        # TODO - could test this
+        for i in range(local_cnt-1):
+            editor.add_cell(i, [i, i+1])
+
+        editor.close()
+        obs_mesh.init()
+        obs_mesh.order()
+
+        obs_space = FunctionSpace(obs_mesh, "CG", 1)
+
+        # NB: this dofmap approach depends on CG space! (dofs at nodes)
+        dofmap = vertex_to_dof_map(obs_space)
+
         u_obs_pts = Function(obs_space, name='u_obs_pts')
         v_obs_pts = Function(obs_space, name='v_obs_pts')
         u_std_pts = Function(obs_space, name='u_std_pts')
         v_std_pts = Function(obs_space, name='v_std_pts')
 
-        u_obs_pts.vector()[:] = u_obs[obs_local]
-        v_obs_pts.vector()[:] = v_obs[obs_local]
-        u_std_pts.vector()[:] = u_std[obs_local]
-        v_std_pts.vector()[:] = v_std[obs_local]
+        u_obs_pts.vector()[:] = u_obs[obs_local][dofmap]
+        v_obs_pts.vector()[:] = v_obs[obs_local][dofmap]
+        u_std_pts.vector()[:] = u_std[obs_local][dofmap]
+        v_std_pts.vector()[:] = v_std[obs_local][dofmap]
 
         u_obs_pts.vector().apply("insert")
         v_obs_pts.vector().apply("insert")
@@ -803,8 +849,8 @@ class ssa_solver:
         vf.rename("vf", "")
 
         interper2 = InterpolationSolver(uf,
-                                        u_pts,
-                                        x_coords=uv_obs_pts[obs_local])
+                                        u_pts)
+
         interper2.solve()
         P = interper2._B[0]._A._P
         P_T = interper2._B[0]._A._P_T
