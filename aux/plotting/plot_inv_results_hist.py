@@ -139,6 +139,7 @@ u_obs_pts = Function(obs_space, name='u_obs_pts')
 v_obs_pts = Function(obs_space, name='v_obs_pts')
 u_err = Function(obs_space, name='u_err')
 v_err = Function(obs_space, name='v_err')
+tot_err = Function(obs_space, name='tot_err')
 u_std_pts = Function(obs_space, name='u_std_pts')
 v_std_pts = Function(obs_space, name='v_std_pts')
 
@@ -149,7 +150,8 @@ v_std_pts.vector()[:] = v_std
 
 u_err.vector()[:] = (u_pts.vector()[:]-u_obs_pts.vector()[:])
 v_err.vector()[:] = (v_pts.vector()[:]-v_obs_pts.vector()[:])
-err_vec=np.concatenate((u_err.vector()[:],v_err.vector()[:]))
+#err_vec=np.concatenate((u_err.vector()[:],v_err.vector()[:]))
+tot_err.vector()[:] = (u_err.vector()[:]**2+v_err.vector()[:]**2)**.5
 ##########################################################
 
 x    = mesh.coordinates()[:,0]
@@ -204,7 +206,9 @@ cbar.ax.set_xlabel(r'$U$ (m $yr^{-1}$)')
 
 
 ax  = fig.add_subplot(234)
-ax.hist(err_vec)
+ax.hist(tot_err.vector()[:])
+plt.xlabel('velocity error (m yr$^{-1}$)')
+plt.ylabel('count')
 #v   = uv_obs.compute_vertex_values(mesh)
 #levels = np.linspace(10,30,numlev)
 #ticks = np.linspace(10,30,3)
@@ -239,7 +243,8 @@ ax.text(0.05, 0.95, 'e', transform=ax.transAxes,
     fontsize=13, fontweight='bold', va='top')
 c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
 cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal",shrink=.75)
-cbar.ax.set_xlabel(r'temp')
+cbar.ax.set_xlabel(r'$\partial Q/\partial \beta$')
 
 plt.tight_layout(2.0)
+plt.show()
 plt.savefig(os.path.join(outdir, run_name + '_inv_results.png'))
