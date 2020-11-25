@@ -734,25 +734,13 @@ class ssa_solver:
         v_std = self.v_std
         uv_obs_pts = self.uv_obs_pts
 
-        # Determine observations within our mesh partition
-        # TODO find a faster way to do this
-        # TODO - this fails when obs points are vertices - is this a problem?
-
-        cell_max = self.mesh.cells().shape[0]
-        obs_local = np.zeros_like(u_obs, dtype=np.bool)
-
-        bbox = self.mesh.bounding_box_tree()
-        for i in range(uv_obs_pts.shape[0]):
-            p = Point(uv_obs_pts[i, 0], uv_obs_pts[i, 1])
-            obs_local[i] = bbox.compute_first_entity_collision(p) <= cell_max
-
-        local_cnt = np.sum(obs_local)
-
+        # Control functions
         alpha = self.alpha
         beta = self.beta
         beta_bgd = self.beta_bgd
         betadiff = beta-beta_bgd
 
+        # Measure
         dIce = self.dIce
         # ds = self.ds
         # nm = self.nm
@@ -763,20 +751,84 @@ class ssa_solver:
         gamma_a = self.gamma_alpha
         gamma_b = self.gamma_beta
 
+        # Determine observations within our mesh partition
+        # Note that although cell_max counts ghost_cells,
+        # compute_first_entity_collision seems to ignore
+        # ghost elements, and so arrives at the right answer
+        cell_max = self.mesh.cells().shape[0]
+        obs_local = np.zeros_like(u_obs, dtype=np.bool)
+
+        bbox = self.mesh.bounding_box_tree()
+        for i in range(uv_obs_pts.shape[0]):
+            p = Point(uv_obs_pts[i, 0], uv_obs_pts[i, 1])
+            obs_local[i] = bbox.compute_first_entity_collision(p) <= cell_max
+
+        if np.sum(obs_local) == 0:
+            raise NotImplementedError("At least one partition has no velocity observations. "
+                                      "Need to implement a dummy point w/ semi-inner-product "
+                                      "to handle this case.")
+
+        local_cnt = np.sum(obs_local)
+        local_obs_pts = [(u, v) for u, v in uv_obs_pts[obs_local]]
+
         # Sample Discrete Points
 
         # Arbitrary mesh to define function for interpolated variables
-        obs_mesh = UnitIntervalMesh(MPI.comm_self, local_cnt)
-        obs_space = FunctionSpace(obs_mesh, "Discontinuous Lagrange", 0)
+
+        # Gather info from other partitions on global point counts etc
+        comm = self.mesh.mpi_comm()
+        rank = comm.rank
+
+        global_vcnts = comm.allgather(local_cnt)  # points on each partition
+        global_vcnt = sum(global_vcnts)  # total number of points
+
+        assert global_vcnt == len(obs_local), ("Mismatch between total number of observation "
+        "points and the sum of those assigned to each partition. "
+        "Note that this might not necessarily be an error - should be handled better.")
+
+        # each partition has 1 fewer elem than points
+        global_ecnts = [vc-1 for vc in global_vcnts]
+        global_ecnt = sum(global_ecnts)
+
+        # Compute global idx offsets
+        vidx_offset = 0
+        for i in range(rank):
+            vidx_offset += global_vcnts[i]
+
+        obs_mesh = Mesh()
+
+        editor = MeshEditor()
+        editor.open(obs_mesh, "interval", 1, 2)
+        editor.init_vertices_global(local_cnt, global_vcnt)
+        editor.init_cells_global(max(local_cnt-1, 0), global_ecnt)
+
+        # Add vertices
+        for i in range(local_cnt):
+            editor.add_vertex_global(i, i+vidx_offset, local_obs_pts[i])
+
+        # Add elements  - NOTE - possibly need to add cells to connect partitions
+        # Also may need to handle edge case where a partition has no obs pts (caught above)
+        for i in range(local_cnt-1):
+            editor.add_cell(i, [i, i+1])
+
+        editor.close()
+        obs_mesh.init()
+        obs_mesh.order()
+
+        obs_space = FunctionSpace(obs_mesh, "CG", 1)
+
+        # NB: this dofmap approach depends on CG space! (dofs at nodes)
+        dofmap = vertex_to_dof_map(obs_space)
+
         u_obs_pts = Function(obs_space, name='u_obs_pts')
         v_obs_pts = Function(obs_space, name='v_obs_pts')
         u_std_pts = Function(obs_space, name='u_std_pts')
         v_std_pts = Function(obs_space, name='v_std_pts')
 
-        u_obs_pts.vector()[:] = u_obs[obs_local]
-        v_obs_pts.vector()[:] = v_obs[obs_local]
-        u_std_pts.vector()[:] = u_std[obs_local]
-        v_std_pts.vector()[:] = v_std[obs_local]
+        u_obs_pts.vector()[:] = u_obs[obs_local][dofmap]
+        v_obs_pts.vector()[:] = v_obs[obs_local][dofmap]
+        u_std_pts.vector()[:] = u_std[obs_local][dofmap]
+        v_std_pts.vector()[:] = v_std[obs_local][dofmap]
 
         u_obs_pts.vector().apply("insert")
         v_obs_pts.vector().apply("insert")
@@ -787,25 +839,17 @@ class ssa_solver:
         u_pts = Function(obs_space, name='u_pts')
         v_pts = Function(obs_space, name='v_pts')
 
-        # TODO - is projection to M instead of Q OK here?
-        # it's necessary for InterpolationSolver to work
-        #
-        # Attempted to fix this (below) but causes an error
-        # in InterpolationSolver
-        uf = project(u, self.M)
-        vf = project(v, self.M)
-
-        # interp_space = FunctionSpace(self.mesh, 'DG', 1)
-        # uf = project(u, interp_space)
-        # vf = project(v, interp_space)
+        # Project modelled velocity to DG1 to simplify graph coloring
+        interp_space = FunctionSpace(self.mesh, 'DG', 1)
+        uf = project(u, interp_space)
+        vf = project(v, interp_space)
 
         uf.rename("uf", "")
         vf.rename("vf", "")
 
-        interper2 = InterpolationSolver(uf,
-                                        u_pts,
-                                        x_coords=uv_obs_pts[obs_local])
+        interper2 = InterpolationSolver(uf, u_pts)
         interper2.solve()
+
         P = interper2._B[0]._A._P
         P_T = interper2._B[0]._A._P_T
         InterpolationSolver(vf, v_pts, P=P, P_T=P_T).solve()
