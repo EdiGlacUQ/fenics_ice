@@ -70,6 +70,9 @@ cd $INSTALL_DIR
 
 #install tlm_adjoint & fenics_ice
 git clone https://github.com/jrmaddison/tlm_adjoint.git
+cd $INSTALL_DIR/tlm_adjoint
+git checkout jtodd/fice_devel
+
 #git clone git@github.com:cpk26/fenics_ice.git
 
 cd $FENICS_ICE_BASE_DIR

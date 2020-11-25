@@ -45,7 +45,7 @@ install:
   #install tlm_adjoint & fenics_ice
   - git clone https://github.com/jrmaddison/tlm_adjoint.git
   - cd $INSTALL_DIR/tlm_adjoint
-  - git checkout master
+  - git checkout jtodd/fice_devel
 
   #'Install' the projects
   - conda-develop $INSTALL_DIR/tlm_adjoint/python/
