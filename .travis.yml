@@ -36,13 +36,8 @@ install:
   - pip install --upgrade pip
   - pip install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency cytoolz
 
-  #get pyrevolve
-  - git clone https://github.com/opesci/pyrevolve.git
-  - cd pyrevolve/
-  - python setup.py install
-  - cd $INSTALL_DIR
-
   #install tlm_adjoint & fenics_ice
+  - cd $INSTALL_DIR
   - git clone https://github.com/jrmaddison/tlm_adjoint.git
   - cd $INSTALL_DIR/tlm_adjoint
   - git checkout jtodd/fice_devel
