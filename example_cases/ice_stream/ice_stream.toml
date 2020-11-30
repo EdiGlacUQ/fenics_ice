@@ -76,6 +76,9 @@ absolute_tolerance = 1.0e-0
 relative_tolerance = 1.0e-3
 convergence_criterion = "incremental"
 error_on_nonconvergence =  false
+[momsolve.picard_params.newton_solver.krylov_solver]
+divergence_limit = 1e20
+nonzero_initial_guess = false
 
 [momsolve.newton_params]
 nonlinear_solver = "newton"
@@ -83,8 +86,8 @@ nonlinear_solver = "newton"
 linear_solver = "bicgstab" # gmres?  try direct too. [cg with icc]  [gmres, sor]
 preconditioner = "hypre_amg" # doesn't work so well on unstructured mesh?
 maximum_iterations = 25
-absolute_tolerance = 1.0e-7
-relative_tolerance = 1.0e-8
+absolute_tolerance = 1.0e-8
+relative_tolerance = 1.0e-9
 convergence_criterion = "incremental"
 error_on_nonconvergence = true
 [momsolve.newton_params.newton_solver.krylov_solver]
@@ -131,8 +134,8 @@ qoi = 'vaf'
 [testing]
 
 expected_init_alpha = 252.96603585543977
-expected_J_inv = 1006.2599842538492
-expected_cntrl_norm = 101.22682289332977
+expected_J_inv = 1006.2599842544072
+expected_cntrl_norm = 101.22682289335465
 expected_delta_qoi = -65018811.56778002
 expected_u_norm = 1572958.6684478628
 expected_evals_sum = 2671397.1906572958
