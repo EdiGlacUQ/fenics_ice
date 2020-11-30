@@ -1,6 +1,6 @@
 [io] #Directory specification
 
-run_name = "ice_stream_test"
+run_name = "ice_stream_dual"
 input_dir = "./input"
 output_dir = "./output"
 
@@ -45,19 +45,19 @@ vel_file = "ice_stream_U_obs.h5"
 
 [inversion]
 
-max_iter = 200
+max_iter = 5
 
 alpha_active = true
 beta_active = true
-alt_iter = 3
+alt_iter = 10
 
 gamma_alpha = 5.0e2 #6
 delta_alpha = 5.0e-6 #-2
 gamma_beta = 5.0e2
 delta_beta = 5.0e-6
 
-ftol = 1e-4
-gtol = 1e-12
+ftol = 1e-20
+gtol = 1e-20
 verbose = false
 
 [ice_dynamics]
@@ -76,6 +76,9 @@ absolute_tolerance = 1.0e-0
 relative_tolerance = 1.0e-3
 convergence_criterion = "incremental"
 error_on_nonconvergence =  false
+[momsolve.picard_params.newton_solver.krylov_solver]
+divergence_limit = 1e20
+nonzero_initial_guess = false
 
 [momsolve.newton_params]
 nonlinear_solver = "newton"
@@ -83,8 +86,8 @@ nonlinear_solver = "newton"
 linear_solver = "bicgstab" # gmres?  try direct too. [cg with icc]  [gmres, sor]
 preconditioner = "hypre_amg" # doesn't work so well on unstructured mesh?
 maximum_iterations = 25
-absolute_tolerance = 1.0e-7
-relative_tolerance = 1.0e-8
+absolute_tolerance = 1.0e-8
+relative_tolerance = 1.0e-9
 convergence_criterion = "incremental"
 error_on_nonconvergence = true
 [momsolve.newton_params.newton_solver.krylov_solver]
@@ -131,14 +134,14 @@ qoi = 'vaf'
 [testing]
 
 expected_init_alpha = 252.96603585543977
-expected_J_inv = 359.48231009302884
-expected_cntrl_norm = 36.11622109234562
-expected_delta_qoi = -73662410.39510489
-expected_u_norm = 1623878.614481735
-expected_evals_sum = 58485.97557793267
-expected_evec0_norm = 199853.80883986558
-expected_cntrl_sigma_norm = 10147.126617776543
+expected_J_inv = 1006.2599842544072
+expected_cntrl_norm = 101.22682289335465
+expected_delta_qoi = -65018811.56778002
+expected_u_norm = 1572958.6684478628
+expected_evals_sum = 2671397.1906572958
+expected_evec0_norm = 195548.41061906933
+expected_cntrl_sigma_norm = 7791.171867355846
 expected_cntrl_sigma_prior_norm = 209509.89381254045
-expected_Q_sigma = 34208.51888971915
-expected_Q_sigma_prior = 4378535.554098717
+expected_Q_sigma = 49097.92748257168
+expected_Q_sigma_prior = 57256603.54374976
 
