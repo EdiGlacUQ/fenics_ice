@@ -208,7 +208,8 @@ def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
     Q_sigma_prior = mdl_out.Q_sigma_prior[-1]
 
     if pytest.parallel:
-        tol = 1e-6
+        tol = 5e-5
+
     else:
         tol = 1e-7
 
