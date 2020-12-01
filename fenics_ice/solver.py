@@ -847,12 +847,14 @@ class ssa_solver:
         uf.rename("uf", "")
         vf.rename("vf", "")
 
-        interper2 = InterpolationSolver(uf, u_pts)
+        # TODO - what's the significance of missing some points here?
+        # Does this affect the value of the cost function?
+        interper2 = InterpolationSolver(uf, u_pts, tolerance=1.0)
         interper2.solve()
 
         P = interper2._B[0]._A._P
         P_T = interper2._B[0]._A._P_T
-        InterpolationSolver(vf, v_pts, P=P, P_T=P_T).solve()
+        InterpolationSolver(vf, v_pts, P=P, P_T=P_T, tolerance=1.0).solve()
 
         J = Functional(name="J")
 
