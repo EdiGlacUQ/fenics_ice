@@ -85,9 +85,9 @@ nonlinear_solver = "newton"
 [momsolve.newton_params.newton_solver] #[gmres w/ ilu]
 linear_solver = "bicgstab" # gmres?  try direct too. [cg with icc]  [gmres, sor]
 preconditioner = "hypre_amg" # doesn't work so well on unstructured mesh?
-maximum_iterations = 25
-absolute_tolerance = 1.0e-8
-relative_tolerance = 1.0e-9
+maximum_iterations = 50
+absolute_tolerance = 1.0e-9
+relative_tolerance = 1.0e-10
 convergence_criterion = "incremental"
 error_on_nonconvergence = true
 [momsolve.newton_params.newton_solver.krylov_solver]
