@@ -18,4 +18,5 @@ example_cases/*/input
 example_cases/*/output
 example_cases/*/plots
 example_cases/plots
+**/log*
 core

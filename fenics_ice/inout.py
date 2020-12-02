@@ -490,7 +490,9 @@ def configure_tlm_checkpointing(params):
         config_dict = {"period": cparam.period,
                        "format": "pickle"}
 
-    else:
+    elif method == 'memory':
         config_dict = {}
+    else:
+        raise ValueError(f"Invalid checkpointing method: {method}")
 
     configure_checkpointing(method, config_dict)
