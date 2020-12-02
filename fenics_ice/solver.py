@@ -407,12 +407,22 @@ class ssa_solver:
 
         H_s = self.H_s
         a, L = lhs(self.thickadv), rhs(self.thickadv)
-        solve(a == L, H_s, bcs=self.H_bcs)
+        # solve(a == L, H_s, bcs=self.H_bcs)
+        solve(a == L, H_s, bcs=self.H_bcs,
+              solver_parameters={"linear_solver": "lu",
+                                 "absolute_tolerance": "1e-10",
+                                 "relative_tolerance": "1e-11",
+              })
 
     def solve_thickadv_split_eq(self):
         H_nps = self.H_nps
         a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
-        solve(a == L, H_nps, bcs=self.H_bcs)
+        # solve(a == L, H_nps, bcs=self.H_bcs)
+        solve(a == L, H_nps, bcs=self.H_bcs,
+              solver_parameters={"linear_solver": "lu",
+                                 "absolute_tolerance": "1e-10",
+                                 "relative_tolerance": "1e-11",
+              })
 
     def timestep(self, save=1, adjoint_flag=1, qoi_func=None ):
         """
