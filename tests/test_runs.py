@@ -149,6 +149,40 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
                               expected_u_norm,
                               work_dir, 'expected_u_norm')
 
+    #######################
+    # Taylor verification #
+    #######################
+
+    qoi_func = slvr.get_qoi_func()
+    cntrl = slvr.get_control()
+
+    object.__setattr__(slvr.params.time, "num_sens", 1)  # 1 qoi value only
+    slvr.reset_ts_zero()
+    J = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)
+    dJ = compute_gradient(J, cntrl)
+
+    def forward_ts(cntrl_val):
+        slvr.reset_ts_zero()
+        slvr.alpha = cntrl_val
+        print("Setting alpha ", flush=True)
+        # if beta_val:
+        #     slvr.beta = beta_val
+        return slvr.timestep(adjoint_flag=1, qoi_func=slvr.get_qoi_func())
+
+    # J1 = forward_ts(cntrl[0])
+    # J2 = forward_ts(cntrl[0])
+    # assert(J1[0].value() == J2[0].value())  <- passed
+
+    # for forward_J, J_val, dJ in [(lambda x: forward(x)[0], J.value(), dJs[0]),
+    #                              (lambda x: forward(x)[1], K.value(), dJs[1])]:
+
+    min_order = taylor_test(lambda cntrl_val: forward_ts(cntrl_val=cntrl_val)[0], cntrl,
+                            J_val=J[0].value(), dJ=dJ[0], seed=1e-2, size=6)
+
+    print(f"Forward simulation min_order: {min_order}")
+
+    assert(min_order > 1.99)
+
 
 @pytest.mark.dependency()
 @pytest.mark.runs
