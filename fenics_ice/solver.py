@@ -45,7 +45,6 @@ class ssa_solver:
         # Fields
         self.bed = model.bed
         self.H_np = model.H_np
-        # self.H_s = model.H_s
         self.H = model.H
         self.beta = model.beta
         self.beta_bgd = model.beta_bgd
@@ -398,8 +397,6 @@ class ssa_solver:
         # + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds
         # + bmelt*Ksi*dIce_flt) #basal melting
 
-        # self.thickadv_split = ufl.replace(self.thickadv, {U_np: 0.5 * (self.U + self.U_np)})
-
         self.H_bcs = []
 
     def solve_thickadv_eq(self):
@@ -407,11 +404,6 @@ class ssa_solver:
         H = self.H
         a, L = lhs(self.thickadv), rhs(self.thickadv)
         solve(a == L, H, bcs=self.H_bcs)
-
-    # def solve_thickadv_split_eq(self):
-    #     H_nps = self.H_nps
-    #     a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
-    #     solve(a == L, H_nps, bcs=self.H_bcs)
 
     def timestep(self, save=1, adjoint_flag=1, qoi_func=None ):
         """
@@ -437,8 +429,6 @@ class ssa_solver:
         U_np = self.U_np
         # H = self.H
         H_np = self.H_np
-        # H_s = self.H_s
-        # H_nps = self.H_nps
 
         if adjoint_flag:
             num_sens = self.params.time.num_sens
@@ -488,14 +478,6 @@ class ssa_solver:
             begin("Starting timestep %i of %i, time = %.16e a" % (n + 1, n_steps, t))
 
             # Solve
-
-            # # Operator splitting
-            # self.solve_thickadv_eq()
-            # self.solve_mom_eq()
-            # self.solve_thickadv_split_eq()
-
-            # U_np.assign(U)
-            # H_np.assign(H_nps)
 
             # Simple Scheme
             self.solve_thickadv_eq()
@@ -968,8 +950,6 @@ class ssa_solver:
         self.U_np.assign(self.U_init, annotate=False)
         self.H_np.assign(self.H_init, annotate=False)
         self.H.assign(self.H_init, annotate=False)
-        # self.H_nps.assign(self.H_init, annotate=False)
-        # self.H = 0.5*(self.H_np + self.H_s)
 
 # TODO - this isn't referenced anywhere
 class ddJ_wrapper(object):
