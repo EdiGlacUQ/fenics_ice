@@ -84,8 +84,8 @@ nonlinear_solver = "newton"
 [momsolve.newton_params.newton_solver]
 linear_solver = "umfpack"
 maximum_iterations = 25
-absolute_tolerance = 1.0e-7
-relative_tolerance = 1.0e-8
+absolute_tolerance = 1.0e-10
+relative_tolerance = 1.0e-11
 convergence_criterion = "incremental"
 error_on_nonconvergence = true
 

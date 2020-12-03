@@ -128,6 +128,10 @@ def pytest_configure(config):
         "markers", "runs: tests of whole run components"
     )
 
+    config.addinivalue_line(
+        "markers", "testfwd: Quickly test forward model!"
+    )
+
     pytest.remake_cases = config.option.remake
 
 

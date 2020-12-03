@@ -34,6 +34,7 @@ def EQReset():
 
 @pytest.mark.dependency()
 @pytest.mark.runs
+@pytest.mark.testfwd
 def test_run_inversion(persistent_temp_model, monkeypatch):
 
     work_dir = persistent_temp_model["work_dir"]
@@ -117,6 +118,7 @@ def test_run_inversion(persistent_temp_model, monkeypatch):
 
 @pytest.mark.dependency()
 @pytest.mark.runs
+@pytest.mark.testfwd
 def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
     setup_deps.set_case_dependency(request, ["test_run_inversion"])
@@ -135,6 +137,11 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
     EQReset()
 
     mdl_out = run_forward.run_forward(toml_file)
+
+    from fenics_ice import graphviz
+    manager_graph = graphviz.dot()
+    with open("forward_manager.dot", "w") as outfile:
+        outfile.write(manager_graph)
 
     slvr = mdl_out.solvers[0]
 
@@ -197,7 +204,7 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
                                 cntrl_curr,
                                 J_val=J.value(),
                                 dJ=dJ_curr,
-                                seed=seed,
+                                seed=1.0e-5,
                                 M0=cntrl_curr_init,
                                 size=6)
 
