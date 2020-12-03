@@ -134,14 +134,14 @@ qoi = 'vaf'
 [testing]
 
 expected_init_alpha = 252.96603585543977
-expected_J_inv = 1006.2599842544072
-expected_cntrl_norm = 101.22682289335465
-expected_delta_qoi = -65018811.56778002
-expected_u_norm = 1572958.6684478628
-expected_evals_sum = 2671397.1906572958
-expected_evec0_norm = 195548.41061906933
-expected_cntrl_sigma_norm = 7791.171867355846
+expected_J_inv = 1006.2599842508029
+expected_cntrl_norm = 101.22682289322624
+expected_delta_qoi = -65039712.18205428
+expected_u_norm = 1560923.9725215016
+expected_evals_sum = 2671397.1906573037
+expected_evec0_norm = 195548.4106190667
+expected_cntrl_sigma_norm = 7791.171925130068
 expected_cntrl_sigma_prior_norm = 209509.89381254045
-expected_Q_sigma = 49097.92748257168
-expected_Q_sigma_prior = 57256603.54374976
+expected_Q_sigma = 48934.85411355757
+expected_Q_sigma_prior = 57456560.6603505
 

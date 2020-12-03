@@ -45,7 +45,6 @@ class ssa_solver:
         # Fields
         self.bed = model.bed
         self.H_np = model.H_np
-        self.H_s = model.H_s
         self.H = model.H
         self.beta = model.beta
         self.beta_bgd = model.beta_bgd
@@ -171,8 +170,8 @@ class ssa_solver:
         nu = self.viscosity(U_marker)
 
         # Switch parameters
-        H_s = -rhow/rhoi * bed
-        fl_ex = self.float_conditional(H, H_s)
+        H_flt = -rhow/rhoi * bed
+        fl_ex = self.float_conditional(H, H_flt)
         B2 = self.sliding_law(alpha, U_marker)
 
         ##############################################
@@ -181,10 +180,10 @@ class ssa_solver:
 
         # Driving stress quantities
         F = (1 - fl_ex) * 0.5*rhoi*g*H**2 + \
-            (fl_ex) * 0.5*rhoi*g*(delta*H**2 + (1-delta)*H_s**2 )
+            (fl_ex) * 0.5*rhoi*g*(delta*H**2 + (1-delta)*H_flt**2 )
 
         W = (1 - fl_ex) * rhoi*g*H + \
-            (fl_ex) * rhoi*g*H_s
+            (fl_ex) * rhoi*g*H_flt
 
         # Depth of the submarine portion of the calving front
         # ufl.Max to avoid edge case of land termininating calving front
@@ -325,7 +324,6 @@ class ssa_solver:
         info("Time for solve: {0}".format(t1-t0))
 
     def def_thickadv_eq(self):
-        U = self.U
         U_np = self.U_np
         Ksi = self.Ksi
         trial_H = self.trial_H
@@ -399,26 +397,13 @@ class ssa_solver:
         # + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds
         # + bmelt*Ksi*dIce_flt) #basal melting
 
-        self.thickadv_split = ufl.replace(self.thickadv, {U_np: 0.5 * (self.U + self.U_np)})
-
         self.H_bcs = []
 
     def solve_thickadv_eq(self):
 
-        H_s = self.H_s
+        H = self.H
         a, L = lhs(self.thickadv), rhs(self.thickadv)
-        # solve(a == L, H_s, bcs=self.H_bcs)
-        solve(a == L, H_s, bcs=self.H_bcs,
-              solver_parameters={"linear_solver": "lu",
-                                 "absolute_tolerance": "1e-10",
-                                 "relative_tolerance": "1e-11",
-              })
-
-    def solve_thickadv_split_eq(self):
-        H_nps = self.H_nps
-        a, L = lhs(self.thickadv_split), rhs(self.thickadv_split)
-        # solve(a == L, H_nps, bcs=self.H_bcs)
-        solve(a == L, H_nps, bcs=self.H_bcs,
+        solve(a == L, H, bcs=self.H_bcs,
               solver_parameters={"linear_solver": "lu",
                                  "absolute_tolerance": "1e-10",
                                  "relative_tolerance": "1e-11",
@@ -448,8 +433,6 @@ class ssa_solver:
         U_np = self.U_np
         # H = self.H
         H_np = self.H_np
-        # H_s = self.H_s
-        H_nps = self.H_nps
 
         if adjoint_flag:
             num_sens = self.params.time.num_sens
@@ -500,22 +483,14 @@ class ssa_solver:
 
             # Solve
 
-            # Operator splitting
-            self.solve_thickadv_eq()
-            self.solve_mom_eq()
-            self.solve_thickadv_split_eq()
-
-            U_np.assign(U)
-            H_np.assign(H_nps)
-
             # Simple Scheme
-            # self.solve_thickadv_eq()
-            # H_np.assign(H_s)
-            #
-            # self.solve_mom_eq()
-            # U_np.assign(U)
+            self.solve_thickadv_eq()
+            H_np.assign(self.H)
 
-            # Increment time
+            self.solve_mom_eq()
+            U_np.assign(self.U)
+
+            # increment time
             n += 1
             t = n * float(dt)
 
@@ -1026,9 +1001,7 @@ class ssa_solver:
         self.U.assign(self.U_init, annotate=False)
         self.U_np.assign(self.U_init, annotate=False)
         self.H_np.assign(self.H_init, annotate=False)
-        self.H_s.assign(self.H_init, annotate=False)
-        self.H_nps.assign(self.H_init, annotate=False)
-        self.H = 0.5*(self.H_np + self.H_s)
+        self.H.assign(self.H_init, annotate=False)
 
 # TODO - this isn't referenced anywhere
 class ddJ_wrapper(object):
