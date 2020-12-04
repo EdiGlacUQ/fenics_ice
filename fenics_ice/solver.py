@@ -108,7 +108,7 @@ class ssa_solver:
         self.ds = Measure('ds', domain=self.mesh, subdomain_data=self.ff)
 
         self.dIce = self.dx  # just an alias
-        self.dt = Constant(self.params.time.dt)
+        self.dt = Constant(self.params.time.dt, name="dt")
 
         self.eigenvals = None
         self.eigenfuncs = None
@@ -426,7 +426,7 @@ class ssa_solver:
         t = 0.0
 
         self.Qval_ts = np.zeros(n_steps+1)
-        Q = Functional()
+        Q = Functional(name="Q")
         Q_is = []
 
         U = self.U
@@ -456,7 +456,7 @@ class ssa_solver:
 
         if adjoint_flag:
             if 0.0 in n_sens:
-                Q_i = Functional()
+                Q_i = Functional(name="Q_i")
                 Q_i.assign(qoi)
                 Q_is.append(Q_i)
                 Q.addto(Q_i.fn())
@@ -504,12 +504,13 @@ class ssa_solver:
 
                 if adjoint_flag:
                     if n in n_sens:
-                        Q_i = Functional()
+                        Q_i = Functional(name="Q_i")
                         Q_i.assign(qoi)
                         Q_is.append(Q_i)
                         Q.addto(Q_i.fn())
-                    else:
-                        Q.addto()
+                    # else:
+                    #     Q.addto()
+
 
             if save:
                 xdmf_hts.write(H_np, t)
@@ -934,8 +935,8 @@ class ssa_solver:
         # B stands in for self.bed, which leads to a taping error
         B = Function(self.bed.function_space())
         B.assign(self.bed, annotate=False)
-        rhoi = Constant(cnst.rhoi)
-        rhow = Constant(cnst.rhow)
+        rhoi = Constant(cnst.rhoi, name="Constant rhoi")
+        rhow = Constant(cnst.rhow, name="Constant rhow")
         dIce = self.dIce
         # dt = self.dt
 
