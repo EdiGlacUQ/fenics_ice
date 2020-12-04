@@ -931,16 +931,13 @@ class ssa_solver:
         cnst = self.params.constants
 
         H = self.H_np
-        # B stands in for self.bed, which leads to a taping error
-        B = Function(self.bed.function_space())
-        B.assign(self.bed, annotate=False)
+        bed = self.bed
         rhoi = Constant(cnst.rhoi, name="Constant rhoi")
         rhow = Constant(cnst.rhow, name="Constant rhow")
         dIce = self.dIce
-        # dt = self.dt
 
-        b_ex = conditional(B < 0.0, 1.0, 0.0)
-        HAF = ufl.Max(b_ex * (H + (rhow/rhoi)*B) + (1-b_ex)*(H), 0.0)
+        b_ex = conditional(bed < 0.0, 1.0, 0.0)
+        HAF = ufl.Max(b_ex * (H + (rhow/rhoi)*bed) + (1-b_ex)*(H), 0.0)
 
         Q_vaf = HAF * dIce
 
