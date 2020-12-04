@@ -494,9 +494,6 @@ class ssa_solver:
             n += 1
             t = n * float(dt)
 
-            if n < n_steps - 1 and adjoint_flag:
-                new_block()
-
             # Record
             if qoi_func is not None:
                 qoi = qoi_func()
@@ -511,6 +508,8 @@ class ssa_solver:
                     # else:
                     #     Q.addto()
 
+            if n < n_steps and adjoint_flag:
+                new_block()
 
             if save:
                 xdmf_hts.write(H_np, t)
