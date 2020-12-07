@@ -97,7 +97,6 @@ class ssa_solver:
         self.pTau = TestFunction(self.Qp)
 
         self.trial_H = TrialFunction(self.M)
-        self.H_nps = Function(self.M)
 
         # Facets
         self.ff = model.ff
@@ -993,6 +992,9 @@ class ssa_solver:
 
         self.H_init.assign(self.H, annotate=False)
         self.U_init.assign(self.U, annotate=False)
+
+        self.H_init.rename("H_init", "")
+        self.U_init.rename("U_init", "")
 
     def reset_ts_zero(self):
         self.U.assign(self.U_init, annotate=False)
