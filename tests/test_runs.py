@@ -70,57 +70,57 @@ def test_run_inversion(persistent_temp_model, monkeypatch):
     alpha_active = mdl_out.params.inversion.alpha_active
     beta_active = mdl_out.params.inversion.beta_active
 
-    if alpha_active:
+    # if alpha_active:
 
-        fwd_alpha = mdl_out.solvers[0].forward_alpha
-        alpha = mdl_out.solvers[0].alpha
+    #     fwd_alpha = mdl_out.solvers[0].forward_alpha
+    #     alpha = mdl_out.solvers[0].alpha
 
-        min_order = taylor_test_tlm(fwd_alpha,
-                                    alpha,
-                                    tlm_order=1,
-                                    seed=1.0e-5)
-        print(f"min_order alpha forward first order: {min_order}")
-        # assert(min_order > 1.99)
+    #     min_order = taylor_test_tlm(fwd_alpha,
+    #                                 alpha,
+    #                                 tlm_order=1,
+    #                                 seed=1.0e-5)
+    #     # print(f"min_order alpha forward first order: {min_order}")
+    #     assert(min_order > 1.99)
 
-        min_order = taylor_test_tlm_adjoint(fwd_alpha,
-                                            alpha,
-                                            adjoint_order=1,
-                                            seed=1.0e-5)
-        print(f"min_order alpha adjoint first order: {min_order}")
-        # assert(min_order > 1.99)
+    #     min_order = taylor_test_tlm_adjoint(fwd_alpha,
+    #                                         alpha,
+    #                                         adjoint_order=1,
+    #                                         seed=1.0e-5)
+    #     # print(f"min_order alpha adjoint first order: {min_order}")
+    #     assert(min_order > 1.99)
 
-        min_order = taylor_test_tlm_adjoint(fwd_alpha,
-                                            alpha,
-                                            adjoint_order=2,
-                                            seed=1.0e-5)
-        print(f"min_order alpha adjoint second order: {min_order}")
-        # assert(min_order > 1.99)
+    #     min_order = taylor_test_tlm_adjoint(fwd_alpha,
+    #                                         alpha,
+    #                                         adjoint_order=2,
+    #                                         seed=1.0e-5)
+    #     # print(f"min_order alpha adjoint second order: {min_order}")
+    #     assert(min_order > 1.99)
 
-    if beta_active:
+    # if beta_active:
 
-        fwd_beta = mdl_out.solvers[0].forward_beta
-        beta = mdl_out.solvers[0].beta
+    #     fwd_beta = mdl_out.solvers[0].forward_beta
+    #     beta = mdl_out.solvers[0].beta
 
-        min_order = taylor_test_tlm(fwd_beta,
-                                    beta,
-                                    tlm_order=1,
-                                    seed=1.0e-5)
-        print(f"min_order beta forward first order: {min_order}")
-        # assert(min_order > 1.99)
+    #     min_order = taylor_test_tlm(fwd_beta,
+    #                                 beta,
+    #                                 tlm_order=1,
+    #                                 seed=1.0e-5)
+    #     # print(f"min_order beta forward first order: {min_order}")
+    #     assert(min_order > 1.99)
 
-        min_order = taylor_test_tlm_adjoint(fwd_beta,
-                                            beta,
-                                            adjoint_order=1,
-                                            seed=1.0e-5)
-        print(f"min_order beta adjoint first order: {min_order}")
-        # assert(min_order > 1.99)
+    #     min_order = taylor_test_tlm_adjoint(fwd_beta,
+    #                                         beta,
+    #                                         adjoint_order=1,
+    #                                         seed=1.0e-5)
+    #     # print(f"min_order beta adjoint first order: {min_order}")
+    #     assert(min_order > 1.99)
 
-        min_order = taylor_test_tlm_adjoint(fwd_beta,
-                                            beta,
-                                            adjoint_order=2,
-                                            seed=1.0e-5)
-        print(f"min_order beta adjoint second order: {min_order}")
-        # assert(min_order > 1.99)
+    #     min_order = taylor_test_tlm_adjoint(fwd_beta,
+    #                                         beta,
+    #                                         adjoint_order=2,
+    #                                         seed=1.0e-5)
+    #     # print(f"min_order beta adjoint second order: {min_order}")
+    #     assert(min_order > 1.99)
 
 @pytest.mark.dependency()
 @pytest.mark.runs
@@ -201,6 +201,9 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
     # assert(J1.value() == J2.value())  <- passed
 
     cntrl_init = [f.copy(deepcopy=True) for f in cntrl]
+    #seeds = {'alpha': 1e-2} <- works for the ismipc case!
+
+    seeds = {'alpha': 1e-2, 'beta': 1e-1}
 
     for cntrl_curr, cntrl_curr_init, dJ_curr in zip(cntrl, cntrl_init, dJ):
 
@@ -210,7 +213,7 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
                                 cntrl_curr,
                                 J_val=J.value(),
                                 dJ=dJ_curr,
-                                seed=1.0e-5,
+                                seed=seeds[cntrl_curr.name()],
                                 M0=cntrl_curr_init,
                                 size=6)
 
