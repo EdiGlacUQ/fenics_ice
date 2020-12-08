@@ -170,6 +170,17 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
     cntrl = slvr.get_control()
 
     object.__setattr__(slvr.params.time, "num_sens", 1)  # 1 qoi value only
+
+    # Set these regularisation terms high for taylor verification
+    object.__setattr__(slvr.params.constants, "eps_rp", 1.0e-1)
+    object.__setattr__(slvr.params.constants, "vel_rp", 1.0e-1)
+
+    # Tighter solver tolerances
+
+    slvr.params.momsolve.newton_params["newton_solver"]["absolute_tolerance"] = 1.0e-16
+    slvr.params.momsolve.newton_params["newton_solver"]["relative_tolerance"] = 1.0e-14
+    slvr.params.momsolve.newton_params["newton_solver"]["maximum_iterations"] = 100
+
     slvr.reset_ts_zero()
     J = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)[0]
     dJ = compute_gradient(J, cntrl)
