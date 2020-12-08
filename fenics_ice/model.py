@@ -161,15 +161,17 @@ class model:
         """
         self.beta_bgd = project(beta, self.Qp)
         self.beta = project(beta, self.Qp)
-        if pert:
-            # Perturbed field for nonzero gradient at first step of inversion
-            bv = self.beta.vector().get_local()
-            pert_vec = 0.001*bv*randn(bv.size)
-            self.beta.vector().set_local(bv + pert_vec)
-            self.beta.vector().apply('insert')
 
         self.beta.rename('beta', 'a Function')
         self.beta_bgd.rename('beta_bgd', 'a Function')
+
+        # if pert:
+        #     # Perturbed field for nonzero gradient at first step of inversion
+        #     bv = self.beta.vector().get_local()
+        #     pert_vec = 0.001*bv*randn(bv.size)
+        #     self.beta.vector().set_local(bv + pert_vec)
+        #     self.beta.vector().apply('insert')
+
 
     def vel_obs_from_data(self):
         """

@@ -54,7 +54,7 @@ def run_inv(config_file):
 
     # Add random noise to Beta field iff we're inverting for it
     mdl.bglen_from_data()
-    mdl.init_beta(mdl.bglen_to_beta(mdl.bglen), params.inversion.beta_active)
+    mdl.init_beta(mdl.bglen_to_beta(mdl.bglen), pert=False)
 
     # Next line will output the initial guess for alpha fed into the inversion
     # File(os.path.join(outdir,'alpha_initguess.pvd')) << mdl.alpha
