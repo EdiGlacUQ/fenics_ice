@@ -37,6 +37,7 @@ class ssa_solver:
         parameters["form_compiler"]["optimize"] = False
         parameters["form_compiler"]["cpp_optimize"] = True
         parameters["form_compiler"]["cpp_optimize_flags"] = "-O2 -ffast-math -march=native"
+        parameters["form_compiler"]["precision"] = 16
 
         self.model = model
         self.model.solvers.append(self)
