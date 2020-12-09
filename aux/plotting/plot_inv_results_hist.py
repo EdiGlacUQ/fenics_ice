@@ -246,5 +246,4 @@ cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal",shrink=.7
 cbar.ax.set_xlabel(r'$\partial Q/\partial \beta$')
 
 plt.tight_layout(2.0)
-plt.show()
 plt.savefig(os.path.join(outdir, run_name + '_inv_results.png'))

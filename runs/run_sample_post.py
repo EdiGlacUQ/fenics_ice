@@ -27,7 +27,6 @@ import logging as log
 
 def run_sample_post(config_file):
 
-    print("GOT HERE")
 
     #Read run config file
 
@@ -135,8 +134,66 @@ def run_sample_post(config_file):
 
     slvr = solver.ssa_solver(mdl)
 
+    if(params.time.num_samples==1):
+
+       x, y, z, a = [Function(space) for i in range(4)]
+       shp = np.shape(z.vector().get_local())
+       np.random.seed()
+       x.vector().set_local(random.normal(np.zeros(shp),  # N
+                         np.ones(shp),shp))
+       x.vector().apply("insert")
+
+       reg_op.sqrt_action(x.vector(),y.vector())  # Gamma -1/2 N
+       reg_op.sqrt_inv_action(x.vector(),z.vector())  # Gamma 1/2 N
+
+       tmp1 = np.dot(W.T,y.vector().get_local())
+       tmp2 = np.dot(D,tmp1)
+       P1 = np.dot(W,tmp2)
+
+       a.vector().set_local(z.vector().get_local() + P1)
+       a.vector().apply("insert")
+
+
+       xpts    = mdl.mesh.coordinates()[:,0]
+       ypts    = mdl.mesh.coordinates()[:,1]
+       t    = mdl.mesh.cells()
+       fig = plt.figure(figsize=(10,5))
+       ax = fig.add_subplot(1,2,1)
+       v    = z.compute_vertex_values(mdl.mesh)
+       minv = np.min(v)
+       maxv = np.max(v)
+       absmaxv = np.maximum(np.abs(minv),maxv)
+       levels = np.linspace(-1*absmaxv,absmaxv,20)
+       ticks = np.linspace(-1*absmaxv,absmaxv,3)
+       tick_options = {'axis':'both','which':'both','bottom':False,
+                      'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
+       ax.tick_params(**tick_options)
+       ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
+            fontsize=13, fontweight='bold', va='top')
+       c = ax.tricontourf(xpts, ypts, t, v, levels = levels, cmap='bwr')
+       cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
+       plt.tight_layout(2.0)
     
-    for i in range(min_step,params.time.num_samples):
+       ax = fig.add_subplot(1,2,2)
+       v    = a.compute_vertex_values(mdl.mesh)
+       minv = np.min(v)
+       maxv = np.max(v)
+#       absmaxv = np.maximum(np.abs(minv),maxv)
+       levels = np.linspace(-1*absmaxv,absmaxv,20)
+       ticks = np.linspace(-1*absmaxv,absmaxv,3)
+       tick_options = {'axis':'both','which':'both','bottom':False,
+                     'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
+       ax.tick_params(**tick_options)
+       ax.text(0.05, 0.95, 'b', transform=ax.transAxes,
+           fontsize=13, fontweight='bold', va='top')
+       c = ax.tricontourf(xpts, ypts, t, v, levels = levels, cmap='bwr')
+       cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
+       plt.tight_layout(2.0)
+       plt.savefig(os.path.join(plotdir, 'sample.png'))
+    
+    else:
+
+      for i in range(min_step,params.time.num_samples):
         info("sample number {0}".format(i))
         x, y, z, a = [Function(space) for i in range(4)]
         shp = np.shape(z.vector().get_local())
@@ -155,64 +212,27 @@ def run_sample_post(config_file):
         a.vector().set_local(z.vector().get_local() + P1)
         a.vector().apply("insert")
 
-        """
-        if(i==0):
-         xpts    = mdl.mesh.coordinates()[:,0]
-         ypts    = mdl.mesh.coordinates()[:,1]
-         t    = mdl.mesh.cells()
-         fig = plt.figure(figsize=(10,5))
-         ax = fig.add_subplot(1,2,1)
-         v    = z.compute_vertex_values(mdl.mesh)
-         minv = np.min(v)
-         maxv = np.max(v)
-         levels = np.linspace(minv,maxv,20)
-         ticks = np.linspace(minv,maxv,3)
-         tick_options = {'axis':'both','which':'both','bottom':False,
-                      'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
-         ax.tick_params(**tick_options)
-         ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
-            fontsize=13, fontweight='bold', va='top')
-         c = ax.tricontourf(xpts, ypts, t, v, levels = levels, cmap='bwr')
-         cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
-         plt.tight_layout(2.0)
-    
-         ax = fig.add_subplot(1,2,2)
-         v    = a.compute_vertex_values(mdl.mesh)
-         minv = np.min(v)
-         maxv = np.max(v)
-         levels = np.linspace(minv,maxv,20)
-         ticks = np.linspace(minv,maxv,3)
-         tick_options = {'axis':'both','which':'both','bottom':False,
-                     'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
-         ax.tick_params(**tick_options)
-         ax.text(0.05, 0.95, 'b', transform=ax.transAxes,
-             fontsize=13, fontweight='bold', va='top')
-         c = ax.tricontourf(xpts, ypts, t, v, levels = levels, cmap='bwr')
-         cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
-         plt.tight_layout(2.0)
-         plt.savefig(os.path.join(plotdir, 'sample.pdf'))
-         plt.show()
-        """
 
-        a.vector()[:] += mdl.alpha.vector()[:]
-        z.vector()[:] += mdl.alpha.vector()[:]
-        slvr.alpha=a
-        slvr.save_ts_zero()
+        if (params.time.num_samples>1):
+         a.vector()[:] += mdl.alpha.vector()[:]
+         z.vector()[:] += mdl.alpha.vector()[:]
+         slvr.alpha=a
+         slvr.save_ts_zero()
 
-        try:
+         try:
             Q = slvr.timestep(save=0,adjoint_flag=0,cost_flag=1,qoi_func=slvr.comp_Q_h2 )
             for j in range(params.time.num_sens):
                 Qarray[j,i] = Q[j].value()
-        except: 
+         except: 
             info("something went wrong in solver")
             for j in range(params.time.num_sens):
                 Qarray[j,i] = -9999.0
 
-        slvr.reset_ts_zero()
-        if(np.mod(i,5)==0):    
-         np.save(os.path.join(outdir,'sampling_results'),Qarray)
-         np.save(os.path.join(outdir,'step_number'),i)
-         info("progress saved, step {0}".format(i))
+         slvr.reset_ts_zero()
+         if(np.mod(i,5)==0):    
+          np.save(os.path.join(outdir,'sampling_results'),Qarray)
+          np.save(os.path.join(outdir,'step_number'),i)
+          info("progress saved, step {0}".format(i))
 
     
 

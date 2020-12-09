@@ -1,7 +1,7 @@
 #!/bin/bash
 #Runs each model in turn (after first clearing out any previous results)
 
-for f in $(ls -d ismipc_*);
+for f in $(ls -d ismipc*00 ismipc_rc*);
 do echo $f
 cd $f
 echo "Running model in $f"

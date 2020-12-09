@@ -96,7 +96,7 @@ run_length = 30.0
 total_steps = 120
 #dt = 0.033333333
 num_sens = 5 #TODO rename
-num_samples = 1000 #TODO rename
+num_samples = 1 #TODO rename
 
 [eigendec]
 
