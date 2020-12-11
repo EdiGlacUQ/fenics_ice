@@ -288,6 +288,7 @@ class model:
     
          t1 = time.perf_counter()
          self.GammaInvObsU = Invert(Mcov)
+         self.GammaInvObsU = .5*(self.GammaInvObsU + self.GammaInvObsU.T)
          t2 = time.perf_counter()
          print('U cov matrix invert, time= ' + str(t2-t1) + ' sec')
 
@@ -310,6 +311,7 @@ class model:
 
          t1 = time.perf_counter()
          self.GammaInvObsV = Invert(Mcov)
+         self.GammaInvObsV = .5*(self.GammaInvObsV + self.GammaInvObsV.T)
          t2 = time.perf_counter()
          print('V cov matrix invert, time= ' + str(t2-t1) + ' sec')
 
