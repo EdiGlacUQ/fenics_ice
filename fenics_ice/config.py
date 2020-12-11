@@ -156,6 +156,7 @@ class ObsCfg(ConfigPrinter):
     """
     vel_file: str = None
     pts_len: float = None
+    pts_autocorr: float = None
 
 @dataclass(frozen=True)
 class ErrorPropCfg(ConfigPrinter):

@@ -27,6 +27,7 @@ from tlm_adjoint_fenics.hessian_optimization import *
 #from dolfin_adjoint_custom import EquationSolver
 import ufl
 from IPython import embed
+from numpy_matrix_action import *
 
 
 
@@ -138,6 +139,9 @@ class ssa_solver:
 
         self.eigenvals = None
         self.eigenfuncs = None
+
+        self.GammaInvObsU = model.GammaInvObsU
+        self.GammaInvObsV = model.GammaInvObsV
 
     def set_inv_params(self):
 
@@ -661,6 +665,10 @@ class ssa_solver:
         Note: 'verbose' significantly decreases speed
         """
 
+#        self.GammaInvObsU = model.GammaInvObsU
+#        self.GammaInvObsV = model.GammaInvObsV
+
+
         invconfig = self.params.inversion
 
         #What are we inverting for?:
@@ -757,12 +765,22 @@ class ssa_solver:
 
         # Result of NormSqSolver is added to J_ls_term_new -- IGNORE
         # so calling twice is a sum                        -- IGNORE
-        u_mismatch = ((u_pts-u_obs_pts)/u_std_pts)
-#        NormSqSolver(project(u_mismatch, obs_space), J_ls_term_new).solve()
-        NormSqSolver(project(u_mismatch, obs_space), J_ls_term_u).solve()
-        v_mismatch = ((v_pts-v_obs_pts)/v_std_pts)
-#        NormSqSolver(project(v_mismatch, obs_space), J_ls_term_new).solve()
-        NormSqSolver(project(v_mismatch, obs_space), J_ls_term_v).solve()
+
+        if self.GammaInvObsU is None:
+         u_mismatch = ((u_pts-u_obs_pts)/u_std_pts)
+         NormSqSolver(project(u_mismatch, obs_space), J_ls_term_u).solve()
+         v_mismatch = ((v_pts-v_obs_pts)/v_std_pts)
+         NormSqSolver(project(v_mismatch, obs_space), J_ls_term_v).solve()
+        else:
+         u_mismatch = u_pts-u_obs_pts
+         tmp_fcn_upts = Function(obs_space, name='tmp_fcn_upts')
+         NumPyMatrixActionSolver(self.GammaInvObsU, u_mismatch, tmp_fcn_upts).solve()
+         InnerProductSolver(u_mismatch, tmp_fcn_upts, J_ls_term_u).solve()
+
+         v_mismatch = v_pts-v_obs_pts
+         tmp_fcn_vpts = Function(obs_space, name='tmp_fcn_vpts')
+         NumPyMatrixActionSolver(self.GammaInvObsV, v_mismatch, tmp_fcn_vpts).solve()
+         InnerProductSolver(v_mismatch, tmp_fcn_vpts, J_ls_term_v).solve()
 
         # J_ls_term_final = new_real_function()
         # ExprEvaluationSolver(J_ls_term * \
@@ -770,7 +788,6 @@ class ssa_solver:
 
         if not noMisfit:
 
-#         J.addto(J_ls_term_new)
          J.addto(J_ls_term_u)
          J.addto(J_ls_term_v)
 

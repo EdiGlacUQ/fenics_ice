@@ -18,6 +18,7 @@
 from fenics import *
 from dolfin import *
 import ufl
+import time
 import numpy as np
 from pathlib import Path
 import scipy.spatial.qhull as qhull
@@ -25,6 +26,8 @@ from fenics_ice import inout
 from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
 import logging
+from IPython import embed
+from scipy.linalg import inv as Invert
 
 log = logging.getLogger("fenics_ice")
 
@@ -72,6 +75,8 @@ class model:
         self.def_vel_mask()
         self.def_B_field()
         self.def_lat_dirichletbc()
+        self.GammaInvObsU = None
+        self.GammaInvObsV = None
 
         if init_fields:
             self.init_fields_from_data()
@@ -79,6 +84,7 @@ class model:
 
         if init_vel_obs:
             self.vel_obs_from_data()  # Load the velocity observations
+            self.init_obs_inv_cov()
             self.init_lat_dirichletbc()  # TODO - generalize BCs
 
         self.Q_sigma = None
@@ -251,6 +257,62 @@ class model:
         # self.u_std_M.vector()[:] = interpolate(self.u_std, vtx_M, wts_M)
         # self.v_std_M.vector()[:] = interpolate(self.v_std, vtx_M, wts_M)
         self.mask_vel_M.vector()[:] = interpolate(self.mask_vel, vtx_M, wts_M)
+
+    def init_obs_inv_cov(self):
+        xy = self.uv_obs_pts
+        npts = np.size(xy,0)
+        dist_decay = self.params.obs.pts_autocorr
+        Mcov = np.zeros((npts,npts))
+        xpt1 = xy[:,0]
+        ypt1 = xy[:,1]
+        L = 40.e3
+
+        if dist_decay is not None:
+        
+         for i in range(npts):
+          xpt0 = xy[i,0]
+          ypt0 = xy[i,1]
+ 
+          distx = np.abs(xpt1-xpt0)
+          distx = np.minimum(distx,np.abs(xpt1+L-xpt0))
+          distx = np.minimum(distx,np.abs(xpt1-L-xpt0))
+
+          disty = np.abs(ypt1-ypt0)
+          disty = np.minimum(disty,np.abs(ypt1+L-ypt0))
+          disty = np.minimum(disty,np.abs(ypt1-L-ypt0))
+
+          dist_func = np.sqrt(distx**2+disty**2)
+
+          row = self.u_std[i] * self.u_std * np.exp(-dist_func/dist_decay)
+          Mcov[i,:] = row
+    
+         t1 = time.perf_counter()
+         self.GammaInvObsU = Invert(Mcov)
+         t2 = time.perf_counter()
+         print('U cov matrix invert, time= ' + str(t2-t1) + ' sec')
+
+         for i in range(npts):
+          xpt0 = xy[i,0]
+          ypt0 = xy[i,1]
+ 
+          distx = np.abs(xpt1-xpt0)
+          distx = np.minimum(distx,np.abs(xpt1+L-xpt0))
+          distx = np.minimum(distx,np.abs(xpt1-L-xpt0))
+
+          disty = np.abs(ypt1-ypt0)
+          disty = np.minimum(disty,np.abs(ypt1+L-ypt0))
+          disty = np.minimum(disty,np.abs(ypt1-L-ypt0))
+
+          dist_func = np.sqrt(distx**2+disty**2)
+
+          row = self.v_std[i] * self.v_std * np.exp(-dist_func/dist_decay)
+          Mcov[i,:] = row
+
+         t1 = time.perf_counter()
+         self.GammaInvObsV = Invert(Mcov)
+         t2 = time.perf_counter()
+         print('V cov matrix invert, time= ' + str(t2-t1) + ' sec')
+
 
     def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
                          vstd=Constant(1.0), ls = False):
