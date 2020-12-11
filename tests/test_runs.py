@@ -177,9 +177,13 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
     # Tighter solver tolerances
 
-    slvr.params.momsolve.newton_params["newton_solver"]["absolute_tolerance"] = 1.0e-16
-    slvr.params.momsolve.newton_params["newton_solver"]["relative_tolerance"] = 1.0e-14
-    slvr.params.momsolve.newton_params["newton_solver"]["maximum_iterations"] = 100
+    # TODO - turn off flotation here, and set glen_n to 2
+    # This needs new vel obs which are consistence with glen=2
+
+    # TODO Also see if those changes allow these tighter solver tols to be set:
+    # slvr.params.momsolve.newton_params["newton_solver"]["absolute_tolerance"] = 1.0e-16
+    # slvr.params.momsolve.newton_params["newton_solver"]["relative_tolerance"] = 1.0e-14
+    # slvr.params.momsolve.newton_params["newton_solver"]["maximum_iterations"] = 100
 
     slvr.reset_ts_zero()
     J = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)[0]
