@@ -144,10 +144,10 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
     mdl_out = run_forward.run_forward(toml_file)
 
-    from fenics_ice import graphviz
-    manager_graph = graphviz.dot()
-    with open("forward_manager.dot", "w") as outfile:
-        outfile.write(manager_graph)
+    # from fenics_ice import graphviz
+    # manager_graph = graphviz.dot()
+    # with open("forward_manager.dot", "w") as outfile:
+    #     outfile.write(manager_graph)
 
     slvr = mdl_out.solvers[0]
 
