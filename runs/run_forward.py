@@ -73,22 +73,54 @@ def run_forward(config_file):
     # Run the adjoint model, computing gradient of Qoi w.r.t cntrl
     dQ_ts = compute_gradient(Q, cntrl)  # Isaac 27
 
-    # Uncomment for Taylor Verification, Comment above two lines
-    # param['num_sens'] = 1
-    # J = slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_Q_vaf)
-    # dJ = compute_gradient(J, slvr.alpha)
-    #
-    #
-    # def forward_ts(alpha_val=None):
-    #     slvr.reset_ts_zero()
-    #     if alpha_val:
-    #         slvr.alpha = alpha_val
-    #     return slvr.timestep(adjoint_flag=1, cst_func=slvr.comp_Q_vaf)
-    #
-    #
-    # min_order = taylor_test(lambda alpha : forward_ts(alpha_val = alpha), slvr.alpha,
-    #   J_val = J.value(), dJ = dJ, seed = 1e-2, size = 6)
-    # sys.exit(os.EX_OK)
+
+    ## Temporary taylor verification
+
+    object.__setattr__(slvr.params.time, "num_sens", 1)  # 1 qoi value only
+
+    slvr.reset_ts_zero()
+    J = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)[0]
+    dJ = compute_gradient(J, cntrl)
+
+    def forward_ts(cntrl, cntrl_init, name):
+        slvr.reset_ts_zero()
+        if(name == 'alpha'):
+            slvr.alpha = cntrl
+        elif(name == 'beta'):
+            slvr.beta = cntrl
+        else:
+            raise ValueError(f"Unrecognised cntrl name: {name}")
+
+        result = slvr.timestep(adjoint_flag=1, qoi_func=slvr.get_qoi_func())[0]
+
+        # Reset after simulation - confirmed necessary
+        if(name == 'alpha'):
+            slvr.alpha = cntrl_init
+        elif(name == 'beta'):
+            slvr.beta = cntrl_init
+        else:
+            raise ValueError(f"Bad control name {name}")
+
+        return result
+
+    cntrl_init = [f.copy(deepcopy=True) for f in cntrl]
+    #seeds = {'alpha': 1e-2} <- works for the ismipc case!
+
+    seeds = {'alpha': 1e-2, 'beta': 1e-1}
+
+    for cntrl_curr, cntrl_curr_init, dJ_curr in zip(cntrl, cntrl_init, dJ):
+
+        min_order = taylor_test(lambda cntrl_val: forward_ts(cntrl_val,
+                                                             cntrl_curr_init,
+                                                             cntrl_curr.name()),
+                                cntrl_curr,
+                                J_val=J.value(),
+                                dJ=dJ_curr,
+                                seed=seeds[cntrl_curr.name()],
+                                M0=cntrl_curr_init,
+                                size=6)
+        print(f"Forward simulation cntrl: {cntrl_curr.name()} min_order: {min_order}")
+        # assert(min_order > 1.99)
 
     # Output model variables in ParaView+Fenics friendly format
     # Output QOI & DQOI (needed for next steps)
