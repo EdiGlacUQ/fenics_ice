@@ -264,6 +264,7 @@ class IceDynamicsCfg(ConfigPrinter):
 
     sliding_law: str = "linear"
     min_thickness: float = None
+    allow_flotation: bool = True
 
     def __post_init__(self):
         """Check options valid"""

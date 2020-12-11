@@ -686,6 +686,10 @@ class ssa_solver:
 
     def float_conditional(self, H, H_float=None):
         """Compute a ufl Conditional where floating=1, grounded=0"""
+
+        if not self.params.ice_dynamics.allow_flotation:
+            return Constant(0.0)
+
         if H_float is None:
             constants = self.params.constants
             rhow = constants.rhow

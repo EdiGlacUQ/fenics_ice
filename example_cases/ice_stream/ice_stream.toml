@@ -63,6 +63,7 @@ verbose = false
 [ice_dynamics]
 
 sliding_law = 'weertman' #weertman, linear
+allow_flotation = true # true by default
 
 [momsolve]
 
