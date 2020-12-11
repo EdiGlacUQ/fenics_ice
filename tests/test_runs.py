@@ -196,7 +196,7 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
         result = slvr.timestep(adjoint_flag=1, qoi_func=slvr.get_qoi_func())[0]
 
-        # Reset after simulation - not sure this is necessary
+        # Reset after simulation - confirmed necessary
         if(name == 'alpha'):
             slvr.alpha = cntrl_init
         elif(name == 'beta'):
@@ -205,11 +205,6 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
             raise ValueError(f"Bad control name {name}")
 
         return result
-
-    # Ran this once just to confirm that forward_ts leaves the model in the same state
-    # J1 = forward_ts(cntrl[0])
-    # J2 = forward_ts(cntrl[0])
-    # assert(J1.value() == J2.value())  <- passed
 
     cntrl_init = [f.copy(deepcopy=True) for f in cntrl]
     #seeds = {'alpha': 1e-2} <- works for the ismipc case!

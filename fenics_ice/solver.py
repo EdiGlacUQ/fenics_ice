@@ -166,6 +166,7 @@ class ssa_solver:
         v_x, v_y = v.dx(0), v.dx(1)
 
         # Viscosity
+        # If nu varies by 6-7 orders of magnitude, taylor verification likely to fail
         U_marker = Function(self.U.function_space(), name="%s_marker" % self.U.name())
         nu = self.viscosity(U_marker)
 
@@ -180,30 +181,30 @@ class ssa_solver:
 
         # Driving stress quantities
         F = (1 - fl_ex) * 0.5*rhoi*g*H**2 + \
-            (fl_ex) * 0.5*rhoi*g*(delta*H**2 + (1-delta)*H_flt**2 )
+            (fl_ex) * 0.5*rhoi*g*(delta*H**2 + (1-delta)*H_flt**2 )      # order mag ~ 1E10
 
         W = (1 - fl_ex) * rhoi*g*H + \
-            (fl_ex) * rhoi*g*H_flt
+            (fl_ex) * rhoi*g*H_flt                                       # order mag ~ 1E7
 
         # Depth of the submarine portion of the calving front
         # ufl.Max to avoid edge case of land termininating calving front
-        draft = ufl.Max(((fl_ex) * (rhoi / rhow) * H
+        draft = ufl.Max(((fl_ex) * (rhoi / rhow) * H      # order mag ~ 1E3
                  - (1 - fl_ex) * bed), Constant(0.0, name="Const No Draft"))
 
         # Terminating margin boundary condition
         # The -F term is related to the integration by parts in the weak form
-        sigma_n = 0.5 * rhoi * g * ((H ** 2) - (rhow / rhoi) * (draft ** 2))
+        sigma_n = 0.5 * rhoi * g * ((H ** 2) - (rhow / rhoi) * (draft ** 2))   # order mag ~ 1E10
 
         self.mom_F = (
             # Membrance Stresses
-            -inner(grad(Phi_x), H * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x]))
+            -inner(grad(Phi_x), H * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x]))  # nu ~ 1e8, H ~ 1e3, u_x ~ 1e-3
             * self.dIce
 
             - inner(grad(Phi_y), H * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x]))
             * self.dIce
 
             # Basal Drag
-            - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u, v]))
+            - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u, v]))   # B2 spans 1e-7, 1e7,  2nd step u ~ 1e-18 to 1e2
             * self.dIce
 
             # Driving Stress
