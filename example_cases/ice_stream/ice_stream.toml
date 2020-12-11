@@ -20,6 +20,7 @@ rhow = 1030.0
 g = 9.81
 
 random_seed = 0
+glen_n = 3  # set to 2 for taylor verification of forward model
 
 [mesh]
 
