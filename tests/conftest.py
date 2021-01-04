@@ -180,8 +180,7 @@ def pytest_generate_tests(metafunc):
         if pytest.parallel:
             case_ids = [i for i, case in enumerate(pytest.case_list) if not case["serial"]]
         else:
-            # case_ids = [i for i, case in enumerate(pytest.case_list) if case["serial"]]
-            case_ids = [3]
+            case_ids = [i for i, case in enumerate(pytest.case_list) if case["serial"]]
 
         if not metafunc.config.getoption("all"):
             case_ids = [case_ids[0]]
