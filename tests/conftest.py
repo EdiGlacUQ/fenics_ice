@@ -26,6 +26,7 @@ import toml
 import pickle
 
 import fenics_ice as fice
+import fenics_ice.fenics_util as fu
 from aux import gen_rect_mesh
 
 # Global variables
@@ -41,38 +42,31 @@ pytest.case_list.append({"case_dir": "ismipc_rc_1e6",
                          "serial": True,
                          "mesh_nx": 20,
                          "mesh_ny": 20,
-                         "mesh_L": 40000,
-                         "indata_filename": pytest.data_dir / "ismipc_input.h5",
-                         "veldata_filename": pytest.data_dir / "ismipc_U_obs.h5",
-                         "mesh_filename": "ismip_mesh.xml"})
+                         "mesh_L": 40000})
 
 pytest.case_list.append({"case_dir": "ismipc_rc_1e4",
                          "toml_file": "ismipc_rc_1e4.toml",
                          "serial": True,
                          "mesh_nx": 20,
                          "mesh_ny": 20,
-                         "mesh_L": 40000,
-                         "indata_filename": pytest.data_dir / "ismipc_input.h5",
-                         "veldata_filename": pytest.data_dir / "ismipc_U_obs.h5",
-                         "mesh_filename": "ismip_mesh.xml"})
+                         "mesh_L": 40000})
 
 pytest.case_list.append({"case_dir": "ismipc_30x30",
                          "toml_file": "ismipc_30x30.toml",
                          "serial": True,
                          "mesh_nx": 30,
                          "mesh_ny": 30,
-                         "mesh_L": 40000,
-                         "indata_filename": pytest.data_dir / "ismipc_input.h5",
-                         "veldata_filename": pytest.data_dir / "ismipc_U_obs.h5",
-                         "mesh_filename": "ismip_mesh.xml"})
+                         "mesh_L": 40000})
 
 pytest.case_list.append({"case_dir": "ice_stream",
                          "toml_file": "ice_stream.toml",
                          "serial": False,
-                         "indata_filename": pytest.case_dir / "ice_stream/input" / "ice_stream_data.h5",
-                         "veldata_filename": pytest.case_dir / "ice_stream/input" / "ice_stream_U_obs.h5",
-                         "mesh_ff_filename": "ice_stream_ff.xdmf",
-                         "mesh_filename": "ice_stream.xdmf"})
+                         "data_dir": pytest.case_dir / "ice_stream",
+                         "tv_settings": {"obs": { "vel_file": "ice_stream_U_obs_tv.h5"},
+                                         "constants": {"glen_n": 2.0},
+                                         "ice_dynamics": {"allow_flotation": False}
+                         }
+})
 
 def check_float_result(value, expected, work_dir, value_name, tol=None):
     """
@@ -122,12 +116,11 @@ def pytest_configure(config):
         "markers", "short: tests which run quickly"
     )
     config.addinivalue_line(
-        "markers", "long: tests which run slowly"
-    )
-    config.addinivalue_line(
         "markers", "runs: tests of whole run components"
     )
-
+    config.addinivalue_line(
+        "markers", "tv: taylor verification"
+    )
     config.addinivalue_line(
         "markers", "testfwd: Quickly test forward model!"
     )
@@ -161,6 +154,22 @@ def setup_deps():
     """Fixture to return the above function globally"""
     return DependencyGetter
 
+def pytest_collection_modifyitems(config, items):
+    """
+    Add a 'skip' marker to any Taylor verification (tv) tests
+    if we haven't requested it. In other words, only run tv tests
+    if specifically requested.
+    """
+    keywordexpr = config.option.keyword
+    markexpr = config.option.markexpr
+    if keywordexpr or markexpr:
+        return  # let pytest handle this
+
+    skip_mymarker = pytest.mark.skip(reason='Taylor verification not selected')
+    for item in items:
+        if 'tv' in item.keywords:
+            item.add_marker(skip_mymarker)
+
 @pytest.fixture
 def case_gen(request):
     """
@@ -189,22 +198,24 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture
-def temp_model(mpi_tmpdir, case_gen):
+def temp_model(request, mpi_tmpdir, case_gen):
     """Return a temporary copy of one of the test cases"""
-    return create_temp_model(mpi_tmpdir, case_gen)
+    return create_temp_model(request, mpi_tmpdir, case_gen)
 
 @pytest.fixture
-def persistent_temp_model(mpi_tmpdir, case_gen):
+def persistent_temp_model(request, mpi_tmpdir, case_gen):
     """Return a reusable copy of a test case for testing multiple run phases"""
-    return create_temp_model(mpi_tmpdir, case_gen, persist=True)
+    return create_temp_model(request, mpi_tmpdir, case_gen, persist=True)
 
-def create_temp_model(mpi_tmpdir, case_gen, persist=False):
+def create_temp_model(request, mpi_tmpdir, case_gen, persist=False):
     """
     Set up an ismip test case from HDF5 datafiles
 
     Returns the path of the toml file
     """
     from mpi4py import MPI
+
+    tv = request.node.get_closest_marker("tv") is not None
 
     tmpdir = mpi_tmpdir
     data_dir = pytest.data_dir
@@ -223,26 +234,49 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
         destdir = tmpdir/"input"
         destdir.mkdir()
 
-        # Copy the data files to tmpdir
-        indata_name = case_gen["indata_filename"]
-        veldata_name = case_gen["veldata_filename"]
-
-        shutil.copy(indata_name, destdir)
-        shutil.copy(veldata_name, destdir)
-
-        # Bit of a hack - turn off inversion verbose
-        # to keep test output clean
+        # Load toml config (for modification)
         config = toml.load(toml_file)
+
+        # Override settings with Taylor verification specific stuff
+        if tv and "tv_settings" in case_gen:
+            fu.dict_update(config, case_gen['tv_settings'])
+
+        # Turn off inversion verbose to keep test output clean
         config['inversion']['verbose'] = False
-        # And write out the toml to tmpdir
+
+        # If doing Taylor verification, only take 1 sample:
+        config['time']['num_sens'] = 1
+
+        # and write out the toml to tmpdir
         with open(tmpdir/toml_file.name, 'w') as toml_out:
             toml.dump(config, toml_out)
 
-        mesh_filename = case_gen["mesh_filename"]
+        # ##### File Copies #######
+
+        # Get the directory of the input files
+        indata_dir = pytest.data_dir
+        if('data_dir' in case_gen):
+            indata_dir = case_gen['data_dir'] / config['io']['input_dir']
+
+        # Collect data files to be copied...
+        copy_set = set()
+        for f in config['io']:
+            if "data_file" in f:
+                copy_set.add(indata_dir/config['io'][f])
+
+        # ...including velocity observations
+        copy_set.add(indata_dir/config['obs']['vel_file'])
+
+        # And copy them
+        for f in copy_set:
+            shutil.copy(f, destdir)
+
+        # Copy or generate the mesh
+        mesh_filename = config["mesh"]["mesh_filename"]
         mesh_file = (case_dir / "input" / mesh_filename)
 
         try:
-            mesh_ff_filename = case_gen['mesh_ff_filename']
+            mesh_ff_filename = config["mesh"]["bc_filename"]
             mesh_ff_file = (case_dir / "input" / mesh_ff_filename)
         except KeyError:
             mesh_ff_file = None
@@ -250,7 +284,7 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
         # Generate mesh if it doesn't exist
         # TODO - not totally happy w/ logic here:
         # ismipc tests generate their own meshes, ice_stream doesn't
-        if not (destdir/case_gen["mesh_filename"]).exists():
+        if not (destdir/mesh_filename).exists():
 
             if(mesh_file.exists()):
                 shutil.copy(mesh_file, destdir)
@@ -266,7 +300,7 @@ def create_temp_model(mpi_tmpdir, case_gen, persist=False):
                                             case_gen['mesh_ny'],
                                             0, case_gen['mesh_L'],
                                             0, case_gen['mesh_L'],
-                                            str(destdir/case_gen["mesh_filename"]))
+                                            str(destdir/mesh_filename))
 
     case_gen["work_dir"] = Path(tmpdir)
     case_gen["toml_filename"] = toml_file.name

@@ -187,17 +187,17 @@ The core structure and key files are: \\
 
 \section{Running Tests}
 
-fenics\_ice is equipped with a pytest test suite. Tests are roughly split into unit tests (test\_config.py, test\_model.py) and integration tests (test\_runs.py).
+fenics\_ice is equipped with a pytest test suite. Tests are roughly split into unit tests (\texttt{test\_config.py}, \texttt{test\_model.py}) and integration tests (\texttt{test\_runs.py}). Several test cases are provided defined on two domains: ISMIP-C and an idealised ice stream domain (ICE\_STREAM). The ISMIP-C case runs in serial only, while ICE\_STREAM is used to test the parallel capabilities of fenics\_ice.
 
-To run all tests, simply:
+To run all tests for a single ISMIP-C serial case, simply:
 \begin{spverbatim}
 > pytest .
 \end{spverbatim}
 in the fenics\_ice directory. To test a specific run step (i.e. the inversion) run:
 
 \begin{spverbatim}
-> pytest -k 'run_inversion'
-> pytest -k 'run_eigendec'
+> pytest -k `run_inversion'
+> pytest -k `run_eigendec'
 \end{spverbatim}
 
 To run tests with iPython embed statements:
@@ -205,7 +205,23 @@ To run tests with iPython embed statements:
 > pytest -s
 \end{spverbatim}
 
-For now, the tests only run on the IsmipC domain in serial.
+To test the parallel ICE\_STREAM case, run:
+\begin{spverbatim}
+> mpirun -n 2 pytest
+\end{spverbatim}
+
+\subsection{Taylor Verification}
+
+The pytest test suite also incorporates Taylor verification. At present this is only implemented for the inversion and forward phases of the model.
+
+To perform Taylor verification, use the pytest mark \texttt{tv}, e.g.:
+\begin{spverbatim}
+> mpirun -n 2 pytest -m `tv'
+\end{spverbatim}
+
+Pytest will then perform Taylor verification and check that the resulting \texttt{min\_order} is above 1.95. Note that the --tv option *only* runs Taylor verification, and does not test model results.
+
+Note that, for the ICE\_STREAM case, poor conditioning of the Hessian and undifferentiability of ice flotation results in failure of verification. As such, the ICE\_STREAM Taylor verification uses a value of 2 for Glen's N, and keeps the ice grounded.
 
 \section{Tutorial: A Walkthrough of IsmipC}
 

@@ -58,69 +58,79 @@ def test_run_inversion(persistent_temp_model, monkeypatch):
 
     J_inv = mdl_out.solvers[0].J_inv.value()
 
-    # pytest.check_float_result(cntrl_norm,
-    #                           expected_cntrl_norm,
-    #                           work_dir, 'expected_cntrl_norm')
+    pytest.check_float_result(cntrl_norm,
+                              expected_cntrl_norm,
+                              work_dir, 'expected_cntrl_norm')
 
-    # pytest.check_float_result(J_inv,
-    #                           expected_J_inv,
-    #                           work_dir, 'expected_J_inv')
+    pytest.check_float_result(J_inv,
+                              expected_J_inv,
+                              work_dir, 'expected_J_inv')
 
-    # Taylor verification
+@pytest.mark.tv
+def test_run_inversion_tv(persistent_temp_model, monkeypatch):
+    """
+    Taylor verification of inverse model
+    """
+    work_dir = persistent_temp_model["work_dir"]
+    toml_file = persistent_temp_model["toml_filename"]
+
+    # Switch to the working directory
+    monkeypatch.chdir(work_dir)
+
+    EQReset()
+
+    # Run the thing
+    mdl_out = run_inv.run_inv(toml_file)
+
+    # Get expected values from the toml file
     alpha_active = mdl_out.params.inversion.alpha_active
     beta_active = mdl_out.params.inversion.beta_active
 
-    # if alpha_active:
+    if alpha_active:
 
-    #     fwd_alpha = mdl_out.solvers[0].forward_alpha
-    #     alpha = mdl_out.solvers[0].alpha
+        fwd_alpha = mdl_out.solvers[0].forward_alpha
+        alpha = mdl_out.solvers[0].alpha
 
-    #     min_order = taylor_test_tlm(fwd_alpha,
-    #                                 alpha,
-    #                                 tlm_order=1,
-    #                                 seed=1.0e-5)
-    #     # print(f"min_order alpha forward first order: {min_order}")
-    #     assert(min_order > 1.99)
+        min_order = taylor_test_tlm(fwd_alpha,
+                                    alpha,
+                                    tlm_order=1,
+                                    seed=1.0e-5)
+        assert(min_order > 1.95)
 
-    #     min_order = taylor_test_tlm_adjoint(fwd_alpha,
-    #                                         alpha,
-    #                                         adjoint_order=1,
-    #                                         seed=1.0e-5)
-    #     # print(f"min_order alpha adjoint first order: {min_order}")
-    #     assert(min_order > 1.99)
+        min_order = taylor_test_tlm_adjoint(fwd_alpha,
+                                            alpha,
+                                            adjoint_order=1,
+                                            seed=1.0e-5)
+        assert(min_order > 1.95)
 
-    #     min_order = taylor_test_tlm_adjoint(fwd_alpha,
-    #                                         alpha,
-    #                                         adjoint_order=2,
-    #                                         seed=1.0e-5)
-    #     # print(f"min_order alpha adjoint second order: {min_order}")
-    #     assert(min_order > 1.99)
+        min_order = taylor_test_tlm_adjoint(fwd_alpha,
+                                            alpha,
+                                            adjoint_order=2,
+                                            seed=1.0e-5)
+        assert(min_order > 1.95)
 
-    # if beta_active:
+    if beta_active:
 
-    #     fwd_beta = mdl_out.solvers[0].forward_beta
-    #     beta = mdl_out.solvers[0].beta
+        fwd_beta = mdl_out.solvers[0].forward_beta
+        beta = mdl_out.solvers[0].beta
 
-    #     min_order = taylor_test_tlm(fwd_beta,
-    #                                 beta,
-    #                                 tlm_order=1,
-    #                                 seed=1.0e-5)
-    #     # print(f"min_order beta forward first order: {min_order}")
-    #     assert(min_order > 1.99)
+        min_order = taylor_test_tlm(fwd_beta,
+                                    beta,
+                                    tlm_order=1,
+                                    seed=1.0e-5)
+        assert(min_order > 1.95)
 
-    #     min_order = taylor_test_tlm_adjoint(fwd_beta,
-    #                                         beta,
-    #                                         adjoint_order=1,
-    #                                         seed=1.0e-5)
-    #     # print(f"min_order beta adjoint first order: {min_order}")
-    #     assert(min_order > 1.99)
+        min_order = taylor_test_tlm_adjoint(fwd_beta,
+                                            beta,
+                                            adjoint_order=1,
+                                            seed=1.0e-5)
+        assert(min_order > 1.95)
 
-    #     min_order = taylor_test_tlm_adjoint(fwd_beta,
-    #                                         beta,
-    #                                         adjoint_order=2,
-    #                                         seed=1.0e-5)
-    #     # print(f"min_order beta adjoint second order: {min_order}")
-    #     assert(min_order > 1.99)
+        min_order = taylor_test_tlm_adjoint(fwd_beta,
+                                            beta,
+                                            adjoint_order=2,
+                                            seed=1.0e-5)
+        assert(min_order > 1.95)
 
 @pytest.mark.dependency()
 @pytest.mark.runs
@@ -154,36 +164,39 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
     delta_qoi = slvr.Qval_ts[-1] - slvr.Qval_ts[0]
     u_norm = norm(slvr.U)
 
-    # pytest.check_float_result(delta_qoi,
-    #                           expected_delta_qoi,
-    #                           work_dir, 'expected_delta_qoi')
+    pytest.check_float_result(delta_qoi,
+                              expected_delta_qoi,
+                              work_dir, 'expected_delta_qoi')
 
-    # pytest.check_float_result(u_norm,
-    #                           expected_u_norm,
-    #                           work_dir, 'expected_u_norm')
+    pytest.check_float_result(u_norm,
+                              expected_u_norm,
+                              work_dir, 'expected_u_norm')
 
-    #######################
-    # Taylor verification #
-    #######################
+@pytest.mark.tv
+def test_run_forward_tv(existing_temp_model, monkeypatch, setup_deps, request):
+    """
+    Taylor verification of the forward timestepping model
+    """
+
+    work_dir = existing_temp_model["work_dir"]
+    toml_file = existing_temp_model["toml_filename"]
+
+    # Switch to the working directory
+    monkeypatch.chdir(work_dir)
+
+    EQReset()
+
+    mdl_out = run_forward.run_forward(toml_file)
+
+    # from fenics_ice import graphviz
+    # manager_graph = graphviz.dot()
+    # with open("forward_manager.dot", "w") as outfile:
+    #     outfile.write(manager_graph)
+
+    slvr = mdl_out.solvers[0]
 
     qoi_func = slvr.get_qoi_func()
     cntrl = slvr.get_control()
-
-    object.__setattr__(slvr.params.time, "num_sens", 1)  # 1 qoi value only
-
-    # Set these regularisation terms high for taylor verification
-    object.__setattr__(slvr.params.constants, "eps_rp", 1.0e-1)
-    object.__setattr__(slvr.params.constants, "vel_rp", 1.0e-1)
-
-    # Tighter solver tolerances
-
-    # TODO - turn off flotation here, and set glen_n to 2
-    # This needs new vel obs which are consistence with glen=2
-
-    # TODO Also see if those changes allow these tighter solver tols to be set:
-    # slvr.params.momsolve.newton_params["newton_solver"]["absolute_tolerance"] = 1.0e-16
-    # slvr.params.momsolve.newton_params["newton_solver"]["relative_tolerance"] = 1.0e-14
-    # slvr.params.momsolve.newton_params["newton_solver"]["maximum_iterations"] = 100
 
     slvr.reset_ts_zero()
     J = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)[0]
@@ -211,7 +224,6 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
         return result
 
     cntrl_init = [f.copy(deepcopy=True) for f in cntrl]
-    #seeds = {'alpha': 1e-2} <- works for the ismipc case!
 
     seeds = {'alpha': 1e-2, 'beta': 1e-1}
 
@@ -228,7 +240,7 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
                                 size=6)
 
         print(f"Forward simulation cntrl: {cntrl_curr.name()} min_order: {min_order}")
-        # assert(min_order > 1.99)
+        assert(min_order > 1.95)
 
 
 @pytest.mark.dependency()
