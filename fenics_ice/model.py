@@ -165,6 +165,7 @@ class model:
         self.beta.rename('beta', 'a Function')
         self.beta_bgd.rename('beta_bgd', 'a Function')
 
+        # TODO - tidy this up properly (remove pert arg)
         # if pert:
         #     # Perturbed field for nonzero gradient at first step of inversion
         #     bv = self.beta.vector().get_local()

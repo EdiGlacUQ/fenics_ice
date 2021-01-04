@@ -506,8 +506,6 @@ class ssa_solver:
                         Q_i.assign(qoi)
                         Q_is.append(Q_i)
                         Q.addto(Q_i.fn())
-                    # else:
-                    #     Q.addto()
 
             if n < n_steps and adjoint_flag:
                 new_block()

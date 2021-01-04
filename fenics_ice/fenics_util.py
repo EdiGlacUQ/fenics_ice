@@ -24,6 +24,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from fenics import *
 from IPython import embed
 from fenics_ice import model
+import collections.abc
 
 def plot_variable(u, name, direc, cmap='gist_yarg', scale='lin', numLvls=12,
                   umin=None, umax=None, tp=False, tpAlpha=0.5, show=True,
@@ -170,3 +171,13 @@ def U2Uobs(dd,noise_sdev=1.0):
     N.assign(Constant(1.0))
     xmlfile = File(os.path.join(dd,'mask_vel.xml'))
     xmlfile << N
+
+
+
+def dict_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = dict_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
