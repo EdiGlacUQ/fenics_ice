@@ -34,7 +34,6 @@ def EQReset():
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.testfwd
 def test_run_inversion(persistent_temp_model, monkeypatch):
 
     work_dir = persistent_temp_model["work_dir"]
@@ -134,7 +133,6 @@ def test_run_inversion_tv(persistent_temp_model, monkeypatch):
 
 @pytest.mark.dependency()
 @pytest.mark.runs
-@pytest.mark.testfwd
 def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
     setup_deps.set_case_dependency(request, ["test_run_inversion"])

@@ -121,9 +121,6 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "tv: taylor verification"
     )
-    config.addinivalue_line(
-        "markers", "testfwd: Quickly test forward model!"
-    )
 
     pytest.remake_cases = config.option.remake
 
