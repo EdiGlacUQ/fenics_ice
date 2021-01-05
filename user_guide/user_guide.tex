@@ -216,10 +216,10 @@ The pytest test suite also incorporates Taylor verification. At present this is 
 
 To perform Taylor verification, use the pytest mark \texttt{tv}, e.g.:
 \begin{spverbatim}
-> mpirun -n 2 pytest -m `tv'
+> mpirun -n 3 pytest -m `tv'
 \end{spverbatim}
 
-Pytest will then perform Taylor verification and check that the resulting \texttt{min\_order} is above 1.95. Note that the --tv option *only* runs Taylor verification, and does not test model results.
+Pytest will then perform Taylor verification and check that the resulting \texttt{min\_order} is above 1.95. Note that the --tv option *only* runs Taylor verification, and does not test model results. At present, Taylor verification of ICE\_STREAM works better with 3 cores as opposed to 2.
 
 Note that, for the ICE\_STREAM case, poor conditioning of the Hessian and undifferentiability of ice flotation results in failure of verification. As such, the ICE\_STREAM Taylor verification uses a value of 2 for Glen's N, and keeps the ice grounded.
 
