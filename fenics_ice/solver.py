@@ -408,7 +408,7 @@ class ssa_solver:
               solver_parameters={"linear_solver": "lu",
                                  "absolute_tolerance": "1e-10",
                                  "relative_tolerance": "1e-11",
-              })
+              })  # Not sure these solver params are necessary (linear solve)
 
     def timestep(self, save=1, adjoint_flag=1, qoi_func=None ):
         """

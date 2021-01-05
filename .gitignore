@@ -21,4 +21,8 @@ example_cases/plots
 log*
 *.log
 *.pdf
+*.aux
+*.out
+*.toc
+*.dot
 core
