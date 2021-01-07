@@ -1,0 +1,149 @@
+[io] #Directory specification
+
+run_name = "ice_stream_dual"
+input_dir = "./input"
+output_dir = "./output"
+
+
+thick_data_file = "ice_stream_data.h5"
+bed_data_file = "ice_stream_data.h5"
+smb_data_file = "ice_stream_data.h5"
+alpha_data_file = "ice_stream_data.h5"
+bglen_data_file = "ice_stream_data.h5"
+
+log_level = "info" #This is default
+
+[constants]
+
+rhoi = 917.0
+rhow = 1030.0
+g = 9.81
+
+random_seed = 0
+glen_n = 3  # set to 2 for taylor verification of forward model
+
+[mesh]
+
+mesh_filename = "ice_stream.xdmf"
+bc_filename = "ice_stream_ff.xdmf"
+
+[[BC]]
+
+name = "Lateral Margins" # unimportant
+labels = [1, 3, 4]
+flow_bc = "no_slip"
+
+[[BC]]
+
+name = "Calving Fronts"
+labels = [2]
+flow_bc = "calving"
+
+
+[obs]
+
+vel_file = "ice_stream_U_obs.h5"
+
+[inversion]
+
+max_iter = 5
+
+alpha_active = true
+beta_active = true
+alt_iter = 10
+
+gamma_alpha = 5.0e2 #6
+delta_alpha = 5.0e-6 #-2
+gamma_beta = 1.0e2
+delta_beta = 1.0e-8
+
+ftol = 1e-20
+gtol = 1e-20
+verbose = false
+
+[ice_dynamics]
+
+sliding_law = 'weertman' #weertman, linear
+allow_flotation = true # true by default
+
+[momsolve]
+
+[momsolve.picard_params]
+nonlinear_solver = "newton"
+[momsolve.picard_params.newton_solver]
+linear_solver = "cg"
+preconditioner = "hypre_amg"
+maximum_iterations = 200
+absolute_tolerance = 1.0e-0
+relative_tolerance = 1.0e-3
+convergence_criterion = "incremental"
+error_on_nonconvergence =  false
+[momsolve.picard_params.newton_solver.krylov_solver]
+divergence_limit = 1e20
+nonzero_initial_guess = false
+
+[momsolve.newton_params]
+nonlinear_solver = "newton"
+[momsolve.newton_params.newton_solver] #[gmres w/ ilu]
+linear_solver = "bicgstab" # gmres?  try direct too. [cg with icc]  [gmres, sor]
+preconditioner = "hypre_amg" # doesn't work so well on unstructured mesh?
+maximum_iterations = 100
+absolute_tolerance = 1.0e-10
+relative_tolerance = 1.0e-11
+convergence_criterion = "incremental"
+error_on_nonconvergence = true
+[momsolve.newton_params.newton_solver.krylov_solver]
+divergence_limit = 1e20
+nonzero_initial_guess = false
+
+# #used for weertman sliding: (TODO -test)
+# [momsolve.newton_params.newton_solver.lu_solver]
+# same_nonzero_pattern = false
+# symmetric = false
+# reuse_factorization = false
+
+[time]
+
+run_length = 0.2
+#steps_per_year = 30
+total_steps = 5
+#dt = 0.033333333
+num_sens = 6 #TODO rename
+
+[checkpointing]
+
+method = "memory"
+# method = "multistage" # periodic_disk, memory
+# snaps_on_disk = 4000
+# snaps_in_ram = 10
+# period = 2
+
+[eigendec]
+
+num_eig = 20
+eig_algo = "slepc"
+misfit_only = true
+
+#power_iter = 1 <- not used yet, saving in case
+precondition_by = "prior" #prior by default
+eigenvalue_thresh = 1.0e-1
+
+[errorprop]
+
+qoi = 'vaf'
+
+
+[testing]
+
+expected_init_alpha = 252.96603585543977
+expected_J_inv = 1334.2418674518235
+expected_cntrl_norm = 134.10046473442313
+expected_delta_qoi = -67039427.14687991
+expected_u_norm = 1603879.66752911
+expected_evals_sum = 2526751.1803566087
+expected_evec0_norm = 196217.21860852587
+expected_cntrl_sigma_norm = 7791.836772998218
+expected_cntrl_sigma_prior_norm = 209509.89381254025
+expected_Q_sigma = 49698.75755357996
+expected_Q_sigma_prior = 59842405.05492815
+

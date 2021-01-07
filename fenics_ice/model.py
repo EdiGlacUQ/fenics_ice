@@ -1,3 +1,20 @@
+# For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
+# root directory
+
+# This file is part of fenics_ice.
+#
+# fenics_ice is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# fenics_ice is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
+
 from fenics import *
 from dolfin import *
 import ufl
@@ -16,34 +33,21 @@ class model:
     def __init__(self, mesh_in, input_data, param_in, init_fields=True,
                  init_vel_obs=True):
 
-        #Initiate parameters
+        # Initiate parameters
         self.params = param_in
         self.input_data = input_data
         self.solvers = []
         self.parallel = MPI.size(mesh_in.mpi_comm()) > 1
 
-        #Full mask/mesh
-        self.mesh_ext = Mesh(mesh_in)
-        M_in = FunctionSpace(self.mesh_ext, 'DG', 0)
-        self.mask_ext = self.input_data.interpolate("data_mask", M_in, static=True)
-
         # Generate Domain and Function Spaces
-        self.mesh = self.mesh_ext
-        # NOTE - getting rid of SubMesh here because
-        # 1 - it has no effect on ismipc test cases (except changing DofMaps)
-        # 2 - all real cases will be parallel, and SubMesh only works in serial
-        # if self.parallel:
-        #     self.mesh = self.mesh_ext
-        # else:
-        #     self.gen_domain()
-
+        self.mesh = mesh_in
         self.nm = FacetNormal(self.mesh)
-        self.Q = FunctionSpace(self.mesh,'Lagrange',1)
+        self.Q = FunctionSpace(self.mesh, 'Lagrange', 1)
 
-        self.M = FunctionSpace(self.mesh,'DG',0)
-        self.RT = FunctionSpace(self.mesh,'RT',1)
+        self.M = FunctionSpace(self.mesh, 'DG', 0)
+        self.RT = FunctionSpace(self.mesh, 'RT', 1)
 
-        #Based on IsmipC: alpha, beta, and U are periodic.
+        # Based on IsmipC: alpha, beta, and U are periodic.
         if not self.params.mesh.periodic_bc:
             self.Qp = self.Q
             self.V = VectorFunctionSpace(self.mesh, 'Lagrange', 1, dim=2)
@@ -51,18 +55,20 @@ class model:
             self.Qp = fice_mesh.get_periodic_space(self.params, self.mesh, dim=1)
             self.V = fice_mesh.get_periodic_space(self.params, self.mesh, dim=2)
 
-        #Default velocity mask and Beta fields
+        # Default velocity mask and Beta fields
         self.def_vel_mask()
         self.def_B_field()
         self.def_lat_dirichletbc()
 
+        self.mark_BCs()
         if init_fields:
             self.init_fields_from_data()
-            self.label_domain()  # Set up BC and Body IDs
 
         if init_vel_obs:
-            self.vel_obs_from_data()  # Load the velocity observations
-            self.init_lat_dirichletbc()  # TODO - generalize BCs
+            # Load the velocity observations
+            self.vel_obs_from_data()
+            # Overwrite Constant(0,0) from def_lat_dirichletbc w/ obs
+            self.init_lat_dirichletbc()
 
         self.Q_sigma = None
         self.Q_sigma_prior = None
@@ -80,14 +86,16 @@ class model:
 
     def init_fields_from_data(self):
         """Create functions for input data (geom, smb, etc)"""
-        self.bed = self.field_from_data("bed", self.Q, static=True)
-        self.mask = self.field_from_data("data_mask", self.M, static=True)
-        self.bmelt = self.field_from_data("bmelt", self.M, 0.0, static=True)
-        self.smb = self.field_from_data("smb", self.M, 0.0, static=True)
-        self.H_np = self.field_from_data("thick", self.M)
 
-        self.H_s = self.H_np.copy(deepcopy=True)
-        self.H = 0.5*(self.H_np + self.H_s)
+        min_thick = self.params.ice_dynamics.min_thickness
+
+        self.bed = self.field_from_data("bed", self.Q, static=True)
+        self.bmelt = self.field_from_data("bmelt", self.M, default=0.0, static=True)
+        self.smb = self.field_from_data("smb", self.M, default=0.0, static=True)
+        self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
+
+        self.H = self.H_np.copy(deepcopy=True)
+        self.H.rename("thick_H", "")
 
         self.gen_surf()  # surf = bed + thick
 
@@ -105,11 +113,11 @@ class model:
 
     def def_lat_dirichletbc(self):
         """Homogenous dirichlet conditions on lateral boundaries"""
-        self.latbc = Constant([0.0,0.0])
+        self.latbc = Constant([0.0, 0.0])
 
-    def field_from_data(self, name, space, default=None, static=False):
+    def field_from_data(self, name, space, **kwargs):
         """Interpolate a named field from input data"""
-        return self.input_data.interpolate(name, space, default, static=static)
+        return self.input_data.interpolate(name, space, **kwargs)
 
     def alpha_from_data(self):
         """Get alpha field from initial input data (run_momsolve only)"""
@@ -142,6 +150,8 @@ class model:
             infile.read(self.beta, 'beta')
             self.beta_bgd = self.beta.copy(deepcopy=True)
 
+        self.beta_bgd.rename('beta_bgd', 'a Function')
+
     def init_beta(self, beta, pert=False):
         """
         Define the beta field from input
@@ -151,14 +161,18 @@ class model:
         """
         self.beta_bgd = project(beta, self.Qp)
         self.beta = project(beta, self.Qp)
-        if pert:
-            # Perturbed field for nonzero gradient at first step of inversion
-            bv = self.beta.vector().get_local()
-            pert_vec = 0.001*bv*randn(bv.size)
-            self.beta.vector().set_local(bv + pert_vec)
-            self.beta.vector().apply('insert')
 
         self.beta.rename('beta', 'a Function')
+        self.beta_bgd.rename('beta_bgd', 'a Function')
+
+        # TODO - tidy this up properly (remove pert arg)
+        # if pert:
+        #     # Perturbed field for nonzero gradient at first step of inversion
+        #     bv = self.beta.vector().get_local()
+        #     pert_vec = 0.001*bv*randn(bv.size)
+        #     self.beta.vector().set_local(bv + pert_vec)
+        #     self.beta.vector().apply('insert')
+
 
     def vel_obs_from_data(self):
         """
@@ -167,7 +181,6 @@ class model:
         Additionally interpolates these arbitrarily spaced data
         onto self.Q for use as boundary conditions etc
         """
-
         # Read the obs from HDF5 file
         # Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
         # self.uv_obs_pts, self.mask_vel
@@ -188,7 +201,7 @@ class model:
                               "of velocity obs to function space.")
                 else:
                     log.warning("Some points missing in interpolation "
-                             "of velocity obs to function space.")
+                                "of velocity obs to function space.")
 
             vertices = np.take(tri.simplices, simplex, axis=0)
             temp = np.take(tri.transform, simplex, axis=0)
@@ -236,7 +249,7 @@ class model:
         self.mask_vel_M.vector()[:] = interpolate(self.mask_vel, vtx_M, wts_M)
 
     def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
-                         vstd=Constant(1.0), ls = False):
+                         vstd=Constant(1.0), ls=False):
         """
         Set up velocity observations for inversion
 
@@ -245,35 +258,30 @@ class model:
         coordinates which can be arbitrarily defined, and obs are then
         interpolated (again) onto these points in comp_J_inv.
         """
-        self.u_obs = project(u,self.M)
-        self.v_obs = project(v,self.M)
-        self.mask_vel = project(mv,self.M)
-        self.u_std = project(ustd,self.M)
-        self.v_std = project(vstd,self.M)
+        self.u_obs = project(u, self.M)
+        self.v_obs = project(v, self.M)
+        self.mask_vel = project(mv, self.M)
+        self.u_std = project(ustd, self.M)
+        self.v_std = project(vstd, self.M)
 
         if ls:
             mc = self.mesh.coordinates()
-            xmin = mc[:,0].min()
-            xmax = mc[:,0].max()
+            xmin = mc[:, 0].min()
+            xmax = mc[:, 0].max()
 
-            ymin = mc[:,1].min()
-            ymax = mc[:,1].max()
+            ymin = mc[:, 1].min()
+            ymax = mc[:, 1].max()
 
-            xc = np.arange(xmin + ls/2.0, xmax, ls) 
+            xc = np.arange(xmin + ls/2.0, xmax, ls)
             yc = np.arange(ymin + ls/2.0, ymax, ls)
 
             self.uv_obs_pts = np.transpose([np.tile(xc, len(yc)), np.repeat(yc, len(xc))])
 
         else:
-            self.uv_obs_pts = self.M.tabulate_dof_coordinates().reshape(-1,2)
-
-        
+            self.uv_obs_pts = self.M.tabulate_dof_coordinates().reshape(-1, 2)
 
     def init_lat_dirichletbc(self):
-        """
-        Set lateral vel BC from obs
-        """
-
+        """Set lateral vel BC from obs"""
         latbc = Function(self.V)
         assign(latbc.sub(0), self.u_obs_Q)
         assign(latbc.sub(1), self.v_obs_Q)
@@ -286,7 +294,7 @@ class model:
 
         h_diff = self.surf-self.bed
         h_hyd = self.surf*1.0/(1-rhoi/rhow)
-        self.H = project(Min(h_diff,h_hyd),self.M)
+        self.H = project(Min(h_diff, h_hyd), self.M)
 
     def gen_surf(self):
         rhoi = self.params.constants.rhoi
@@ -294,26 +302,16 @@ class model:
         bed = self.bed
         H = self.H
 
-        H_s = -rhow/rhoi * bed
-        fl_ex = conditional(H <= H_s, 1.0, 0.0)
+        H_flt = -rhow/rhoi * bed
+        fl_ex = conditional(H <= H_flt, 1.0, 0.0)
 
         self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
         self.surf._Function_static__ = True
         self.surf._Function_checkpoint__ = False
-        self.surf.rename("surf","")
+        self.surf.rename("surf", "")
 
-    def gen_ice_mask(self):
-        """
-        UNUSED - would overwrite self.mask w/ extent of ice sheet (H > 0)
-        """
-        tol = self.params.constants.float_eps
-        self.mask = project(conditional(gt(self.H,tol),1,0), self.M)
-
-    def gen_alpha(self, a_bgd=500.0, a_lb = 1e2, a_ub = 1e4):
-        """
-        Initial guess for alpha (slip coeff)
-        """
-
+    def gen_alpha(self, a_bgd=500.0, a_lb=1e2, a_ub=1e4):
+        """Generate initial guess for alpha (slip coeff)"""
         bed = self.bed
         H = self.H
         g = self.params.constants.g
@@ -325,25 +323,24 @@ class model:
 
         U = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
-        #Flotation Criterion
-        H_s = -rhow/rhoi * bed
-        fl_ex = conditional(H <= H_s, 1.0, 0.0)
+        # Flotation Criterion
+        H_flt = -rhow/rhoi * bed
+        fl_ex = conditional(H <= H_flt, 1.0, 0.0)
 
-        #Thickness Criterion
-        m_d = conditional(H > 0,1.0,0.0)
+        # Thickness Criterion
+        m_d = conditional(H > 0, 1.0, 0.0)
 
-        #Calculate surface gradient
+        # Calculate surface gradient
         R_f = ((1.0 - fl_ex) * bed
                + (fl_ex) * (-rhoi / rhow) * H)
 
-        s_ = ufl.Max(H + R_f,0)
-        s = project(s_,self.Q)
+        s_ = ufl.Max(H + R_f, 0)
+        s = project(s_, self.Q)
         grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
 
-        #Calculate alpha, apply background, apply bound
-        B2_ = ( (1.0 - fl_ex) *rhoi*g*H*grads/U
-           + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
-
+        # Calculate alpha, apply background, apply bound
+        B2_ = ( (1.0 - fl_ex) * rhoi*g*H*grads/U
+                + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
 
         B2_tmp1 = ufl.Max(B2_, a_lb)
         B2_tmp2 = ufl.Min(B2_tmp1, a_ub)
@@ -352,153 +349,48 @@ class model:
         if sl == 'linear':
             alpha = sqrt(B2_tmp2)
         elif sl == 'weertman':
-            N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed,0.0)*rhow*g)
+            N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
             U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
             alpha = (1-fl_ex)*sqrt(B2_tmp2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
 
-        self.alpha = project(alpha,self.Qp)
+        self.alpha = project(alpha, self.Qp)
         self.alpha.rename('alpha', 'a Function')
 
-
-    def gen_domain(self):
+    def mark_BCs(self):
         """
-        Takes the input mesh (self.mesh_ext) and produces the submesh
-        where mask==1, which becomes self.mesh
+        Set up Facet Functions defining BCs
 
-        UNUSED
+        If no bc_filename defined, check no BCs requested in TOML file (error),
+        and check that the domain is periodic (warn)
         """
-        tol = self.params.constants.float_eps
-        cf_mask = MeshFunction('size_t',  self.mesh_ext, self.mesh_ext.geometric_dimension())
+        # Do nothing if BCs aren't defined
+        if self.params.mesh.bc_filename is None:
+            assert len(self.params.bcs) == 0, \
+                "Boundary Conditions [[BC]] defined but no bc_filename specified"
 
-        for c in cells(self.mesh_ext):
-            x_m       = c.midpoint().x()
-            y_m       = c.midpoint().y()
-            m_xy = self.mask_ext(x_m, y_m)
+            if not self.params.mesh.periodic_bc:
+                logging.warn("No BCs defined but mesh is not periodic?")
 
-            #Determine whether cell is in the domain
-            if near(m_xy,1, tol):
-                cf_mask[c] = 1
+            self.ff = None
 
-        self.mesh = SubMesh(self.mesh_ext, cf_mask, 1)
-
-    def label_domain(self):
-        tol = self.params.constants.float_eps
-        bed = self.bed
-        H = self.H
-        g = self.params.constants.g
-        rhoi = self.params.constants.rhoi
-        rhow = self.params.constants.rhow
-
-        #Flotation Criterion
-        H_s = -rhow/rhoi * bed
-        fl_ex_ = conditional(H <= H_s, 1.0, 0.0)
-        fl_ex = project(fl_ex_, self.M)
-
-        #Mask labels
-        self.MASK_ICE           = 1 #Ice
-        self.MASK_LO            = 0 #Land/Ocean
-        self.MASK_XD            = -10 #Out of domain
-
-        #Cell labels
-        self.OMEGA_DEF          = 0     #default value; should not appear in cc after processing
-        self.OMEGA_ICE_FLT      = 1
-        self.OMEGA_ICE_GND      = 2
-        self.OMEGA_ICE_FLT_OBS  = 3
-        self.OMEGA_ICE_GND_OBS  = 4
-
-        #Facet labels
-        self.GAMMA_DEF          = 0 #default value, appears in interior cells
-        self.GAMMA_LAT          = 1 #Value at lateral domain boundaries
-        self.GAMMA_TMN          = 2 #Value at ice terminus
-        self.GAMMA_NF           = 3 #No flow dirichlet bc
-
-
-
-
-        #Cell and Facet Markers
-        self.cf      = MeshFunction('size_t',  self.mesh, self.mesh.geometric_dimension())
-        self.ff      = MeshFunction('size_t', self.mesh, self.mesh.geometric_dimension() - 1)
-
-
-        #Initialize Values
-        self.cf.set_all(self.OMEGA_DEF)
-        self.ff.set_all(self.GAMMA_DEF)
-
-
-        # Build connectivity between facets and cells
-        D = self.mesh.topology().dim()
-        self.mesh.init(D-1,D)
-
-        #Label ice sheet cells
-        for c in cells(self.mesh):
-            x_m       = c.midpoint().x()
-            y_m       = c.midpoint().y()
-            m_xy = self.mask_ext(x_m, y_m)
-            mv_xy = self.mask_vel_M(x_m, y_m)
-            fl_xy = fl_ex(x_m, y_m)
-
-            #Determine whether cell is in the domain
-            if near(m_xy,1.0, tol) & near(mv_xy,1.0, tol):
-                if fl_xy:
-                    self.cf[c] = self.OMEGA_ICE_FLT_OBS
-                else:
-                    self.cf[c] = self.OMEGA_ICE_GND_OBS
-            elif near(m_xy,1.0, tol):
-                if fl_xy:
-                    self.cf[c] = self.OMEGA_ICE_FLT
-                else:
-                    self.cf[c] = self.OMEGA_ICE_GND
-
-        for f in facets(self.mesh):
-
-            #Facet facet label based on mask and corresponding bc
-            if f.exterior():
-                mask        = self.mask_ext
-                x_m         = f.midpoint().x()
-                y_m         = f.midpoint().y()
-                tol         = 1e-2
-
-                CC = mask(x_m,y_m)
-
-                try:
-                    CE = mask(x_m + tol,y_m)
-                except:
-                    CE = np.Inf
-                try:
-                    CW = mask(x_m - tol ,y_m)
-                except:
-                    CW = np.Inf
-                try:
-                    CN = mask(x_m, y_m + tol)
-                except:
-                    CN = np.Inf
-                try:
-                    CS = mask(x_m, y_m - tol)
-                except:
-                    CS = np.Inf
-
-                mv = np.min([CC, CE, CW, CN, CS])
-
-                if near(mv,self.MASK_ICE,tol):
-                    self.ff[f] = self.GAMMA_LAT
-
-                elif near(mv,self.MASK_LO,tol):
-                    self.ff[f] = self.GAMMA_TMN
-
-                elif near(mv,self.MASK_XD,tol):
-                    self.ff[f] = self.GAMMA_NF
+        else:
+            # Read the facet function from a file containing a sparse MeshValueCollection
+            self.ff = fice_mesh.get_ff_from_file(self.params, model=self, fill_val=0)
 
 class PeriodicBoundary(SubDomain):
-    def __init__(self,L):
+    def __init__(self, L):
         self.L = L
         super(PeriodicBoundary, self).__init__()
 
     # Left boundary is "target domain" G
     def inside(self, x, on_boundary):
-        # return True if on left or bottom boundary AND NOT on one of the two corners (0, L) and (L, 0)
-        return bool((near(x[0], 0) or near(x[1], 0)) and
-                (not ((near(x[0], 0) and near(x[1], self.L)) or
-                        (near(x[0], self.L) and near(x[1], 0)))) and on_boundary)
+        """
+        Return True if on left or bottom boundary AND NOT on one of
+        the two corners (0, L) and (L, 0)
+        """
+        return bool((near(x[0], 0) or near(x[1], 0))
+                    and (not ((near(x[0], 0) and near(x[1], self.L))
+                              or (near(x[0], self.L) and near(x[1], 0)))) and on_boundary)
 
     def map(self, x, y):
         if near(x[0], self.L) and near(x[1], self.L):

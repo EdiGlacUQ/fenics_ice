@@ -1,3 +1,20 @@
+# For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
+# root directory
+
+# This file is part of fenics_ice.
+#
+# fenics_ice is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# fenics_ice is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
+
 """
 Module to handle model input & output
 """
@@ -9,10 +26,12 @@ import pickle
 import logging
 import re
 import h5py
+import netCDF4
 import git
 from scipy import interpolate as interp
 
 from fenics import *
+from tlm_adjoint_fenics import configure_checkpointing
 import numpy as np
 
 # Regex for catching unnamed vars
@@ -32,7 +51,7 @@ def write_qval(Qval, params):
 
     pickle.dump([Qval, ts], (Path(outdir)/filename).open('wb'))
 
-def write_dqval(dQ_ts, params):
+def write_dqval(dQ_ts, cntrl_names, params):
     """
     Produces .pvd & .h5 files with dQoi_dCntrl
     """
@@ -45,15 +64,19 @@ def write_dqval(dQ_ts, params):
     hdf5out = HDF5File(MPI.comm_world, str(Path(outdir)/h5_filename), 'w')
     n = 0.0
 
-    for j in dQ_ts:
-        #TODO - if we generalise cntrl in run_forward.py to be always a list
-        #(possible dual inversion), should change this.
-        # assert len(j) == 1, "Not yet implemented for dual inversion"
-        # output = j[0]
-        output = j
-        output.rename('dQ', 'dQ')
-        vtkfile << output
-        hdf5out.write(output, 'dQ', n)
+    # Loop dQ sample times ('num_sens')
+    for step in dQ_ts:
+
+        assert len(step) == len(cntrl_names)
+
+        # Loop (1 or 2) control vars (alpha, beta)
+        for cntrl_name, var in zip(cntrl_names, step):
+            output = var
+            name = "dQd"+cntrl_name
+            output.rename(name, name)
+            # vtkfile << output
+            hdf5out.write(output, name, n)
+
         n += 1.0
 
     hdf5out.close()
@@ -66,7 +89,6 @@ def write_variable(var, params, name=None):
     If 'name' is provided and variable structure is unnamed (e.g. "f_124")
     the variable will be renamed accordingly.
     """
-
     var_name = var.name()
     unnamed_var = unnamed_re.match(var_name) is not None
 
@@ -83,7 +105,7 @@ def write_variable(var, params, name=None):
         # Use variable's current name if 'name' not supplied
         name = var_name
 
-    #Prefix the run name
+    # Prefix the run name
     outfname = Path(params.io.output_dir)/"_".join((params.io.run_name, name))
     vtk_fname = str(outfname.with_suffix(".pvd"))
     xml_fname = str(outfname.with_suffix(".xml"))
@@ -95,7 +117,6 @@ def write_variable(var, params, name=None):
 
 def field_from_vel_file(infile, field_name):
     """Return a field from HDF5 file containing velocity"""
-
     field = infile[field_name]
     # Check that only one dimension greater than 1 exists
     # i.e. valid: [100], [100,1], [100,1,1], invalid: [100,2]
@@ -110,7 +131,6 @@ def read_vel_obs(params, model=None):
 
     For now, expects an HDF5 file
     """
-
     infile = Path(params.io.input_dir) / params.obs.vel_file
     assert infile.exists(), f"Couldn't find velocity observations file: {infile}"
 
@@ -141,6 +161,7 @@ def read_vel_obs(params, model=None):
 
 class DataNotFound(Exception):
     """Custom exception for unfound data"""
+
     pass
 
 class InputDataField(object):
@@ -155,18 +176,22 @@ class InputDataField(object):
             raise DataNotFound
 
         filetype = infile.suffix
-        if filetype == '.h5':
-            self.read_from_h5()
-        else:
-            raise NotImplementedError
+        assert filetype in [".h5", ".nc"], "Only NetCDF and HDF5 input supported"
+        self.read_from_file()
 
-    def read_from_h5(self):
+    def read_from_file(self):
         """
-        Load data field from HDF5 file
+        Load data field from HDF5 or NetCDF file
 
         Expects to find data matrix arranged [y,x], but stores as [x,y]
         """
-        indata = h5py.File(self.infile, 'r')
+        filetype = self.infile.suffix
+        if filetype == '.h5':
+            indata = h5py.File(self.infile, 'r')
+        else:
+            logging.warning("NetCDF input is untested!")
+            indata = netCDF4.Dataset(self.infile, 'r')
+
         try:
             self.xx = indata['x'][:]
             self.yy = indata['y'][:]
@@ -206,7 +231,7 @@ class InputData(object):
         self.input_dir = params.io.input_dir
 
         # List of fields to search for
-        field_list = ["thick", "bed", "data_mask", "bmelt", "smb", "Bglen", "alpha"]
+        field_list = ["thick", "bed", "bmelt", "smb", "Bglen", "alpha"]
 
         # Dictionary of filenames & field names (i.e. field to get from HDF5 file)
         # Possibly equal to None for variables which have sensible defaults
@@ -251,7 +276,7 @@ class InputData(object):
             assert field_file.exists(), f"No input file found for field {field_name}"
             return field_file, field_name
 
-    def interpolate(self, name, space, default=None, static=False):
+    def interpolate(self, name, space, **kwargs):
         """
         Interpolate named variable onto function space
 
@@ -260,11 +285,19 @@ class InputData(object):
         space : function space onto which to interpolate
         default : value to return if field is absent (otherwise raise error)
         static : if True, set _Function_static__ = True to save always-zero differentials
+        method: "nearest" or "linear"
 
         Returns:
         function : the interpolated function
-        """
 
+        """
+        default = kwargs.get("default", None)
+        static = kwargs.get("static", False)
+        method = kwargs.get("method", 'linear')
+        min_val = kwargs.get("min_val", None)
+        max_val = kwargs.get("max_val", None)
+
+        assert (method in ["linear", "nearest"]), f"Unrecognised interpolation method: {method}"
         function = Function(space, name=name, static=static)
 
         try:
@@ -274,7 +307,7 @@ class InputData(object):
             # Fill with default, if supplied, else raise error
             if default is not None:
                 logging.warning(f"No data found for {name},"
-                             f"filling with default value {default}")
+                                f" filling with default value {default}")
                 function.vector()[:] = default
                 function.vector().apply("insert")
                 return function
@@ -282,10 +315,16 @@ class InputData(object):
                 print(f"Failed to find data for field {name}")
                 raise
 
-        interper = interp.RegularGridInterpolator((field.xx, field.yy), field.field)
+        interper = interp.RegularGridInterpolator((field.xx, field.yy),
+                                                  field.field,
+                                                  method=method)
         out_coords = space.tabulate_dof_coordinates()
 
         result = interper(out_coords)
+
+        if (min_val is not None) or (max_val is not None):
+            result = np.clip(result, min_val, max_val)
+
         function.vector()[:] = result
         function.vector().apply("insert")
 
@@ -293,6 +332,7 @@ class InputData(object):
 
 # Custom formatter
 class LogFormatter(logging.Formatter):
+    """A custom formatter for fenics_ice logs"""
 
     critical_fmt = "CRITICAL ERROR: %(msg)s"
     err_fmt  = "ERROR: %(msg)s"
@@ -301,10 +341,11 @@ class LogFormatter(logging.Formatter):
     info_fmt = "%(msg)s"
 
     def __init__(self):
+        """Initialize the parent class"""
         super().__init__(fmt="%(levelno)d: %(msg)s", datefmt=None, style='%')
 
     def format(self, record):
-
+        """Format incoming error messages according to log level"""
         # Save the original format configured by the user
         # when the logger formatter was instantiated
         format_orig = self._style._fmt
@@ -334,7 +375,7 @@ class LogFormatter(logging.Formatter):
         return result
 
 
-#TODO - as yet unused - can't get stdout redirection to work
+# TODO - as yet unused - can't get stdout redirection to work
 class LoggerWriter:
     def __init__(self, logger, level):
         self.logger = logger
@@ -345,13 +386,14 @@ class LoggerWriter:
             self.logger.log(self.level, message)
 
 def setup_logging(params):
-    """
-    Set up logging to file specified in params
-    """
-
-    #TODO - Doesn't work yet - can't redirect output from fenics etc
+    """Set up logging to file specified in params"""
+    # TODO - Doesn't work yet - can't redirect output from fenics etc
     # run_name = params.io.run_name
     # logfile = run_name + ".log"
+
+    # Get the FFC logger to shut up
+    ffc_logger = logging.getLogger('FFC')
+    ffc_logger.setLevel(logging.WARNING)
 
     log_level = params.io.log_level
 
@@ -385,13 +427,13 @@ def setup_logging(params):
 
     return logger
 
-    #Consider adding %(process)d- when we move to parallel sims (at least for debug messages?)
+#    Consider adding %(process)d- when we move to parallel sims (at least for debug messages?)
 #    logging.basicConfig(level=numeric_level, format='%(levelname)s:%(message)s')
 #    logging.basicConfig(level=numeric_level, format=)
 
 
 def print_config(params):
-
+    """Log the configuration as read from TOML file"""
     log = logging.getLogger("fenics_ice")
     log.info("==================================")
     log.info("========= Configuration ==========")
@@ -418,7 +460,6 @@ def log_git_info():
 
 def log_preamble(phase, params):
     """Print out git info, model phase and config"""
-
     log_git_info()
 
     log = logging.getLogger("fenics_ice")
@@ -429,3 +470,29 @@ def log_preamble(phase, params):
     log.info("==================================\n\n")
 
     print_config(params)
+
+
+def configure_tlm_checkpointing(params):
+    """Set up tlm_adjoint's checkpointing"""
+
+    cparam = params.checkpointing
+    method = cparam.method
+
+    if method == 'multistage':
+        n_steps = params.time.total_steps
+        config_dict = {"blocks": n_steps,
+                       "snaps_on_disk": cparam.snaps_on_disk,
+                       "snaps_in_ram": cparam.snaps_in_ram,
+                       "verbose": True,
+                       "format": "pickle"}
+
+    elif method == 'periodic_disk':
+        config_dict = {"period": cparam.period,
+                       "format": "pickle"}
+
+    elif method == 'memory':
+        config_dict = {}
+    else:
+        raise ValueError(f"Invalid checkpointing method: {method}")
+
+    configure_checkpointing(method, config_dict)

@@ -52,7 +52,6 @@ max_iter = 200
 
 alpha_active = true
 beta_active = false
-simultaneous = false
 alt_iter = 2
 
 gamma_alpha = 7.071067e2 #5.0e2 #6
@@ -85,8 +84,8 @@ nonlinear_solver = "newton"
 [momsolve.newton_params.newton_solver]
 linear_solver = "umfpack"
 maximum_iterations = 25
-absolute_tolerance = 1.0e-7
-relative_tolerance = 1.0e-8
+absolute_tolerance = 1.0e-10
+relative_tolerance = 1.0e-11
 convergence_criterion = "incremental"
 error_on_nonconvergence = true
 
@@ -138,13 +137,13 @@ qoi = 'h2' #or 'vaf'
 [testing]
 
 expected_init_alpha = 354.4076349907514
-expected_J_inv = 22512.810437567023
-expected_cntrl_norm = 633.8590244806196
-expected_delta_qoi = 9276274387.0
-expected_u_norm = 679701.9621009399
-expected_evals_sum = 452977.6302835847
-expected_evec0_norm = 141096.6181876985
-expected_cntrl_sigma_norm = 25802.988411657687
-expected_cntrl_sigma_prior_norm = 178293.1824797423
-expected_Q_sigma = 1116864254.7650206
-expected_Q_sigma_prior = 27917309353.475853
+expected_J_inv = 19866.826358355025
+expected_cntrl_norm = 634.0045807009815
+expected_delta_qoi = 9164373483.25
+expected_u_norm = 680213.981640707
+expected_evals_sum = 463357.482045375
+expected_evec0_norm = 141066.92361037614
+expected_cntrl_sigma_norm = 24746.66005357609
+expected_cntrl_sigma_prior_norm = 178293.1824797416
+expected_Q_sigma = 1047043885.9532827
+expected_Q_sigma_prior = 28118069184.459427

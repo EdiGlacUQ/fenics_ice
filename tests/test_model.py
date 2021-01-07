@@ -1,3 +1,20 @@
+# For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
+# root directory
+
+# This file is part of fenics_ice.
+#
+# fenics_ice is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# fenics_ice is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
+
 # -*- coding: utf-8 -*-
 
 import pytest
@@ -7,7 +24,6 @@ from fenics import *
 from tlm_adjoint import *
 import fenics_ice as fice
 from fenics_ice import model, config, inout, solver
-from runs import run_inv
 
 def init_model(model_dir, toml_file):
 
@@ -31,7 +47,6 @@ def init_model(model_dir, toml_file):
 def initialize_fields(mdl):
     """Initialize data fields in model object"""
     mdl.init_fields_from_data()
-    mdl.label_domain()
 
     # Add random noise to Beta field iff we're inverting for it
     mdl.bglen_from_data()
@@ -82,7 +97,6 @@ def test_initialize_fields(request, setup_deps, temp_model):
 
     assert mdl.bed.vector()[:].size == Q_size
     assert mdl.surf.vector()[:].size == Q_size
-    assert mdl.mask.vector()[:].size == M_size
 
     return mdl
 
@@ -120,9 +134,10 @@ def test_gen_init_alpha(request, setup_deps, temp_model):
     # Generate initial guess for alpha
     mdl.gen_alpha()
 
+    alpha_norm = norm(mdl.alpha.vector())
     # TODO - won't properly set expected value when --remake, because
     # pytest.active_cases doesn't exist yet
-    pytest.check_float_result(np.linalg.norm(mdl.alpha.vector()[:]),
+    pytest.check_float_result(alpha_norm,
                               expected_init_alpha,
                               work_dir, 'expected_init_alpha')
 

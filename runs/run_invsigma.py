@@ -1,30 +1,46 @@
+# For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
+# root directory
+
+# This file is part of fenics_ice.
+#
+# fenics_ice is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# fenics_ice is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
+
 import sys
 import os
-from pathlib import Path
+import pickle
+import numpy as np
 
 from dolfin import *
 from tlm_adjoint import *
 
-from fenics_ice import model, solver, prior, inout
+from fenics_ice import model, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
-import fenics_ice.fenics_util as fu
 
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
-
-import time
-import datetime
-import pickle
-from petsc4py import PETSc
 
 def run_invsigma(config_file):
     """Compute control sigma values from eigendecomposition"""
 
+    comm = MPI.comm_world
+    rank = comm.rank
+
     # Read run config file
     params = ConfigParser(config_file)
+
+    # Setup logging
     log = inout.setup_logging(params)
     inout.log_preamble("inv sigma", params)
 
@@ -65,13 +81,6 @@ def run_invsigma(config_file):
 
     reg_op = prior.laplacian(delta, gamma, space)
 
-    # test, trial = TestFunction(space), TrialFunction(space)
-    # mass = assemble(inner(test, trial)*dx)
-    # mass_solver = KrylovSolver("cg", "sor")
-    # mass_solver.parameters.update({"absolute_tolerance": 1.0e-32,
-    #                                "relative_tolerance": 1.0e-14})
-    # mass_solver.set_operator(mass)
-
     # Load the eigenvalues
     with open(os.path.join(eigendir, lamfile), 'rb') as ff:
         eigendata = pickle.load(ff)
@@ -81,28 +90,26 @@ def run_invsigma(config_file):
     # Read in the eigenvectors and check they are normalised
     # w.r.t. the prior (i.e. the B matrix in our GHEP)
     eps = params.constants.float_eps
-    W = np.zeros((x.vector().size(), nlam))
-    with HDF5File(MPI.comm_world,
+    W = []
+    with HDF5File(comm,
                   os.path.join(eigendir, vecfile), 'r') as hdf5data:
         for i in range(nlam):
-            hdf5data.read(x, f'v/vector_{i}')
-            v = x.vector().get_local()
-            reg_op.action(x.vector(), y.vector())
-            tmp = y.vector().get_local()
-            norm_in_prior = np.sqrt(np.dot(v, tmp))
+            w = Function(space)
+            hdf5data.read(w, f'v/vector_{i}')
+
+            # Test norm in prior == 1.0
+            reg_op.action(w.vector(), y.vector())
+            norm_in_prior = w.vector().inner(y.vector())
             assert (abs(norm_in_prior - 1.0) < eps)
-            W[:, i] = v
+
+            W.append(w)
 
     # Which eigenvalues are larger than our threshold?
     pind = np.flatnonzero(lam > threshlam)
     lam = lam[pind]
-    W = W[:, pind]
+    W = [W[i] for i in pind]
 
     D = np.diag(lam / (lam + 1))
-
-    sigma_vector = np.zeros(space.dim())
-    sigma_prior_vector = np.zeros(space.dim())
-    ivec = np.zeros(space.dim())
 
     neg_flag = 0
 
@@ -111,23 +118,33 @@ def run_invsigma(config_file):
     # P1 = WDW
     # Note - don't think we're considering the cross terms
     # in the posterior covariance.
-    for j in range(sigma_vector.size):
+    # TODO - this isn't particularly well parallelised - can it be improved?
+    for j in range(space.dim()):
 
-        ivec.fill(0)
-        ivec[j] = 1.0
-        y.vector().set_local(ivec)
+        # Who owns this index?
+        own_idx = y.vector().owns_index(j)
+        ownership = np.where(comm.allgather(own_idx))[0]
+        assert len(ownership) == 1
+        idx_root  = ownership[0]
+
+        y.vector().zero()
+        y.vector().vec().setValue(j, 1.0)
         y.vector().apply('insert')
 
-        tmp1 = np.dot(W.T, ivec)  # take the ith row from W
-        tmp2 = np.dot(D, tmp1)  # just a vector-vector product
-        P1 = np.dot(W, tmp2)
+        tmp2 = np.asarray([D[i, i] * w.vector().vec().getValue(j) for i, w in enumerate(W)])
+        tmp2 = comm.bcast(tmp2, root=idx_root)
+
+        P1 = Function(space)
+        for tmp, w in zip(tmp2, W):
+            P1.vector().axpy(tmp, w.vector())
 
         reg_op.inv_action(y.vector(), x.vector())
-        P2 = x.vector().get_local()
+        P2 = x
 
-        P = P2-P1
-        dprod = np.dot(ivec, P)
-        dprod_prior = np.dot(ivec, P2)
+        P_vec = P2.vector() - P1.vector()
+
+        dprod = comm.bcast(P_vec.vec().getValue(j), root=idx_root)
+        dprod_prior = comm.bcast(P2.vector().vec().getValue(j), root=idx_root)
 
         if dprod < 0:
             log.warning(f'WARNING: Negative Sigma: {dprod}')
@@ -135,9 +152,11 @@ def run_invsigma(config_file):
             neg_flag = 1
             continue
 
-        sigma_vector[j] = np.sqrt(dprod)
-        sigma_prior_vector[j] = np.sqrt(dprod_prior)
+        sigma.vector().vec().setValue(j, np.sqrt(dprod))
+        sigma_prior.vector().vec().setValue(j, np.sqrt(dprod_prior))
 
+    sigma.vector().apply("insert")
+    sigma_prior.vector().apply("insert")
 
     # For testing - whole thing at once:
     # wdw = (np.matrix(W) * np.matrix(D) * np.matrix(W).T)
@@ -147,13 +166,6 @@ def run_invsigma(config_file):
         log.warning('Negative value(s) of sigma encountered.'
                     'Examine the range of eigenvalues and check if '
                     'the threshlam paramater is set appropriately.')
-
-    # Write values to vectors
-    sigma.vector().set_local(sigma_vector)
-    sigma.vector().apply('insert')
-
-    sigma_prior.vector().set_local(sigma_prior_vector)
-    sigma_prior.vector().apply('insert')
 
     # Write sigma & sigma_prior to files
     sigma_var_name = "_".join((cntrl.name(), "sigma"))
@@ -170,6 +182,7 @@ def run_invsigma(config_file):
     mdl.cntrl_sigma = sigma
     mdl.cntrl_sigma_prior = sigma_prior
     return mdl
+
 
 if __name__ == "__main__":
     stop_annotating()

@@ -1,3 +1,20 @@
+# For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
+# root directory
+
+# This file is part of fenics_ice.
+#
+# fenics_ice is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# fenics_ice is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
+
 import numpy as np
 import sys
 import os
@@ -7,6 +24,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from fenics import *
 from IPython import embed
 from fenics_ice import model
+import collections.abc
 
 def plot_variable(u, name, direc, cmap='gist_yarg', scale='lin', numLvls=12,
                   umin=None, umax=None, tp=False, tpAlpha=0.5, show=True,
@@ -153,3 +171,13 @@ def U2Uobs(dd,noise_sdev=1.0):
     N.assign(Constant(1.0))
     xmlfile = File(os.path.join(dd,'mask_vel.xml'))
     xmlfile << N
+
+
+
+def dict_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = dict_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d

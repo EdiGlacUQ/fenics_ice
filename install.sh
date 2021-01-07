@@ -62,14 +62,13 @@ pip install --upgrade pip
 conda install -y matplotlib numpy ipython scipy seaborn h5py
 pip install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency
 
-#get pyrevolve
-git clone https://github.com/opesci/pyrevolve.git
-cd pyrevolve/
-python setup.py install
 cd $INSTALL_DIR
 
 #install tlm_adjoint & fenics_ice
 git clone https://github.com/jrmaddison/tlm_adjoint.git
+cd $INSTALL_DIR/tlm_adjoint
+git checkout jtodd/fice_devel
+
 #git clone git@github.com:cpk26/fenics_ice.git
 
 cd $FENICS_ICE_BASE_DIR
@@ -78,6 +77,7 @@ git checkout $BRANCH
 #PYTHONPATH equiv which doesn't pollute system environment namespace
 conda develop $INSTALL_DIR/tlm_adjoint/python/
 conda develop $FENICS_ICE_BASE_DIR
+#conda develop $INSTALL_DIR/fice_toolbox  <- system specific but this is how I use fice_toolbox
 
 #=================================
 #TEST SETUP WITH AN ISMIP-C CASE

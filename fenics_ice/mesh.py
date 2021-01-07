@@ -1,3 +1,20 @@
+# For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
+# root directory
+
+# This file is part of fenics_ice.
+#
+# fenics_ice is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# fenics_ice is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
+
 """
 Module to handle all things mesh to avoid code repetition in run scripts.
 """
@@ -88,3 +105,43 @@ def get_periodic_space(params, mesh, deg=1, dim=1):
         )
 
     return periodic_space
+
+def get_ff_from_file(params, model, fill_val=0):
+    """
+    Return a FacetFunction defining the boundary conditions of the mesh.
+
+    Expects to find an XDMF file containing a MeshValueCollection (sparse).
+    Builds a 1D MeshFunction (i.e. FacetFunction) from this, filling missing
+    values with fill_val.
+    """
+
+    dim = model.mesh.geometric_dimension()
+
+    dd = params.io.input_dir
+    ff_filename = Path(params.mesh.bc_filename)
+    ff_file = dd/ff_filename
+
+    assert ff_file.suffix == ".xdmf"
+    assert ff_file.exists(), f"MeshValueCollection file {ff_file} not found"
+
+    # Read the MeshValueCollection (sparse)
+    ff_mvc = MeshValueCollection("size_t", model.mesh, dim=dim-1)
+    ff_xdmf = XDMFFile(MPI.comm_world, str(ff_file))
+    ff_xdmf.read(ff_mvc)
+
+    # Create FacetFunction filled w/ default
+    ff = MeshFunction('size_t', model.mesh, dim-1, int(fill_val))
+    ff_arr = ff.array()
+
+    # Get cell/facet topology
+    model.mesh.init(dim, dim-1)
+    connectivity = model.mesh.topology()(dim, dim-1)
+
+    # Set ff from sparse mvc
+    mvc_vals = ff_mvc.values()
+    for ci_lei, value in mvc_vals.items():
+        cell_index, local_entity_index = ci_lei
+        entity_index = connectivity(cell_index)[local_entity_index]
+        ff_arr[entity_index] = value
+
+    return ff

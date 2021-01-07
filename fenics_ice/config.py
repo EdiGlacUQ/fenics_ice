@@ -1,3 +1,20 @@
+# For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
+# root directory
+
+# This file is part of fenics_ice.
+#
+# fenics_ice is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# fenics_ice is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
+
 """
 Classes & methods for parsing fenics_ice configuration files.
 """
@@ -64,12 +81,22 @@ class ConfigParser(object):
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
 
-        try:  # Optional
+        try:
+            cpoint_dict = self.config_dict['checkpointing']
+        except KeyError:
+            cpoint_dict = {}
+        self.checkpointing = CheckpointCfg(**cpoint_dict)
+
+        try:  # Optional BC list
+            self.bcs = [BCCfg(**bc) for bc in self.config_dict['BC']]
+        except KeyError:
+            self.bcs = []
+            pass
+
+        try:  # Optional testing
             self.testing = TestCfg(**self.config_dict['testing'])
         except KeyError:
             pass
-
-        #TODO - boundaries
 
     def check_dirs(self):
         """
@@ -106,7 +133,6 @@ class InversionCfg(ConfigPrinter):
 
     alpha_active: bool = False
     beta_active: bool = False
-    simultaneous: bool = False
     alt_iter: int = 2
 
     gamma_alpha: float = 0.0
@@ -202,23 +228,49 @@ class MeshCfg(ConfigPrinter):
     """
     mesh_filename: str = 'mesh.xml'
     periodic_bc: bool = False
+    bc_filename: str = None
 
     def __post_init__(self):
         """
         Check sanity of provided options & set conditional defaults
         Use setattr so dataclass can be frozen
         """
+        assert Path(self.mesh_filename).suffix in [".xml", ".xdmf"]
         pass
 
 @dataclass(frozen=True)
-class IceDynamicsCfg(ConfigPrinter):
-    """
-    Configuration related to modelling ice dynamics
-    """
-    sliding_law: str = "linear"
+class BCCfg(ConfigPrinter):
+    """Configuration of boundary conditions"""
+
+    labels: tuple  # though it begins as a list...
+    flow_bc: str
+    name: str = None
 
     def __post_init__(self):
-        assert(self.sliding_law in ['linear', 'weertman'])
+        """Validate the BC config"""
+
+        possible_types = ["calving", "obs_vel", "no_slip", "free_slip", "natural"]
+        assert self.flow_bc in possible_types, f"Unrecognised BC type '{self.flow_bc}'"
+
+        # Convert label list to tuple for immutability
+        assert isinstance(self.labels, list)
+        assert 0 not in self.labels, "Boundary labels must be positive integers"
+        object.__setattr__(self, 'labels', tuple(self.labels))
+
+
+@dataclass(frozen=True)
+class IceDynamicsCfg(ConfigPrinter):
+    """Configuration related to modelling ice dynamics"""
+
+    sliding_law: str = "linear"
+    min_thickness: float = None
+    allow_flotation: bool = True
+
+    def __post_init__(self):
+        """Check options valid"""
+        assert self.sliding_law in ['linear', 'weertman']
+        if self.min_thickness is not None:
+            assert self.min_thickness >= 0.0
 
 
 @dataclass(frozen=True)
@@ -355,6 +407,28 @@ class TimeCfg(ConfigPrinter):
         else: #dt provided
             object.__setattr__(self, 'total_steps', math.ceil(self.run_length/self.dt))
             object.__setattr__(self, 'steps_per_year', 1.0/self.dt)
+
+@dataclass(frozen=True)
+class CheckpointCfg(ConfigPrinter):
+    """Configuration of checkpointing"""
+
+    method: str = "memory"
+    snaps_on_disk: int = None
+    snaps_in_ram: int = None
+    period: int = None
+
+    def __post_init__(self):
+        """Validate the checkpointing config"""
+        assert self.method in ["multistage", "periodic_disk", "memory"]
+
+        if self.method == "multistage":
+            assert self.snaps_on_disk is not None
+            assert self.snaps_in_ram is not None
+        elif self.method == "periodic":
+            assert self.period is not None
+        else:  # memory (default)
+            pass
+
 
 @dataclass(frozen=True)
 class TestCfg(ConfigPrinter):
