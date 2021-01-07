@@ -894,7 +894,7 @@ class ssa_solver:
 
         if(do_beta):
             L = (delta_b * betadiff * self.pTau
-                 + gamma_b*inner(grad(betadiff), grad(self.pTau)))*dIce
+                 + gamma_b*inner(grad(beta), grad(self.pTau)))*dIce
             solve(a == L, f_beta)
             J_reg_beta = 0.5 * inner(f_beta, f_beta)*dIce
             J.addto(J_reg_beta)

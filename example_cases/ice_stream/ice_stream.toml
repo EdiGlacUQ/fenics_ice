@@ -54,8 +54,8 @@ alt_iter = 10
 
 gamma_alpha = 5.0e2 #6
 delta_alpha = 5.0e-6 #-2
-gamma_beta = 5.0e2
-delta_beta = 5.0e-6
+gamma_beta = 1.0e2
+delta_beta = 1.0e-8
 
 ftol = 1e-20
 gtol = 1e-20
@@ -136,14 +136,14 @@ qoi = 'vaf'
 [testing]
 
 expected_init_alpha = 252.96603585543977
-expected_J_inv = 2264.5282159554777
-expected_cntrl_norm = 124.57494180346421
-expected_delta_qoi = -65878089.8905828
-expected_u_norm = 1595666.415790141
-expected_evals_sum = 2509692.447475574
-expected_evec0_norm = 196024.6549066405
-expected_cntrl_sigma_norm = 7811.051399311032
+expected_J_inv = 1334.2418674518235
+expected_cntrl_norm = 134.10046473442313
+expected_delta_qoi = -67039427.14687991
+expected_u_norm = 1603879.66752911
+expected_evals_sum = 2526751.1803566087
+expected_evec0_norm = 196217.21860852587
+expected_cntrl_sigma_norm = 7791.836772998218
 expected_cntrl_sigma_prior_norm = 209509.89381254025
-expected_Q_sigma = 48479.00184625978
-expected_Q_sigma_prior = 58530285.83034233
+expected_Q_sigma = 49698.75755357996
+expected_Q_sigma_prior = 59842405.05492815
 
