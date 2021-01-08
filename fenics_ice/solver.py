@@ -28,8 +28,9 @@ from tlm_adjoint_fenics.hessian_optimization import *
 import sys
 sys.path.append("/home/joe/sources/tlm_adjoint_l_bfgs/python")
 
-from minimize_l_bfgs import minimize_l_bfgs, \
-    line_search_rank0_scipy_scalar_search_wolfe1
+from minimize_l_bfgs import minimize_l_bfgs
+from minimize_l_bfgs import line_search_rank0_scipy_scalar_search_wolfe1 as line_search_wolfe1
+
 
 #from dolfin_adjoint import *
 #from dolfin_adjoint_custom import EquationSolver
@@ -617,6 +618,10 @@ class ssa_solver:
 
         num_iter = config.alt_iter*nparam if nparam > 1 else nparam
 
+        # TODO - control/turn off this debugging output
+        inv_vals = []
+        alt_converged = False
+
         for j in range(num_iter):
             info('Inversion iteration: {0}/{1}'.format(j+1, num_iter) )
 
@@ -658,21 +663,29 @@ class ssa_solver:
                                  new_cc, new_dJ, cc_change, dJ_change):
                 # Convergence tests and defaults as described in SciPy 1.5.2
                 # scipy.optimize._minimize._minimize_lbfgsb documentation
+                converged = False
 
+                info(f"Inversion inner iteration: {it}")
+                info(f"J vals old: {old_J_val} new: {new_J_val}")
                 f_criterion = ((old_J_val - new_J_val)
                                / max(abs(old_J_val), abs(new_J_val), 1.0))
+                info(f"f_criterion: {f_criterion}")
                 ftol = config.inv_options.get("ftol", 2.220446049250313e-09)
                 if f_criterion <= ftol:
                     info("  ftol convergence")
-                    return True
+                    converged = True
 
                 g_criterion = function_linf_norm(new_dJ)
+                info(f"g_criterion: {g_criterion}")
                 gtol = config.inv_options.get("gtol", 1e-05)
                 if g_criterion <= gtol:
                     info("  gtol convergence")
-                    return True
+                    converged = True
 
-                return False
+                inv_vals.append((new_J_val, f_criterion, g_criterion))
+
+                alt_converged = converged
+                return converged
 
             L_solver = KrylovSolver(L_mat.copy(), "cg", "sor")
             L_solver.parameters.update({"relative_tolerance": 1.0e-14,
@@ -754,16 +767,23 @@ class ssa_solver:
             # c1=1.0e-4, c2=0.9999,
             # H_0=H_M_0, M=B_M_0, M_inv=H_M_0)
 
+            max_its = config.max_iter #inv_options['maxiter'] TODO - convert config section
             cntrl_opt, result = minimize_l_bfgs(forward, cc, m=10, s_atol=None,
                                                 g_atol=None, J0=J, verbose=True,
                                                 c1=1.0e-3, c2=0.9,
                                                 converged=l_bfgs_converged,
-                                                line_search_rank0=line_search_rank0_scipy_scalar_search_wolfe1,
+                                                line_search_rank0=line_search_wolfe1,
                                                 line_search_rank0_kwargs={"xtol": 0.1},
-                                                H_0=H_0, M=B_0, M_inv=H_0)
-
+                                                # H_0=H_0, M=B_0, M_inv=H_0,
+                                                max_its=max_its)
 
             cc.assign(cntrl_opt)
+
+            # The outer iteration loop breaks if convergence was achieved
+            if alt_converged:
+                break
+
+        np.savetxt("inv_vals.txt", inv_vals)
 
         self.def_mom_eq()
 
