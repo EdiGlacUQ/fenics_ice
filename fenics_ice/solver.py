@@ -24,12 +24,9 @@ from fenics_ice import inout
 from tlm_adjoint_fenics import *
 from tlm_adjoint_fenics.hessian_optimization import *
 
-# TODO - replace this when L-BFGS is incorporated into tlm_adjoint
-import sys
-sys.path.append("/home/joe/sources/tlm_adjoint_l_bfgs/python")
-
-from minimize_l_bfgs import minimize_l_bfgs
-from minimize_l_bfgs import line_search_rank0_scipy_scalar_search_wolfe1 as line_search_wolfe1
+from .minimize_l_bfgs import minimize_l_bfgs
+from .minimize_l_bfgs import \
+    line_search_rank0_scipy_scalar_search_wolfe1 as line_search_wolfe1
 
 
 #from dolfin_adjoint import *
