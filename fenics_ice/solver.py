@@ -616,7 +616,8 @@ class ssa_solver:
         num_iter = config.alt_iter*nparam if nparam > 1 else nparam
 
         # TODO - control/turn off this debugging output
-        inv_vals = []
+        if(config.verbose):
+            inv_vals = []
         alt_converged = False
 
         for j in range(num_iter):
@@ -662,26 +663,31 @@ class ssa_solver:
                 # scipy.optimize._minimize._minimize_lbfgsb documentation
                 converged = False
 
-                info(f"Inversion inner iteration: {it}")
-                info(f"J vals old: {old_J_val} new: {new_J_val}")
-                f_criterion = ((old_J_val - new_J_val)
-                               / max(abs(old_J_val), abs(new_J_val), 1.0))
-                info(f"f_criterion: {f_criterion}")
-                ftol = config.inv_options.get("ftol", 2.220446049250313e-09)
-                if f_criterion <= ftol:
-                    info("  ftol convergence")
-                    converged = True
+                # Test functional convergence
+                if(config.ftol is not None):
+                    info(f"Inversion inner iteration: {it}")
 
-                g_criterion = function_linf_norm(new_dJ)
-                info(f"g_criterion: {g_criterion}")
-                gtol = config.inv_options.get("gtol", 1e-05)
-                if g_criterion <= gtol:
-                    info("  gtol convergence")
-                    converged = True
+                    f_criterion = ((old_J_val - new_J_val)
+                                   / max(abs(old_J_val), abs(new_J_val), 1.0))
 
-                inv_vals.append((new_J_val, f_criterion, g_criterion))
+                    # ftol = config.inv_options.get("ftol", 2.220446049250313e-09)
+                    if f_criterion <= config.ftol:
+                        info("  ftol convergence")
+                        converged = True
 
-                alt_converged = converged
+                # Test gradient convergence
+                if(config.gtol is not None):
+                    g_criterion = function_linf_norm(new_dJ)
+
+                    gtol = config.gtol #config.inv_options.get("gtol", 1e-05)
+                    if g_criterion <= gtol:
+                        info("  gtol convergence")
+                        converged = True
+
+                if(config.verbose):
+                    inv_vals.append((new_J_val, f_criterion, g_criterion))
+
+                alt_converged = converged # inform outer loop (deprecated?)
                 return converged
 
             L_solver = KrylovSolver(L_mat.copy(), "cg", "sor")
@@ -764,15 +770,17 @@ class ssa_solver:
             # c1=1.0e-4, c2=0.9999,
             # H_0=H_M_0, M=B_M_0, M_inv=H_M_0)
 
-            max_its = config.max_iter #inv_options['maxiter'] TODO - convert config section
-            cntrl_opt, result = minimize_l_bfgs(forward, cc, m=10, s_atol=None,
-                                                g_atol=None, J0=J, verbose=True,
+            cntrl_opt, result = minimize_l_bfgs(forward, cc, J0=J,
+                                                m=config.m,
+                                                s_atol=config.s_atol,
+                                                g_atol=config.g_atol,
+                                                verbose=config.verbose,
                                                 c1=1.0e-3, c2=0.9,
                                                 converged=l_bfgs_converged,
                                                 line_search_rank0=line_search_wolfe1,
                                                 line_search_rank0_kwargs={"xtol": 0.1},
                                                 # H_0=H_0, M=B_0, M_inv=H_0,
-                                                max_its=max_its)
+                                                max_its=config.max_iter)
 
             cc.assign(cntrl_opt)
 
@@ -780,7 +788,8 @@ class ssa_solver:
             if alt_converged:
                 break
 
-        np.savetxt("inv_vals.txt", inv_vals)
+        if(config.verbose):
+            inout.write_inversion_info(self.params, inv_vals)
 
         self.def_mom_eq()
 

@@ -127,8 +127,18 @@ class InversionCfg(ConfigPrinter):
     """
 
     max_iter: int = 15
-    ftol: float = None
-    gtol: float = None
+    ftol: float = None  # scipy default: 2.220446049250313e-09
+    gtol: float = None  # scipy default: 1e-05
+    s_atol: float = None
+    g_atol: float = None
+
+    # Wolfe line search params
+    c1: float = 1.0e-3
+    c2: float = 0.9
+
+    # How many vector pairs to keep in limited memory hessian approx
+    m: int = 10
+
     verbose: bool = True
 
     alpha_active: bool = False
@@ -140,27 +150,12 @@ class InversionCfg(ConfigPrinter):
     gamma_beta: float = 0.0
     delta_beta: float = 0.0
 
-    def construct_inv_options(self):
-        """
-        See __post_init__
-        """
-        inv_options = {"maxiter" : self.max_iter,
-                       "disp" : self.verbose,
-                       "ftol" : self.ftol,
-                       "gtol" : self.gtol
-        }
-
-        inv_options = cleanNullTerms(inv_options)
-        assert ("ftol" in inv_options) or ("gtol" in inv_options), \
-            "Specify either 'ftol' or 'gtol' in inversion options"
-        return cleanNullTerms(inv_options)
-
     def __post_init__(self):
         """
-        Converts supplied parameters (gtol, ftol) etc into a dict for passing
-        to minimize_scipy (tlm_adjoint).
+        Check at least one convergence criterion specified.
         """
-        object.__setattr__(self,'inv_options', self.construct_inv_options())
+        assert (self.ftol is not None) or (self.gtol is not None), \
+            "Specify either 'ftol' or 'gtol' in inversion options"
 
 @dataclass(frozen=True)
 class ObsCfg(ConfigPrinter):
@@ -447,19 +442,6 @@ class TestCfg(ConfigPrinter):
     expected_cntrl_sigma_prior_norm: float = None
     expected_Q_sigma: float = None
     expected_Q_sigma_prior: float = None
-
-
-def cleanNullTerms(d):
-    """
-    Strips dictionary items where value is None.
-    Useful when specifying options to 3rd party lib
-    where default should be 'missing' rather than None
-    """
-    return {
-        k:v
-        for k, v in d.items()
-        if v is not None
-    }
 
 #TODO - these are currently unused
 newton_defaults_linear = {'nonlinear_solver': 'newton',

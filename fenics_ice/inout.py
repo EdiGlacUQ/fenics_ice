@@ -496,3 +496,10 @@ def configure_tlm_checkpointing(params):
         raise ValueError(f"Invalid checkpointing method: {method}")
 
     configure_checkpointing(method, config_dict)
+
+def write_inversion_info(params, conv_info, header="J, F_crit, G_crit"):
+    """Write out a list of tuples containing convergence info for inversion"""
+    outfname = Path(params.io.output_dir)/"_".join((params.io.run_name,
+                                                    "inversion_progress.csv"))
+
+    np.savetxt(outfname, conv_info, delimiter=",", header=header)

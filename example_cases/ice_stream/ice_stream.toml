@@ -50,7 +50,7 @@ max_iter = 5
 
 alpha_active = true
 beta_active = true
-alt_iter = 10
+alt_iter = 10 # TODO  is this still used?
 
 gamma_alpha = 5.0e2 #6
 delta_alpha = 5.0e-6 #-2
@@ -59,6 +59,13 @@ delta_beta = 1.0e-8
 
 ftol = 1e-20
 gtol = 1e-20
+m = 20
+
+# Other options here:
+#  s_atol  - step absolute tolerance
+#  g_atol  - gradient absolute tolerance
+#  c1, c2  - wolfe linesearch params
+
 verbose = false
 
 [ice_dynamics]

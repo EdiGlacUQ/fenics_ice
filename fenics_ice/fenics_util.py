@@ -181,3 +181,16 @@ def dict_update(d, u):
         else:
             d[k] = v
     return d
+
+def dict_clean_null_terms(d):
+    """
+    Strips dictionary items where value is None.
+    Useful when specifying options to 3rd party lib
+    where default should be 'missing' rather than None
+    """
+    return {
+        k:v
+        for k, v in d.items()
+        if v is not None
+    }
+
