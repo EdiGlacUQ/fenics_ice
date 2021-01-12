@@ -35,7 +35,6 @@ max_iter = 200
 
 alpha_active = true
 beta_active = false
-alt_iter = 2
 
 gamma_alpha = 5.0e0
 delta_alpha = 5e-8

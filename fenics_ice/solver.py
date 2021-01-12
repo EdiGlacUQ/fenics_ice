@@ -613,7 +613,7 @@ class ssa_solver:
         cntrl_input = self.get_control()
         nparam = len(cntrl_input)
 
-        num_iter = config.alt_iter*nparam if nparam > 1 else nparam
+        num_iter = 1
 
         # TODO - control/turn off this debugging output
         if(config.verbose):
