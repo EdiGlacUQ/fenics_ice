@@ -1076,7 +1076,7 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
 
         last_F[1] = M
         manager.start()
-        last_F[2] = forward(*last_F[1])
+        last_F[2] = forward(last_F[1])
         manager.stop()
 
         set_manager(old_manager)

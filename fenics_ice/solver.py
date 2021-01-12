@@ -541,6 +541,11 @@ class ssa_solver:
         Runs the forward model w/ given alpha (f)
         and returns the cost function J
         """
+
+        if isinstance(f, (list, tuple)):
+            assert len(f) == 1
+            f = f[0]
+
         clear_caches()
 
         # If we're using a lumped mass approach, f is alpha_l, not alpha
@@ -549,7 +554,7 @@ class ssa_solver:
             LumpedMassSolver(f, self.alpha, p=-0.5).solve()
             # TODO - 'boundary_correct(self.alpha)'?
         else:
-            self.alpha = f
+            self.alpha = f  # TODO - is it an issue here to reassign this variable?
             self.alpha.rename("alpha", "")
 
         # if not self.test_outfile:
@@ -566,8 +571,13 @@ class ssa_solver:
         Runs the forward model w/ given beta (f)
         and returns the cost function J
         """
+
+        if isinstance(f, (list, tuple)):
+            assert len(f) == 1
+            f = f[0]
+
         clear_caches()
-        self.beta = f
+        self.beta = f  # TODO - is it an issue here to reassign this variable?
         self.beta.rename("beta", "")
         self.def_mom_eq()
         self.solve_mom_eq()
@@ -580,6 +590,9 @@ class ssa_solver:
         alpha and beta (f[0], f[1])
         and returns the cost function J
         """
+
+        assert isinstance(f, (list, tuple))
+
         clear_caches()
         self.alpha = f[0]
         self.beta = f[1]
@@ -606,190 +619,198 @@ class ssa_solver:
 
         return cntrl
 
+    def get_forward(self):
+        """
+        Return the forward function for the inversion
+        depending on control params
+        """
+        alpha_active = self.params.inversion.alpha_active
+        beta_active = self.params.inversion.beta_active
+        if(alpha_active and beta_active):
+            return self.forward_dual # TODO
+        elif(alpha_active):
+            return self.forward_alpha
+        else:
+            return self.forward_beta
+
     def inversion(self):
 
         config = self.params.inversion
 
-        cntrl_input = self.get_control()
-        nparam = len(cntrl_input)
+        cntrl = self.get_control()
+        forward = self.get_forward()
 
-        num_iter = 1
+        nparam = len(cntrl)
 
         # TODO - control/turn off this debugging output
         if(config.verbose):
             inv_vals = []
-        alt_converged = False
 
-        for j in range(num_iter):
-            info('Inversion iteration: {0}/{1}'.format(j+1, num_iter) )
+        Qp_test, Qp_trial = TestFunction(self.Qp), TrialFunction(self.Qp)
 
+        # forward = self.forward_dual_temp
+        # TODO - need to construct dual prior here for preconditioning
 
-            Qp_test, Qp_trial = TestFunction(self.Qp), TrialFunction(self.Qp)
+        # cntrl = cntrl_input[j % nparam]
+        # if cntrl.name() == 'alpha':
+        #     cc = self.alpha
+        #     if self.lumpedmass_inversion:
+        #         cc = self.alpha_l
 
-            cntrl = cntrl_input[j % nparam]
-            if cntrl.name() == 'alpha':
-                cc = self.alpha
-                if self.lumpedmass_inversion:
-                    cc = self.alpha_l
+        #     forward = self.forward_alpha
 
-                forward = self.forward_alpha
+        #     L_mat = assemble((self.delta_alpha * Qp_trial * Qp_test
+        #                       + self.gamma_alpha * inner(grad(Qp_trial), grad(Qp_test))) * self.dIce)
+        # else:
+        #     cc = self.beta
+        #     forward = self.forward_beta
 
-                L_mat = assemble((self.delta_alpha * Qp_trial * Qp_test
-                                  + self.gamma_alpha * inner(grad(Qp_trial), grad(Qp_test))) * self.dIce)
-            else:
-                cc = self.beta
-                forward = self.forward_beta
+        #     L_mat = assemble((self.delta_beta * Qp_trial * Qp_test
+        #                       + self.gamma_beta * inner(grad(Qp_trial), grad(Qp_test))) * self.dIce)
 
-                L_mat = assemble((self.delta_beta * Qp_trial * Qp_test
-                                  + self.gamma_beta * inner(grad(Qp_trial), grad(Qp_test))) * self.dIce)
+        reset_manager()
+        clear_caches()
+        start_annotating()
+        J = forward(cntrl)
+        stop_annotating()
 
-            reset_manager()
-            clear_caches()
-            start_annotating()
-            J = forward(cc)
-            stop_annotating()
+        # dJ = compute_gradient(J, self.alpha)
+        # ddJ = Hessian(forward)
+        # min_order = taylor_test(forward, self.alpha, J_val=J.value(),
+        #                         dJ=dJ, ddJ=ddJ, seed=1.0e-6)
 
-            # dJ = compute_gradient(J, self.alpha)
-            # ddJ = Hessian(forward)
-            # min_order = taylor_test(forward, self.alpha, J_val=J.value(),
-            #                         dJ=dJ, ddJ=ddJ, seed=1.0e-6)
+        def l_bfgs_converged(it, old_J_val, new_J_val,
+                             new_cc, new_dJ, cc_change, dJ_change):
+            # Convergence tests and defaults as described in SciPy 1.5.2
+            # scipy.optimize._minimize._minimize_lbfgsb documentation
+            converged = False
+            if(config.verbose): info(f"Inversion inner iteration: {it}")
 
-            # cntrl_opt, result = minimize_scipy(forward, cc, J, method='L-BFGS-B',
-            #                                    options=config.inv_options)
+            # Test functional convergence
+            if(config.ftol is not None):
 
-            def l_bfgs_converged(it, old_J_val, new_J_val,
-                                 new_cc, new_dJ, cc_change, dJ_change):
-                # Convergence tests and defaults as described in SciPy 1.5.2
-                # scipy.optimize._minimize._minimize_lbfgsb documentation
-                converged = False
+                f_criterion = ((old_J_val - new_J_val)
+                               / max(abs(old_J_val), abs(new_J_val), 1.0))
 
-                # Test functional convergence
-                if(config.ftol is not None):
-                    info(f"Inversion inner iteration: {it}")
+                if f_criterion <= config.ftol:
+                    info("  ftol convergence")
+                    converged = True
 
-                    f_criterion = ((old_J_val - new_J_val)
-                                   / max(abs(old_J_val), abs(new_J_val), 1.0))
-
-                    # ftol = config.inv_options.get("ftol", 2.220446049250313e-09)
-                    if f_criterion <= config.ftol:
-                        info("  ftol convergence")
-                        converged = True
-
-                # Test gradient convergence
-                if(config.gtol is not None):
+            # Test gradient convergence
+            if(config.gtol is not None):
+                if(isinstance(new_dJ, (list, tuple))):
+                    g_criterion = [function_linf_norm(dJ) for dJ in new_dJ]
+                else:
                     g_criterion = function_linf_norm(new_dJ)
 
-                    gtol = config.gtol #config.inv_options.get("gtol", 1e-05)
-                    if g_criterion <= gtol:
-                        info("  gtol convergence")
-                        converged = True
+                gtol = config.gtol
+                if np.max(g_criterion) <= gtol:
+                    info("  gtol convergence")
+                    converged = True
 
-                if(config.verbose):
-                    inv_vals.append((new_J_val, f_criterion, g_criterion))
+            if(config.verbose):
+                inv_vals.append((new_J_val, f_criterion, g_criterion))
 
-                alt_converged = converged # inform outer loop (deprecated?)
-                return converged
+            return converged
 
-            L_solver = KrylovSolver(L_mat.copy(), "cg", "sor")
-            L_solver.parameters.update({"relative_tolerance": 1.0e-14,
-                                        "absolute_tolerance": 1.0e-32})
+        # L_solver = KrylovSolver(L_mat.copy(), "cg", "sor")
+        # L_solver.parameters.update({"relative_tolerance": 1.0e-14,
+        #                             "absolute_tolerance": 1.0e-32})
 
-            M_mat = assemble(Qp_trial * Qp_test * self.dIce)
-            M_solver = KrylovSolver(M_mat.copy(), "cg", "sor")
-            M_solver.parameters.update({"relative_tolerance": 1.0e-14,
-                                        "absolute_tolerance": 1.0e-32})
+        # M_mat = assemble(Qp_trial * Qp_test * self.dIce)
+        # M_solver = KrylovSolver(M_mat.copy(), "cg", "sor")
+        # M_solver.parameters.update({"relative_tolerance": 1.0e-14,
+        #                             "absolute_tolerance": 1.0e-32})
 
-            def B_0(x):
-                """
-                Step length something...
+        # def B_0(x):
+        #     """
+        #     Step length something...
 
-                2.0 * L M^-1 L
-                """
-                L_action = L_mat * x.vector()
+        #     2.0 * L M^-1 L
+        #     """
+        #     L_action = L_mat * x.vector()
 
-                M_inv_L_action = function_new(x, name="M_inv_L_action")
-                M_solver.solve(M_inv_L_action.vector(), L_action)
-                del L_action
+        #     M_inv_L_action = function_new(x, name="M_inv_L_action")
+        #     M_solver.solve(M_inv_L_action.vector(), L_action)
+        #     del L_action
 
-                B_0_action = function_new(x, name="B_0_action")
-                B_0_action.vector().axpy(2.0, L_mat * M_inv_L_action.vector())
+        #     B_0_action = function_new(x, name="B_0_action")
+        #     B_0_action.vector().axpy(2.0, L_mat * M_inv_L_action.vector())
 
-                return B_0_action
+        #     return B_0_action
 
-            def H_M_0(x):
-                """
-                Initial guess for inverse hessian action (mass matrix prec)
-                M^-1
-                """
-                M_inv_action = function_new(x, name="M_inv_action")
-                M_solver.solve(M_inv_action.vector(), x.vector().copy())
+        # def H_M_0(x):
+        #     """
+        #     Initial guess for inverse hessian action (mass matrix prec)
+        #     M^-1
+        #     """
+        #     M_inv_action = function_new(x, name="M_inv_action")
+        #     M_solver.solve(M_inv_action.vector(), x.vector().copy())
 
-                return M_inv_action
+        #     return M_inv_action
 
-            def H_0(x):
-                """
-                Initial guess for inverse hessian action
-                0.5 L^-1 M L^-1
-                """
-                L_inv_action = function_new(x, name="L_inv_action")
-                L_solver.solve(L_inv_action.vector(), x.vector().copy())
+        # def H_0(x):
+        #     """
+        #     Initial guess for inverse hessian action
+        #     0.5 L^-1 M L^-1
+        #     """
+        #     L_inv_action = function_new(x, name="L_inv_action")
+        #     L_solver.solve(L_inv_action.vector(), x.vector().copy())
 
-                M_L_inv_action = M_mat * L_inv_action.vector()
+        #     M_L_inv_action = M_mat * L_inv_action.vector()
 
-                H_0_action = function_new(x, name="H_0_action")
-                L_solver.solve(H_0_action.vector(), M_L_inv_action)
-                del M_L_inv_action
+        #     H_0_action = function_new(x, name="H_0_action")
+        #     L_solver.solve(H_0_action.vector(), M_L_inv_action)
+        #     del M_L_inv_action
 
-                function_set_values(H_0_action,
-                                    0.5 * function_get_values(H_0_action))
+        #     function_set_values(H_0_action,
+        #                         0.5 * function_get_values(H_0_action))
 
-                return H_0_action
+        #     return H_0_action
 
-            def B_M_0(x):
-                """
-                Initial guess for hessian action
+        # def B_M_0(x):
+        #     """
+        #     Initial guess for hessian action
 
-                M
-                """
-                B_0_action = function_new(x, name="B_0_action")
-                M_action = M_mat * x.vector()
-                B_0_action.vector()[:] = M_action
-                B_0_action.vector().apply("insert")
+        #     M
+        #     """
+        #     B_0_action = function_new(x, name="B_0_action")
+        #     M_action = M_mat * x.vector()
+        #     B_0_action.vector()[:] = M_action
+        #     B_0_action.vector().apply("insert")
 
-                return B_0_action
+        #     return B_0_action
 
-            # L-BFGS-B line search configuration. For parameter values see
-            # SciPy
-            #     Git master 0a7bc723d105288f4b728305733ed8cb3c8feeb5
-            #     June 20 2020
-            #     scipy/optimize/lbfgsb_src/lbfgsb.f
-            #     lnsrlb subroutine
+        # L-BFGS-B line search configuration. For parameter values see
+        # SciPy
+        #     Git master 0a7bc723d105288f4b728305733ed8cb3c8feeb5
+        #     June 20 2020
+        #     scipy/optimize/lbfgsb_src/lbfgsb.f
+        #     lnsrlb subroutine
 
-            # For mass matrix preconditioner (still not working properly),
-            # use:
-            # c1=1.0e-4, c2=0.9999,
-            # H_0=H_M_0, M=B_M_0, M_inv=H_M_0)
+        # For mass matrix preconditioner (still not working properly),
+        # use:
+        # c1=1.0e-4, c2=0.9999,
+        # H_0=H_M_0, M=B_M_0, M_inv=H_M_0)
 
-            cntrl_opt, result = minimize_l_bfgs(forward, cc, J0=J,
-                                                m=config.m,
-                                                s_atol=config.s_atol,
-                                                g_atol=config.g_atol,
-                                                verbose=config.verbose,
-                                                c1=1.0e-3, c2=0.9,
-                                                converged=l_bfgs_converged,
-                                                line_search_rank0=line_search_wolfe1,
-                                                line_search_rank0_kwargs={"xtol": 0.1},
-                                                # H_0=H_0, M=B_0, M_inv=H_0,
-                                                max_its=config.max_iter)
+        cntrl_opt, result = minimize_l_bfgs(forward, cntrl, J0=J,
+                                            m=config.m,
+                                            s_atol=config.s_atol,
+                                            g_atol=config.g_atol,
+                                            verbose=config.verbose,
+                                            c1=1.0e-3, c2=0.9,
+                                            converged=l_bfgs_converged,
+                                            line_search_rank0=line_search_wolfe1,
+                                            line_search_rank0_kwargs={"xtol": 0.1},
+                                            # H_0=H_0, M=B_0, M_inv=H_0,
+                                            max_its=config.max_iter)
 
-            cc.assign(cntrl_opt)
-
-            # The outer iteration loop breaks if convergence was achieved
-            if alt_converged:
-                break
+        for c, co in zip(cntrl, cntrl_opt):
+            c.assign(co)
 
         if(config.verbose):
-            inout.write_inversion_info(self.params, inv_vals)
+            inout.write_inversion_info(self.params, inv_vals,
+                                       header="J, F_Crit, G_Crit_Alpha, G_Crit_Beta")
 
         self.def_mom_eq()
 
