@@ -686,27 +686,27 @@ class ssa_solver:
             converged = False
             if(config.verbose): info(f"Inversion inner iteration: {it}")
 
-            # Test functional convergence
-            if(config.ftol is not None):
+            # Compute functional convergence
+            f_criterion = ((old_J_val - new_J_val)
+                           / max(abs(old_J_val), abs(new_J_val), 1.0))
 
-                f_criterion = ((old_J_val - new_J_val)
-                               / max(abs(old_J_val), abs(new_J_val), 1.0))
+            # And test it if requested
+            if((config.ftol is not None) and (f_criterion <= config.ftol)):
+                info("ftol convergence")
+                converged = True
 
-                if f_criterion <= config.ftol:
-                    info("  ftol convergence")
-                    converged = True
+            # Compute gradient convergence
+            if config.dual:
+                g_criterion = [function_linf_norm(dJ) for dJ in new_dJ]
+            elif config.alpha_active:
+                g_criterion = [function_linf_norm(new_dJ), 0.0]
+            else:
+                g_criterion = [0.0, function_linf_norm(new_dJ)]
 
-            # Test gradient convergence
-            if(config.gtol is not None):
-                if(isinstance(new_dJ, (list, tuple))):
-                    g_criterion = [function_linf_norm(dJ) for dJ in new_dJ]
-                else:
-                    g_criterion = function_linf_norm(new_dJ)
-
-                gtol = config.gtol
-                if np.max(g_criterion) <= gtol:
-                    info("  gtol convergence")
-                    converged = True
+            # And test it if requested
+            if((config.gtol is not None) and (np.max(g_criterion) <= config.gtol)):
+                info("gtol convergence")
+                converged = True
 
             if(config.verbose):
                 inv_vals.append((new_J_val, f_criterion, g_criterion))
@@ -810,8 +810,8 @@ class ssa_solver:
             c.assign(co)
 
         if(config.verbose):
-            inout.write_inversion_info(self.params, inv_vals,
-                                       header="J, F_Crit, G_Crit_Alpha, G_Crit_Beta")
+            info(f"Inversion terminated because {result[2]}")
+            inout.write_inversion_info(self.params, inv_vals)
 
         self.def_mom_eq()
 

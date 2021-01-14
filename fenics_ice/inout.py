@@ -495,7 +495,7 @@ def configure_tlm_checkpointing(params):
 
     configure_checkpointing(method, config_dict)
 
-def write_inversion_info(params, conv_info, header="J, F_crit, G_crit"):
+def write_inversion_info(params, conv_info, header="J, F_crit, G_crit_alpha, G_crit_beta"):
     """Write out a list of tuples containing convergence info for inversion"""
     outfname = Path(params.io.output_dir)/"_".join((params.io.run_name,
                                                     "inversion_progress.csv"))
