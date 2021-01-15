@@ -312,49 +312,58 @@ class model:
 
     def gen_alpha(self, a_bgd=500.0, a_lb=1e2, a_ub=1e4):
         """Generate initial guess for alpha (slip coeff)"""
-        bed = self.bed
-        H = self.H
-        g = self.params.constants.g
-        rhoi = self.params.constants.rhoi
-        rhow = self.params.constants.rhow
-        u_obs = self.u_obs_M
-        v_obs = self.v_obs_M
-        vel_rp = self.params.constants.vel_rp
 
-        U = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
+        init_guess = self.params.inversion.initial_guess_alpha
+        if init_guess is not None:
+            self.alpha = Function(self.Qp)
+            self.alpha.vector()[:] = init_guess
+            self.alpha.vector().apply('insert')
+        else:
+            bed = self.bed
+            H = self.H
+            g = self.params.constants.g
+            rhoi = self.params.constants.rhoi
+            rhow = self.params.constants.rhow
+            u_obs = self.u_obs_M
+            v_obs = self.v_obs_M
+            vel_rp = self.params.constants.vel_rp
 
-        # Flotation Criterion
-        H_flt = -rhow/rhoi * bed
-        fl_ex = conditional(H <= H_flt, 1.0, 0.0)
+            U = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
-        # Thickness Criterion
-        m_d = conditional(H > 0, 1.0, 0.0)
+            # Flotation Criterion
+            H_flt = -rhow/rhoi * bed
+            fl_ex = conditional(H <= H_flt, 1.0, 0.0)
 
-        # Calculate surface gradient
-        R_f = ((1.0 - fl_ex) * bed
-               + (fl_ex) * (-rhoi / rhow) * H)
+            # Thickness Criterion
+            m_d = conditional(H > 0, 1.0, 0.0)
 
-        s_ = ufl.Max(H + R_f, 0)
-        s = project(s_, self.Q)
-        grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
+            # Calculate surface gradient
+            R_f = ((1.0 - fl_ex) * bed
+                   + (fl_ex) * (-rhoi / rhow) * H)
 
-        # Calculate alpha, apply background, apply bound
-        B2_ = ( (1.0 - fl_ex) * rhoi*g*H*grads/U
-                + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
+            s_ = ufl.Max(H + R_f, 0)
+            s = project(s_, self.Q)
+            grads = (s.dx(0)**2.0 + s.dx(1)**2.0)**(1.0/2.0)
 
-        B2_tmp1 = ufl.Max(B2_, a_lb)
-        B2_tmp2 = ufl.Min(B2_tmp1, a_ub)
+            # Calculate alpha, apply background, apply bound
+            B2_ = ( (1.0 - fl_ex) * rhoi*g*H*grads/U
+                    + (fl_ex) * a_bgd ) * m_d + (1.0-m_d) * a_bgd
 
-        sl = self.params.ice_dynamics.sliding_law
-        if sl == 'linear':
-            alpha = sqrt(B2_tmp2)
-        elif sl == 'weertman':
-            N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
-            U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
-            alpha = (1-fl_ex)*sqrt(B2_tmp2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
+            B2_tmp1 = ufl.Max(B2_, a_lb)
+            B2_tmp2 = ufl.Min(B2_tmp1, a_ub)
 
-        self.alpha = project(alpha, self.Qp)
+            sl = self.params.ice_dynamics.sliding_law
+            if sl == 'linear':
+                alpha = sqrt(B2_tmp2)
+            elif sl == 'weertman':
+                N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
+                U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
+                alpha = (1-fl_ex)*sqrt(B2_tmp2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
+
+            self.alpha = project(alpha, self.Qp)
+
         self.alpha.rename('alpha', 'a Function')
+        inout.write_variable(self.alpha, self.params, name="alpha_init_guess")
 
     def mark_BCs(self):
         """

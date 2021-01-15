@@ -149,10 +149,16 @@ class InversionCfg(ConfigPrinter):
     gamma_beta: float = 0.0
     delta_beta: float = 0.0
 
+    initial_guess_alpha: float = None
+
     def __post_init__(self):
         """
-        Check at least one convergence criterion specified.
+        Check consistency of inversion parameters.
         """
+        assert (self.alpha_active or self.beta_active)
+
+        object.__setattr__(self, 'dual', (self.alpha_active and self.beta_active))
+
         assert (self.ftol is not None) or (self.gtol is not None), \
             "Specify either 'ftol' or 'gtol' in inversion options"
 
