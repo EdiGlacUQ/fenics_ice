@@ -137,7 +137,7 @@ class InversionCfg(ConfigPrinter):
     c2: float = 0.9
 
     # How many vector pairs to keep in limited memory hessian approx
-    m: int = 10
+    m: int = 30
 
     verbose: bool = True
 
