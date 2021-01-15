@@ -803,6 +803,7 @@ class ssa_solver:
                                             line_search_rank0=line_search_wolfe1,
                                             line_search_rank0_kwargs={"xtol": 0.1},
                                             # H_0=H_0, M=B_0, M_inv=H_0,
+                                            block_theta_scale=config.dual,
                                             max_its=config.max_iter)
 
         for c, co in zip(cntrl, cntrl_opt):

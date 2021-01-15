@@ -231,8 +231,10 @@ class H_approximation:
 
         R = functions_copy(H_0(*X))
         if theta != 1.0:
-            for r in R:
-                function_set_values(r, function_get_values(r) / theta)
+            if(isinstance(theta, float)):  # convert to list if single float
+                theta = [theta for i in range(len(R))]
+            for r, th in zip(R, theta):
+                function_set_values(r, function_get_values(r) / th)
 
         for (rho, S, Y), alpha in zip(self._iterates, alphas):
             beta = rho * functions_inner(Y, R)
@@ -721,7 +723,7 @@ def line_search(F, Fp, X, minus_P, c1=1.0e-4, c2=0.9,
 
 
 def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
-           H_0=None, theta_scale=True, delta=1.0,
+           H_0=None, theta_scale=True, block_theta_scale=True, delta=1.0,
            skip_atol=0.0, skip_rtol=1.0e-12, M=None, M_inv=None,
            c1=1.0e-4, c2=0.9,
            old_F_val=None,
@@ -782,6 +784,8 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
                    input data. Identity used if not supplied. If supplied then
                    M must be supplied.
         theta_scale  Whether to apply theta scaling (see above).
+        block_theta_scale  Whether to apply separate theta scaling to each
+                  control function.
         delta      Defines the initial theta scaling (see above). If delta is
                    None then no scaling is applied on the first iteration, or
                    when restarting due to line search failures.
@@ -992,7 +996,11 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         S_inner_Y, S_Y_added, S_Y_removed = H_approx.append(S, Y, remove=True)
         if S_Y_added:
             if theta_scale:
-                theta = functions_inner(Y, M_inv(*Y)) / S_inner_Y
+                if block_theta_scale and len(Y) > 1:
+                    theta = [function_inner(y, *M_inv(y)) / S_inner_Y for y in Y]
+                else:
+                    theta = functions_inner(Y, M_inv(*Y)) / S_inner_Y
+
         elif warnings:
             info(f"L-BFGS: Iteration {it + 1:d}, small or negative inner "
                  f"product {S_inner_Y:.6e} -- update skipped")
