@@ -1,0 +1,21 @@
+name: test-fice
+on: [push]
+jobs:
+
+  fice-install:
+    name: Install fenics_ice
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # Get miniconda
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: fice
+          python-version: "3.8"
+
+      # Get fice code
+      - uses: actions/checkout@v2
+
+  # fice-test:
+  #   name: Test fenics_ice
