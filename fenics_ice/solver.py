@@ -709,7 +709,7 @@ class ssa_solver:
                 converged = True
 
             if(config.verbose):
-                inv_vals.append((new_J_val, f_criterion, g_criterion))
+                inv_vals.append((new_J_val, f_criterion, *g_criterion))
 
             return converged
 
