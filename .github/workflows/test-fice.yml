@@ -10,13 +10,29 @@ jobs:
 
       # Get miniconda & prerequisites
       # TODO cache! https://github.com/marketplace/actions/setup-miniconda
-      - uses: conda-incubator/setup-miniconda@v2
+      - name: Cache conda
+        id: cache-conda
+        uses: actions/cache@v1
+        env:
+          # Increase this value to reset cache if environment.yml has not changed
+          CACHE_NUMBER: 0
+        with:
+          path: ~/conda_pkgs_dir
+          key:
+            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
+            hashFiles('environment.yml') }}
+
+      - name: Install Miniconda
+        if: steps.cache-conda.outputs.cache-hit != 'true'
+        uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: fenics_ice
-          python-version: "3.8"
+          environment-file: environment.yml
+          # python-version: "3.8"
           channels: conda-forge
           channel-priority: strict
           auto-update-conda: true
+          use-only-tar-bz2: true # necessary for caching
 
       # Get conda info
       - run: |
@@ -25,10 +41,10 @@ jobs:
           conda config --show-sources
           conda config --show
 
-      # Install dependencies
-      - run: |
-          conda install fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl matplotlib numpy ipython scipy seaborn h5py conda-build
-          conda install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency cytoolz
+      # # Install dependencies
+      # - run: |
+      #     conda install fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl matplotlib numpy ipython scipy seaborn h5py conda-build
+      #     conda install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency cytoolz
 
       # Get fice code
       - uses: actions/checkout@v2
