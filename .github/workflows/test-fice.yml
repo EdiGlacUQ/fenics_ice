@@ -8,6 +8,9 @@ jobs:
 
     steps:
 
+      # Get fice code
+      - uses: actions/checkout@v2
+
       # Get miniconda & prerequisites
       # TODO cache! https://github.com/marketplace/actions/setup-miniconda
       - name: Cache conda
@@ -46,8 +49,6 @@ jobs:
       #     conda install fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl matplotlib numpy ipython scipy seaborn h5py conda-build
       #     conda install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency cytoolz
 
-      # Get fice code
-      - uses: actions/checkout@v2
 
   # fice-test:
   #   name: Test fenics_ice
