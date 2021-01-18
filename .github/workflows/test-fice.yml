@@ -43,15 +43,19 @@ jobs:
           use-only-tar-bz2: true # necessary for caching
 
       # Get conda info
-      - run: conda activate fenics_ice  # Docs suggest this shouldn't be necessary...
+      - name: Conda info
+        shell: bash -l {0}
       - run: |
           conda info -a
           conda list
           conda config --show-sources
           conda config --show
 
-      - run: conda develop $GITHUB_WORKSPACE/tlm_adjoint/tlm_adjoint
-      - run: conda develop $GITHUB_WORKSPACE/fenics_ice/fenics_ice
+      - name: Conda develop
+        shell: bash -l {0}
+      - run: |
+          conda develop $GITHUB_WORKSPACE/tlm_adjoint/tlm_adjoint
+          conda develop $GITHUB_WORKSPACE/fenics_ice/fenics_ice
 
   # fice-test:
   #   name: Test fenics_ice
