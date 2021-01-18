@@ -1,10 +1,9 @@
 name: fenics_ice
 channels:
   - conda-forge
-
 dependencies:
   - python=3.8
-  - fenics
+  - fenics=2019.1.0
   - fenics-dijitso
   - fenics-dolfin
   - fenics-ffc

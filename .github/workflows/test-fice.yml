@@ -6,13 +6,16 @@ jobs:
     name: Install fenics_ice
     runs-on: ubuntu-latest
 
-    env:
-      CONDA_ENV_NAME: fenics_ice
-
     steps:
 
       # Get fice code
       - uses: actions/checkout@v2
+
+      # Get tlm-adjoint code
+      - uses: actions/checkout@v2
+        with:
+          repository: 'jrmaddison/tlm_adjoint'
+          ref: 'jtodd/fice_devel'
 
       # Get miniconda & prerequisites
       # TODO cache! https://github.com/marketplace/actions/setup-miniconda
@@ -32,10 +35,8 @@ jobs:
         # if: steps.cache-conda.outputs.cache-hit != 'true'
         uses: conda-incubator/setup-miniconda@v2
         with:
-          activate-environment: $CONDA_ENV_NAME
+          activate-environment: fenics_ice
           environment-file: environment.yml
-          # python-version: "3.8"
-          # channels: conda-forge
           channel-priority: strict
           auto-update-conda: true
           use-only-tar-bz2: true # necessary for caching
@@ -47,11 +48,8 @@ jobs:
           conda config --show-sources
           conda config --show
 
-      # # Install dependencies
-      # - run: |
-      #     conda install fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl matplotlib numpy ipython scipy seaborn h5py conda-build
-      #     conda install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency cytoolz
-
+      - run: conda-develop $GITHUB_WORKSPACE/tlm_adjoint
+      - run: conda-develop $GITHUB_WORKSPACE/fenics_ice
 
   # fice-test:
   #   name: Test fenics_ice
