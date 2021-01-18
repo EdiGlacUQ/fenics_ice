@@ -56,7 +56,7 @@ jobs:
       - name: Conda develop
         shell: bash -l {0}
         run: |
-          conda develop $GITHUB_WORKSPACE/tlm_adjoint
+          conda develop $GITHUB_WORKSPACE/tlm_adjoint/python
           conda develop $GITHUB_WORKSPACE/fenics_ice
 
       - name: Test fice
