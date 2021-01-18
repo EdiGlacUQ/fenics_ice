@@ -32,7 +32,7 @@ jobs:
           path: ~/conda_pkgs_dir
           key:
             ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
-            hashFiles('environment.yml') }}
+            hashFiles('fenics_ice/environment.yml') }}
 
       - name: Install Miniconda
         # if: steps.cache-conda.outputs.cache-hit != 'true'
