@@ -57,5 +57,12 @@ jobs:
           conda develop $GITHUB_WORKSPACE/tlm_adjoint/tlm_adjoint
           conda develop $GITHUB_WORKSPACE/fenics_ice/fenics_ice
 
+      - name: Test fice
+        shell: bash -l {0}
+        run: |
+          cd $GITHUB_WORKSPACE/fenics_ice/fenics_ice
+          pytest -v --color=yes
+          # mpirun -n 2
+
   # fice-test:
   #   name: Test fenics_ice
