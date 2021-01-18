@@ -43,6 +43,7 @@ jobs:
           use-only-tar-bz2: true # necessary for caching
 
       # Get conda info
+      - run: conda activate fenics_ice  # Docs suggest this shouldn't be necessary...
       - run: |
           conda info -a
           conda list
