@@ -8,11 +8,27 @@ jobs:
 
     steps:
 
-      # Get miniconda
+      # Get miniconda & prerequisites
+      # TODO cache! https://github.com/marketplace/actions/setup-miniconda
       - uses: conda-incubator/setup-miniconda@v2
         with:
-          activate-environment: fice
+          activate-environment: fenics_ice
           python-version: "3.8"
+          channels: conda-forge
+          channel-priority: strict
+          auto-update-conda: true
+
+      # Get conda info
+      - run: |
+          conda info -a
+          conda list
+          conda config --show-sources
+          conda config --show
+
+      # Install dependencies
+      - run: |
+          conda install fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl matplotlib numpy ipython scipy seaborn h5py conda-build
+          conda install mpi4py toml gitpython "meshio[all]" pytest pytest-benchmark pytest-mpi pytest-dependency cytoolz
 
       # Get fice code
       - uses: actions/checkout@v2
