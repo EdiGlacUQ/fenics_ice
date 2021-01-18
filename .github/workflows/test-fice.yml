@@ -10,6 +10,8 @@ jobs:
 
       # Get fice code
       - uses: actions/checkout@v2
+        with:
+          path: 'main'
 
       # Get tlm-adjoint code
       - uses: actions/checkout@v2
@@ -54,13 +56,13 @@ jobs:
       - name: Conda develop
         shell: bash -l {0}
         run: |
-          conda develop $GITHUB_WORKSPACE/tlm_adjoint/tlm_adjoint
-          conda develop $GITHUB_WORKSPACE/fenics_ice/fenics_ice
+          conda develop $GITHUB_WORKSPACE/tlm_adjoint
+          conda develop $GITHUB_WORKSPACE/main
 
       - name: Test fice
         shell: bash -l {0}
         run: |
-          cd $GITHUB_WORKSPACE/fenics_ice/fenics_ice
+          cd $GITHUB_WORKSPACE/main/
           pytest -v --color=yes
           # mpirun -n 2
 
