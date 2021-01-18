@@ -11,7 +11,7 @@ jobs:
       # Get fice code
       - uses: actions/checkout@v2
         with:
-          path: 'main'
+          path: 'fenics_ice'
 
       # Get tlm-adjoint code
       - uses: actions/checkout@v2
@@ -39,7 +39,7 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: fenics_ice
-          environment-file: environment.yml
+          environment-file: fenics_ice/environment.yml
           channel-priority: strict
           auto-update-conda: true
           use-only-tar-bz2: true # necessary for caching
@@ -57,12 +57,12 @@ jobs:
         shell: bash -l {0}
         run: |
           conda develop $GITHUB_WORKSPACE/tlm_adjoint
-          conda develop $GITHUB_WORKSPACE/main
+          conda develop $GITHUB_WORKSPACE/fenics_ice
 
       - name: Test fice
         shell: bash -l {0}
         run: |
-          cd $GITHUB_WORKSPACE/main/
+          cd $GITHUB_WORKSPACE/fenics_ice/
           pytest -v --color=yes
           # mpirun -n 2
 
