@@ -45,7 +45,7 @@ jobs:
       # Get conda info
       - name: Conda info
         shell: bash -l {0}
-      - run: |
+        run: |
           conda info -a
           conda list
           conda config --show-sources
@@ -53,7 +53,7 @@ jobs:
 
       - name: Conda develop
         shell: bash -l {0}
-      - run: |
+        run: |
           conda develop $GITHUB_WORKSPACE/tlm_adjoint/tlm_adjoint
           conda develop $GITHUB_WORKSPACE/fenics_ice/fenics_ice
 
