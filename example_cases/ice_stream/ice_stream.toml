@@ -46,7 +46,10 @@ vel_file = "ice_stream_U_obs.h5"
 
 [inversion]
 
-max_iter = 5
+# Note - settings here are inappropriate for
+# a real case. ftol, gtol tolerances
+# are too small to converge.
+max_iter = 40
 
 alpha_active = true
 beta_active = true
@@ -94,8 +97,8 @@ nonlinear_solver = "newton"
 linear_solver = "bicgstab" # gmres?  try direct too. [cg with icc]  [gmres, sor]
 preconditioner = "hypre_amg" # doesn't work so well on unstructured mesh?
 maximum_iterations = 100
-absolute_tolerance = 1.0e-10
-relative_tolerance = 1.0e-11
+absolute_tolerance = 1.0e-9 #10
+relative_tolerance = 1.0e-10 #11
 convergence_criterion = "incremental"
 error_on_nonconvergence = true
 [momsolve.newton_params.newton_solver.krylov_solver]
@@ -142,14 +145,14 @@ qoi = 'vaf'
 [testing]
 
 expected_init_alpha = 252.96603585543977
-expected_J_inv = 1334.2328314920867
-expected_cntrl_norm = 134.10012780855868
-expected_delta_qoi = -67039433.41159892
-expected_u_norm = 1603879.7086773375
-expected_evals_sum = 2526750.5388007923
-expected_evec0_norm = 196217.2198485922
-expected_cntrl_sigma_norm = 7788.192971512044
+expected_J_inv = 997.511745336554
+expected_cntrl_norm = 115.79474679884046
+expected_delta_qoi = -74878430.34496164
+expected_u_norm = 1625522.397219564
+expected_evals_sum = 283721.8049001675
+expected_evec0_norm = 199848.16152374164
+expected_cntrl_sigma_norm = 8857.69482982819
 expected_cntrl_sigma_prior_norm = 209509.89381254045
-expected_Q_sigma = 66608.59940269084
-expected_Q_sigma_prior = 59842393.80392922
+expected_Q_sigma = 70455.73108852563
+expected_Q_sigma_prior = 5030136.7063564975
 
