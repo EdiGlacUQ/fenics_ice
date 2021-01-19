@@ -1,0 +1,28 @@
+name: fenics_ice
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8
+  - fenics=2019.1.0
+  - fenics-dijitso
+  - fenics-dolfin
+  - fenics-ffc
+  - fenics-fiat
+  - fenics-libdolfin
+  - fenics-ufl
+  - matplotlib
+  - numpy
+  - ipython
+  - scipy
+  - seaborn
+  - h5py
+  - conda-build
+  - mpi4py
+  - toml
+  - gitpython
+  - "meshio[all]"
+  - pytest
+  - pytest-benchmark
+  - pytest-mpi
+  - pytest-dependency
+  - cytoolz

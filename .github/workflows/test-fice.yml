@@ -1,0 +1,68 @@
+name: test-fice
+on: [push]
+jobs:
+
+  fice-install:
+    name: Install fenics_ice
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # Get fice code
+      - uses: actions/checkout@v2
+        with:
+          path: 'fenics_ice'
+
+      # Get tlm-adjoint code
+      - uses: actions/checkout@v2
+        with:
+          repository: 'jrmaddison/tlm_adjoint'
+          ref: 'jtodd/fice_devel'
+          path: 'tlm_adjoint'
+
+      # Get miniconda & prerequisites
+      # TODO cache! https://github.com/marketplace/actions/setup-miniconda
+      - name: Cache conda
+        id: cache-conda
+        uses: actions/cache@v1
+        env:
+          # Increase this value to reset cache if environment.yml has not changed
+          CACHE_NUMBER: 0
+        with:
+          path: ~/conda_pkgs_dir
+          key:
+            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
+            hashFiles('fenics_ice/environment.yml') }}
+
+      - name: Install Miniconda
+        # if: steps.cache-conda.outputs.cache-hit != 'true'
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: fenics_ice
+          environment-file: fenics_ice/environment.yml
+          channel-priority: strict
+          auto-update-conda: true
+          use-only-tar-bz2: true # necessary for caching
+
+      # Get conda info
+      - name: Conda info
+        shell: bash -l {0}
+        run: |
+          conda info -a
+          conda list
+          conda config --show-sources
+          conda config --show
+
+      - name: Conda develop
+        shell: bash -l {0}
+        run: |
+          conda develop $GITHUB_WORKSPACE/tlm_adjoint/python
+          conda develop $GITHUB_WORKSPACE/fenics_ice
+
+      # Test fenics ice!
+      - name: Test fice
+        shell: bash -l {0}
+        run: |
+          cd $GITHUB_WORKSPACE/fenics_ice/
+          pytest -v --color=yes
+          mpirun -n 2 pytest -v --color=yes
