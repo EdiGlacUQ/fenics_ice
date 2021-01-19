@@ -313,6 +313,7 @@ class model:
     def gen_alpha(self, a_bgd=500.0, a_lb=1e2, a_ub=1e4):
         """Generate initial guess for alpha (slip coeff)"""
 
+        # TODO - this will need to operate on MixedFunctionSpace
         init_guess = self.params.inversion.initial_guess_alpha
         if init_guess is not None:
             self.alpha = Function(self.Qp)
