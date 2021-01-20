@@ -57,7 +57,7 @@ beta_active = true
 gamma_alpha = 5.0e2 #6
 delta_alpha = 5.0e-6 #-2
 gamma_beta = 1.0e2
-delta_beta = 1.0e-8
+delta_beta = 1.0#e-8
 
 ftol = 1e-20
 gtol = 1e-20
@@ -68,7 +68,7 @@ m = 20
 #  g_atol  - gradient absolute tolerance
 #  c1, c2  - wolfe linesearch params
 
-verbose = false
+verbose = true
 
 [ice_dynamics]
 
@@ -145,14 +145,14 @@ qoi = 'vaf'
 [testing]
 
 expected_init_alpha = 252.96603585543977
-expected_J_inv = 997.511745336554
-expected_cntrl_norm = 115.79474679884046
-expected_delta_qoi = -74878430.34496164
-expected_u_norm = 1625522.397219564
-expected_evals_sum = 283721.8049001675
-expected_evec0_norm = 199848.16152374164
-expected_cntrl_sigma_norm = 8857.69482982819
+expected_J_inv = 936.944000319301
+expected_cntrl_norm = 84.30535557950323
+expected_delta_qoi = -72945737.30294704
+expected_u_norm = 1607807.3057316295
+expected_evals_sum = 337797.5927817481
+expected_evec0_norm = 199048.66379098076
+expected_cntrl_sigma_norm = 7996.27578050274
 expected_cntrl_sigma_prior_norm = 209509.89381254045
-expected_Q_sigma = 70455.73108852563
-expected_Q_sigma_prior = 5030136.7063564975
+expected_Q_sigma = 30160.66183629609
+expected_Q_sigma_prior = 6216790.410588984
 
