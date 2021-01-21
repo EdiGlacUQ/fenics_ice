@@ -91,8 +91,9 @@ def write_variable(var, params, name=None):
     var_name = var.name()
     unnamed_var = unnamed_re.match(var_name) is not None
 
+    outvar = var.copy() # Copy to avoid persistent rename
     if name is not None:
-        var.rename(name, "")
+        outvar.rename(name, "")
 
     elif unnamed_var:
         # Error if variable is unnamed & no name provided
@@ -108,8 +109,8 @@ def write_variable(var, params, name=None):
     vtk_fname = str(outfname.with_suffix(".pvd"))
     xml_fname = str(outfname.with_suffix(".xml"))
 
-    File(vtk_fname) << var
-    File(xml_fname) << var
+    File(vtk_fname) << outvar
+    File(xml_fname) << outvar
 
     logging.info("Writing function %s to file %s" % (name, outfname))
 
