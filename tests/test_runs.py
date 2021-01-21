@@ -66,7 +66,7 @@ def test_run_inversion(persistent_temp_model, monkeypatch):
                               work_dir, 'expected_J_inv')
 
 @pytest.mark.tv
-def test_run_inversion_tv(persistent_temp_model, monkeypatch):
+def test_tv_run_inversion(persistent_temp_model, monkeypatch):
     """
     Taylor verification of inverse model
     """
@@ -171,7 +171,7 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
                               work_dir, 'expected_u_norm')
 
 @pytest.mark.tv
-def test_run_forward_tv(existing_temp_model, monkeypatch, setup_deps, request):
+def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
     """
     Taylor verification of the forward timestepping model
     """
