@@ -55,6 +55,11 @@ class model:
             self.Qp = fice_mesh.get_periodic_space(self.params, self.mesh, dim=1)
             self.V = fice_mesh.get_periodic_space(self.params, self.mesh, dim=2)
 
+        # Define control functions
+        self.alpha = Function(self.Qp, name='alpha', static=True)
+        self.beta = Function(self.Qp, name='beta', static=True)
+        self.beta_bgd = Function(self.Qp)
+
         # Default velocity mask and Beta fields
         self.def_vel_mask()
         self.def_B_field()
@@ -106,10 +111,8 @@ class model:
         """Define beta field from constants in config file"""
         A = self.params.constants.A
         n = self.params.constants.glen_n
-        self.beta = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
-        self.beta_bgd = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
-        self.beta.rename('beta', 'a Function')
-        self.beta_bgd.rename('beta_bgd', 'a Function')
+        assign(self.beta, project(self.bglen_to_beta(A**(-1.0/n)), self.Qp))
+        assign(self.beta_bgd, project(self.bglen_to_beta(A**(-1.0/n)), self.Qp))
 
     def def_lat_dirichletbc(self):
         """Homogenous dirichlet conditions on lateral boundaries"""
@@ -121,7 +124,7 @@ class model:
 
     def alpha_from_data(self):
         """Get alpha field from initial input data (run_momsolve only)"""
-        self.alpha = self.input_data.interpolate("alpha", self.Qp)
+        assign(self.alpha, self.input_data.interpolate("alpha", self.Qp))
 
     def bglen_from_data(self):
         """Get bglen field from initial input data"""
@@ -135,7 +138,6 @@ class model:
         with HDF5File(self.mesh.mpi_comm(),
                       str(Path(outdir)/inversion_file),
                       'r') as infile:
-            self.alpha = Function(self.Qp, name='alpha')
             infile.read(self.alpha, 'alpha')
 
     def beta_from_inversion(self):
@@ -146,7 +148,6 @@ class model:
         with HDF5File(self.mesh.mpi_comm(),
                       str(Path(outdir)/inversion_file),
                       'r') as infile:
-            self.beta = Function(self.Qp, name='beta')
             infile.read(self.beta, 'beta')
             self.beta_bgd = self.beta.copy(deepcopy=True)
 
@@ -159,11 +160,9 @@ class model:
         Optionally perturb the field slightly to prevent zero gradient
         on first step of beta inversion.
         """
-        self.beta_bgd = project(beta, self.Qp)
-        self.beta = project(beta, self.Qp)
 
-        self.beta.rename('beta', 'a Function')
-        self.beta_bgd.rename('beta_bgd', 'a Function')
+        assign(self.beta, project(beta, self.Qp))
+        assign(self.beta_bgd, self.beta)
 
         # TODO - tidy this up properly (remove pert arg)
         # if pert:
@@ -316,7 +315,6 @@ class model:
         # TODO - this will need to operate on MixedFunctionSpace
         init_guess = self.params.inversion.initial_guess_alpha
         if init_guess is not None:
-            self.alpha = Function(self.Qp)
             self.alpha.vector()[:] = init_guess
             self.alpha.vector().apply('insert')
         else:
@@ -361,9 +359,8 @@ class model:
                 U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
                 alpha = (1-fl_ex)*sqrt(B2_tmp2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
 
-            self.alpha = project(alpha, self.Qp)
+            assign(self.alpha, project(alpha, self.Qp))
 
-        self.alpha.rename('alpha', 'a Function')
         inout.write_variable(self.alpha, self.params, name="alpha_init_guess")
 
     def mark_BCs(self):
