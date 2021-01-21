@@ -540,6 +540,14 @@ class ssa_solver:
         """
         Runs the forward model w/ given alpha (f)
         and returns the cost function J
+
+        Note that it is important that self.alpha be *redefined* here
+        rather than simply assigned to, because of how tlm_adjoint works.
+        tlm_adjoint can compute the derivative with respect to perturbations
+        of a field *when it was first defined*. So, if we don't allow
+        minimize_l_bfgs to redefine alpha, then redefine the momentum equation,
+        we can't update the gradients. It's even insufficient to 'assign' then
+        def_mom_eq because tlm_adjoint knows its already seen alpha (id=whatever)
         """
 
         if isinstance(f, (list, tuple)):
@@ -554,7 +562,7 @@ class ssa_solver:
             LumpedMassSolver(f, self.alpha, p=-0.5).solve()
             # TODO - 'boundary_correct(self.alpha)'?
         else:
-            self.alpha = f  # TODO - is it an issue here to reassign this variable?
+            self.alpha = f
             self.alpha.rename("alpha", "")
 
         # if not self.test_outfile:
@@ -570,6 +578,8 @@ class ssa_solver:
         """
         Runs the forward model w/ given beta (f)
         and returns the cost function J
+
+        See notes on the importance of redefinition in docstring of forward_alpha
         """
 
         if isinstance(f, (list, tuple)):
@@ -577,7 +587,7 @@ class ssa_solver:
             f = f[0]
 
         clear_caches()
-        self.beta = f  # TODO - is it an issue here to reassign this variable?
+        self.beta = f
         self.beta.rename("beta", "")
         self.def_mom_eq()
         self.solve_mom_eq()
@@ -589,6 +599,8 @@ class ssa_solver:
         Runs the forward model w/ given
         alpha and beta (f[0], f[1])
         and returns the cost function J
+
+        See notes on the importance of redefinition in docstring of forward_alpha
         """
 
         assert isinstance(f, (list, tuple))
@@ -597,8 +609,8 @@ class ssa_solver:
         self.alpha = f[0]
         self.beta = f[1]
 
-        self.alpha.rename("alpha","")
-        self.beta.rename("beta","")
+        self.alpha.rename("alpha", "")
+        self.beta.rename("beta", "")
 
         self.def_mom_eq()
         self.solve_mom_eq()
