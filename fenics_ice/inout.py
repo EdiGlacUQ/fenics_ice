@@ -88,6 +88,8 @@ def write_variable(var, params, name=None):
     Name is taken from variable structure if not provided
     If 'name' is provided, the variable will be renamed accordingly.
     """
+    assert isinstance(var, Function)
+
     var_name = var.name()
     unnamed_var = unnamed_re.match(var_name) is not None
 
