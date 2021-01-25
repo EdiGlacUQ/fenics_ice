@@ -56,8 +56,9 @@ class model:
             self.V = fice_mesh.get_periodic_space(self.params, self.mesh, dim=2)
 
         # Define control functions
-        self.alpha = Function(self.Qp, name='alpha', static=True)
-        self.beta = Function(self.Qp, name='beta', static=True)
+        self.gen_control_function()
+        # self.alpha = Function(self.Qp, name='alpha', static=True)
+        # self.beta = Function(self.Qp, name='beta', static=True)
         self.beta_bgd = Function(self.Qp)
 
         # Default velocity mask and Beta fields
@@ -80,6 +81,55 @@ class model:
         self.t_sens = None
         self.cntrl_sigma = None
         self.cntrl_sigma_prior = None
+
+    # TODO - in the setters/getters below, we will still set/get values
+    # of _alphaXbeta for inactive control variables, but the connection
+    # is unannotated. Might need to completely separate e.g. self.beta
+    # and self._alphaXbeta in a case where beta_active=False
+    @property
+    def alpha(self):
+        if self.params.inversion.alpha_active:
+            return self._alphaXbeta[0]
+        else:
+            return project(self._alphaXbeta.sub(0), self.Qp)
+
+    @alpha.setter
+    def alpha(self, arg):
+        beta = project(self._alphaXbeta[1], self.Qp)
+        self._cntrl_assigner.assign(self._alphaXbeta, [arg, beta])
+
+    @property
+    def beta(self):
+        if self.params.inversion.beta_active:
+            return self._alphaXbeta[1]
+        else:
+            return project(self._alphaXbeta.sub(1), self.Qp) #self.beta_bgd
+            # return project(self._alphaXbeta.sub(1), self.Qp)
+
+    @beta.setter
+    def beta(self, arg):
+        alpha = project(self._alphaXbeta[0], self.Qp)
+        self._cntrl_assigner.assign(self._alphaXbeta, [alpha, arg])
+
+    @property
+    def alphaXbeta(self):
+        return self._alphaXbeta
+
+    @alphaXbeta.setter
+    def alphaXbeta(self, arg):
+        self._alphaXbeta = arg
+
+    @property
+    def alpha_proj(self):
+        alpha = project(self._alphaXbeta[0], self.Qp)
+        alpha.rename("alpha", "")
+        return alpha
+
+    @property
+    def beta_proj(self):
+        beta = project(self._alphaXbeta[1], self.Qp)
+        beta.rename("beta", "")
+        return beta
 
     @staticmethod
     def bglen_to_beta(x):
@@ -111,8 +161,10 @@ class model:
         """Define beta field from constants in config file"""
         A = self.params.constants.A
         n = self.params.constants.glen_n
-        assign(self.beta, project(self.bglen_to_beta(A**(-1.0/n)), self.Qp))
-        assign(self.beta_bgd, project(self.bglen_to_beta(A**(-1.0/n)), self.Qp))
+
+        beta = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
+        self.beta = beta
+        self.beta_bgd = beta
 
     def def_lat_dirichletbc(self):
         """Homogenous dirichlet conditions on lateral boundaries"""
@@ -124,11 +176,36 @@ class model:
 
     def alpha_from_data(self):
         """Get alpha field from initial input data (run_momsolve only)"""
-        assign(self.alpha, self.input_data.interpolate("alpha", self.Qp))
+        self.alpha = self.input_data.interpolate("alpha", self.Qp)
 
     def bglen_from_data(self):
         """Get bglen field from initial input data"""
         self.bglen = self.input_data.interpolate("Bglen", self.Q)
+
+    def get_control_space(self):
+        """Return the mixed function space for alphaXbeta"""
+        el = FiniteElement("Lagrange", self.mesh.ufl_cell(), 1)
+        mixedElem = el * el
+        if not self.params.mesh.periodic_bc:
+            return FunctionSpace(self.mesh,
+                                 mixedElem)
+        else:
+            mesh_length = fice_mesh.get_mesh_length(self.mesh)
+            return FunctionSpace(self.mesh,
+                                 mixedElem,
+                                 constrained_domain=PeriodicBoundary(mesh_length))
+
+    def gen_control_function(self):
+        """
+        Generate CGxCG mixed space for controls (alpha & beta)
+
+        This is necessary for eigendecomposition as SLEPc requires
+        a single PETSc vector
+        """
+
+        self.QQ = self.get_control_space()
+        self._alphaXbeta = Function(self.QQ, name="alphaXbeta", static=True)
+        self._cntrl_assigner = FunctionAssigner(self.QQ, [self.Qp]*2)
 
     def alpha_from_inversion(self):
         """Get alpha field from inversion step"""
@@ -148,10 +225,10 @@ class model:
         with HDF5File(self.mesh.mpi_comm(),
                       str(Path(outdir)/inversion_file),
                       'r') as infile:
-            infile.read(self.beta, 'beta')
-            self.beta_bgd = self.beta.copy(deepcopy=True)
+            infile.read(beta, 'beta')
 
-        self.beta_bgd.rename('beta_bgd', 'a Function')
+        self.beta = beta
+        self.beta_bgd.assign(beta)
 
     def init_beta(self, beta, pert=False):
         """
@@ -161,8 +238,9 @@ class model:
         on first step of beta inversion.
         """
 
-        assign(self.beta, project(beta, self.Qp))
-        assign(self.beta_bgd, self.beta)
+        beta_proj = project(beta, self.Qp)
+        self.beta = beta_proj
+        self.beta_bgd.assign(beta_proj)
 
         # TODO - tidy this up properly (remove pert arg)
         # if pert:
@@ -359,9 +437,9 @@ class model:
                 U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
                 alpha = (1-fl_ex)*sqrt(B2_tmp2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
 
-            assign(self.alpha, project(alpha, self.Qp))
+            self.alpha = project(alpha, self.Qp)
 
-        inout.write_variable(self.alpha, self.params, name="alpha_init_guess")
+        inout.write_variable(self.alpha_proj, self.params, name="alpha_init_guess")
 
     def mark_BCs(self):
         """

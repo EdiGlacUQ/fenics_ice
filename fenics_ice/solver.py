@@ -53,9 +53,7 @@ class ssa_solver:
         self.bed = model.bed
         self.H_np = model.H_np
         self.H = model.H
-        self.beta = model.beta
         self.beta_bgd = model.beta_bgd
-        self.alpha = model.alpha
         self.bmelt = model.bmelt
         self.smb = model.smb
         self.latbc = model.latbc
@@ -133,6 +131,31 @@ class ssa_solver:
         self.gamma_alpha = 1E-10
         self.delta_beta = 1E-10
         self.gamma_beta = 1E-10
+
+    # TODO lots of boilerplate here, replace?: https://bit.ly/2NyC4Gy
+    @property
+    def alpha(self):
+        return self.model.alpha
+
+    @alpha.setter
+    def alpha(self, arg):
+        self.model.alpha = arg
+
+    @property
+    def beta(self):
+        return self.model.beta
+
+    @beta.setter
+    def beta(self, arg):
+        self.model.beta = arg
+
+    @property
+    def alphaXbeta(self):
+        return self.model.alphaXbeta
+
+    @alphaXbeta.setter
+    def alphaXbeta(self, arg):
+        self.model.alphaXbeta = arg
 
     def get_qoi_func(self):
         qoi_dict = {'vaf': self.comp_Q_vaf,
@@ -536,6 +559,7 @@ class ssa_solver:
     #     Q_vaf.assign(self.Q_vaf)
     #     return Q_vaf
 
+    # TODO - forward_alpha, _beta and _dual are now functionally identical.
     def forward_alpha(self, f):
         """
         Runs the forward model w/ given alpha (f)
@@ -556,22 +580,27 @@ class ssa_solver:
 
         clear_caches()
 
-        # If we're using a lumped mass approach, f is alpha_l, not alpha
-        if self.lumpedmass_inversion:
-            self.alpha = Function(f.function_space(), name='alpha')
-            LumpedMassSolver(f, self.alpha, p=-0.5).solve()
-            # TODO - 'boundary_correct(self.alpha)'?
-        else:
-            self.alpha = f
-            self.alpha.rename("alpha", "")
+        assert not self.lumpedmass_inversion  # this isn't properly implemented any more
+        # This is unused & untested:
+        # # If we're using a lumped mass approach, f is alpha_l, not alpha
+        # if self.lumpedmass_inversion:
+        #     self.alpha = Function(f.function_space(), name='alpha')
+        #     LumpedMassSolver(f, self.alpha, p=-0.5).solve()
+        #     # TODO - 'boundary_correct(self.alpha)'?
+        # else:
+        #     self.alpha = f
+        #     self.alpha.rename("alpha", "")
 
+        self.alphaXbeta = f
+
+        # Uncomment to enable alpha output per inversion iteration
         # if not self.test_outfile:
         #     self.test_outfile = File(os.path.join('invoutput_data','alpha_test.pvd'))
         # self.test_outfile << self.alpha
 
         self.def_mom_eq()
         self.solve_mom_eq()
-        J = self.comp_J_inv()  # TODO - make verbose TOML configurable
+        J = self.comp_J_inv()
         return J
 
     def forward_beta(self, f):
@@ -587,8 +616,10 @@ class ssa_solver:
             f = f[0]
 
         clear_caches()
-        self.beta = f
-        self.beta.rename("beta", "")
+
+        self.alphaXbeta = f
+        # _, self.beta = split(f)
+
         self.def_mom_eq()
         self.solve_mom_eq()
         J = self.comp_J_inv(verbose=True)
@@ -603,14 +634,14 @@ class ssa_solver:
         See notes on the importance of redefinition in docstring of forward_alpha
         """
 
-        assert isinstance(f, (list, tuple))
+        if isinstance(f, (list, tuple)):
+            assert len(f) == 1
+            f = f[0]
 
         clear_caches()
-        self.alpha = f[0]
-        self.beta = f[1]
 
-        self.alpha.rename("alpha", "")
-        self.beta.rename("beta", "")
+        self.alphaXbeta = f
+        # self.alpha, self.beta = split(f)
 
         self.def_mom_eq()
         self.solve_mom_eq()
@@ -619,17 +650,14 @@ class ssa_solver:
 
     def get_control(self):
         """
-        Returns the list (length 1 or 2) of
-        control params (i.e. alpha and/or beta)
-        """
-        config = self.params.inversion
-        cntrl = []
-        if config.alpha_active:
-            cntrl.append(self.alpha)
-        if config.beta_active:
-            cntrl.append(self.beta)
+        Return the mixed space function alpha X beta.
 
-        return cntrl
+        Note that this is returned irrespective of single
+        vs. dual inversion. forward_alpha, _beta, and _dual
+        take care of this distinction by modifying self.alpha
+        and self.beta.
+        """
+        return self.alphaXbeta
 
     def get_forward(self):
         """
@@ -652,13 +680,12 @@ class ssa_solver:
         cntrl = self.get_control()
         forward = self.get_forward()
 
-        nparam = len(cntrl)
-
         # TODO - control/turn off this debugging output
         if(config.verbose):
             inv_vals = []
 
-        Qp_test, Qp_trial = TestFunction(self.Qp), TrialFunction(self.Qp)
+        # nparam = len(cntrl)
+        # Qp_test, Qp_trial = TestFunction(self.Qp), TrialFunction(self.Qp)
 
         # forward = self.forward_dual_temp
         # TODO - need to construct dual prior here for preconditioning
@@ -682,9 +709,19 @@ class ssa_solver:
 
         reset_manager()
         clear_caches()
+
+        # At this point, confirmed no equations registered, and no functions
+        # listed in manager()._cp.indices, so should be the case that
+        # all our sins are taking place beyond this point. (i.e. clean start)
         start_annotating()
+
         J = forward(cntrl)
         stop_annotating()
+
+        # from fenics_ice import graphviz
+        # manager_graph = graphviz.dot()
+        # with open("/home/joe/sources/fenics_ice/debug_mixed.dot", "w") as outfile:
+        #     outfile.write(manager_graph)
 
         # dJ = compute_gradient(J, self.alpha)
         # ddJ = Hessian(forward)
@@ -708,12 +745,15 @@ class ssa_solver:
                 converged = True
 
             # Compute gradient convergence
-            if config.dual:
-                g_criterion = [function_linf_norm(dJ) for dJ in new_dJ]
-            elif config.alpha_active:
-                g_criterion = [function_linf_norm(new_dJ), 0.0]
-            else:
-                g_criterion = [0.0, function_linf_norm(new_dJ)]
+            g_alpha = new_dJ.sub(0, deepcopy=True)
+            g_beta = new_dJ.sub(1, deepcopy=True)
+            g_criterion = [function_linf_norm(g_alpha), function_linf_norm(g_beta)]
+
+            if not config.dual:
+                if(config.alpha_active):
+                    assert(g_criterion[1] == 0.0)
+                else:
+                    assert(g_criterion[0] == 0.0)
 
             # And test it if requested
             if((config.gtol is not None) and (np.max(g_criterion) <= config.gtol)):
@@ -818,8 +858,9 @@ class ssa_solver:
                                             block_theta_scale=config.dual,
                                             max_its=config.max_iter)
 
-        for c, co in zip(cntrl, cntrl_opt):
-            c.assign(co)
+        self.alphaXbeta.assign(cntrl_opt)
+        # self.alpha = self._alphaXbeta.sub(0)
+        # self.beta = self._alphaXbeta.sub(1)
 
         if(config.verbose):
             info(f"Inversion terminated because {result[2]}")
