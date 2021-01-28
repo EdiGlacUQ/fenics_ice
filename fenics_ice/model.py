@@ -70,6 +70,13 @@ class model:
         self.mark_BCs()
         if init_fields:
             self.init_fields_from_data()
+        else:  # initialize these to avoid complaint on solver creation
+            self.bed = None
+            self.bmelt = None
+            self.smb = None
+            self.H = None
+            self.H_np = None
+            self.surf = None
 
         if init_vel_obs:
             # Load the velocity observations
@@ -202,7 +209,7 @@ class model:
 
             if not np.all(simplex >= 0):
                 if not self.params.mesh.periodic_bc:
-                    log.error("Some points missing in interpolation "
+                    log.warning("Some points missing in interpolation "
                               "of velocity obs to function space.")
                 else:
                     log.warning("Some points missing in interpolation "
