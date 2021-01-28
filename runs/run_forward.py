@@ -59,7 +59,7 @@ def run_forward(config_file):
     mdl.beta_from_inversion()
 
     # Solve
-    slvr = solver.ssa_solver(mdl)
+    slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual)
     slvr.save_ts_zero()
 
     cntrl = slvr.get_control()

@@ -83,16 +83,16 @@ def run_inv(config_file):
     invout.parameters.add("delta_beta", slvr.delta_beta)
     invout.parameters.add("timestamp", str(datetime.datetime.now()))
 
-    invout.write(mdl.alpha_proj, 'alpha')
-    invout.write(mdl.beta_proj, 'beta')
+    invout.write(mdl.alpha, 'alpha')
+    invout.write(mdl.beta, 'beta')
 
     # For visualisation (XML & VTK):
 
     inout.write_variable(slvr.U, params)
-    inout.write_variable(mdl.beta_proj, params)
+    inout.write_variable(mdl.beta, params)
 
-    slvr.beta_bgd.rename("beta_bgd", "")
-    inout.write_variable(slvr.beta_bgd, params)
+    mdl.beta_bgd.rename("beta_bgd", "")
+    inout.write_variable(mdl.beta_bgd, params)
 
     inout.write_variable(mdl.bed, params)
     H = project(mdl.H, mdl.M)
@@ -113,7 +113,7 @@ def run_inv(config_file):
     U_obs.rename("uv_obs", "")
     inout.write_variable(U_obs, params, name="uv_obs")
 
-    inout.write_variable(mdl.alpha_proj, params)
+    inout.write_variable(mdl.alpha, params)
 
     Bglen = project(slvr.beta_to_bglen(slvr.beta), mdl.M)
     Bglen.rename("Bglen", "")
