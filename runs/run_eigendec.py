@@ -207,6 +207,11 @@ def run_eigendec(config_file):
             hdf5file.parameters.add("eig_algo", eig_algo)
             hdf5file.parameters.add("timestamp", str(datetime.datetime.now()))
 
+        with XDMFFile(slvr.mesh.mpi_comm(),
+                      str(Path(outdir)/Path(ev_file).with_suffix(".xdmf"))) as xdmf_ev:
+            for i, v in enumerate(vr):
+                v.rename("ev", "")
+                xdmf_ev.write(v, i)
 
     else:
         raise NotImplementedError
