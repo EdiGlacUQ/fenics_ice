@@ -52,18 +52,8 @@ def test_run_inversion(persistent_temp_model, monkeypatch):
     # Run the thing
     mdl_out = run_inv.run_inv(toml_file)
 
-    cntrl = mdl_out.solvers[0].get_control()#[0]
-
-    alpha_norm = norm(project(cntrl[0], mdl_out.Qp).vector())
-    beta_norm = norm(project(cntrl[1], mdl_out.Qp).vector())
-
-    # if(mdl_out.params.inversion.alpha_active):
-    #     cntrl_norm = norm(alpha.vector())
-    # else:
-    #     cntrl_norm = norm(beta.vector())
-
-    # TODO - this is consistent with old test, but not 'right'
-    cntrl_norm = alpha_norm
+    cntrl = mdl_out.solvers[0].get_control()[0]
+    cntrl_norm = norm(cntrl.vector())
 
     J_inv = mdl_out.solvers[0].J_inv.value()
 

@@ -38,7 +38,8 @@ log = logging.getLogger("fenics_ice")
 
 class ssa_solver:
 
-    def __init__(self, model):
+    def __init__(self, model, mixed_space=False):
+
         # Enable aggressive compiler options
         parameters["form_compiler"]["optimize"] = False
         parameters["form_compiler"]["cpp_optimize"] = True
@@ -48,6 +49,15 @@ class ssa_solver:
         self.model = model
         self.model.solvers.append(self)
         self.params = model.params
+        self.mixed_space = mixed_space
+
+        # Mesh/Function Spaces
+        self.mesh = model.mesh
+        self.V = model.V
+        self.Q = model.Q
+        self.Qp = model.Qp
+        self.M = model.M
+        self.RT = model.RT
 
         # Fields
         self.bed = model.bed
@@ -60,6 +70,10 @@ class ssa_solver:
 
         self.set_inv_params()
 
+        self.gen_control_fns()
+        # Note - *copying* controls from model
+        self.set_control_fns([model.alpha, model.beta], initial=True)
+
         # self.test_outfile = None
         # self.f_alpha_file = None
 
@@ -67,7 +81,6 @@ class ssa_solver:
         if self.lumpedmass_inversion:
             self.alpha_l = Function(self.alpha.function_space())
             LumpedMassSolver(self.alpha, self.alpha_l, p=0.5).solve(annotate=False, tlm=False)
-
 
         # Parameterization of alpha/beta
         self.bglen_to_beta = model.bglen_to_beta
@@ -85,14 +98,6 @@ class ssa_solver:
             self.uv_obs_pts = model.uv_obs_pts
         except:
             pass
-
-        # Mesh/Function Spaces
-        self.mesh = model.mesh
-        self.V = model.V
-        self.Q = model.Q
-        self.Qp = model.Qp
-        self.M = model.M
-        self.RT = model.RT
 
         # Trial/Test Functions
         self.U = Function(self.V, name="U")
@@ -132,30 +137,149 @@ class ssa_solver:
         self.delta_beta = 1E-10
         self.gamma_beta = 1E-10
 
-    # TODO lots of boilerplate here, replace?: https://bit.ly/2NyC4Gy
+    def get_mixed_space(self):
+        """Return the mixed function space for alphaXbeta"""
+        el = FiniteElement("Lagrange", self.mesh.ufl_cell(), 1)
+        mixedElem = el * el
+        if not self.params.mesh.periodic_bc:
+            return FunctionSpace(self.mesh,
+                                 mixedElem)
+        else:
+            mesh_length = fice_mesh.get_mesh_length(self.mesh)
+            return FunctionSpace(self.mesh,
+                                 mixedElem,
+                                 constrained_domain=PeriodicBoundary(mesh_length))
+
+    def gen_control_fns(self):
+        """
+        Set up the space & control function(s)
+
+        If solver.mixed_space = True, this creates a CGxCG space and variable
+        self._alphaXbeta which holds both controls. This is used in e.g. dual
+        eigendecomposition.
+
+        If solver.mixed_space = False, no mixed space is created, and self._alpha,
+        self._beta live in the space self.Qp
+        """
+
+        if self.mixed_space:
+            assert self.params.inversion.dual  # only need mixed space for 2 controls
+            self.QQ = self.get_mixed_space()
+            self._alphaXbeta = Function(self.QQ, name="alphaXbeta", static=True)
+            self._cntrl_assigner = FunctionAssigner(self.QQ, [self.Qp]*2)
+
+            self._alpha = None
+            self._beta = None
+        else:
+            self._alpha = Function(self.Qp, name='alpha', static=True)
+            self._beta = Function(self.Qp, name='beta', static=True)
+
+            self.QQ = None
+            self._alphaXbeta = None
+
+    def set_control_fns(self, f, initial=False):
+        """
+        Set (or assign) the control functions
+
+        If initial=True, function values are assigned, else functions themselves
+        are set. The option to *assign* is only required because, in mixed space
+        case, we specify mdl.alpha and mdl.beta, so must make use of FunctionAssigner.
+        For consistency, 'initial' always assigns even when not using mixed space.
+
+        """
+
+        if not isinstance(f, (list, tuple)):
+            f = [f]
+
+        invconfig = self.params.inversion
+        if self.mixed_space:  # operate on _alphaXbeta
+
+            assert invconfig.dual
+            if initial:
+                assert len(f) == 2
+                self._cntrl_assigner.assign(self._alphaXbeta, f)
+            else:
+                assert len(f) == 1
+                self._alphaXbeta = f[0]
+
+        else:  # operate on _alpha, _beta
+
+            if initial:
+                assert len(f) == 2
+                self._alpha.assign(f[0])
+                self._beta.assign(f[1])
+            elif invconfig.dual:
+                assert len(f) == 2
+                self._alpha = f[0]
+                self._beta = f[1]
+            else:
+                assert len(f) == 1
+                if invconfig.alpha_active:
+                    self._alpha = f[0]
+                else:
+                    self._beta = f[0]
+
+    def update_model_fns(self):
+        """
+        Update model's control variables from solver
+
+        Note alpha_proj returns an unannotated copy of the solver's controls.
+        """
+        mdl = self.model
+        invconfig = self.params.inversion
+        if invconfig.alpha_active:
+            mdl.alpha = self.alpha_proj
+        if invconfig.beta_active:
+            mdl.beta = self.beta_proj
+
     @property
     def alpha(self):
-        return self.model.alpha
+        """
+        Get alpha function
 
-    @alpha.setter
-    def alpha(self, arg):
-        self.model.alpha = arg
+        The returned function depends on:
+        - self.mixed_space - _alpha, or component of _alphaXbeta?
+        - alpha_active - return the function itself or a copy/projection?
+        """
+        if self.mixed_space:
+            return self._alphaXbeta[0]
+        else:
+            return self._alpha
 
     @property
     def beta(self):
-        return self.model.beta
+        """
+        Get beta function
 
-    @beta.setter
-    def beta(self, arg):
-        self.model.beta = arg
+        The returned function depends on:
+        - self.mixed_space - _beta, or component of _alphaXbeta?
+        - beta_active - return the function itself or a copy/projection?
+        """
+        if self.mixed_space:
+            return self._alphaXbeta[1]
+        else:
+            return self._beta
 
     @property
-    def alphaXbeta(self):
-        return self.model.alphaXbeta
+    def alpha_proj(self):
+        """Return a copy of solver's alpha, guaranteed in Qp"""
+        if(self.mixed_space):
+            alpha = project(self._alphaXbeta[0], self.Qp)
+        else:
+            alpha = self._alpha.copy(deepcopy=True)
 
-    @alphaXbeta.setter
-    def alphaXbeta(self, arg):
-        self.model.alphaXbeta = arg
+        alpha.rename("alpha", "")
+        return alpha
+
+    @property
+    def beta_proj(self):
+        """Return a copy of solver's beta, guaranteed in Qp"""
+        if(self.mixed_space):
+            beta = project(self._alphaXbeta[1], self.Qp)
+        else:
+            beta = self._beta.copy(deepcopy=True)
+        beta.rename("beta", "")
+        return beta
 
     def get_qoi_func(self):
         qoi_dict = {'vaf': self.comp_Q_vaf,
@@ -559,39 +683,24 @@ class ssa_solver:
     #     Q_vaf.assign(self.Q_vaf)
     #     return Q_vaf
 
-    # TODO - forward_alpha, _beta and _dual are now functionally identical.
-    def forward_alpha(self, f):
+    def forward(self, f):
         """
-        Runs the forward model w/ given alpha (f)
-        and returns the cost function J
+        Runs the forward model w/ controls 'f' and returns cost function 'J'
 
-        Note that it is important that self.alpha be *redefined* here
+        Which controls are set (alpha, beta, both) is determined by
+        self.set_control_fns() based on params. This function replaces 3
+        functions: forward_alpha, forward_beta, forward_dual.
+
+        Note that it is important that self.alpha/beta are *redefined*
         rather than simply assigned to, because of how tlm_adjoint works.
-        tlm_adjoint can compute the derivative with respect to perturbations
-        of a field *when it was first defined*. So, if we don't allow
-        minimize_l_bfgs to redefine alpha, then redefine the momentum equation,
-        we can't update the gradients. It's even insufficient to 'assign' then
-        def_mom_eq because tlm_adjoint knows its already seen alpha (id=whatever)
+        An annotated connection between 'f' and 'J' must be created, so
+        self._alphaXbeta or _alpha, _beta must be set to f.
         """
-
-        if isinstance(f, (list, tuple)):
-            assert len(f) == 1
-            f = f[0]
 
         clear_caches()
 
         assert not self.lumpedmass_inversion  # this isn't properly implemented any more
-        # This is unused & untested:
-        # # If we're using a lumped mass approach, f is alpha_l, not alpha
-        # if self.lumpedmass_inversion:
-        #     self.alpha = Function(f.function_space(), name='alpha')
-        #     LumpedMassSolver(f, self.alpha, p=-0.5).solve()
-        #     # TODO - 'boundary_correct(self.alpha)'?
-        # else:
-        #     self.alpha = f
-        #     self.alpha.rename("alpha", "")
-
-        self.alphaXbeta = f
+        self.set_control_fns(f)
 
         # Uncomment to enable alpha output per inversion iteration
         # if not self.test_outfile:
@@ -603,84 +712,40 @@ class ssa_solver:
         J = self.comp_J_inv()
         return J
 
-    def forward_beta(self, f):
-        """
-        Runs the forward model w/ given beta (f)
-        and returns the cost function J
-
-        See notes on the importance of redefinition in docstring of forward_alpha
-        """
-
-        if isinstance(f, (list, tuple)):
-            assert len(f) == 1
-            f = f[0]
-
-        clear_caches()
-
-        self.alphaXbeta = f
-        # _, self.beta = split(f)
-
-        self.def_mom_eq()
-        self.solve_mom_eq()
-        J = self.comp_J_inv(verbose=True)
-        return J
-
-    def forward_dual(self, f):
-        """
-        Runs the forward model w/ given
-        alpha and beta (f[0], f[1])
-        and returns the cost function J
-
-        See notes on the importance of redefinition in docstring of forward_alpha
-        """
-
-        if isinstance(f, (list, tuple)):
-            assert len(f) == 1
-            f = f[0]
-
-        clear_caches()
-
-        self.alphaXbeta = f
-        # self.alpha, self.beta = split(f)
-
-        self.def_mom_eq()
-        self.solve_mom_eq()
-        J = self.comp_J_inv(verbose=True)
-        return J
-
     def get_control(self):
-        """
-        Return the mixed space function alpha X beta.
-
-        Note that this is returned irrespective of single
-        vs. dual inversion. forward_alpha, _beta, and _dual
-        take care of this distinction by modifying self.alpha
-        and self.beta.
-        """
-        return self.alphaXbeta
-
-    def get_forward(self):
-        """
-        Return the forward function for the inversion
-        depending on control params
-        """
-        alpha_active = self.params.inversion.alpha_active
-        beta_active = self.params.inversion.beta_active
-        if(alpha_active and beta_active):
-            return self.forward_dual # TODO
-        elif(alpha_active):
-            return self.forward_alpha
+        """Return the solver's control functions (alpha, beta or alphaXbeta)"""
+        invconfig = self.params.inversion
+        if self.mixed_space:
+            return [self._alphaXbeta]
         else:
-            return self.forward_beta
+            if invconfig.dual:
+                return [self.alpha, self.beta]
+            elif invconfig.alpha_active:
+                return [self.alpha]
+            else:
+                return [self.beta]
+
+    def get_control_space(self):
+        """Return the function space of the control function(s)"""
+        if self.mixed_space:
+            return self.QQ
+        else:
+            return self.Qp
 
     def inversion(self):
+        """
+        Minimize the cost function J and optimize control functions.
 
+        Runs the annotated forward model and then uses tlm_adjoint
+        and L-BFGS for optimisation.
+
+        Also sets the model's control functions to the optimized result.
+        """
         config = self.params.inversion
 
         cntrl = self.get_control()
-        forward = self.get_forward()
+        forward = self.forward
 
-        # TODO - control/turn off this debugging output
         if(config.verbose):
             inv_vals = []
 
@@ -710,19 +775,22 @@ class ssa_solver:
         reset_manager()
         clear_caches()
 
-        # At this point, confirmed no equations registered, and no functions
-        # listed in manager()._cp.indices, so should be the case that
-        # all our sins are taking place beyond this point. (i.e. clean start)
         start_annotating()
 
         J = forward(cntrl)
         stop_annotating()
 
+        ##########################################
+        # Uncomment for dependency graph output:
+        ##########################################
         # from fenics_ice import graphviz
         # manager_graph = graphviz.dot()
         # with open("/home/joe/sources/fenics_ice/debug_mixed.dot", "w") as outfile:
         #     outfile.write(manager_graph)
 
+        ##########################################
+        # Uncomment for Taylor Verification:
+        ##########################################
         # dJ = compute_gradient(J, self.alpha)
         # ddJ = Hessian(forward)
         # min_order = taylor_test(forward, self.alpha, J_val=J.value(),
@@ -745,15 +813,12 @@ class ssa_solver:
                 converged = True
 
             # Compute gradient convergence
-            g_alpha = new_dJ.sub(0, deepcopy=True)
-            g_beta = new_dJ.sub(1, deepcopy=True)
-            g_criterion = [function_linf_norm(g_alpha), function_linf_norm(g_beta)]
-
-            if not config.dual:
-                if(config.alpha_active):
-                    assert(g_criterion[1] == 0.0)
-                else:
-                    assert(g_criterion[0] == 0.0)
+            if config.dual:
+                g_criterion = [function_linf_norm(new_dJ[0]), function_linf_norm(new_dJ[1])]
+            elif config.alpha_active:
+                g_criterion = [function_linf_norm(new_dJ), 0.0]
+            else:
+                g_criterion = [0.0, function_linf_norm(new_dJ)]
 
             # And test it if requested
             if((config.gtol is not None) and (np.max(g_criterion) <= config.gtol)):
@@ -858,9 +923,10 @@ class ssa_solver:
                                             block_theta_scale=config.dual,
                                             max_its=config.max_iter)
 
-        self.alphaXbeta.assign(cntrl_opt)
-        # self.alpha = self._alphaXbeta.sub(0)
-        # self.beta = self._alphaXbeta.sub(1)
+        self.set_control_fns(cntrl_opt)
+
+        # Copy control variables back to model
+        self.update_model_fns()
 
         if(config.verbose):
             info(f"Inversion terminated because {result[2]}")
@@ -1201,16 +1267,12 @@ class ssa_solver:
         """
         if type(cntrl) is not list:
             cntrl = [cntrl]
-        fopts = {'alpha': self.forward_alpha,
-                 'beta': self.forward_beta,
-                 'dual': self.forward_dual}
-
-        forward = fopts['dual'] if len(cntrl) > 1 else fopts[cntrl[0].name()]
+        assert len(cntrl) == 1
 
         reset_manager()
         clear_caches()
         start_manager()
-        J = forward(cntrl[0])
+        J = self.forward(cntrl[0])
         stop_manager()
 
         self.ddJ = SingleBlockHessian(J)

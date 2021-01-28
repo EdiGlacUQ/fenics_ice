@@ -141,6 +141,38 @@ def test_gen_init_alpha(request, setup_deps, temp_model):
                               expected_init_alpha,
                               work_dir, 'expected_init_alpha')
 
+@pytest.mark.dependency()
+def test_control_separation(request, setup_deps, temp_model):
+    """Check that mdl.alpha and slvr.alpha are distinct functions"""
+
+    setup_deps.set_case_dependency(request, ["test_init_model",
+                                             "test_initialize_fields"])
+    work_dir = temp_model["work_dir"]
+    toml_file = temp_model["toml_filename"]
+
+    mdl = init_model(work_dir, toml_file)
+    initialize_fields(mdl)
+    initialize_vel_obs(mdl)
+    slvr = solver.ssa_solver(mdl)
+
+    slvr.alpha.vector()[:] = 1e3
+    slvr.alpha.vector().apply("insert")
+    slvr.beta.vector()[:] = 1e3
+    slvr.beta.vector().apply("insert")
+
+    with pytest.raises(AttributeError):
+        slvr.beta = 1.0
+    with pytest.raises(AttributeError):
+        slvr.alpha = 1.0
+
+    norm_as = norm(slvr.alpha)
+    norm_bs = norm(slvr.beta)
+    norm_am = norm(mdl.alpha)
+    norm_bm = norm(mdl.beta)
+
+    assert norm_as != norm_am
+    assert norm_bs != norm_bm
+
 # Unused!
 def override_param(param_section, name, value):
     """Override frozen ConfigParser params for testing"""
