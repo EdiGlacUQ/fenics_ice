@@ -21,22 +21,51 @@ from .decorators import count_calls, timer
 
 class laplacian(object):
 
-    def __init__(self, delta, gamma, space):
+    def __init__(self, params, space):
+
+        invparam = params.inversion
 
         self.space = space
+        self.vdim = space.ufl_element().value_size()
 
-        test, trial = TestFunction(space), TrialFunction(space)
+        assert self.vdim in [1, 2]
+        assert (self.vdim == 2) == invparam.dual
 
-        var_m = inner(test, trial) * dx
-        var_n = inner(grad(test), grad(trial)) * dx
+        if self.vdim == 1:
+            test, trial = TestFunction(space), TrialFunction(space)
+            var_m = inner(test, trial) * dx
+            var_n = inner(grad(test), grad(trial)) * dx
+            self.M = assemble(var_m)
 
-        self.M = assemble(var_m)
+        else:
+            test_1, test_2 = TestFunctions(space)
+            trial_1, trial_2 = TrialFunctions(space)
+            var_m_1 = inner(test_1, trial_1) * dx
+            var_m_2 = inner(test_2, trial_2) * dx
+            var_n_1 = inner(grad(test_1), grad(trial_1)) * dx
+            var_n_2 = inner(grad(test_2), grad(trial_2)) * dx
+            self.M = assemble(var_m_1 + var_m_2)
+
+
         self.M_solver = KrylovSolver("cg", "sor")
         self.M_solver.parameters.update({"absolute_tolerance": 1.0e-32,
                                          "relative_tolerance": 1.0e-14})
         self.M_solver.set_operator(self.M)
 
-        self.A = assemble(delta * var_m + gamma * var_n)
+        if self.vdim == 1:
+            if invparam.alpha_active:
+                delta = invparam.delta_alpha
+                gamma = invparam.gamma_alpha
+            else:
+                delta = invparam.delta_beta
+                gamma = invparam.gamma_beta
+            self.A = assemble(delta * var_m + gamma * var_n)
+        else:
+            self.A = assemble((invparam.delta_alpha * var_m_1) +
+                              (invparam.delta_beta * var_m_2) +
+                              (invparam.gamma_alpha * var_n_1) +
+                              (invparam.gamma_beta * var_n_2))
+
         self.A_solver = KrylovSolver("cg", "sor")
         self.A_solver.parameters.update({"absolute_tolerance": 1.0e-32,
                                          "relative_tolerance": 1.0e-14})
@@ -51,14 +80,19 @@ class laplacian(object):
         # Inverse Root Lumped mass matrix (etc):
         # All stored as vectors for efficiency
         # NB: mass matrix here assumes no Dirichlet BC (OK as precond)
-        mass_action_form = action(var_m, Constant(1))
+
+        if self.vdim == 1:
+            mass_action_form = action(var_m, Constant(1))
+        else:
+            # TODO - this line produces:
+            # "DEBUG:UFL:Computing action of form on a coefficient in
+            # a different function space."
+            mass_action_form = action((var_m_1 + var_m_2), Constant((1, 1)))
+
         lump_diag = assemble(mass_action_form).get_local()
         root_lump_diag = (lump_diag) ** 0.5
         inv_root_lump_diag = 1.0 / root_lump_diag
         inv_lump_diag = 1.0 / lump_diag
-
-        comm = self.A.mpi_comm()  # TODO - is this correct?
-        dim = space.dim()
 
         self.M_l, self.M_il, = Vector(), Vector()
         self.M_rl, self.M_irl = Vector(), Vector()

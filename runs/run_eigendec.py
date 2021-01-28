@@ -73,11 +73,10 @@ def run_eigendec(config_file):
     mdl.beta_from_inversion()
 
     # Setup our solver object
-    slvr = solver.ssa_solver(mdl)
+    slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual)
 
-    # TODO generalise - get_control returns a list
     cntrl = slvr.get_control()[0]
-    space = cntrl.function_space()
+    space = slvr.get_control_space()
 
     msft_flag = params.eigendec.misfit_only
     if msft_flag:
@@ -97,15 +96,7 @@ def run_eigendec(config_file):
     # mass_solver.set_operator(mass)
 
     # Regularization operator using inversion delta/gamma values
-    # TODO - this won't handle dual inversion case
-    if params.inversion.alpha_active:
-        delta = params.inversion.delta_alpha
-        gamma = params.inversion.gamma_alpha
-    elif params.inversion.beta_active:
-        delta = params.inversion.delta_beta
-        gamma = params.inversion.gamma_beta
-
-    reg_op = prior.laplacian(delta, gamma, space)
+    reg_op = prior.laplacian(params, space)
 
     # Uncomment to get low-level SLEPc/PETSc output
     # set_log_level(10)

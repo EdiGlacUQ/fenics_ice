@@ -23,7 +23,7 @@ import pickle
 from dolfin import *
 from tlm_adjoint import *
 
-from fenics_ice import model, prior, inout
+from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 
@@ -58,24 +58,15 @@ def run_errorprop(config_file):
     mdl.alpha_from_inversion()
     mdl.beta_from_inversion()
 
+    # Setup our solver object
+    slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual)
+
+    cntrl = slvr.get_control()[0]
+    space = slvr.get_control_space()
+
     # Regularization operator using inversion delta/gamma values
-    # TODO - this won't handle dual inversion case
-    if params.inversion.alpha_active:
-        delta = params.inversion.delta_alpha
-        gamma = params.inversion.gamma_alpha
-        cntrl = mdl.alpha
-    elif params.inversion.beta_active:
-        delta = params.inversion.delta_beta
-        gamma = params.inversion.gamma_beta
-        cntrl = mdl.beta
+    reg_op = prior.laplacian(params, space)
 
-    if params.inversion.alpha_active and params.inversion.beta_active:
-        log.warning("Dual inversion but error propagation isn't implemented yet!"
-                    "Doing alpha only!")
-
-    reg_op = prior.laplacian(delta, gamma, cntrl.function_space())
-
-    space = cntrl.function_space()
     x, y, z = [Function(space) for i in range(3)]
 
     # Loads eigenvalues from file
