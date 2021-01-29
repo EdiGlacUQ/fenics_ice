@@ -207,8 +207,10 @@ def run_eigendec(config_file):
             hdf5file.parameters.add("eig_algo", eig_algo)
             hdf5file.parameters.add("timestamp", str(datetime.datetime.now()))
 
+        p = Path(ev_file)
+        ev_xdmf = str(p.parent / Path(p.stem + "_vis").with_suffix(".xdmf"))
         with XDMFFile(slvr.mesh.mpi_comm(),
-                      str(Path(outdir)/Path(ev_file).with_suffix(".xdmf"))) as xdmf_ev:
+                      ev_xdmf) as xdmf_ev:
             for i, v in enumerate(vr):
                 v.rename("ev", "")
                 xdmf_ev.write(v, i)
