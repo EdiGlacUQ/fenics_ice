@@ -77,11 +77,6 @@ class ssa_solver:
         # self.test_outfile = None
         # self.f_alpha_file = None
 
-        self.lumpedmass_inversion = False
-        if self.lumpedmass_inversion:
-            self.alpha_l = Function(self.alpha.function_space())
-            LumpedMassSolver(self.alpha, self.alpha_l, p=0.5).solve(annotate=False, tlm=False)
-
         # Parameterization of alpha/beta
         self.bglen_to_beta = model.bglen_to_beta
         self.beta_to_bglen = model.beta_to_bglen
@@ -699,7 +694,6 @@ class ssa_solver:
 
         clear_caches()
 
-        assert not self.lumpedmass_inversion  # this isn't properly implemented any more
         self.set_control_fns(f)
 
         # Uncomment to enable alpha output per inversion iteration
@@ -758,8 +752,6 @@ class ssa_solver:
         # cntrl = cntrl_input[j % nparam]
         # if cntrl.name() == 'alpha':
         #     cc = self.alpha
-        #     if self.lumpedmass_inversion:
-        #         cc = self.alpha_l
 
         #     forward = self.forward_alpha
 
@@ -1354,48 +1346,3 @@ class MomentumSolver(EquationSolver):
               form_compiler_parameters=self._form_compiler_parameters,
               solver_parameters=self._solver_parameters)
         end()
-
-
-########################################################
-# Lumped Mass Matrix stuff for variable mesh resolution
-########################################################
-def mass_matrix_diagonal(space, name="M_l"):
-    M_l = Function(space, name=name)
-    M_l.vector().axpy(1.0, assemble(TestFunction(space) * dx))
-    return M_l
-
-
-class LumpedMassSolver(Equation):
-    def __init__(self, m, m_l, p=1):
-        Equation.__init__(self, m_l, deps=[m_l, m], nl_deps=[],
-                          ic=False, adj_ic=False)
-        self._M_l = mass_matrix_diagonal(function_space(m_l))
-        self._M_l_p = p
-
-    def forward_solve(self, x, deps=None):
-        _, m = self.dependencies() if deps is None else deps
-        function_set_values(
-            x,
-            function_get_values(m)
-            * np.power(function_get_values(self._M_l), self._M_l_p))
-
-    def adjoint_derivative_action(self, nl_deps, dep_index, adj_x):
-        if dep_index == 0:
-            return adj_x
-        else:
-            assert dep_index == 1
-            F = function_new(self._M_l)
-            function_set_values(
-                F,
-                -function_get_values(adj_x)
-                * np.power(function_get_values(self._M_l), self._M_l_p))
-            return F
-
-    def adjoint_jacobian_solve(self, adj_x, nl_deps, b):
-        return b
-
-    def tangent_linear(self, M, dM, tlm_map):
-        m_l, m = self.dependencies()
-        assert m_l not in M
-        return LumpedMassSolver(get_tangent_linear(m, M, dM, tlm_map),
-                                tlm_map[m_l], p=self._M_l_p)

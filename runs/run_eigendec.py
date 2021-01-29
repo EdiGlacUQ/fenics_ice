@@ -115,11 +115,6 @@ def run_eigendec(config_file):
         reg_op.action(x.vector(), xg.vector())
         return function_get_values(xg)
 
-    def prior_approx_action(x):
-        """Only used for checking B' orthonormality"""
-        reg_op.approx_action(x.vector(), xg.vector())
-        return function_get_values(xg)
-
     def slepc_config_callback(config):
         log.info("Got to the callback")
 
