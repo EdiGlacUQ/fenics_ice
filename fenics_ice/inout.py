@@ -29,6 +29,7 @@ import h5py
 import netCDF4
 import git
 from scipy import interpolate as interp
+from abc import ABC, abstractmethod
 
 from fenics import *
 from tlm_adjoint_fenics import configure_checkpointing
@@ -36,6 +37,167 @@ import numpy as np
 
 # Regex for catching unnamed vars
 unnamed_re = re.compile("f_[0-9]+")
+
+class Writer(ABC):
+    """Abstract base class for variable writers"""
+
+    # Regex for catching unnamed vars
+    unnamed_re = re.compile("f_[0-9]+")
+
+    stepped = None      # Single timestep file or multiple?
+    _fpath = None       # the filename
+    suffix = None       # the subclass specific file extension
+    file_handle = None  # handle for the file
+
+    def __init__(self, fpath):
+        self._fpath = Path(fpath)
+        assert self._fpath.suffix == self.suffix
+
+    @staticmethod
+    def var_named(var):
+        """Does the variable have a name or e.g. f_323"""
+        return (unnamed_re.match(var.name()) is None)
+
+    @staticmethod
+    def named_copy(var, name):
+        """
+        Creates a copy of the variable for saving and names it
+
+        If name is None, assume the var is already named and copy it.
+        If name is not None, overwrite copy's name.
+        """
+        new_var = var.copy(deepcopy=True)
+
+        if name is not None:
+            new_var.rename(name, "")
+        else:
+            assert Writer.var_named(var)
+            new_var.rename(var.name(), "")
+
+        return new_var
+
+    def open(self):
+        self.file_handle = File(str(self._fpath))
+
+    def close(self):
+        """No method to close a generic 'File' so just dereference"""
+        self.file_handle = None
+
+    def is_open(self):
+        return self.file_handle is not None
+
+    def check_step(self, step):
+        """
+        Check the logic/history of writes to this file
+
+        Output file can have timesteps associated with them or not,
+        but this must be used consistently.
+        """
+        if self.stepped is None:
+            self.stepped = step is not None
+            return
+        else:
+            if self.stepped and (step is None):
+                raise ValueError("Attempting to write unstepped function to "
+                                 "timestepping output file")
+            if (not self.stepped) and (step is not None):
+                raise ValueError("Attempting to write stepped function to "
+                                 "unstepping output file")
+
+    @abstractmethod
+    def _write(self, variable, name):
+        pass
+
+    def write(self, variable, name=None, step=None, finalise=False):
+        """
+        Write variable to file
+
+        This method handles the preliminaries, but the actual
+        writing is deferred to e.g. VTKWriter & XMDFWriter to define
+        """
+
+        # Check file
+        if not self.is_open():
+            self.open()
+
+        self.check_step(step)
+
+        # Get named variable
+        outvar = self.named_copy(variable, name)
+
+        self._write(outvar, step)
+
+        if finalise:
+            self.close()
+
+class VTKWriter(Writer):
+    """Variable writer for .vtk"""
+
+    suffix = '.pvd'
+    wrote_steps = []
+
+    def check_step(self, step):
+        """
+        Check that this timestep hasn't been written already (VTK specific)
+
+        fenics' VTK implementation only supports single-variable vtk files,
+        so it's only legal to write to a timestep once.
+        """
+        super().check_step(step)
+        if step in self.wrote_steps:
+            raise ValueError("Trying to write to existing VTKFile timestep!")
+
+        self.wrote_steps.append(step)
+
+    def _write(self, variable, step):
+
+        if step is None:
+            self.file_handle << variable
+        else:
+            self.file_handle << (variable, step)
+
+class XDMFWriter(Writer):
+    """Variable writer for .xdmf"""
+
+    suffix = '.xdmf'
+    comm = None
+    # stepped = True  # XDMF file components always have a timestep associated
+
+    def _write(self, variable, step):
+        if step is None:
+            self.file_handle.write(variable, 0)
+        else:
+            self.file_handle.write(variable, step)
+
+    def open(self):
+        """Open XDMFFile (w/ comm)"""
+        self.file_handle = XDMFFile(self.comm, str(self._fpath))
+
+    def close(self):
+        """Close XDMFFile"""
+        self.file_handle.close()
+        self.file_handle = None
+
+    def write(self, variable, name=None, step=None, finalise=False):
+        """
+        Write variable to XDMF file
+
+        This overrides Writer's method because need to
+        handle the 'mpi_comm' requirement (get it from variable)
+        """
+
+        if self.comm is None:
+            self.comm = variable.function_space().mesh().mpi_comm()
+
+        super().write(variable, name, step, finalise)
+
+def gen_path(params, name, suffix):
+    """Convert e.g. 'alpha' into outdir/runname_alpha.pvd"""
+
+    outdir = Path(params.io.output_dir)
+    outfname = Path("_".join((params.io.run_name, name))).with_suffix(suffix)
+    return outdir/outfname
+
 
 def write_qval(Qval, params):
     """

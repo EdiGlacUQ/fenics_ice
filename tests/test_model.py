@@ -142,6 +142,58 @@ def test_gen_init_alpha(request, setup_deps, temp_model):
                               work_dir, 'expected_init_alpha')
 
 @pytest.mark.dependency()
+def test_writers(request, setup_deps, temp_model):
+    """Test the Writers in inout"""
+    setup_deps.set_case_dependency(request, ["test_init_model"])
+
+    work_dir = temp_model["work_dir"]
+    toml_file = temp_model["toml_filename"]
+
+    mdl = init_model(work_dir, toml_file)
+
+    # Create test function for writing
+    space = mdl.Q
+    test_fun = Function(space, name="test")
+    test_fun.vector()[:] = -1.0
+
+    vtkpath = inout.gen_path(mdl.params, "test", ".pvd")
+    xdmfpath = vtkpath.with_suffix(".xdmf")
+
+    xdmfWriter = inout.XDMFWriter(xdmfpath)
+    vtkWriter = inout.VTKWriter(vtkpath)
+
+    # Check can write to file without error
+    vtkWriter.write(test_fun, step=1)
+    xdmfWriter.write(test_fun, step=1)
+
+    # Check file is produced
+    assert vtkpath.exists()
+    assert xdmfpath.exists()
+
+    # Check can't write unstepped variable to stepped file
+    with pytest.raises(ValueError):
+        vtkWriter.write(test_fun)
+
+    with pytest.raises(ValueError):
+        xdmfWriter.write(test_fun)
+
+    # New writers for unstepped output
+
+    xdmfWriter = inout.XDMFWriter(xdmfpath)
+    vtkWriter = inout.VTKWriter(vtkpath)
+
+    # Can't write unstepped to XDMF
+    xdmfWriter.write(test_fun)
+    vtkWriter.write(test_fun)
+
+    # Check fail from attempting stepped output
+    with pytest.raises(ValueError):
+        vtkWriter.write(test_fun, step=1)
+
+    with pytest.raises(ValueError):
+        xdmfWriter.write(test_fun, step=1)
+
+@pytest.mark.dependency()
 def test_control_separation(request, setup_deps, temp_model):
     """Check that mdl.alpha and slvr.alpha are distinct functions"""
 

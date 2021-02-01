@@ -772,6 +772,8 @@ class ssa_solver:
         J = forward(cntrl)
         stop_annotating()
 
+        inv_grad_writer = inout.XDMFWriter(inout.gen_path(self.params, 'inv_grads', '.xdmf'))
+
         ##########################################
         # Uncomment for dependency graph output:
         ##########################################
@@ -807,10 +809,14 @@ class ssa_solver:
             # Compute gradient convergence
             if config.dual:
                 g_criterion = [function_linf_norm(new_dJ[0]), function_linf_norm(new_dJ[1])]
+                inv_grad_writer.write(new_dJ[0], name='djdAlpha', step=it)
+                inv_grad_writer.write(new_dJ[1], name='djdBeta', step=it)
             elif config.alpha_active:
                 g_criterion = [function_linf_norm(new_dJ), 0.0]
+                inv_grad_writer.write(new_dJ, name='djdAlpha', step=it, finalise=True)
             else:
                 g_criterion = [0.0, function_linf_norm(new_dJ)]
+                inv_grad_writer.write(new_dJ, name='djdBeta', step=it, finalise=True)
 
             # And test it if requested
             if((config.gtol is not None) and (np.max(g_criterion) <= config.gtol)):
@@ -917,7 +923,9 @@ class ssa_solver:
 
         self.set_control_fns(cntrl_opt)
 
-        # Copy control variables back to model
+        inv_grad_writer.close()
+
+        # copy control variables back to model
         self.update_model_fns()
 
         if(config.verbose):
