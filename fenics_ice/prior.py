@@ -21,10 +21,15 @@ from .decorators import count_calls, timer
 import ufl
 
 class Laplacian(object):
+    """
+    Laplacian prior implementation
 
-    def __init__(self, params, space):
-
-        invparam = params.inversion
+    NB: although Laplacian makes use of params.inversion.,
+    delta_alpha etc come from the *solver* object, because
+    these are mutable (e.g. misfit-only hessian)
+    """
+    def __init__(self, slvr, space):
+        invparam = slvr.params.inversion
 
         self.space = space
         self.vdim = space.ufl_element().value_size()
@@ -32,10 +37,10 @@ class Laplacian(object):
         assert self.vdim in [1, 2]
         assert (self.vdim == 2) == invparam.dual
 
-        self.delta_alpha = invparam.delta_alpha
-        self.delta_beta = invparam.delta_beta
-        self.gamma_alpha = invparam.gamma_alpha
-        self.gamma_beta = invparam.gamma_beta
+        self.delta_alpha = slvr.delta_alpha
+        self.delta_beta = slvr.delta_beta
+        self.gamma_alpha = slvr.gamma_alpha
+        self.gamma_beta = slvr.gamma_beta
 
         self.alpha_active = invparam.alpha_active
         self.beta_active = invparam.beta_active

@@ -78,6 +78,9 @@ def run_eigendec(config_file):
     cntrl = slvr.get_control()[0]
     space = slvr.get_control_space()
 
+    # Regularization operator using inversion delta/gamma values
+    reg_op = prior.Laplacian(slvr, space)
+
     msft_flag = params.eigendec.misfit_only
     if msft_flag:
         slvr.zero_inv_params()
@@ -94,9 +97,6 @@ def run_eigendec(config_file):
     # mass_solver.parameters.update({"absolute_tolerance": 1.0e-32,
     #                                "relative_tolerance": 1.0e-14})
     # mass_solver.set_operator(mass)
-
-    # Regularization operator using inversion delta/gamma values
-    reg_op = prior.Laplacian(slvr, space)
 
     # Uncomment to get low-level SLEPc/PETSc output
     # set_log_level(10)

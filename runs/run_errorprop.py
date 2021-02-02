@@ -65,7 +65,7 @@ def run_errorprop(config_file):
     space = slvr.get_control_space()
 
     # Regularization operator using inversion delta/gamma values
-    reg_op = prior.Laplacian(params, space)
+    reg_op = prior.Laplacian(slvr, space)
 
     x, y, z = [Function(space) for i in range(3)]
 
