@@ -813,10 +813,10 @@ class ssa_solver:
                 inv_grad_writer.write(new_dJ[1], name='djdBeta', step=it)
             elif config.alpha_active:
                 g_criterion = [function_linf_norm(new_dJ), 0.0]
-                inv_grad_writer.write(new_dJ, name='djdAlpha', step=it, finalise=True)
+                inv_grad_writer.write(new_dJ, name='djdAlpha', step=it)
             else:
                 g_criterion = [0.0, function_linf_norm(new_dJ)]
-                inv_grad_writer.write(new_dJ, name='djdBeta', step=it, finalise=True)
+                inv_grad_writer.write(new_dJ, name='djdBeta', step=it)
 
             # And test it if requested
             if((config.gtol is not None) and (np.max(g_criterion) <= config.gtol)):
