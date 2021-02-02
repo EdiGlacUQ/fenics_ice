@@ -96,7 +96,7 @@ def run_eigendec(config_file):
     # mass_solver.set_operator(mass)
 
     # Regularization operator using inversion delta/gamma values
-    reg_op = prior.laplacian(params, space)
+    reg_op = prior.Laplacian(slvr, space)
 
     # Uncomment to get low-level SLEPc/PETSc output
     # set_log_level(10)

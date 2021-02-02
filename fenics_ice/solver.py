@@ -1160,7 +1160,7 @@ class ssa_solver:
         J.addto(J_ls_term_v)
 
         # Regularization
-        lap = prior.laplacian(self.params, self.Qp)
+        lap = prior.Laplacian(self, self.Qp)
         J_reg_alpha, J_reg_beta = lap.J_reg(alpha, beta)
         if do_alpha: J.addto(J_reg_alpha)
         if do_beta: J.addto(J_reg_beta)

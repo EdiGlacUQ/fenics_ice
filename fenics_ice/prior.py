@@ -20,7 +20,7 @@ from tlm_adjoint import *
 from .decorators import count_calls, timer
 import ufl
 
-class laplacian(object):
+class Laplacian(object):
 
     def __init__(self, params, space):
 

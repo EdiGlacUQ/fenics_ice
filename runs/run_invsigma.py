@@ -73,7 +73,7 @@ def run_invsigma(config_file):
     sigma, sigma_prior, x, y, z = [Function(space) for i in range(5)]
 
     # Regularization operator using inversion delta/gamma values
-    reg_op = prior.laplacian(params, space)
+    reg_op = prior.Laplacian(params, space)
 
     # Load the eigenvalues
     with open(os.path.join(eigendir, lamfile), 'rb') as ff:
