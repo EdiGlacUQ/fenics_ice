@@ -31,6 +31,14 @@ class laplacian(object):
         assert self.vdim in [1, 2]
         assert (self.vdim == 2) == invparam.dual
 
+        self.delta_alpha = invparam.delta_alpha
+        self.delta_beta = invparam.delta_beta
+        self.gamma_alpha = invparam.gamma_alpha
+        self.gamma_beta = invparam.gamma_beta
+
+        self.alpha_active = invparam.alpha_active
+        self.beta_active = invparam.beta_active
+
         if self.vdim == 1:
             test, trial = TestFunction(space), TrialFunction(space)
             var_m = inner(test, trial) * dx
@@ -54,17 +62,14 @@ class laplacian(object):
 
         if self.vdim == 1:
             if invparam.alpha_active:
-                delta = invparam.delta_alpha
-                gamma = invparam.gamma_alpha
+                self.A = assemble(self.delta_alpha * var_m + self.gamma_alpha * var_n)
             else:
-                delta = invparam.delta_beta
-                gamma = invparam.gamma_beta
-            self.A = assemble(delta * var_m + gamma * var_n)
+                self.A = assemble(self.delta_beta * var_m + self.gamma_beta * var_n)
         else:
-            self.A = assemble((invparam.delta_alpha * var_m_1) +
-                              (invparam.delta_beta * var_m_2) +
-                              (invparam.gamma_alpha * var_n_1) +
-                              (invparam.gamma_beta * var_n_2))
+            self.A = assemble((self.delta_alpha * var_m_1) +
+                              (self.delta_beta * var_m_2) +
+                              (self.gamma_alpha * var_n_1) +
+                              (self.gamma_beta * var_n_2))
 
         self.A_solver = KrylovSolver("cg", "sor")
         self.A_solver.parameters.update({"absolute_tolerance": 1.0e-32,
@@ -97,6 +102,40 @@ class laplacian(object):
 
         y.set_local(self.tmp1.get_local())
         y.apply("insert")
+
+    def J_reg(self, alpha, beta):
+        """Compute the regularisation term of the cost function"""
+
+        assert alpha is not None or beta is not None
+        space = function_space(alpha) if alpha is not None else function_space(beta)
+
+        result = [None, None]
+
+        trial = TrialFunction(space)
+        test = TestFunction(space)
+
+        if self.alpha_active:
+            a = trial * test * dx
+            f_alpha = Function(space, name='f_alpha')
+            L = (self.delta_alpha * alpha * test
+                 + self.gamma_alpha*inner(grad(alpha), grad(test)))*dx
+            solve(a == L, f_alpha)
+            J_reg_alpha = 0.5 * inner(f_alpha, f_alpha)*dx
+
+            result[0] = J_reg_alpha
+
+        if self.beta_active:
+
+            a = trial * test * dx
+            f_beta = Function(space, name='f_beta')
+            L = (self.delta_beta * beta * test
+                 + self.gamma_beta*inner(grad(beta), grad(test)))*dx
+            solve(a == L, f_beta)
+            J_reg_beta = 0.5 * inner(f_beta, f_beta)*dx
+
+            result[1] = J_reg_beta
+
+        return result
 
 class LaplacianPC:
     """

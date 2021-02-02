@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 
 from fenics import *
-from fenics_ice import inout
+from fenics_ice import inout, prior
 from tlm_adjoint_fenics import *
 from tlm_adjoint_fenics.hessian_optimization import *
 
@@ -1160,38 +1160,10 @@ class ssa_solver:
         J.addto(J_ls_term_v)
 
         # Regularization
-
-        f = TrialFunction(self.Qp)
-        f_alpha = Function(self.Qp, name="f_alpha")
-        f_beta = Function(self.Qp, name="f_beta")
-
-        # cf. Isaac 5, delta component -> invertiblity, gamma -> smoothness
-        a = f*self.pTau*dIce
-
-        if(do_alpha):
-            # This L is equivalent to scriptF in reg_operator.pdf
-            # Prior.py contains vector equivalent of this
-            # (this operates on fem functions)
-            L = (delta_a * alpha * self.pTau
-                 + gamma_a*inner(grad(alpha), grad(self.pTau)))*dIce
-            solve(a == L, f_alpha)
-            J_reg_alpha = 0.5 * inner(f_alpha, f_alpha)*dIce
-            J.addto(J_reg_alpha)
-
-            # if not self.f_alpha_file:
-            #     self.f_alpha_file = \
-            # File(os.path.join('invoutput_data', 'f_alpha_test.pvd'))
-            # self.f_alpha_file << f_alpha
-
-        if(do_beta):
-            L = (delta_b * betadiff * self.pTau
-                 + gamma_b*inner(grad(beta), grad(self.pTau)))*dIce
-            solve(a == L, f_beta)
-            J_reg_beta = 0.5 * inner(f_beta, f_beta)*dIce
-            J.addto(J_reg_beta)
-
-        # Continuous
-        # J = J_ls + J_reg_alpha + J_reg_beta
+        lap = prior.laplacian(self.params, self.Qp)
+        J_reg_alpha, J_reg_beta = lap.J_reg(alpha, beta)
+        if do_alpha: J.addto(J_reg_alpha)
+        if do_beta: J.addto(J_reg_beta)
 
         if verbose:
             J_ls_u = new_real_function(name="J_ls_term_x")
