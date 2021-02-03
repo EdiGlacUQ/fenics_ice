@@ -17,19 +17,30 @@
 
 from dolfin import *
 from tlm_adjoint import *
-from .decorators import count_calls, timer
 import ufl
+from .decorators import count_calls, timer
+from abc import ABC, abstractmethod
 
-class Laplacian(object):
-    """
-    Laplacian prior implementation
+class Prior(ABC):
+    """Abstraction for prior used by both comp_J_inv and run_eigendec.py"""
 
-    NB: although Laplacian makes use of params.inversion.,
-    delta_alpha etc come from the *solver* object, because
-    these are mutable (e.g. misfit-only hessian)
-    """
+    @abstractmethod
+    def construct_prior_form(self):
+        """Define & construct the prior form"""
+        pass
+
+    @abstractmethod
+    def my_norm(self):
+        """Compute the norm for the prior"""
+        pass
+
+    @abstractmethod
+    def J_reg(self):
+        """Compute the cost function contribution(s)"""
+        pass
+
     def __init__(self, slvr, space):
-
+        """Create object members & construct the mass & prior operators"""
         self.space = space
         assert space.ufl_element().value_size() in [1, 2]
         self.mixed_space = space.ufl_element().value_size() == 2
@@ -78,6 +89,41 @@ class Laplacian(object):
         self.A.init_vector(self.tmp1, 0)
         self.A.init_vector(self.tmp2, 1)
 
+    def action(self, x, y):
+        """
+        LM^-1L
+        """
+        self.A.mult(x, self.tmp1)  # tmp1 = Ax
+        self.M_solver.solve(self.tmp2, self.tmp1)  # Atmp2 = tmp1
+        self.A.mult(self.tmp2, self.tmp1)
+        y.set_local(self.tmp1.get_local())
+        y.apply("insert")
+
+    def inv_action(self, x, y):
+        """
+        L^-1 M L^-1
+        """
+        self.A_solver.solve(self.tmp1, x)
+        self.M.mult(self.tmp1, self.tmp2)
+        self.A_solver.solve(self.tmp1, self.tmp2)
+
+        y.set_local(self.tmp1.get_local())
+        y.apply("insert")
+
+
+class Laplacian(Prior):
+    """
+    Laplacian prior implementation
+
+    NB: although Laplacian makes use of params.inversion.,
+    delta_alpha etc come from the *solver* object, because
+    these are mutable (e.g. misfit-only hessian)
+    """
+
+    def my_norm(self, fun):
+        """Return the 0.5 inner product of the reg term"""
+        return 0.5 * inner(fun, fun)*dx
+
     def construct_prior_form(self):
         """
         Define the form of the prior.
@@ -104,31 +150,6 @@ class Laplacian(object):
                 self.beta_form = self.delta_beta * var_m[0] + self.gamma_beta * var_n[0]
                 self.A_form = self.beta_form
 
-    def action(self, x, y):
-        """
-        LM^-1L
-        """
-        self.A.mult(x, self.tmp1)  # tmp1 = Ax
-        self.M_solver.solve(self.tmp2, self.tmp1)  # Atmp2 = tmp1
-        self.A.mult(self.tmp2, self.tmp1)
-        y.set_local(self.tmp1.get_local())
-        y.apply("insert")
-
-    def inv_action(self, x, y):
-        """
-        L^-1 M L^-1
-        """
-        self.A_solver.solve(self.tmp1, x)
-        self.M.mult(self.tmp1, self.tmp2)
-        self.A_solver.solve(self.tmp1, self.tmp2)
-
-        y.set_local(self.tmp1.get_local())
-        y.apply("insert")
-
-    def my_norm(self, fun):
-        """Return the 0.5 inner product of the reg term"""
-        return 0.5 * inner(fun, fun)*dx
-
     def J_reg(self, alpha, beta, beta_bgd):
         """
         Compute the regularisation term of the cost function
@@ -148,6 +169,8 @@ class Laplacian(object):
             test = self.test[alpha_idx]
             trial = self.trial[alpha_idx]
 
+            # Construction of this L term could be generalised into
+            # the abstract Prior class
             f_alpha = Function(space, name='f_alpha')
             L = ufl.replace(self.alpha_form, {trial: alpha})
             a = test * trial * dx
@@ -165,7 +188,9 @@ class Laplacian(object):
 
             f_beta = Function(space, name='f_beta')
 
-            # TODO - how to get just a single definition?
+            # But this L term cannot be generalised because we can't
+            # simply replace self.trial with beta, on account of the
+            # beta_diff term
             L = ((self.delta_beta * inner(test, beta_diff)) +
                  self.gamma_beta * inner(grad(test), grad(beta))) * dx
 
