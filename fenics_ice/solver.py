@@ -1161,7 +1161,7 @@ class ssa_solver:
 
         # Regularization
         lap = prior.Laplacian(self, self.Qp)
-        J_reg_alpha, J_reg_beta = lap.J_reg(alpha, beta)
+        J_reg_alpha, J_reg_beta = lap.J_reg(alpha, beta, beta_bgd)
         if do_alpha: J.addto(J_reg_alpha)
         if do_beta: J.addto(J_reg_beta)
 

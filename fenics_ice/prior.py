@@ -29,73 +29,80 @@ class Laplacian(object):
     these are mutable (e.g. misfit-only hessian)
     """
     def __init__(self, slvr, space):
-        invparam = slvr.params.inversion
 
         self.space = space
-        self.vdim = space.ufl_element().value_size()
-
-        assert self.vdim in [1, 2]
-        assert (self.vdim == 2) == invparam.dual
+        assert space.ufl_element().value_size() in [1, 2]
+        self.mixed_space = space.ufl_element().value_size() == 2
 
         self.delta_alpha = slvr.delta_alpha
         self.delta_beta = slvr.delta_beta
         self.gamma_alpha = slvr.gamma_alpha
         self.gamma_beta = slvr.gamma_beta
 
-        self.alpha_active = invparam.alpha_active
-        self.beta_active = invparam.beta_active
+        self.alpha_active = slvr.params.inversion.alpha_active
+        self.beta_active = slvr.params.inversion.beta_active
 
         self.test = TestFunctions(space)
         self.trial = TrialFunctions(space)
 
-        # Mass and curvature terms
-        if self.vdim == 1:
-            test = self.test[0]
-            trial = self.trial[0]
-            var_m = inner(test, trial) * dx
-            var_n = inner(grad(test), grad(trial)) * dx
-            self.M = assemble(var_m)
+        # Mass term
+        # Construct 1 (scalar function space) or 2 (vector mixed space)
+        var_m = [inner(test, trial)*dx for test, trial in zip(self.test, self.trial)]
+        self.var_m = var_m
 
-        else:
-            test_0, test_1 = self.test
-            trial_0, trial_1 = self.trial
-            var_m[0] = inner(test_0, trial_0) * dx
-            var_m[1] = inner(test_1, trial_1) * dx
-            var_n[0] = inner(grad(test_0), grad(trial_0)) * dx
-            var_n[1] = inner(grad(test_1), grad(trial_1)) * dx
-            self.M = assemble(var_m_1 + var_m_2)
+        # Build the form, operators & solvers
+        self.construct_mass_operator()
+        self.construct_prior_form()
+        self.construct_prior_operator()
 
+    def construct_mass_operator(self):
+        """Construct the mass operator self.M and its solver self.M_solver"""
+        self.M = assemble(sum(self.var_m))
 
         self.M_solver = KrylovSolver("cg", "sor")
         self.M_solver.parameters.update({"absolute_tolerance": 1.0e-32,
                                          "relative_tolerance": 1.0e-14})
         self.M_solver.set_operator(self.M)
 
-        #################################
-        # Definition of prior form here!
-        #################################
-        self.alpha_form = self.delta_alpha * var_m + self.gamma_alpha * var_n
-        self.beta_form = self.delta_beta * var_m + self.gamma_beta * var_n
-
-        if self.vdim == 1:
-            if invparam.alpha_active:
-                self.A_form = self.alpha_form
-            else:
-                self.A_form = self.beta_form
-        else:
-            self.A_form = self.alpha_form + self.beta_form
-
+    def construct_prior_operator(self):
+        """Construct the prior operator self.A and its solver self.A_solver"""
         self.A = assemble(self.A_form)
         self.A_solver = KrylovSolver("cg", "sor")
         self.A_solver.parameters.update({"absolute_tolerance": 1.0e-32,
                                          "relative_tolerance": 1.0e-14})
         self.A_solver.set_operator(self.A)
 
-        self.tmp1, self.tmp2 = Function(space), Function(space)
+        # self.tmp1, self.tmp2 = Function(self.space), Function(self.space)
 
         self.tmp1, self.tmp2 = Vector(), Vector()
         self.A.init_vector(self.tmp1, 0)
         self.A.init_vector(self.tmp2, 1)
+
+    def construct_prior_form(self):
+        """
+        Define the form of the prior.
+
+        This is a laplacian.
+        """
+        # Curvature term
+        # Construct 1 (scalar function space) or 2 (vector mixed space)
+        var_n = [inner(grad(test), grad(trial))*dx for
+                 test, trial in zip(self.test, self.trial)]
+        self.var_n = var_n
+
+        var_m = self.var_m
+
+        if self.mixed_space:
+            self.alpha_form = self.delta_alpha * var_m[0] + self.gamma_alpha * var_n[0]
+            self.beta_form = self.delta_beta * var_m[1] + self.gamma_beta * var_n[1]
+            self.A_form = self.alpha_form + self.beta_form
+        else:
+            if self.alpha_active:
+                self.alpha_form = self.delta_alpha * var_m[0] + self.gamma_alpha * var_n[0]
+                self.A_form = self.alpha_form
+            else:
+                self.beta_form = self.delta_beta * var_m[0] + self.gamma_beta * var_n[0]
+                self.A_form = self.beta_form
 
     def action(self, x, y):
         """
@@ -122,22 +129,24 @@ class Laplacian(object):
         """Return the 0.5 inner product of the reg term"""
         return 0.5 * inner(fun, fun)*dx
 
-    def J_reg(self, alpha, beta):
+    def J_reg(self, alpha, beta, beta_bgd):
         """
         Compute the regularisation term of the cost function
 
         Returns a list of 1 or 2 terms depending on inversion type.
         """
-
         assert alpha is not None or beta is not None
-        space = self.space
+        assert (beta is not None) == (beta_bgd is not None)
+        assert not self.mixed_space
 
+        space = self.space
         result = [None, None]
 
         if self.alpha_active:
 
-            test = self.test[0]
-            trial = self.trial[0]
+            alpha_idx = 0
+            test = self.test[alpha_idx]
+            trial = self.trial[alpha_idx]
 
             f_alpha = Function(space, name='f_alpha')
             L = ufl.replace(self.alpha_form, {trial: alpha})
@@ -149,11 +158,18 @@ class Laplacian(object):
 
         if self.beta_active:
 
-            test = self.test[1]
-            trial = self.trial[1]
+            beta_diff = beta-beta_bgd
+            beta_idx = 1 if self.mixed_space else 0
+            test = self.test[beta_idx]
+            # trial = self.trial[beta_idx]
 
             f_beta = Function(space, name='f_beta')
-            L = ufl.replace(self.beta_form, {trial: beta})
+
+            # TODO - how to get just a single definition?
+            L = ((self.delta_beta * inner(test, beta_diff)) +
+                 self.gamma_beta * inner(grad(test), grad(beta))) * dx
+
+            # L = ufl.replace(self.beta_form, {trial: beta})
             a = test * trial * dx
 
             solve(a == L, f_beta)
