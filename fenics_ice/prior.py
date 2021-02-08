@@ -18,7 +18,7 @@
 from dolfin import *
 from tlm_adjoint import *
 import ufl
-from .decorators import count_calls, timer
+from .decorators import count_calls, timer, flag_errors
 from abc import ABC, abstractmethod
 
 class Prior(ABC):
@@ -210,16 +210,19 @@ class LaplacianPC:
     i.e. B^-1  =  L^-1 M L^-1
     """
 
+    @flag_errors
     def __init__(self, lap):
         self.laplacian = lap
         self.action = self.laplacian.inv_action
         self.x_tmp = Function(self.laplacian.space).vector()
         self.y_tmp = Function(self.laplacian.space).vector()
 
+    @flag_errors
     def setUp(self, pc):
         pass
 
     @count_calls(1, 'LaplacianPC')
+    @flag_errors
     def apply(self, pc, x, y):
 
         self.x_tmp.set_local(x.array)

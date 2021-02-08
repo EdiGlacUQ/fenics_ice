@@ -30,7 +30,7 @@ import datetime
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
-from fenics_ice.decorators import count_calls, timer
+from fenics_ice.decorators import count_calls, timer, flagged_error
 
 import slepc4py.SLEPc as SLEPc
 import petsc4py.PETSc as PETSc
@@ -156,6 +156,8 @@ def run_eigendec(config_file):
     eig_algo = params.eigendec.eig_algo
     if eig_algo == "slepc":
 
+        assert not flagged_error[0]
+
         # Eigendecomposition
         lam, vr = eigendecompose(space,
                                  ghep_action,
@@ -164,6 +166,12 @@ def run_eigendec(config_file):
                                  problem_type=SLEPc.EPS.ProblemType.GHEP,
                                  # solver_type=SLEPc.EPS.Type.ARNOLDI,
                                  configure=slepc_config_callback)
+
+        if flagged_error[0]:
+            # Note: I have been unable to confirm that this does anything in my setup
+            # Python errors within LaplacianPC seem to be raised even without the
+            # @flag_errors decorator.
+            raise Exception("Python errors in eigendecomposition preconditioner.")
 
         # Check orthonormality of EVs
         if num_eig is not None and num_eig < 100:
