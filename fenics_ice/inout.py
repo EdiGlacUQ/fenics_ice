@@ -555,8 +555,8 @@ def setup_logging(params):
     # logfile = run_name + ".log"
 
     # Get the FFC logger to shut up
-    ffc_logger = logging.getLogger('FFC')
-    ffc_logger.setLevel(logging.WARNING)
+    logging.getLogger('UFL').setLevel(logging.WARNING)
+    logging.getLogger('FFC').setLevel(logging.WARNING)
 
     log_level = params.io.log_level
 
