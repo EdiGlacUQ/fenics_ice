@@ -148,6 +148,7 @@ class InversionCfg(ConfigPrinter):
     delta_alpha: float = 0.0
     gamma_beta: float = 0.0
     delta_beta: float = 0.0
+    delta_beta_gnd: float = None
 
     initial_guess_alpha: float = None
 

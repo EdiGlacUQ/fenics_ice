@@ -123,6 +123,7 @@ class ssa_solver:
         self.delta_alpha = invparam.delta_alpha
         self.gamma_alpha = invparam.gamma_alpha
         self.delta_beta = invparam.delta_beta
+        self.delta_beta_gnd = invparam.delta_beta_gnd
         self.gamma_beta = invparam.gamma_beta
 
     def zero_inv_params(self):
@@ -131,6 +132,9 @@ class ssa_solver:
         self.gamma_alpha = 1E-10
         self.delta_beta = 1E-10
         self.gamma_beta = 1E-10
+
+        if self.delta_beta_gnd is not None:
+            self.delta_beta_gnd = 1E-10
 
     def get_mixed_space(self):
         """Return the mixed function space for alphaXbeta"""
@@ -554,8 +558,8 @@ class ssa_solver:
         a, L = lhs(self.thickadv), rhs(self.thickadv)
         solve(a == L, H, bcs=self.H_bcs,
               solver_parameters={"linear_solver": "lu",
-                                 "absolute_tolerance": "1e-10",
-                                 "relative_tolerance": "1e-11",
+                                 "absolute_tolerance": 1e-10,
+                                 "relative_tolerance": 1e-11,
               })  # Not sure these solver params are necessary (linear solve)
 
     def timestep(self, save=1, adjoint_flag=1, qoi_func=None ):
@@ -1160,8 +1164,11 @@ class ssa_solver:
         J.addto(J_ls_term_v)
 
         # Regularization
-        lap = prior.Laplacian(self, self.Qp)
-        J_reg_alpha, J_reg_beta = lap.J_reg(alpha, beta, beta_bgd)
+        Prior = self.model.get_prior()
+        lap = Prior(self, self.Qp)
+        # lap = prior.Laplacian_flt(self, self.Qp)
+        J_reg_alpha, J_reg_beta = lap.J_reg(alpha=alpha, beta=beta, beta_diff=betadiff)
+
         if do_alpha: J.addto(J_reg_alpha)
         if do_beta: J.addto(J_reg_beta)
 

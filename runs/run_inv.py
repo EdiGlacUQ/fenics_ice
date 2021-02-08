@@ -81,6 +81,7 @@ def run_inv(config_file):
     invout.parameters.add("delta_alpha", slvr.delta_alpha)
     invout.parameters.add("gamma_beta", slvr.gamma_beta)
     invout.parameters.add("delta_beta", slvr.delta_beta)
+    invout.parameters.add("delta_beta_gnd", slvr.delta_beta_gnd)
     invout.parameters.add("timestamp", str(datetime.datetime.now()))
 
     invout.write(mdl.alpha, 'alpha')

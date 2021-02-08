@@ -79,7 +79,8 @@ def run_eigendec(config_file):
     space = slvr.get_control_space()
 
     # Regularization operator using inversion delta/gamma values
-    reg_op = prior.Laplacian(slvr, space)
+    Prior = mdl.get_prior()
+    reg_op = Prior(slvr, space)
 
     msft_flag = params.eigendec.misfit_only
     if msft_flag:

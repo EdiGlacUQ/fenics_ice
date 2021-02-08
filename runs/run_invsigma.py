@@ -58,7 +58,7 @@ def run_invsigma(config_file):
     mesh = fice_mesh.get_mesh(params)
 
     # Define the model (only need alpha & beta though)
-    mdl = model.model(mesh, input_data, params, init_fields=False)
+    mdl = model.model(mesh, input_data, params, init_fields=True)
 
     # Load alpha/beta fields
     mdl.alpha_from_inversion()
@@ -73,7 +73,8 @@ def run_invsigma(config_file):
     sigma, sigma_prior, x, y, z = [Function(space) for i in range(5)]
 
     # Regularization operator using inversion delta/gamma values
-    reg_op = prior.Laplacian(slvr, space)
+    Prior = mdl.get_prior()
+    reg_op = Prior(slvr, space)
 
     # Load the eigenvalues
     with open(os.path.join(eigendir, lamfile), 'rb') as ff:

@@ -21,7 +21,7 @@ import ufl
 import numpy as np
 from pathlib import Path
 import scipy.spatial.qhull as qhull
-from fenics_ice import inout
+from fenics_ice import inout, prior
 from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
 import logging
@@ -395,6 +395,15 @@ class model:
         else:
             # Read the facet function from a file containing a sparse MeshValueCollection
             self.ff = fice_mesh.get_ff_from_file(self.params, model=self, fill_val=0)
+
+    def get_prior(self):
+        """Get the prior based on params"""
+        if self.params.inversion.delta_beta_gnd is not None:
+            logging.info("Using Laplacian prior with flotation")
+            return prior.Laplacian_flt
+        else:
+            logging.info("Using Laplacian prior without flotation")
+            return prior.Laplacian
 
 class PeriodicBoundary(SubDomain):
     def __init__(self, L):
