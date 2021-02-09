@@ -1,6 +1,6 @@
 [io] #Directory specification
 
-run_name = "ice_stream_dual"
+run_name = "ice_stream_fltgnd"
 input_dir = "./input"
 output_dir = "./output"
 
@@ -57,7 +57,8 @@ beta_active = true
 gamma_alpha = 5.0e2 #6
 delta_alpha = 5.0e-6 #-2
 gamma_beta = 1.0e2
-delta_beta = 1.0#e-8
+delta_beta = 1.0e-10
+delta_beta_gnd = 1.0
 
 ftol = 1e-20
 gtol = 1e-20
@@ -145,14 +146,14 @@ qoi = 'vaf'
 [testing]
 
 expected_init_alpha = 252.96603585543977
-expected_J_inv = 936.9439788835926
-expected_cntrl_norm = 84.3053550934946
-expected_delta_qoi = -72945737.31123686
-expected_u_norm = 1607807.3058064834
-expected_evals_sum = 337797.5907720367
-expected_evec0_norm = 199048.66376210173
-expected_cntrl_sigma_norm = 7996.517289967583
-expected_cntrl_sigma_prior_norm = 209509.90287676532
-expected_Q_sigma = 30161.425521528283
-expected_Q_sigma_prior = 6216790.549379329
+expected_J_inv = 1160.5117088532647
+expected_cntrl_norm = 91.6420742944229
+expected_delta_qoi = -72812118.08180618
+expected_u_norm = 1611575.045695367
+expected_evals_sum = 455272.15871695377
+expected_evec0_norm = 196295.56861220117
+expected_cntrl_sigma_norm = 10483.837057322547
+expected_cntrl_sigma_prior_norm = 212760.36615831222
+expected_Q_sigma = 53057.88107118704
+expected_Q_sigma_prior = 5841245.516408099
 
