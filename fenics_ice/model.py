@@ -322,15 +322,33 @@ class model:
         self.surf._Function_checkpoint__ = False
         self.surf.rename("surf", "")
 
+    def stress_to_alpha(self, B2):
+        sl = self.params.ice_dynamics.sliding_law
+        if sl == 'linear':
+            alpha = sqrt(B2)
+        elif sl == 'weertman':
+            N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
+            U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
+            alpha = (1-fl_ex)*sqrt(B2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
+
     def gen_alpha(self, a_bgd=500.0, a_lb=1e2, a_ub=1e4):
         """Generate initial guess for alpha (slip coeff)"""
 
-        # TODO - this will need to operate on MixedFunctionSpace
-        init_guess = self.params.inversion.initial_guess_alpha
-        if init_guess is not None:
-            self.alpha.vector()[:] = init_guess
-            self.alpha.vector().apply('insert')
-        else:
+        method = self.params.inversion.initial_guess_alpha_method.lower()
+        if method == "wearing":
+            # Martin Wearing's: alpha = 358.4 - 26.9*log(17.9*speed_obs);
+            u_obs = self.u_obs_M
+            v_obs = self.v_obs_M
+            vel_rp = self.params.constants.vel_rp
+            U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
+            # U_mag = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
+
+            B2 = 358.4 - 26.9*ln(17.9*U_mag)
+            alpha = self.stress_to_alpha(B2)
+            self.alpha.assign(project(alpha, self.Qp))
+
+        elif method == "sia":
+
             bed = self.bed
             H = self.H
             g = self.params.constants.g
@@ -364,14 +382,16 @@ class model:
             B2_tmp1 = ufl.Max(B2_, a_lb)
             B2_tmp2 = ufl.Min(B2_tmp1, a_ub)
 
-            sl = self.params.ice_dynamics.sliding_law
-            if sl == 'linear':
-                alpha = sqrt(B2_tmp2)
-            elif sl == 'weertman':
-                N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
-                U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
-                alpha = (1-fl_ex)*sqrt(B2_tmp2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
+            alpha = self.stress_to_alpha(B2_tmp2)
             self.alpha.assign(project(alpha, self.Qp))
+
+        elif method == "constant":
+            init_guess = self.params.inversion.initial_guess_alpha
+            self.alpha.vector()[:] = init_guess
+            self.alpha.vector().apply('insert')
+        else:
+            raise NotImplementedError(f"Don't have code for method {method}")
+
 
         inout.write_variable(self.alpha, self.params, name="alpha_init_guess")
 

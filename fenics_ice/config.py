@@ -151,12 +151,20 @@ class InversionCfg(ConfigPrinter):
     delta_beta_gnd: float = None
 
     initial_guess_alpha: float = None
+    initial_guess_alpha_method: str = "sia"
 
     def __post_init__(self):
         """
         Check consistency of inversion parameters.
         """
         assert (self.alpha_active or self.beta_active)
+
+        assert self.initial_guess_alpha_method.lower() in ["sia", "wearing", "constant"]
+
+        assert (self.initial_guess_alpha_method == "constant") == \
+            (self.initial_guess_alpha is not None), \
+            "Selected constant initial guess for alpha but didn't specify"\
+            " value (initial_guess_alpha)"
 
         object.__setattr__(self, 'dual', (self.alpha_active and self.beta_active))
 
