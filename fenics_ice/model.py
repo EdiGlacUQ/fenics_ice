@@ -322,11 +322,26 @@ class model:
         self.surf._Function_checkpoint__ = False
         self.surf.rename("surf", "")
 
-    def stress_to_alpha(self, B2):
+    def bdrag_to_alpha(self, B2):
+        """Convert basal drag to alpha"""
         sl = self.params.ice_dynamics.sliding_law
         if sl == 'linear':
             alpha = sqrt(B2)
+
         elif sl == 'weertman':
+            bed = self.bed
+            H = self.H
+            g = self.params.constants.g
+            rhoi = self.params.constants.rhoi
+            rhow = self.params.constants.rhow
+            u_obs = self.u_obs_M
+            v_obs = self.v_obs_M
+            vel_rp = self.params.constants.vel_rp
+
+            # Flotation Criterion
+            H_flt = -rhow/rhoi * bed
+            fl_ex = conditional(H <= H_flt, 1.0, 0.0)
+
             N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
             U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
             alpha = (1-fl_ex)*sqrt(B2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
@@ -346,7 +361,7 @@ class model:
             # U_mag = ufl.Max((u_obs**2 + v_obs**2)**(1/2.0), 50.0)
 
             B2 = 358.4 - 26.9*ln(17.9*U_mag)
-            alpha = self.stress_to_alpha(B2)
+            alpha = self.bdrag_to_alpha(B2)
             self.alpha.assign(project(alpha, self.Qp))
 
         elif method == "sia":
@@ -384,7 +399,7 @@ class model:
             B2_tmp1 = ufl.Max(B2_, a_lb)
             B2_tmp2 = ufl.Min(B2_tmp1, a_ub)
 
-            alpha = self.stress_to_alpha(B2_tmp2)
+            alpha = self.bdrag_to_alpha(B2_tmp2)
             self.alpha.assign(project(alpha, self.Qp))
 
         elif method == "constant":
