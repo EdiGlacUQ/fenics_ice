@@ -331,6 +331,8 @@ class model:
             U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
             alpha = (1-fl_ex)*sqrt(B2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
 
+        return alpha
+
     def gen_alpha(self, a_bgd=500.0, a_lb=1e2, a_ub=1e4):
         """Generate initial guess for alpha (slip coeff)"""
 
