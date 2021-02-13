@@ -255,9 +255,9 @@ def write_variable(var, params, name=None):
     var_name = var.name()
     unnamed_var = unnamed_re.match(var_name) is not None
 
-    outvar = var.copy() # Copy to avoid persistent rename
+    outvar = var.copy()  # Copy to avoid persistent rename
     if name is not None:
-        outvar.rename(name, "")
+        pass
 
     elif unnamed_var:
         # Error if variable is unnamed & no name provided
@@ -267,6 +267,8 @@ def write_variable(var, params, name=None):
     else:
         # Use variable's current name if 'name' not supplied
         name = var_name
+
+    outvar.rename(name, "")
 
     # Prefix the run name
     outfname = Path(params.io.output_dir)/"_".join((params.io.run_name, name))
