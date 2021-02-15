@@ -103,7 +103,7 @@ class PythonMatrix:
 
 def eigendecompose(space, A_action, B_matrix=None, N_eigenvalues=None,
                    solver_type=None, problem_type=None, which=None,
-                   tolerance=1.0e-12, configure=None):
+                   tolerance=1.0e-12, configure=None, monitor=None):
     # First written 2018-03-01
     """
     Matrix-free interface with SLEPc via slepc4py, loosely following
@@ -131,6 +131,8 @@ def eigendecompose(space, A_action, B_matrix=None, N_eigenvalues=None,
                    convergence criterion.
     configure      (Optional) Function handle accepting the EPS. Can be used
                    for manual configuration.
+    monitor        (Optional) Function handle accepting the EPS. Can be used
+                   for monitoring/outputting intermediate EVs.
 
     Returns:
 
@@ -179,6 +181,10 @@ def eigendecompose(space, A_action, B_matrix=None, N_eigenvalues=None,
     esolver.setUp()
 
     assert not _flagged_error[0]
+
+    if monitor is not None:
+        esolver.setMonitor(monitor)
+
     esolver.solve()
     if _flagged_error[0]:
         raise EigendecompositionException("Error encountered in "

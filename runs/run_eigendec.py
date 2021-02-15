@@ -22,12 +22,15 @@ import resource
 import os
 from fenics import *
 from tlm_adjoint_fenics import *
-from tlm_adjoint_fenics.eigendecomposition import PythonMatrix
 import pickle
 from pathlib import Path
 import datetime
 
+# assure we're not using tlm_adjoint version
+from fenics_ice.eigendecomposition import eigendecompose as fice_ed
+from fenics_ice.eigendecomposition import PythonMatrix
 from fenics_ice import model, solver, prior, inout
+
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 from fenics_ice.decorators import count_calls, timer, flagged_error
@@ -147,6 +150,22 @@ def run_eigendec(config_file):
         config.view()  # TODO - should this go to log?
         config.setOperators(A_matrix, B_matrix)
 
+    nconv_prev = 0
+    def slepc_monitor_callback(eps, its, nconv, eig, err):
+        """A monitor callback for SLEPc.EPS to provide incremental output"""
+        nonlocal nconv_prev
+        log.info(f"{nconv} EVs converged at iteration {its}")
+
+        A_matrix, _ = eps.getOperators()
+        v_r = A_matrix.getVecRight()
+
+        for i in range(nconv_prev, nconv):
+            lam = eps.getEigenpair(i, v_r)
+            log.warning(f"monitor ev{i} norm: {v_r.norm()}")
+
+        nconv_prev = nconv
+
+
     # opts = {'prior': gnhep_prior_action, 'mass': gnhep_mass_action}
     # gnhep_func = opts[params.eigendec.precondition_by]
 
@@ -160,13 +179,14 @@ def run_eigendec(config_file):
         assert not flagged_error[0]
 
         # Eigendecomposition
-        lam, vr = eigendecompose(space,
-                                 ghep_action,
-                                 tolerance=1.0e-10,
-                                 N_eigenvalues=num_eig,
-                                 problem_type=SLEPc.EPS.ProblemType.GHEP,
-                                 # solver_type=SLEPc.EPS.Type.ARNOLDI,
-                                 configure=slepc_config_callback)
+        lam, vr = fice_ed(space,
+                          ghep_action,
+                          tolerance=1.0e-10,
+                          N_eigenvalues=num_eig,
+                          problem_type=SLEPc.EPS.ProblemType.GHEP,
+                          # solver_type=SLEPc.EPS.Type.ARNOLDI,
+                          configure=slepc_config_callback,
+                          monitor=slepc_monitor_callback)
 
         if flagged_error[0]:
             # Note: I have been unable to confirm that this does anything in my setup
