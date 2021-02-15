@@ -1039,7 +1039,7 @@ class ssa_solver:
         # compute_first_entity_collision seems to ignore
         # ghost elements, and so arrives at the right answer
         cell_max = self.mesh.cells().shape[0]
-        obs_local = np.zeros_like(u_obs, dtype=np.bool)
+        obs_local = np.zeros_like(u_obs, dtype=bool)
 
         bbox = self.mesh.bounding_box_tree()
         for i in range(uv_obs_pts.shape[0]):
