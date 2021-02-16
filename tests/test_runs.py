@@ -18,7 +18,7 @@
 import pytest
 import numpy as np
 from runs import run_inv, run_forward, run_eigendec, run_errorprop, run_invsigma
-from tlm_adjoint import *
+from tlm_adjoint.fenics import *
 from fenics import norm
 from fenics_ice import config
 from pathlib import Path

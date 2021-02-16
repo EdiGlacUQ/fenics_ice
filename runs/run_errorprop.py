@@ -21,7 +21,7 @@ import numpy as np
 import pickle
 
 from dolfin import *
-from tlm_adjoint import *
+from tlm_adjoint.fenics import *
 
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
