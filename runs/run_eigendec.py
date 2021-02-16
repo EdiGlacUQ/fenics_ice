@@ -21,8 +21,8 @@ import resource
 
 import os
 from fenics import *
-from tlm_adjoint_fenics import *
-from tlm_adjoint_fenics.eigendecomposition import PythonMatrix
+from tlm_adjoint.fenics import *
+from tlm_adjoint.eigendecomposition import PythonMatrix
 import pickle
 from pathlib import Path
 import datetime

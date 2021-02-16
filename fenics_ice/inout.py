@@ -32,7 +32,7 @@ from scipy import interpolate as interp
 from abc import ABC, abstractmethod
 
 from fenics import *
-from tlm_adjoint_fenics import configure_checkpointing
+from tlm_adjoint.fenics import configure_checkpointing
 import numpy as np
 
 # Regex for catching unnamed vars
@@ -559,6 +559,7 @@ def setup_logging(params):
     # Get the FFC logger to shut up
     logging.getLogger('UFL').setLevel(logging.WARNING)
     logging.getLogger('FFC').setLevel(logging.WARNING)
+    logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.WARNING)
 
     log_level = params.io.log_level
 
@@ -648,7 +649,6 @@ def configure_tlm_checkpointing(params):
         config_dict = {"blocks": n_steps,
                        "snaps_on_disk": cparam.snaps_on_disk,
                        "snaps_in_ram": cparam.snaps_in_ram,
-                       "verbose": True,
                        "format": "pickle"}
 
     elif method == 'periodic_disk':

@@ -21,8 +21,8 @@ import numpy as np
 
 from fenics import *
 from fenics_ice import inout, prior
-from tlm_adjoint_fenics import *
-from tlm_adjoint_fenics.hessian_optimization import *
+from tlm_adjoint.fenics import *
+from tlm_adjoint.hessian_optimization import *
 
 from .minimize_l_bfgs import minimize_l_bfgs
 from .minimize_l_bfgs import \
