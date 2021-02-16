@@ -32,7 +32,7 @@ from scipy import interpolate as interp
 from abc import ABC, abstractmethod
 
 from fenics import *
-from tlm_adjoint.fenics import configure_checkpointing
+from tlm_adjoint import configure_checkpointing
 import numpy as np
 
 # Regex for catching unnamed vars
