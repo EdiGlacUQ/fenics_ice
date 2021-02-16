@@ -1028,12 +1028,6 @@ class ssa_solver:
         # ds = self.ds
         # nm = self.nm
 
-        # Regularization parameters
-        delta_a = self.delta_alpha
-        delta_b = self.delta_beta
-        gamma_a = self.gamma_alpha
-        gamma_b = self.gamma_beta
-
         # Determine observations within our mesh partition
         # Note that although cell_max counts ghost_cells,
         # compute_first_entity_collision seems to ignore
@@ -1184,18 +1178,24 @@ class ssa_solver:
             J3 = assemble(J_reg_alpha) if do_alpha else 0.0
             J4 = assemble(J_reg_beta) if do_beta else 0.0
 
+            J_fields = {"delta_alpha": self.delta_alpha,
+                      "gamma_alpha": self.gamma_alpha,
+                      "delta_beta": self.delta_beta,
+                      "delta_beta_gnd": self.delta_beta_gnd,
+                      "gamma_beta": self.gamma_beta,
+                      "J": J1,
+                      "J_ls": J2,
+                      "J_reg": sum([J3, J4]),
+                      "J_reg_alpha": J3,
+                      "J_reg_beta": J4,
+                      'J_reg/J_cst': ((J3+J4)/(J2))}
+
             info('Inversion Details')
-            info('delta_a: %.5e' % delta_a)
-            info('delta_b: %.5e' % delta_b)
-            info('gamma_a: %.5e' % gamma_a)
-            info('gamma_b: %.5e' % gamma_b)
-            info('J: %.5e' % J1)
-            info('J_ls: %.5e' % J2)
-            info('J_reg: %.5e' % sum([J3, J4]))
-            info('J_reg_alpha: %.5e' % J3)
-            info('J_reg_beta: %.5e' % J4)
-            info('J_reg/J_cst: %.5e' % ((J3+J4)/(J2)))
+            for key in J_fields:
+                info(f"{key}: {J_fields[key]}")
             info('')
+
+            inout.dict_to_csv(J_fields, 'Js', self.params)
 
         return J
 

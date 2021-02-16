@@ -21,6 +21,7 @@ Module to handle model input & output
 
 import sys
 import time
+import csv
 from pathlib import Path
 import pickle
 import logging
@@ -279,6 +280,15 @@ def write_variable(var, params, name=None):
     File(xml_fname) << outvar
 
     logging.info("Writing function %s to file %s" % (name, outfname))
+
+def dict_to_csv(indict, name, params):
+    """Write dictionary to CSV file"""
+    outfname = gen_path(params, name, '.csv')
+    with open(outfname, 'w') as f:
+        writer = csv.DictWriter(f, indict.keys())
+        writer.writeheader()
+        writer.writerow(indict)
+
 
 def field_from_vel_file(infile, field_name):
     """Return a field from HDF5 file containing velocity"""
