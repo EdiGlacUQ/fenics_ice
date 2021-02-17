@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           repository: 'jrmaddison/tlm_adjoint'
-          ref: 'jrmaddison/backend_interfaces'
+          ref: 'jtodd/fice_devel'
           path: 'tlm_adjoint'
 
       # Get miniconda & prerequisites
