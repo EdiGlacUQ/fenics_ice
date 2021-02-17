@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from tlm_adjoint_fenics import OptimizationException, clear_caches, \
+from tlm_adjoint.fenics import OptimizationException, clear_caches, \
     function_assign, function_axpy, function_comm, function_copy, \
     function_get_values, function_inner, function_is_cached, \
     function_is_checkpointed, function_is_static, function_linf_norm, \
     function_new, function_set_values, info, is_function, set_manager
-from tlm_adjoint_fenics import manager as _manager
+from tlm_adjoint.fenics import manager as _manager
 
 from collections import deque
 import numpy as np

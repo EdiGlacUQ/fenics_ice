@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 import argparse
 from fenics import *
-from tlm_adjoint_fenics import *
+from tlm_adjoint.fenics import *
 
 from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
