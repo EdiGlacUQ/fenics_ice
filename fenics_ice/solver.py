@@ -1059,9 +1059,10 @@ class ssa_solver:
         global_vcnts = comm.allgather(local_cnt)  # points on each partition
         global_vcnt = sum(global_vcnts)  # total number of points
 
-        assert global_vcnt == len(obs_local), ("Mismatch between total number of observation "
-        "points and the sum of those assigned to each partition. "
-        "Note that this might not necessarily be an error - should be handled better.")
+        # TODO - better way to check no duplicate points?
+        # assert global_vcnt == len(obs_local), ("Mismatch between total number of observation "
+        # "points and the sum of those assigned to each partition. "
+        # "Note that this might not necessarily be an error - should be handled better.")
 
         # each partition has 1 fewer elem than points
         global_ecnts = [vc-1 for vc in global_vcnts]
