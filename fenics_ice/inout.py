@@ -21,6 +21,7 @@ Module to handle model input & output
 
 import sys
 import time
+import csv
 from pathlib import Path
 import pickle
 import logging
@@ -32,7 +33,7 @@ from scipy import interpolate as interp
 from abc import ABC, abstractmethod
 
 from fenics import *
-from tlm_adjoint_fenics import configure_checkpointing
+from tlm_adjoint.fenics import configure_checkpointing
 import numpy as np
 
 # Regex for catching unnamed vars
@@ -279,6 +280,15 @@ def write_variable(var, params, name=None):
     File(xml_fname) << outvar
 
     logging.info("Writing function %s to file %s" % (name, outfname))
+
+def dict_to_csv(indict, name, params):
+    """Write dictionary to CSV file"""
+    outfname = gen_path(params, name, '.csv')
+    with open(outfname, 'w') as f:
+        writer = csv.DictWriter(f, indict.keys())
+        writer.writeheader()
+        writer.writerow(indict)
+
 
 def field_from_vel_file(infile, field_name):
     """Return a field from HDF5 file containing velocity"""
@@ -559,6 +569,7 @@ def setup_logging(params):
     # Get the FFC logger to shut up
     logging.getLogger('UFL').setLevel(logging.WARNING)
     logging.getLogger('FFC').setLevel(logging.WARNING)
+    logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.WARNING)
 
     log_level = params.io.log_level
 
@@ -648,7 +659,6 @@ def configure_tlm_checkpointing(params):
         config_dict = {"blocks": n_steps,
                        "snaps_on_disk": cparam.snaps_on_disk,
                        "snaps_in_ram": cparam.snaps_in_ram,
-                       "verbose": True,
                        "format": "pickle"}
 
     elif method == 'periodic_disk':

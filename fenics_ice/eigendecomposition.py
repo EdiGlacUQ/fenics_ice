@@ -50,7 +50,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from tlm_adjoint_fenics import function_get_values, function_global_size, \
+from tlm_adjoint.fenics import function_get_values, function_global_size, \
     function_local_size, function_set_values, is_function, space_comm, \
     space_new
 

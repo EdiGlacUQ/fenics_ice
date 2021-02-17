@@ -13,10 +13,10 @@
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
+# along with fenics_ice.  If not, see <https://www.gnu.org/licenses/>.
 
 from dolfin import *
-from tlm_adjoint import *
+from tlm_adjoint.fenics import *
 import ufl
 from .decorators import count_calls, timer, flag_errors
 from abc import ABC, abstractmethod
