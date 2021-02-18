@@ -54,8 +54,17 @@ from tlm_adjoint.fenics import function_get_values, function_global_size, \
     function_local_size, function_set_values, is_function, space_comm, \
     space_new
 
+from fenics_ice import prior
+
+import pickle
 import numpy as np
 import petsc4py.PETSc as PETSc
+from fenics import HDF5File, XDMFFile
+from pathlib import Path
+import os
+import logging
+
+log = logging.getLogger("fenics_ice")
 
 __all__ = \
     [
@@ -193,24 +202,146 @@ def eigendecompose(space, A_action, B_matrix=None, N_eigenvalues=None,
         raise EigendecompositionException("Not all requested eigenpairs "
                                           "converged")
 
-    lam = np.full(N_ev, np.NAN,
-                  dtype=np.float64 if esolver.isHermitian() else np.complex128)
-    V_r = tuple(space_new(space) for n in range(N_ev))
-    if not esolver.isHermitian():
-        V_i = tuple(space_new(space) for n in range(N_ev))
-    v_r, v_i = A_matrix.getVecRight(), A_matrix.getVecRight()
-    for i in range(lam.shape[0]):
-        lam_i = esolver.getEigenpair(i, v_r, v_i)
-        if esolver.isHermitian():
-            lam[i] = lam_i.real
-            assert lam_i.imag == 0.0
-            function_set_values(V_r[i], v_r.getArray())
-            assert abs(v_i.getArray()).max() == 0.0
-        else:
-            lam[i] = lam_i
-            function_set_values(V_r[i], v_r.getArray())
-            function_set_values(V_i[i], v_i.getArray())
+    # lam = np.full(N_ev, np.NAN,
+    #               dtype=np.float64 if esolver.isHermitian() else np.complex128)
+    # V_r = tuple(space_new(space) for n in range(N_ev))
+    # if not esolver.isHermitian():
+    #     V_i = tuple(space_new(space) for n in range(N_ev))
+    # v_r, v_i = A_matrix.getVecRight(), A_matrix.getVecRight()
+    # for i in range(lam.shape[0]):
+    #     lam_i = esolver.getEigenpair(i, v_r, v_i)
+    #     if esolver.isHermitian():
+    #         lam[i] = lam_i.real
+    #         assert lam_i.imag == 0.0
+    #         function_set_values(V_r[i], v_r.getArray())
+    #         assert abs(v_i.getArray()).max() == 0.0
+    #     else:
+    #         lam[i] = lam_i
+    #         function_set_values(V_r[i], v_r.getArray())
+    #         function_set_values(V_i[i], v_i.getArray())
 
-    # comm.Free()
+    # # comm.Free()
 
-    return lam, (V_r if esolver.isHermitian() else (V_r, V_i))
+    # return lam, (V_r if esolver.isHermitian() else (V_r, V_i))
+
+def slepc_config_callback(reg_op, prior_action, space):
+    """Closure to define the slepc config callback"""
+
+    def inner_fn(config):
+        log.info("Got to the callback")
+
+        # KSP corresponds to B-matrix inversion
+        # Set it to precondition only because we
+        # supply the inverse in LaplacianPC
+        ksp = config.getST().getKSP()
+        ksp.setType(PETSc.KSP.Type.PREONLY)
+
+        pc = ksp.getPC()
+        pc.setType(PETSc.PC.Type.PYTHON)
+        pc.setPythonContext(prior.LaplacianPC(reg_op))
+
+        # A_matrix already defined so just grab it
+        A_matrix, _ = config.getOperators()
+
+        (n, N), (n_col, N_col) = A_matrix.getSizes()
+        assert n == n_col
+        assert N == N_col
+        del n_col, N_col
+
+        comm = A_matrix.getComm()
+
+        B_matrix = PETSc.Mat().createPython(((n, N), (n, N)),
+                                            PythonMatrix(prior_action, space),
+                                            comm=comm)
+        B_matrix.setUp()
+
+        config.view()  # TODO - should this go to log?
+        config.setOperators(A_matrix, B_matrix)
+
+    return inner_fn
+
+def slepc_monitor_callback(params, space, result_list):
+    """
+    Closure which defines the slepc monitor callback
+
+    This allows keeping and modifying non-local variables, params etc
+    """
+    nconv_prev = 0
+
+    num_eig = params.eigendec.num_eig
+    # dual = params.inversion.dual
+    # alpha_active = params.inversion.alpha_active
+    # beta_active = params.inversion.beta_active
+
+    # Setup result dictionary
+    result_list["lam"] = np.full(num_eig, np.NAN, dtype=np.float64)
+    result_list["vr"] = []
+
+    # Open results files
+    ev_filepath = Path(params.io.output_dir) / params.io.eigenvecs_file
+    # Delete files to avoid append
+    ev_filepath.unlink(missing_ok=True)
+
+    p = ev_filepath
+    ev_xdmf_filepath = Path(p).parent / Path(p.stem + "_vis").with_suffix(".xdmf")
+
+    ev_xdmf_file = XDMFFile(space.mesh().mpi_comm(), str(ev_xdmf_filepath))
+    ev_xdmf_file.parameters["rewrite_function_mesh"] = False
+    ev_xdmf_file.parameters["functions_share_mesh"] = True
+    ev_xdmf_file.parameters["flush_output"] = True
+
+    # Open and close files to ensure they are clear for future appends
+    ev_file = HDF5File(space.mesh().mpi_comm(), str(ev_filepath), 'w')
+    ev_file.close()
+
+    lam_file = Path(params.io.output_dir) / params.io.eigenvalue_file
+
+    def inner_fn(eps, its, nconv, eig, err):
+        """A monitor callback for SLEPc.EPS to provide incremental output"""
+        nonlocal nconv_prev
+        nonlocal space
+
+        log.info(f"{nconv} EVs converged at iteration {its}")
+
+        A_matrix, _ = eps.getOperators()
+
+        ev_file = HDF5File(space.mesh().mpi_comm(), str(ev_filepath), 'a')
+
+        for i in range(nconv_prev, min(nconv, num_eig)):
+            V_r = space_new(space)
+            v_r = A_matrix.getVecRight()
+            lam_i = eps.getEigenpair(i, v_r)
+
+            result_list["lam"][i] = lam_i.real
+            function_set_values(V_r, v_r.getArray())
+            V_r.rename("ev", "")
+            result_list["vr"].append(V_r)
+            ev_file.write(V_r, 'v', i)
+            ev_xdmf_file.write(V_r, i)
+            # for v, name in zip((V_r.sub(0), V_r.sub(1)), ['va', 'vb']):
+            #     # ev_xdmf_file.write_checkpoint(v, name, i, append=True)
+            #     v.rename(name, '')
+            #     ev_xdmf_file.write(v, i)
+
+        # Note: here we rewrite this pickle file every time, but given
+        # the small amount of data, that's probably OK.
+        pfile = open(lam_file, "wb")
+        pickle.dump([result_list["lam"],
+                     params.eigendec.num_eig,
+                     params.eigendec.power_iter,
+                     params.eigendec.eig_algo,
+                     params.eigendec.misfit_only,
+                     params.io.output_dir,
+                     params.io.input_dir], pfile)
+        pfile.close()
+
+        ev_file.parameters.add("num_eig", nconv)
+        # ev_file.parameters.add("eig_algo", eig_algo)
+        # ev_file.parameters.add("timestamp", str(datetime.datetime.now()))
+
+        ev_file.close()
+        # ev_xdmf_file.close()
+        nconv_prev = nconv
+        log.info(f"Done with monitor")
+
+    return inner_fn

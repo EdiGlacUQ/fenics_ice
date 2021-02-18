@@ -22,13 +22,12 @@ import resource
 import os
 from fenics import *
 from tlm_adjoint.fenics import *
-import pickle
 from pathlib import Path
 import datetime
 
 # assure we're not using tlm_adjoint version
-from fenics_ice.eigendecomposition import eigendecompose as fice_ed
-from fenics_ice.eigendecomposition import PythonMatrix
+from fenics_ice.eigendecomposition import eigendecompose
+from fenics_ice.eigendecomposition import PythonMatrix, slepc_monitor_callback, slepc_config_callback
 from fenics_ice import model, solver, prior, inout
 
 from fenics_ice import mesh as fice_mesh
@@ -59,18 +58,12 @@ def run_eigendec(config_file):
     log = inout.setup_logging(params)
     inout.log_preamble("eigendecomp", params)
 
-    dd = params.io.input_dir
-    outdir = params.io.output_dir
-
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
 
-    # Get model mesh
+    # Get mesh & define model
     mesh = fice_mesh.get_mesh(params)
-
-    # Define the model
     mdl = model.model(mesh, input_data, params)
-
     # Load alpha/beta fields
     mdl.alpha_from_inversion()
     mdl.beta_from_inversion()
@@ -119,53 +112,6 @@ def run_eigendec(config_file):
         reg_op.action(x.vector(), xg.vector())
         return function_get_values(xg)
 
-    def slepc_config_callback(config):
-        log.info("Got to the callback")
-
-        # KSP corresponds to B-matrix inversion
-        # Set it to precondition only because we
-        # supply the inverse in LaplacianPC
-        ksp = config.getST().getKSP()
-        ksp.setType(PETSc.KSP.Type.PREONLY)
-
-        pc = ksp.getPC()
-        pc.setType(PETSc.PC.Type.PYTHON)
-        pc.setPythonContext(prior.LaplacianPC(reg_op))
-
-        # A_matrix already defined so just grab it
-        A_matrix, _ = config.getOperators()
-
-        (n, N), (n_col, N_col) = A_matrix.getSizes()
-        assert n == n_col
-        assert N == N_col
-        del n_col, N_col
-
-        comm = A_matrix.getComm()
-
-        B_matrix = PETSc.Mat().createPython(((n, N), (n, N)),
-                                            PythonMatrix(prior_action, space),
-                                            comm=comm)
-        B_matrix.setUp()
-
-        config.view()  # TODO - should this go to log?
-        config.setOperators(A_matrix, B_matrix)
-
-    nconv_prev = 0
-    def slepc_monitor_callback(eps, its, nconv, eig, err):
-        """A monitor callback for SLEPc.EPS to provide incremental output"""
-        nonlocal nconv_prev
-        log.info(f"{nconv} EVs converged at iteration {its}")
-
-        A_matrix, _ = eps.getOperators()
-        v_r = A_matrix.getVecRight()
-
-        for i in range(nconv_prev, nconv):
-            lam = eps.getEigenpair(i, v_r)
-            log.warning(f"monitor ev{i} norm: {v_r.norm()}")
-
-        nconv_prev = nconv
-
-
     # opts = {'prior': gnhep_prior_action, 'mass': gnhep_mass_action}
     # gnhep_func = opts[params.eigendec.precondition_by]
 
@@ -178,15 +124,19 @@ def run_eigendec(config_file):
 
         assert not flagged_error[0]
 
+        results = {}
         # Eigendecomposition
-        lam, vr = fice_ed(space,
-                          ghep_action,
-                          tolerance=1.0e-10,
-                          N_eigenvalues=num_eig,
-                          problem_type=SLEPc.EPS.ProblemType.GHEP,
-                          # solver_type=SLEPc.EPS.Type.ARNOLDI,
-                          configure=slepc_config_callback,
-                          monitor=slepc_monitor_callback)
+        eigendecompose(space,
+                       ghep_action,
+                       tolerance=1.0e-10,
+                       N_eigenvalues=num_eig,
+                       problem_type=SLEPc.EPS.ProblemType.GHEP,
+                       # solver_type=SLEPc.EPS.Type.ARNOLDI,
+                       configure=slepc_config_callback(reg_op, prior_action, space),
+                       monitor=slepc_monitor_callback(params, space, results))
+
+        vr = results['vr']
+        lam = results['lam']
 
         if flagged_error[0]:
             # Note: I have been unable to confirm that this does anything in my setup
@@ -221,44 +171,19 @@ def run_eigendec(config_file):
         #     v.rename('v', v.label())
         #     vtkfile << v
 
-        ev_file = params.io.eigenvecs_file
-        with HDF5File(slvr.mesh.mpi_comm(),
-                      os.path.join(outdir, ev_file), 'w') as hdf5file:
-            for i, v in enumerate(vr):
-                hdf5file.write(v, 'v', i)
-
-            hdf5file.parameters.add("num_eig", num_eig)
-            hdf5file.parameters.add("eig_algo", eig_algo)
-            hdf5file.parameters.add("timestamp", str(datetime.datetime.now()))
-
-        p = Path(ev_file)
-        ev_xdmf = str(p.parent / Path(p.stem + "_vis").with_suffix(".xdmf"))
-        with XDMFFile(slvr.mesh.mpi_comm(),
-                      ev_xdmf) as xdmf_ev:
-            for i, v in enumerate(vr):
-                v.rename("ev", "")
-                xdmf_ev.write(v, i)
-
     else:
         raise NotImplementedError
 
     slvr.eigenvals = lam
     slvr.eigenfuncs = vr
 
-    # Save eigenvals and some associated info - TODO HDF5File?
-    fileout = params.io.eigenvalue_file
-    pfile = open(os.path.join(outdir, fileout), "wb")
-    pickle.dump([lam, num_eig, n_iter, eig_algo, msft_flag, outdir, dd], pfile)
-    pfile.close()
-
     # Plot of eigenvals
-    lamr = lam.real
-    lpos = np.argwhere(lamr > 0)
-    lneg = np.argwhere(lamr < 0)
-    lind = np.arange(0, len(lamr))
-    plt.semilogy(lind[lpos], lamr[lpos], '.')
-    plt.semilogy(lind[lneg], np.abs(lamr[lneg]), '.')
-    plt.savefig(os.path.join(outdir, 'lambda.pdf'))
+    lpos = np.argwhere(lam > 0)
+    lneg = np.argwhere(lam < 0)
+    lind = np.arange(0, len(lam))
+    plt.semilogy(lind[lpos], lam[lpos], '.')
+    plt.semilogy(lind[lneg], np.abs(lam[lneg]), '.')
+    plt.savefig(os.path.join(params.io.output_dir, 'lambda.pdf'))
 
     # Note - for now this does nothing, but eventually if the whole series
     # of runs were done without re-initializing solver, it'd be important to
