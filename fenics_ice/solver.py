@@ -916,7 +916,6 @@ class ssa_solver:
                                             m=config.m,
                                             s_atol=config.s_atol,
                                             g_atol=config.g_atol,
-                                            verbose=config.verbose,
                                             c1=1.0e-3, c2=0.9,
                                             converged=l_bfgs_converged,
                                             line_search_rank0=line_search_wolfe1,
