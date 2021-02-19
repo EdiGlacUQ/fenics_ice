@@ -268,7 +268,9 @@ def slepc_monitor_callback(params, space, result_list):
     """
     nconv_prev = 0
 
-    num_eig = params.eigendec.num_eig
+    num_eig = params.eigendec.num_eig if params.eigendec.num_eig is not None \
+        else function_global_size(space_new(space))
+
     # dual = params.inversion.dual
     # alpha_active = params.inversion.alpha_active
     # beta_active = params.inversion.beta_active
