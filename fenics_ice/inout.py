@@ -44,15 +44,15 @@ class Writer(ABC):
 
     # Regex for catching unnamed vars
     unnamed_re = re.compile("f_[0-9]+")
-
-    stepped = None      # Single timestep file or multiple?
-    _fpath = None       # the filename
     suffix = None       # the subclass specific file extension
-    file_handle = None  # handle for the file
 
     def __init__(self, fpath):
         self._fpath = Path(fpath)
         assert self._fpath.suffix == self.suffix
+
+        self.stepped = None      # Single timestep file or multiple?
+        self.file_handle = None  # handle for the file
+        self.wrote_steps = []
 
     @staticmethod
     def var_named(var):
@@ -135,7 +135,6 @@ class VTKWriter(Writer):
     """Variable writer for .vtk"""
 
     suffix = '.pvd'
-    wrote_steps = []
 
     def check_step(self, step):
         """
