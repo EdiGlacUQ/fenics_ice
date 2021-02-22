@@ -117,6 +117,9 @@ class ConfigParser(object):
         try:
             fenics_params["tlm_adjoint"]["AssembleSolver"]["match_quadrature"] = True
             fenics_params["tlm_adjoint"]["EquationSolver"]["match_quadrature"] = True
+            # For debugging cache issues:
+            # fenics_params["tlm_adjoint"]["EquationSolver"]["cache_jacobian"] = True
+            # fenics_params["tlm_adjoint"]["EquationSolver"]["cache_rhs_assembly"] = True
         except RuntimeError:
             print("Warning: unable to set tlm_adjoint param 'match_quadrature'")
 
