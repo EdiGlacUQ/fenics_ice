@@ -64,6 +64,9 @@ class Prior(ABC):
         self.test = TestFunctions(space)
         self.trial = TrialFunctions(space)
 
+        # Empty dict for J_reg terms
+        self.terms = {}
+
         # Mass term
         # Construct 1 (scalar function space) or 2 (vector mixed space)
         var_m = [inner(test, trial) for test, trial in zip(self.test, self.trial)]
@@ -138,54 +141,41 @@ class Prior(ABC):
         """
         Compute the regularisation term of the cost function
 
-        Returns a list of 1 or 2 terms depending on inversion type.
+        Returns a dict of named computed terms (e.g. 'delta_beta',
+        'gamma_beta')
         """
         # Check we received the args we expected based on prior_form
         assert list(kwargs.keys()) == list(self.LUT.values()), \
             f"Expected kwargs: {self.LUT.values()}"
-
-        mappy = {}
-        for k in self.LUT:
-            mappy[k] = kwargs[self.LUT[k]]
-
         assert not self.mixed_space
 
+        # Construct map of placeholder -> true alpha/beta terms
+        placeholder_map = {}
+        for k in self.LUT:
+            placeholder_map[k] = kwargs[self.LUT[k]]
+
         space = self.space
-        result = [None, None]
+        # result = [None, None]
+        result = {}
 
         # Note - because this is never used in mixed space mode,
         # no need to mess with alpha_idx, beta_idx
         trial = self.trial[0]
         test = self.test[0]
 
-        if self.alpha_active:
-
-            f_alpha = Function(space, name='f_alpha')
-            L = ufl.replace(self.alpha_form, mappy)
-
+        for term_key in self.terms:
+            term = self.terms[term_key]
+            f = Function(space, name=term_key)
+            L = ufl.replace(term, placeholder_map)
             a = test * trial * dx
 
-            # alpha form is negative laplacian
-            solve(a == L, f_alpha,  # M^{-1} L alpha
+            solve(a == L, f,  # M^{-1} L alpha
                   solver_parameters={"linear_solver": "direct"})
 
-            J_reg_alpha = self.norm_sq(f_alpha)  # L M^{-1} M M^{-1} L alpha
-                                                 # = L M^{-1} L alpha
-            result[0] = J_reg_alpha
-
-        if self.beta_active:
-
-            f_beta = Function(space, name='f_beta')
-
-            L = ufl.replace(self.beta_form, mappy)
-            a = test * trial * dx
-
-            solve(a == L, f_beta, solver_parameters={"linear_solver": "direct"})
-            J_reg_beta = self.norm_sq(f_beta)
-            result[1] = J_reg_beta
+            result[term_key] = self.norm_sq(f)   # L M^{-1} M M^{-1} L alpha
+        #                                          # = L M^{-1} L alpha
 
         return result
-
 
 class Laplacian(Prior):
     """
@@ -209,16 +199,22 @@ class Laplacian(Prior):
         beta_diff = self.placeholder_fn('beta_diff', self.beta_idx)
 
         if self.alpha_active:
-            self.alpha_form = (self.delta_alpha * inner(alpha,
-                                                        self.test[self.alpha_idx]) +
-                               self.gamma_alpha * inner(grad(alpha),
-                                                        grad(self.test[self.alpha_idx]))) * dx
+            self.terms['delta_alpha'] = \
+                self.delta_alpha * inner(alpha, self.test[self.alpha_idx]) * dx
+
+            self.terms['gamma_alpha'] = \
+                self.gamma_alpha * inner(grad(alpha), grad(self.test[self.alpha_idx])) * dx
+
+            self.alpha_form = self.terms['delta_alpha'] + self.terms['gamma_alpha']
 
         if self.beta_active:
-            self.beta_form = (self.delta_beta * inner(beta_diff,
-                                                      self.test[self.beta_idx]) +
-                              self.gamma_beta * inner(grad(beta),
-                                                      grad(self.test[self.beta_idx]))) * dx
+            self.terms['delta_beta'] = \
+                self.delta_beta * inner(beta_diff, self.test[self.beta_idx]) * dx
+
+            self.terms['gamma_beta'] = \
+                self.gamma_beta * inner(grad(beta), grad(self.test[self.beta_idx])) * dx
+
+            self.beta_form = self.terms['delta_beta'] + self.terms['gamma_beta']
 
         # The square norm of the prior for J_reg
         self.norm_sq = lambda x: 0.5 * inner(x, x) * dx
@@ -271,20 +267,29 @@ class Laplacian_flt(Laplacian):
         fl_ex = self.fl_ex
 
         if self.alpha_active:
-            self.alpha_form = (self.delta_alpha * inner(alpha,
-                                                        self.test[self.alpha_idx]) +
-                               self.gamma_alpha * inner(grad(alpha),
-                                                        grad(self.test[self.alpha_idx]))) * dx
+            self.terms['delta_alpha'] = \
+                self.delta_alpha * inner(alpha, self.test[self.alpha_idx]) * dx
+
+            self.terms['gamma_alpha'] = \
+                self.gamma_alpha * inner(grad(alpha), grad(self.test[self.alpha_idx])) * dx
+
+            self.alpha_form = self.terms['delta_alpha'] + self.terms['gamma_alpha']
 
         if self.beta_active:
-            self.beta_form = ((self.delta_beta * fl_ex *
-                              inner(beta_diff, self.test[self.beta_idx])) +
 
-                              (self.delta_beta_gnd * (1.0 - fl_ex) *
-                              inner(beta_diff, self.test[self.beta_idx])) +
+            self.terms['delta_beta'] = \
+                self.delta_beta * fl_ex * inner(beta_diff, self.test[self.beta_idx]) * dx
 
-                              self.gamma_beta * inner(grad(beta),
-                                                      grad(self.test[self.beta_idx]))) * dx
+            self.terms['delta_beta_gnd'] = \
+                (self.delta_beta_gnd * (1.0 - fl_ex) *
+                 inner(beta_diff, self.test[self.beta_idx])) * dx
+
+            self.terms['gamma_beta'] = \
+                self.gamma_beta * inner(grad(beta), grad(self.test[self.beta_idx])) * dx
+
+            self.beta_form = (self.terms['delta_beta'] +
+                              self.terms['gamma_beta'] +
+                              self.terms['delta_beta_gnd'])
 
         # The square norm of the prior for J_reg
         self.norm_sq = lambda x: 0.5 * inner(x, x) * dx

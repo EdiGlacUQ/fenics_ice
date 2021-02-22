@@ -1160,11 +1160,24 @@ class ssa_solver:
         # Regularization
         Prior = self.model.get_prior()
         lap = Prior(self, self.Qp)
-        # lap = prior.Laplacian_flt(self, self.Qp)
-        J_reg_alpha, J_reg_beta = lap.J_reg(alpha=alpha, beta=beta, beta_diff=betadiff)
 
-        if do_alpha: J.addto(J_reg_alpha)
-        if do_beta: J.addto(J_reg_beta)
+        # Get dict of regularisation terms & add them to J
+        J_reg_terms = lap.J_reg(alpha=alpha, beta=beta, beta_diff=betadiff)
+        for term in J_reg_terms:
+            J.addto(J_reg_terms[term])
+
+        # for block in manager()._blocks + [manager()._block]:
+        #     for eq in block:
+        #         if isinstance(eq, EquationSolver):
+        #             solver_parameters = eq._solver_parameters
+        #             linear_solver_parameters = eq._linear_solver_parameters
+        #             adjoint_solver_parameters = eq._adjoint_solver_parameters
+        #             tlm_solver_parameters = eq._tlm_solver_parameters
+        #             print(f"Eq: {eq}")
+        #             print(f"Solver parameters: {solver_parameters}")
+        #             print(f"linear parameters: {linear_solver_parameters}")
+        #             print(f"adjoint parameters: {adjoint_solver_parameters}")
+        #             print(f"tlm parameters: {tlm_solver_parameters}")
 
         if verbose:
             J_ls_u = new_real_function(name="J_ls_term_x")
@@ -1175,20 +1188,23 @@ class ssa_solver:
             # Print out results
             J1 = J.value()
             J2 = J_ls_u.values()[0] + J_ls_v.values()[0]
-            J3 = assemble(J_reg_alpha) if do_alpha else 0.0
-            J4 = assemble(J_reg_beta) if do_beta else 0.0
+
+            J3 = 0.0
+            for term in J_reg_terms:
+                J3 += assemble(J_reg_terms[term])
 
             J_fields = {"delta_alpha": self.delta_alpha,
-                      "gamma_alpha": self.gamma_alpha,
-                      "delta_beta": self.delta_beta,
-                      "delta_beta_gnd": self.delta_beta_gnd,
-                      "gamma_beta": self.gamma_beta,
-                      "J": J1,
-                      "J_ls": J2,
-                      "J_reg": sum([J3, J4]),
-                      "J_reg_alpha": J3,
-                      "J_reg_beta": J4,
-                      'J_reg/J_cst': ((J3+J4)/(J2))}
+                        "gamma_alpha": self.gamma_alpha,
+                        "delta_beta": self.delta_beta,
+                        "delta_beta_gnd": self.delta_beta_gnd,
+                        "gamma_beta": self.gamma_beta,
+                        "J": J1,
+                        "J_ls": J2,
+                        "J_reg": J3}
+
+            # Additional separate regularisation terms
+            for term in J_reg_terms:
+                J_fields[f"J_{term}"] = assemble(J_reg_terms[term])
 
             info('Inversion Details')
             for key in J_fields:
