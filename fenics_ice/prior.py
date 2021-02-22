@@ -141,6 +141,58 @@ class Prior(ABC):
         """
         Compute the regularisation term of the cost function
 
+        Returns a list of 1 or 2 terms depending on inversion type.
+        """
+        # Check we received the args we expected based on prior_form
+        assert list(kwargs.keys()) == list(self.LUT.values()), \
+            f"Expected kwargs: {self.LUT.values()}"
+
+        placeholder_map = {}
+        for k in self.LUT:
+            placeholder_map[k] = kwargs[self.LUT[k]]
+
+        assert not self.mixed_space
+
+        space = self.space
+        result = [None, None]
+
+        # Note - because this is never used in mixed space mode,
+        # no need to mess with alpha_idx, beta_idx
+        trial = self.trial[0]
+        test = self.test[0]
+
+        if self.alpha_active:
+
+            f_alpha = Function(space, name='f_alpha')
+            L = ufl.replace(self.alpha_form, placeholder_map)
+
+            a = test * trial * dx
+
+            # alpha form is negative laplacian
+            solve(a == L, f_alpha,  # M^{-1} L alpha
+                  solver_parameters={"linear_solver": "direct"})
+
+            J_reg_alpha = self.norm_sq(f_alpha)  # L M^{-1} M M^{-1} L alpha
+                                                 # = L M^{-1} L alpha
+            result[0] = J_reg_alpha
+
+        if self.beta_active:
+
+            f_beta = Function(space, name='f_beta')
+
+            L = ufl.replace(self.beta_form, placeholder_map)
+            a = test * trial * dx
+
+            solve(a == L, f_beta, solver_parameters={"linear_solver": "direct"})
+            J_reg_beta = self.norm_sq(f_beta)
+            result[1] = J_reg_beta
+
+        return result
+
+    def J_reg_terms(self, **kwargs):
+        """
+        Compute the seperate terms of the regularisation term (J_reg)
+
         Returns a dict of named computed terms (e.g. 'delta_beta',
         'gamma_beta')
         """

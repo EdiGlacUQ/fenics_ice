@@ -1161,10 +1161,13 @@ class ssa_solver:
         Prior = self.model.get_prior()
         lap = Prior(self, self.Qp)
 
-        # Get dict of regularisation terms & add them to J
-        J_reg_terms = lap.J_reg(alpha=alpha, beta=beta, beta_diff=betadiff)
-        for term in J_reg_terms:
-            J.addto(J_reg_terms[term])
+        J_reg_alpha, J_reg_beta = lap.J_reg(alpha=alpha, beta=beta, beta_diff=betadiff)
+
+        if do_alpha: J.addto(J_reg_alpha)
+        if do_beta: J.addto(J_reg_beta)
+
+        # Get dict of regularisation components for e.g. L-curve analysis
+        J_reg_terms = lap.J_reg_terms(alpha=alpha, beta=beta, beta_diff=betadiff)
 
         # for block in manager()._blocks + [manager()._block]:
         #     for eq in block:
@@ -1189,18 +1192,23 @@ class ssa_solver:
             J1 = J.value()
             J2 = J_ls_u.values()[0] + J_ls_v.values()[0]
 
+            # Assemble & write out terms of regularisation term
             J3 = 0.0
+            J_fields = {}
             for term in J_reg_terms:
-                J3 += assemble(J_reg_terms[term])
+                assembled = assemble(J_reg_terms[term])
+                J3 += assembled
+                J_fields[f"J_{term}"] = assembled
 
-            J_fields = {"delta_alpha": self.delta_alpha,
-                        "gamma_alpha": self.gamma_alpha,
-                        "delta_beta": self.delta_beta,
-                        "delta_beta_gnd": self.delta_beta_gnd,
-                        "gamma_beta": self.gamma_beta,
-                        "J": J1,
-                        "J_ls": J2,
-                        "J_reg": J3}
+            # Add params & full J terms to dict
+            J_fields = {**J_fields, **{"delta_alpha": self.delta_alpha,
+                                       "gamma_alpha": self.gamma_alpha,
+                                       "delta_beta": self.delta_beta,
+                                       "delta_beta_gnd": self.delta_beta_gnd,
+                                       "gamma_beta": self.gamma_beta,
+                                       "J": J1,
+                                       "J_ls": J2,
+                                       "J_reg": J3}}
 
             # Additional separate regularisation terms
             for term in J_reg_terms:
