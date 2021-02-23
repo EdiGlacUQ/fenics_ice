@@ -128,6 +128,7 @@ class ConfigParser(object):
     def restrict_threads():
         """Prevent multithreading (slow!)"""
         os.environ["OMP_NUM_THREADS"] = "1"
+        os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 @dataclass(frozen=True)
 class InversionCfg(ConfigPrinter):
