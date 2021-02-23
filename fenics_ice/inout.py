@@ -211,7 +211,8 @@ def write_qval(Qval, params):
     n_steps = params.time.total_steps
     ts = np.linspace(0, run_length, n_steps+1)
 
-    pickle.dump([Qval, ts], (Path(outdir)/filename).open('wb'))
+    with open(Path(outdir)/filename, 'wb') as pickle_file:
+        pickle.dump([Qval, ts], pickle_file)
 
 def write_dqval(dQ_ts, cntrl_names, params):
     """
