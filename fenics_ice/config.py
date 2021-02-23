@@ -63,6 +63,7 @@ class ConfigParser(object):
         self.parse()
         self.check_dirs()
         self.set_tlm_adjoint_params()
+        self.restrict_threads()
 
     def parse(self):
         """
@@ -122,6 +123,12 @@ class ConfigParser(object):
             # fenics_params["tlm_adjoint"]["EquationSolver"]["cache_rhs_assembly"] = True
         except RuntimeError:
             print("Warning: unable to set tlm_adjoint param 'match_quadrature'")
+
+    @staticmethod
+    def restrict_threads():
+        """Prevent multithreading (slow!)"""
+        os.environ["OMP_NUM_THREADS"] = "1"
+        os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 @dataclass(frozen=True)
 class InversionCfg(ConfigPrinter):

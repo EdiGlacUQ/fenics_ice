@@ -161,7 +161,8 @@ def main(config_file):
     bmelt = project(ufl.Max(fl_ex*(HF - HS)/dT, Constant(0.0)), slvr.M)
 
     #Output model variables in ParaView+Fenics friendly format
-    pickle.dump( mdl.param, open( os.path.join(outdir,'bmeltrate_param.p'), "wb" ) )
+    with open(os.path.join(outdir,'bmeltrate_param.p'), "wb" ) as bmeltfile:
+        pickle.dump( mdl.param, bmeltfile)
 
     # File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
 

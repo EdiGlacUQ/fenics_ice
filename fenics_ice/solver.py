@@ -670,7 +670,6 @@ class ssa_solver:
             xdmf_hts.close()
             xdmf_uts.close()
 
-        manager_info()
         return Q_is if qoi_func is not None else None
 
     # def forward_ts_alpha(self,aa):

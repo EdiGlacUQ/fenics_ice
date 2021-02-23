@@ -33,7 +33,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 import datetime
-from IPython import embed
 
 stop_annotating()
 

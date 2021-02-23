@@ -143,8 +143,10 @@ def run_errorprop(config_file):
     # Output model variables in ParaView+Fenics friendly format
     sigma_file = params.io.sigma_file
     sigma_prior_file = params.io.sigma_prior_file
-    pickle.dump( [sigma, t_sens], open( os.path.join(outdir, sigma_file), "wb" ) )
-    pickle.dump( [sigma_prior, t_sens], open( os.path.join(outdir, sigma_prior_file), "wb" ) )
+    with open( os.path.join(outdir, sigma_file), "wb" ) as sigfile:
+        pickle.dump( [sigma, t_sens], sigfile)
+    with open( os.path.join(outdir, sigma_prior_file), "wb" ) as sigpfile:
+        pickle.dump( [sigma_prior, t_sens], sigpfile)
 
     # This simplifies testing - is it OK? Should we hold all data in the solver object?
     mdl.Q_sigma = sigma
