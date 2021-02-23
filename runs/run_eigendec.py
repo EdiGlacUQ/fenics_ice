@@ -16,10 +16,13 @@
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
 #!/usr/bin/env python
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+
 import sys
 import resource
 
-import os
 from fenics import *
 from tlm_adjoint.fenics import *
 from tlm_adjoint.eigendecomposition import PythonMatrix
