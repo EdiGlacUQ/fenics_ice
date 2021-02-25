@@ -1,0 +1,143 @@
+[io] #Directory specification
+
+run_name = "ice_stream_varres"
+input_dir = "./input"
+output_dir = "./output"
+
+
+thick_data_file = "ice_stream_varres_data.h5"
+bed_data_file = "ice_stream_varres_data.h5"
+smb_data_file = "ice_stream_varres_data.h5"
+alpha_data_file = "ice_stream_varres_data.h5"
+bglen_data_file = "ice_stream_varres_data.h5"
+
+log_level = "info" #This is default
+
+[constants]
+
+rhoi = 917.0
+rhow = 1030.0
+g = 9.81
+
+random_seed = 0
+glen_n = 3  # set to 2 for taylor verification of forward model
+
+[mesh]
+
+mesh_filename = "ice_stream_varres.xdmf"
+bc_filename = "ice_stream_varres_ff.xdmf"
+
+[[BC]]
+
+name = "Lateral Margins" # unimportant
+labels = [1, 3, 4]
+flow_bc = "no_slip"
+
+[[BC]]
+
+name = "Calving Fronts"
+labels = [2]
+flow_bc = "natural"
+
+
+[obs]
+
+vel_file = "ice_stream_varres_U_obs.h5"
+
+[inversion]
+
+# Note - settings here are inappropriate for
+# a real case. ftol, gtol tolerances
+# are too small to converge.
+max_iter = 40
+
+alpha_active = true
+beta_active = true
+
+gamma_alpha = 5.0e2 #6
+delta_alpha = 5.0e-6 #-2
+gamma_beta = 1.0e2
+delta_beta = 1.0e-10
+delta_beta_gnd = 1.0
+
+ftol = 1e-20
+gtol = 1e-20
+m = 20
+
+# Other options here:
+#  s_atol  - step absolute tolerance
+#  g_atol  - gradient absolute tolerance
+#  c1, c2  - wolfe linesearch params
+
+verbose = true
+
+[ice_dynamics]
+
+sliding_law = 'weertman' #weertman, linear
+allow_flotation = true # true by default
+
+[momsolve]
+
+[momsolve.picard_params]
+nonlinear_solver = "newton"
+[momsolve.picard_params.newton_solver]
+linear_solver = "cg"
+preconditioner = "hypre_amg"
+maximum_iterations = 200
+absolute_tolerance = 1.0e-0
+relative_tolerance = 1.0e-3
+convergence_criterion = "incremental"
+error_on_nonconvergence =  false
+[momsolve.picard_params.newton_solver.krylov_solver]
+divergence_limit = 1e20
+nonzero_initial_guess = false
+
+[momsolve.newton_params]
+nonlinear_solver = "newton"
+[momsolve.newton_params.newton_solver] #[gmres w/ ilu]
+linear_solver = "bicgstab" # gmres?  try direct too. [cg with icc]  [gmres, sor]
+preconditioner = "hypre_amg" # doesn't work so well on unstructured mesh?
+maximum_iterations = 100
+absolute_tolerance = 1.0e-9 #10
+relative_tolerance = 1.0e-10 #11
+convergence_criterion = "incremental"
+error_on_nonconvergence = true
+[momsolve.newton_params.newton_solver.krylov_solver]
+divergence_limit = 1e20
+nonzero_initial_guess = false
+
+# #used for weertman sliding: (TODO -test)
+# [momsolve.newton_params.newton_solver.lu_solver]
+# same_nonzero_pattern = false
+# symmetric = false
+# reuse_factorization = false
+
+[time]
+
+run_length = 0.2
+#steps_per_year = 30
+total_steps = 5
+#dt = 0.033333333
+num_sens = 6 #TODO rename
+
+[checkpointing]
+
+method = "memory"
+# method = "multistage" # periodic_disk, memory
+# snaps_on_disk = 4000
+# snaps_in_ram = 10
+# period = 2
+
+[eigendec]
+
+num_eig = 20
+eig_algo = "slepc"
+misfit_only = true
+
+#power_iter = 1 <- not used yet, saving in case
+precondition_by = "prior" #prior by default
+eigenvalue_thresh = 1.0e-1
+
+[errorprop]
+
+qoi = 'vaf'
