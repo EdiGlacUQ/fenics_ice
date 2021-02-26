@@ -49,25 +49,27 @@ vel_file = "ice_stream_varres_U_obs.h5"
 # Note - settings here are inappropriate for
 # a real case. ftol, gtol tolerances
 # are too small to converge.
-max_iter = 40
+max_iter = 200
 
 alpha_active = true
 beta_active = true
 
-gamma_alpha = 5.0e2 #6
+gamma_alpha = 1.0e2 #6
 delta_alpha = 5.0e-6 #-2
 gamma_beta = 1.0e2
-delta_beta = 1.0e-10
+delta_beta = 1.0e-8
 delta_beta_gnd = 1.0
 
 ftol = 1e-20
 gtol = 1e-20
-m = 20
+m = 40
 
 # Other options here:
 #  s_atol  - step absolute tolerance
 #  g_atol  - gradient absolute tolerance
 #  c1, c2  - wolfe linesearch params
+c1 = 1.0e-4
+c2 = 0.9999
 
 verbose = true
 
