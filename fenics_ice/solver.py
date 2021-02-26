@@ -746,27 +746,6 @@ class ssa_solver:
         if(config.verbose):
             inv_vals = []
 
-        # nparam = len(cntrl)
-        # Qp_test, Qp_trial = TestFunction(self.Qp), TrialFunction(self.Qp)
-
-        # forward = self.forward_dual_temp
-        # TODO - need to construct dual prior here for preconditioning
-
-        # cntrl = cntrl_input[j % nparam]
-        # if cntrl.name() == 'alpha':
-        #     cc = self.alpha
-
-        #     forward = self.forward_alpha
-
-        #     L_mat = assemble((self.delta_alpha * Qp_trial * Qp_test
-        #                       + self.gamma_alpha * inner(grad(Qp_trial), grad(Qp_test))) * self.dIce)
-        # else:
-        #     cc = self.beta
-        #     forward = self.forward_beta
-
-        #     L_mat = assemble((self.delta_beta * Qp_trial * Qp_test
-        #                       + self.gamma_beta * inner(grad(Qp_trial), grad(Qp_test))) * self.dIce)
-
         reset_manager()
         clear_caches()
 
@@ -835,10 +814,12 @@ class ssa_solver:
         # L_solver.parameters.update({"relative_tolerance": 1.0e-14,
         #                             "absolute_tolerance": 1.0e-32})
 
-        # M_mat = assemble(Qp_trial * Qp_test * self.dIce)
-        # M_solver = KrylovSolver(M_mat.copy(), "cg", "sor")
-        # M_solver.parameters.update({"relative_tolerance": 1.0e-14,
-        #                             "absolute_tolerance": 1.0e-32})
+        Qp_test, Qp_trial = TestFunction(self.Qp), TrialFunction(self.Qp)
+
+        M_mat = assemble(inner(Qp_trial, Qp_test) * self.dIce)
+        M_solver = KrylovSolver(M_mat.copy(), "cg", "sor")
+        M_solver.parameters.update({"relative_tolerance": 1.0e-14,
+                                    "absolute_tolerance": 1.0e-32})
 
         # def B_0(x):
         #     """
@@ -857,15 +838,21 @@ class ssa_solver:
 
         #     return B_0_action
 
-        # def H_M_0(x):
-        #     """
-        #     Initial guess for inverse hessian action (mass matrix prec)
-        #     M^-1
-        #     """
-        #     M_inv_action = function_new(x, name="M_inv_action")
-        #     M_solver.solve(M_inv_action.vector(), x.vector().copy())
+        # TODO - refactor here - these should go in an 'inversion' module
+        # or in minimize_l_bfgs...
+        def H_M_0(*X):
+            """
+            Initial guess for inverse hessian action (mass matrix prec)
+            M^-1
+            """
 
-        #     return M_inv_action
+            M_inv_action = []
+            for i, x in enumerate(X):
+                this_action = function_new(x, name=f"M_inv_action_{i}")
+                M_solver.solve(this_action.vector(), x.vector().copy())
+                M_inv_action.append(this_action)
+
+            return M_inv_action
 
         # def H_0(x):
         #     """
@@ -886,18 +873,21 @@ class ssa_solver:
 
         #     return H_0_action
 
-        # def B_M_0(x):
-        #     """
-        #     Initial guess for hessian action
+        def B_M_0(*X):
+            """
+            Initial guess for hessian action
 
-        #     M
-        #     """
-        #     B_0_action = function_new(x, name="B_0_action")
-        #     M_action = M_mat * x.vector()
-        #     B_0_action.vector()[:] = M_action
-        #     B_0_action.vector().apply("insert")
+            M
+            """
+            B_0_action = []
+            for i, x in enumerate(X):
+                this_action = function_new(x, name=f"B_0_action_{i}")
+                M_action = M_mat * x.vector()
+                this_action.vector()[:] = M_action
+                this_action.vector().apply("insert")
+                B_0_action.append(this_action)
 
-        #     return B_0_action
+            return B_0_action
 
         # L-BFGS-B line search configuration. For parameter values see
         # SciPy
@@ -919,7 +909,7 @@ class ssa_solver:
                                             converged=l_bfgs_converged,
                                             line_search_rank0=line_search_wolfe1,
                                             line_search_rank0_kwargs={"xtol": 0.1},
-                                            # H_0=H_0, M=B_0, M_inv=H_0,
+                                            H_0=H_M_0, M=B_M_0, M_inv=H_M_0,
                                             block_theta_scale=config.dual,
                                             max_its=config.max_iter)
 
