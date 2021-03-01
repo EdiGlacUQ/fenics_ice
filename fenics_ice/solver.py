@@ -776,8 +776,10 @@ class ssa_solver:
                              new_cc, new_dJ, cc_change, dJ_change):
             # Convergence tests and defaults as described in SciPy 1.5.2
             # scipy.optimize._minimize._minimize_lbfgsb documentation
+
             converged = False
-            if(config.verbose): info(f"Inversion inner iteration: {it}")
+            if(config.verbose):
+                info(f"Inversion inner iteration: {it}")
 
             # Compute functional convergence
             f_criterion = ((old_J_val - new_J_val)
@@ -807,6 +809,9 @@ class ssa_solver:
 
             if(config.verbose):
                 inv_vals.append((new_J_val, f_criterion, *g_criterion))
+
+            if it < config.min_iter:
+                converged = False
 
             return converged
 
