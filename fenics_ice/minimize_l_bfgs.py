@@ -928,7 +928,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
 
     it = 0
     reason = None
-    logger.debug(f"L-BFGS: Iteration {it:d}, "
+    logger.info(f"L-BFGS: Iteration {it:d}, "
                  f"F calls {F_calls[0]:d}, "
                  f"Fp calls {Fp_calls[0]:d}, "
                  f"functional value {old_F_val:.6e}")

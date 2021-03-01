@@ -130,6 +130,7 @@ class InversionCfg(ConfigPrinter):
     """
 
     max_iter: int = 15
+    min_iter: int = 3
     ftol: float = None  # scipy default: 2.220446049250313e-09
     gtol: float = None  # scipy default: 1e-05
     s_atol: float = None
