@@ -68,6 +68,8 @@ m = 20
 #  s_atol  - step absolute tolerance
 #  g_atol  - gradient absolute tolerance
 #  c1, c2  - wolfe linesearch params
+c1 = 1.0e-4
+c2 = 0.9999
 
 verbose = true
 
