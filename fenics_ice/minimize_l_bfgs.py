@@ -231,7 +231,7 @@ class H_approximation:
         alphas.reverse()
 
         R = functions_copy(H_0(*X))
-        if theta != 1.0:
+        if not np.all(theta == 1.0):
             if(isinstance(theta, float)):  # convert to list if single float
                 theta = [theta for i in range(len(R))]
             for r, th in zip(R, theta):
@@ -922,7 +922,12 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
                                skip_atol=skip_atol, skip_rtol=skip_rtol,
                                M=M, M_inv=M_inv)
     if theta_scale and delta is not None:
-        theta = np.sqrt(old_Fp_norm_sq) / delta
+        if len(X) > 1:
+            oFpv = [abs(function_inner(oF, M_inv(oF)[0])) for oF in old_Fp_val]
+            theta = np.sqrt(oFpv) / delta
+        else:
+            theta = np.sqrt(old_Fp_norm_sq) / delta
+
     else:
         theta = 1.0
 
@@ -955,8 +960,14 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
             logger.warning("L-BFGS: Line search failure -- resetting "
                            "Hessian inverse approximation")
             H_approx.reset()
+
             if theta_scale and delta is not None:
-                theta = np.sqrt(old_Fp_norm_sq) / delta
+                if len(X) > 1:
+                    oFpv = [abs(function_inner(oF, M_inv(oF)[0])) for oF in old_Fp_val]
+                    theta = np.sqrt(oFpv) / delta
+                else:
+                    theta = np.sqrt(old_Fp_norm_sq) / delta
+
             else:
                 theta = 1.0
 
@@ -994,7 +1005,9 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         if S_Y_added:
             if theta_scale:
                 if block_theta_scale and len(Y) > 1:
-                    theta = [function_inner(y, *M_inv(y)) / S_inner_Y for y in Y]
+                    theta = [abs(function_inner(y, *M_inv(y)) / function_inner(s, y))
+                             for s, y in zip(S, Y)]
+
                 else:
                     theta = functions_inner(Y, M_inv(*Y)) / S_inner_Y
 
