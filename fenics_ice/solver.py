@@ -24,9 +24,13 @@ from fenics_ice import inout, prior
 from tlm_adjoint.fenics import *
 from tlm_adjoint.hessian_optimization import *
 
+from tlm_adjoint.fenics.backend_code_generator_interface import matrix_multiply
+
 from .minimize_l_bfgs import minimize_l_bfgs
 from .minimize_l_bfgs import \
     line_search_rank0_scipy_scalar_search_wolfe1 as line_search_wolfe1
+from .minimize_l_bfgs import \
+    line_search_rank0_scipy_scalar_search_wolfe2 as line_search_wolfe2
 
 
 #from dolfin_adjoint import *
@@ -854,7 +858,7 @@ class ssa_solver:
             M_inv_action = []
             for i, x in enumerate(X):
                 this_action = function_new(x, name=f"M_inv_action_{i}")
-                M_solver.solve(this_action.vector(), x.vector().copy())
+                M_solver.solve(this_action.vector(), x.vector())
                 M_inv_action.append(this_action)
 
             return M_inv_action
@@ -887,7 +891,8 @@ class ssa_solver:
             B_0_action = []
             for i, x in enumerate(X):
                 this_action = function_new(x, name=f"B_0_action_{i}")
-                M_action = M_mat * x.vector()
+                # M_action = M_mat * x.vector()
+                M_action = matrix_multiply(M_mat, x.vector())
                 this_action.vector()[:] = M_action
                 this_action.vector().apply("insert")
                 B_0_action.append(this_action)
