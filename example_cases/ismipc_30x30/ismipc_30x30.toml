@@ -57,7 +57,7 @@ verbose = true
 
 [ice_dynamics]
 
-sliding_law = 'linear' #weertman, linear
+sliding_law = 'linear' #budd, linear
 
 [momsolve]
 
@@ -81,7 +81,7 @@ relative_tolerance = 1.0e-8
 convergence_criterion = "incremental"
 error_on_nonconvergence = true
 
-# #used for weertman sliding: (TODO -test)
+# #used for budd sliding: (TODO -test)
 # [momsolve.newton_params.newton_solver.lu_solver]
 # same_nonzero_pattern = false
 # symmetric = false

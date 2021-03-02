@@ -73,7 +73,7 @@ verbose = true
 
 [ice_dynamics]
 
-sliding_law = 'weertman' #weertman, linear
+sliding_law = 'budd' #budd, linear
 allow_flotation = true # true by default
 
 [momsolve]
@@ -106,7 +106,7 @@ error_on_nonconvergence = true
 divergence_limit = 1e20
 nonzero_initial_guess = false
 
-# #used for weertman sliding: (TODO -test)
+# #used for budd sliding: (TODO -test)
 # [momsolve.newton_params.newton_solver.lu_solver]
 # same_nonzero_pattern = false
 # symmetric = false
