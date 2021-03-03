@@ -138,7 +138,7 @@ class InversionCfg(ConfigPrinter):
 
     # Wolfe line search params
     c1: float = 1.0e-3
-    c2: float = 0.9
+    c2: float = 0.9999
 
     # How many vector pairs to keep in limited memory hessian approx
     m: int = 30
