@@ -129,13 +129,13 @@ qoi = 'h2' #or 'vaf'
 [testing]
 
 expected_init_alpha = 354.4076349907514
-expected_J_inv = 19582.562599358887
-expected_cntrl_norm = 634.3514028658254
-expected_delta_qoi = 9884495558.0
-expected_u_norm = 680071.0077729328
-expected_evals_sum = 4596040314.200354
-expected_evec0_norm = 14107521.128669698
-expected_cntrl_sigma_norm = 541996.4307126459
+expected_J_inv = 19571.0400571553
+expected_cntrl_norm = 634.6271559213047
+expected_delta_qoi = 10319539776.25
+expected_u_norm = 680243.8818239702
+expected_evals_sum = 4609672529.82716
+expected_evec0_norm = 14107234.914383156
+expected_cntrl_sigma_norm = 1033581.6620114205
 expected_cntrl_sigma_prior_norm = 17829318.24797431
-expected_Q_sigma = 2754703999.0500717
-expected_Q_sigma_prior = 2801003054462.915
+expected_Q_sigma = 12160106008.920103
+expected_Q_sigma_prior = 2814508864402.8193
