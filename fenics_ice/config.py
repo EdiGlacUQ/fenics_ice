@@ -157,6 +157,8 @@ class InversionCfg(ConfigPrinter):
     initial_guess_alpha: float = None
     initial_guess_alpha_method: str = "sia"
 
+    mass_precon: bool = True
+
     def __post_init__(self):
         """
         Check consistency of inversion parameters.

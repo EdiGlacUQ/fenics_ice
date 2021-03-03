@@ -911,6 +911,13 @@ class ssa_solver:
         # c1=1.0e-4, c2=0.9999,
         # H_0=H_M_0, M=B_M_0, M_inv=H_M_0)
 
+        if config.mass_precon:
+            H_0_fun = H_M_0
+            M_fun = B_M_0
+        else:
+            H_0_fun = None
+            M_fun = None
+
         cntrl_opt, result = minimize_l_bfgs(forward, cntrl, J0=J,
                                             m=config.m,
                                             s_atol=config.s_atol,
@@ -919,7 +926,7 @@ class ssa_solver:
                                             converged=l_bfgs_converged,
                                             line_search_rank0=line_search_wolfe1,
                                             line_search_rank0_kwargs={"xtol": 0.1},
-                                            H_0=H_M_0, M=B_M_0, M_inv=H_M_0,
+                                            H_0=H_0_fun, M=M_fun, M_inv=H_0_fun,
                                             block_theta_scale=config.dual,
                                             max_its=config.max_iter)
 
