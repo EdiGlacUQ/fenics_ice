@@ -281,7 +281,7 @@ class IceDynamicsCfg(ConfigPrinter):
 
     def __post_init__(self):
         """Check options valid"""
-        assert self.sliding_law in ['linear', 'weertman']
+        assert self.sliding_law in ['linear', 'budd']
         if self.min_thickness is not None:
             assert self.min_thickness >= 0.0
 
@@ -479,7 +479,7 @@ picard_defaults_linear = {'nonlinear_solver': 'newton',
                                             'error_on_nonconvergence': False}}
 
 
-newton_defaults_weertman =   {"nonlinear_solver":"newton",
+newton_defaults_budd =   {"nonlinear_solver":"newton",
                               "newton_solver":{"linear_solver":"umfpack",
                                                "maximum_iterations":25,
                                                "absolute_tolerance":1.0e-4,
@@ -490,7 +490,7 @@ newton_defaults_weertman =   {"nonlinear_solver":"newton",
                                                             "symmetric":False,
                                                             "reuse_factorization":False}}}
 
-picard_defaults_weertman = {"nonlinear_solver":"newton",
+picard_defaults_budd = {"nonlinear_solver":"newton",
                             "newton_solver":{"linear_solver":"umfpack",
                                              "maximum_iterations":200,
                                              "absolute_tolerance":1.0e-4,

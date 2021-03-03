@@ -328,7 +328,7 @@ class model:
         if sl == 'linear':
             alpha = sqrt(B2)
 
-        elif sl == 'weertman':
+        elif sl == 'budd':
             bed = self.bed
             H = self.H
             g = self.params.constants.g

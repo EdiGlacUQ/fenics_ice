@@ -449,7 +449,7 @@ class ssa_solver:
         if sl == 'linear':
             B2 = C
 
-        elif sl == 'weertman':
+        elif sl == 'budd':
             N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
             U_mag = sqrt(U[0]**2 + U[1]**2 + vel_rp**2)
             # Need to catch N <= 0.0 here, as it's raised to
