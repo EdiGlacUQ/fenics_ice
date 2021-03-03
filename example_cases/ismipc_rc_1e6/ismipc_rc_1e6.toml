@@ -58,7 +58,7 @@ delta_alpha = 7.071067e-06 #5.0e-6 #-2
 gamma_beta = 0.0
 delta_beta = 0.0
 
-ftol = 1e-8
+ftol = 1e-10
 #gtol = 1e-12
 verbose = true
 
@@ -136,13 +136,13 @@ qoi = 'h2' #or 'vaf'
 [testing]
 
 expected_init_alpha = 354.4076349907514
-expected_J_inv = 19861.329192531917
-expected_cntrl_norm = 634.0751241697104
-expected_delta_qoi = 9604888339.0
-expected_u_norm = 680143.6825281233
-expected_evals_sum = 462804.13371071604
-expected_evec0_norm = 141068.2239465313
-expected_cntrl_sigma_norm = 24719.094001042777
+expected_J_inv = 19861.328884175608
+expected_cntrl_norm = 634.0751689127185
+expected_delta_qoi = 9607611770.0
+expected_u_norm = 680142.4031866825
+expected_evals_sum = 462801.41118375206
+expected_evec0_norm = 141068.21969012622
+expected_cntrl_sigma_norm = 24718.710663422484
 expected_cntrl_sigma_prior_norm = 178293.1824797416
-expected_Q_sigma = 1043396360.2280002
-expected_Q_sigma_prior = 28127888769.588013
+expected_Q_sigma = 1043372979.869004
+expected_Q_sigma_prior = 28128129195.130688
