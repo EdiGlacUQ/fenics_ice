@@ -956,7 +956,8 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
             new_Fp_val = (new_Fp_val,)
         if alpha is None:
             if it == 0:
-                raise OptimizationException("L-BFGS: Line search failure")
+                raise OptimizationException("L-BFGS: Line search failure -- "
+                                            "consider changing l-bfgs 'delta_lbfgs' value")
             logger.warning("L-BFGS: Line search failure -- resetting "
                            "Hessian inverse approximation")
             H_approx.reset()
@@ -1017,7 +1018,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         del S_Y_removed
 
         it += 1
-        logger.debug(f"L-BFGS: Iteration {it:d}, "
+        logger.info(f"L-BFGS: Iteration {it:d}, "
                      f"F calls {F_calls[0]:d}, "
                      f"Fp calls {Fp_calls[0]:d}, "
                      f"functional value {new_F_val:.6e}")

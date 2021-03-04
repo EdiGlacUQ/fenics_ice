@@ -925,6 +925,8 @@ class ssa_solver:
                                             c1=config.c1, c2=config.c2,
                                             converged=l_bfgs_converged,
                                             line_search_rank0=line_search_wolfe1,
+                                            theta_scale=config.theta_scale,
+                                            delta=config.delta_lbfgs,
                                             line_search_rank0_kwargs={"xtol": 0.1},
                                             H_0=H_0_fun, M=M_fun, M_inv=H_0_fun,
                                             block_theta_scale=config.dual,
