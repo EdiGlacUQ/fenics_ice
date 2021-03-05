@@ -1006,11 +1006,11 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         if S_Y_added:
             if theta_scale:
                 if block_theta_scale and len(Y) > 1:
-                    theta = [abs(function_inner(y, *M_inv(y)) / function_inner(s, y))
+                    theta = [abs(function_inner(y, *H_0(y)) / function_inner(s, y))
                              for s, y in zip(S, Y)]
 
                 else:
-                    theta = functions_inner(Y, M_inv(*Y)) / S_inner_Y
+                    theta = functions_inner(Y, H_0(*Y)) / S_inner_Y
 
         else:
             logger.warning(f"L-BFGS: Iteration {it + 1:d}, small or negative "
