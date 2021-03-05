@@ -161,7 +161,8 @@ def main(config_file):
     bmelt = project(ufl.Max(fl_ex*(HF - HS)/dT, Constant(0.0)), slvr.M)
 
     #Output model variables in ParaView+Fenics friendly format
-    pickle.dump( mdl.param, open( os.path.join(outdir,'bmeltrate_param.p'), "wb" ) )
+    with open(os.path.join(outdir,'bmeltrate_param.p'), "wb" ) as bmeltfile:
+        pickle.dump( mdl.param, bmeltfile)
 
     # File(os.path.join(outdir,'mesh.xml')) << mdl.mesh
 
@@ -177,7 +178,7 @@ if __name__ == "__main__":
 #    parser.add_argument('-r', '--runlength', dest='run_length', type=float, help='Length of forward run in years (Default 10yrs)')
 #    parser.add_argument('-n', '--nsteps', dest='n_steps', type=int, help='Number of model timesteps (Default 240)')
 #    parser.add_argument('-y', '--yearinitial', dest='init_yr', type=int, help='The initial year to difference final model results with to calculate balance melt rates (Default 5yrs)')
-#    parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: weertman)')
+#    parser.add_argument('-q', '--slidinglaw', dest='sl', type=float,  help = 'Sliding Law (0: linear (default), 1: budd)')
 
 #    parser.add_argument('-o', '--outdir', dest='outdir', type=str, help='Directory to store output')
 #    parser.add_argument('-d', '--datadir', dest='dd', type=str, required=True, help='Directory with input data')

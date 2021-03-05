@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
+<Xdmf Version="3.0" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <Domain>
+    <Grid Name="mesh" GridType="Uniform">
+      <Topology NumberOfElements="4158" TopologyType="Triangle" NodesPerElement="3">
+        <DataItem Dimensions="4158 3" NumberType="UInt" Format="HDF">ice_stream_varres_ff.h5:/Mesh/mesh/topology</DataItem>
+      </Topology>
+      <Geometry GeometryType="XY">
+        <DataItem Dimensions="2167 2" Format="HDF">ice_stream_varres_ff.h5:/Mesh/mesh/geometry</DataItem>
+      </Geometry>
+    </Grid>
+    <Grid Name="m" GridType="Uniform">
+      <Topology NumberOfElements="174" TopologyType="PolyLine" NodesPerElement="2">
+        <DataItem Dimensions="174 2" NumberType="UInt" Format="HDF">ice_stream_varres_ff.h5:/MeshValueCollection/0/topology</DataItem>
+      </Topology>
+      <Geometry Reference="XML">/Xdmf/Domain/Grid/Geometry</Geometry>
+      <Attribute Name="m" AttributeType="Scalar" Center="Cell">
+        <DataItem Dimensions="174 1" Format="HDF">ice_stream_varres_ff.h5:/MeshValueCollection/0/values</DataItem>
+      </Attribute>
+    </Grid>
+  </Domain>
+</Xdmf>

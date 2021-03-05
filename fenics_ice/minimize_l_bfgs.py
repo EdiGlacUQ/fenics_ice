@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from tlm_adjoint.fenics import OptimizationException, clear_caches, \
+from tlm_adjoint import OptimizationException, clear_caches, \
     function_assign, function_axpy, function_comm, function_copy, \
     function_get_values, function_inner, function_is_cached, \
     function_is_checkpointed, function_is_static, function_linf_norm, \
-    function_new, function_set_values, info, is_function, set_manager
-from tlm_adjoint.fenics import manager as _manager
+    function_new, function_set_values, is_function, set_manager
+from tlm_adjoint import manager as _manager
 
 from collections import deque
+import logging
 import numpy as np
 
 __all__ = \
@@ -230,7 +231,7 @@ class H_approximation:
         alphas.reverse()
 
         R = functions_copy(H_0(*X))
-        if theta != 1.0:
+        if not np.all(theta == 1.0):
             if(isinstance(theta, float)):  # convert to list if single float
                 theta = [theta for i in range(len(R))]
             for r, th in zip(R, theta):
@@ -729,7 +730,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
            old_F_val=None,
            line_search_rank0=line_search_rank0_scipy_line_search,
            line_search_rank0_kwargs={},
-           comm=None, warnings=True, verbose=False, info=info):
+           comm=None):
     """
     Minimization using L-BFGS, following Algorithm 7.5 of
         J. Nocedal and S. J. Wright, Numerical optimization, second edition,
@@ -807,9 +808,6 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         line_search_rank0         See below.
         line_search_rank0_kwargs  See below.
         comm       MPI communicator
-        warnings   Whether to display warnings
-        verbose    Whether to enable increased verbosity
-        info       Print function
 
     line_search_rank0 is a callable implementing a one dimensional line search
     algorithm, yielding a value of alpha_k such that the Wolfe conditions are
@@ -848,6 +846,8 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         Fp_calls  Number of functional gradient evaluation calls
         H_approx  The inverse Hessian approximation
     """
+
+    logger = logging.getLogger("fenics_ice.l_bfgs")
 
     F_arg = F
     F_calls = [0]
@@ -922,20 +922,23 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
                                skip_atol=skip_atol, skip_rtol=skip_rtol,
                                M=M, M_inv=M_inv)
     if theta_scale and delta is not None:
-        theta = np.sqrt(old_Fp_norm_sq) / delta
+        if len(X) > 1:
+            oFpv = [abs(function_inner(oF, M_inv(oF)[0])) for oF in old_Fp_val]
+            theta = np.sqrt(oFpv) / delta
+        else:
+            theta = np.sqrt(old_Fp_norm_sq) / delta
+
     else:
         theta = 1.0
 
     it = 0
     reason = None
-    if verbose:
-        info(f"L-BFGS: Iteration {it:d}, "
-             f"F calls {F_calls[0]:d}, "
-             f"Fp calls {Fp_calls[0]:d}, "
-             f"functional value {old_F_val:.6e}")
+    logger.info(f"L-BFGS: Iteration {it:d}, "
+                 f"F calls {F_calls[0]:d}, "
+                 f"Fp calls {Fp_calls[0]:d}, "
+                 f"functional value {old_F_val:.6e}")
     while True:
-        if verbose:
-            info(f"  Gradient norm = {np.sqrt(old_Fp_norm_sq):.6e}")
+        logger.debug(f"  Gradient norm = {np.sqrt(old_Fp_norm_sq):.6e}")
         if g_atol is not None and old_Fp_norm_sq <= g_atol * g_atol:
             reason = "g_atol reached"
             break
@@ -953,13 +956,19 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
             new_Fp_val = (new_Fp_val,)
         if alpha is None:
             if it == 0:
-                raise OptimizationException("L-BFGS: Line search failure")
-            if warnings:
-                info("L-BFGS: Line search failure -- resetting Hessian "
-                     "inverse approximation")
+                raise OptimizationException("L-BFGS: Line search failure -- "
+                                            "consider changing l-bfgs 'delta_lbfgs' value")
+            logger.warning("L-BFGS: Line search failure -- resetting "
+                           "Hessian inverse approximation")
             H_approx.reset()
+
             if theta_scale and delta is not None:
-                theta = np.sqrt(old_Fp_norm_sq) / delta
+                if len(X) > 1:
+                    oFpv = [abs(function_inner(oF, M_inv(oF)[0])) for oF in old_Fp_val]
+                    theta = np.sqrt(oFpv) / delta
+                else:
+                    theta = np.sqrt(old_Fp_norm_sq) / delta
+
             else:
                 theta = 1.0
 
@@ -983,8 +992,8 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         if new_Fp_val_rank0 < c2 * old_Fp_val_rank0:
             raise OptimizationException("L-BFGS: Curvature condition not "
                                         "satisfied")
-        if warnings and abs(new_Fp_val_rank0) > c2 * abs(old_Fp_val_rank0):
-            info("L-BFGS: Strong curvature condition not satisfied")
+        if abs(new_Fp_val_rank0) > c2 * abs(old_Fp_val_rank0):
+            logger.warning("L-BFGS: Strong curvature condition not satisfied")
 
         S = functions_new(minus_P)
         functions_axpy(S, -alpha, minus_P)
@@ -997,25 +1006,25 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         if S_Y_added:
             if theta_scale:
                 if block_theta_scale and len(Y) > 1:
-                    theta = [function_inner(y, *M_inv(y)) / S_inner_Y for y in Y]
+                    theta = [abs(function_inner(y, *M_inv(y)) / function_inner(s, y))
+                             for s, y in zip(S, Y)]
+
                 else:
                     theta = functions_inner(Y, M_inv(*Y)) / S_inner_Y
 
-        elif warnings:
-            info(f"L-BFGS: Iteration {it + 1:d}, small or negative inner "
-                 f"product {S_inner_Y:.6e} -- update skipped")
+        else:
+            logger.warning(f"L-BFGS: Iteration {it + 1:d}, small or negative "
+                           f"inner product {S_inner_Y:.6e} -- update skipped")
         del S_Y_removed
 
         it += 1
-        if verbose:
-            info(f"L-BFGS: Iteration {it:d}, "
-                 f"F calls {F_calls[0]:d}, "
-                 f"Fp calls {Fp_calls[0]:d}, "
-                 f"functional value {new_F_val:.6e}")
+        logger.info(f"L-BFGS: Iteration {it:d}, "
+                     f"F calls {F_calls[0]:d}, "
+                     f"Fp calls {Fp_calls[0]:d}, "
+                     f"functional value {new_F_val:.6e}")
         if s_atol is not None:
             s_norm_sq = abs(functions_inner(S, M(*S)))
-            if verbose:
-                info(f"  Change norm = {np.sqrt(s_norm_sq):.6e}")
+            logger.debug(f"  Change norm = {np.sqrt(s_norm_sq):.6e}")
             if s_norm_sq <= s_atol * s_atol:
                 reason = "s_atol reached"
                 break

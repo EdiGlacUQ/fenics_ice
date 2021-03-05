@@ -117,6 +117,9 @@ class ConfigParser(object):
         try:
             fenics_params["tlm_adjoint"]["AssembleSolver"]["match_quadrature"] = True
             fenics_params["tlm_adjoint"]["EquationSolver"]["match_quadrature"] = True
+            # For debugging cache issues:
+            # fenics_params["tlm_adjoint"]["EquationSolver"]["cache_jacobian"] = True
+            # fenics_params["tlm_adjoint"]["EquationSolver"]["cache_rhs_assembly"] = True
         except RuntimeError:
             print("Warning: unable to set tlm_adjoint param 'match_quadrature'")
 
@@ -127,6 +130,7 @@ class InversionCfg(ConfigPrinter):
     """
 
     max_iter: int = 15
+    min_iter: int = 3
     ftol: float = None  # scipy default: 2.220446049250313e-09
     gtol: float = None  # scipy default: 1e-05
     s_atol: float = None
@@ -135,6 +139,8 @@ class InversionCfg(ConfigPrinter):
     # Wolfe line search params
     c1: float = 1.0e-3
     c2: float = 0.9
+    theta_scale: bool = True
+    delta_lbfgs: float = 1.0
 
     # How many vector pairs to keep in limited memory hessian approx
     m: int = 30
@@ -152,6 +158,8 @@ class InversionCfg(ConfigPrinter):
 
     initial_guess_alpha: float = None
     initial_guess_alpha_method: str = "sia"
+
+    mass_precon: bool = True
 
     def __post_init__(self):
         """
@@ -277,7 +285,7 @@ class IceDynamicsCfg(ConfigPrinter):
 
     def __post_init__(self):
         """Check options valid"""
-        assert self.sliding_law in ['linear', 'weertman']
+        assert self.sliding_law in ['linear', 'budd']
         if self.min_thickness is not None:
             assert self.min_thickness >= 0.0
 
@@ -475,7 +483,7 @@ picard_defaults_linear = {'nonlinear_solver': 'newton',
                                             'error_on_nonconvergence': False}}
 
 
-newton_defaults_weertman =   {"nonlinear_solver":"newton",
+newton_defaults_budd =   {"nonlinear_solver":"newton",
                               "newton_solver":{"linear_solver":"umfpack",
                                                "maximum_iterations":25,
                                                "absolute_tolerance":1.0e-4,
@@ -486,7 +494,7 @@ newton_defaults_weertman =   {"nonlinear_solver":"newton",
                                                             "symmetric":False,
                                                             "reuse_factorization":False}}}
 
-picard_defaults_weertman = {"nonlinear_solver":"newton",
+picard_defaults_budd = {"nonlinear_solver":"newton",
                             "newton_solver":{"linear_solver":"umfpack",
                                              "maximum_iterations":200,
                                              "absolute_tolerance":1.0e-4,

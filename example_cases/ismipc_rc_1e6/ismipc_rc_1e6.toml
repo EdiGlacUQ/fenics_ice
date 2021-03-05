@@ -62,9 +62,11 @@ ftol = 1e-4
 #gtol = 1e-12
 verbose = true
 
+delta_lbfgs = 1.0e6
+
 [ice_dynamics]
 
-sliding_law = 'linear' #weertman, linear
+sliding_law = 'linear' #budd, linear
 
 [momsolve]
 
@@ -88,7 +90,7 @@ relative_tolerance = 1.0e-11
 convergence_criterion = "incremental"
 error_on_nonconvergence = true
 
-# #used for weertman sliding: (TODO -test)
+# #used for budd sliding: (TODO -test)
 # [momsolve.newton_params.newton_solver.lu_solver]
 # same_nonzero_pattern = false
 # symmetric = false
@@ -136,13 +138,13 @@ qoi = 'h2' #or 'vaf'
 [testing]
 
 expected_init_alpha = 354.4076349907514
-expected_J_inv = 19866.826358340626
-expected_cntrl_norm = 634.0045806997974
-expected_delta_qoi = 9164373486.75
-expected_u_norm = 680213.9816448991
-expected_evals_sum = 463357.48204965633
-expected_evec0_norm = 141066.92361040495
-expected_cntrl_sigma_norm = 24746.6600546703
+expected_J_inv = 19865.577792014923
+expected_cntrl_norm = 634.1169296380102
+expected_delta_qoi = 9203293076.5
+expected_u_norm = 679971.0552142654
+expected_evals_sum = 462833.45984393836
+expected_evec0_norm = 141066.61428287256
+expected_cntrl_sigma_norm = 24643.123339645284
 expected_cntrl_sigma_prior_norm = 178293.1824797416
-expected_Q_sigma = 1047043886.7416687
-expected_Q_sigma_prior = 28118069184.553875
+expected_Q_sigma = 1041960950.4735832
+expected_Q_sigma_prior = 28116367708.150486

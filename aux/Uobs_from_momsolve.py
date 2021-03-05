@@ -102,35 +102,6 @@ def main(dd, infile, outfile, noise_sdev, L, seed=0, ls=None):
     else:
         U_pts = U
 
-    if ls is not None:
-
-        # Get the mesh coordinates (only to set bounds)
-        mc = mesh.coordinates()
-        xmin = mc[:, 0].min()
-        xmax = mc[:, 0].max()
-
-        ymin = mc[:, 1].min()
-        ymax = mc[:, 1].max()
-
-        # Generate ls-spaced points
-        xc = np.arange(xmin + ls/2.0, xmax, ls)
-        yc = np.arange(ymin + ls/2.0, ymax, ls)
-
-        # Pretty hacky - turn these into a rectangular mesh
-        # because it makes periodic interpolation easier
-        pts_mesh = RectangleMesh(Point(xc[0], yc[0]),
-                                 Point(xc[-1], yc[-1]),
-                                 len(xc)-1, len(yc)-1)
-        pts_space = VectorFunctionSpace(pts_mesh,
-                                        'Lagrange',
-                                        degree=1,
-                                        dim=2)
-
-        U_pts = project(U, pts_space)
-
-    else:
-        U_pts = U
-
     # How many points?
     ndofs = int(U_pts.vector()[:].shape[0] / 2)
 

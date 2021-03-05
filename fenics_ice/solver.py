@@ -24,9 +24,13 @@ from fenics_ice import inout, prior
 from tlm_adjoint.fenics import *
 from tlm_adjoint.hessian_optimization import *
 
+from tlm_adjoint.fenics.backend_code_generator_interface import matrix_multiply
+
 from .minimize_l_bfgs import minimize_l_bfgs
 from .minimize_l_bfgs import \
     line_search_rank0_scipy_scalar_search_wolfe1 as line_search_wolfe1
+from .minimize_l_bfgs import \
+    line_search_rank0_scipy_scalar_search_wolfe2 as line_search_wolfe2
 
 
 #from dolfin_adjoint import *
@@ -445,7 +449,7 @@ class ssa_solver:
         if sl == 'linear':
             B2 = C
 
-        elif sl == 'weertman':
+        elif sl == 'budd':
             N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
             U_mag = sqrt(U[0]**2 + U[1]**2 + vel_rp**2)
             # Need to catch N <= 0.0 here, as it's raised to
@@ -670,7 +674,6 @@ class ssa_solver:
             xdmf_hts.close()
             xdmf_uts.close()
 
-        manager_info()
         return Q_is if qoi_func is not None else None
 
     # def forward_ts_alpha(self,aa):
@@ -747,27 +750,6 @@ class ssa_solver:
         if(config.verbose):
             inv_vals = []
 
-        # nparam = len(cntrl)
-        # Qp_test, Qp_trial = TestFunction(self.Qp), TrialFunction(self.Qp)
-
-        # forward = self.forward_dual_temp
-        # TODO - need to construct dual prior here for preconditioning
-
-        # cntrl = cntrl_input[j % nparam]
-        # if cntrl.name() == 'alpha':
-        #     cc = self.alpha
-
-        #     forward = self.forward_alpha
-
-        #     L_mat = assemble((self.delta_alpha * Qp_trial * Qp_test
-        #                       + self.gamma_alpha * inner(grad(Qp_trial), grad(Qp_test))) * self.dIce)
-        # else:
-        #     cc = self.beta
-        #     forward = self.forward_beta
-
-        #     L_mat = assemble((self.delta_beta * Qp_trial * Qp_test
-        #                       + self.gamma_beta * inner(grad(Qp_trial), grad(Qp_test))) * self.dIce)
-
         reset_manager()
         clear_caches()
 
@@ -798,8 +780,10 @@ class ssa_solver:
                              new_cc, new_dJ, cc_change, dJ_change):
             # Convergence tests and defaults as described in SciPy 1.5.2
             # scipy.optimize._minimize._minimize_lbfgsb documentation
+
             converged = False
-            if(config.verbose): info(f"Inversion inner iteration: {it}")
+            if(config.verbose):
+                info(f"Inversion inner iteration: {it}")
 
             # Compute functional convergence
             f_criterion = ((old_J_val - new_J_val)
@@ -830,16 +814,21 @@ class ssa_solver:
             if(config.verbose):
                 inv_vals.append((new_J_val, f_criterion, *g_criterion))
 
+            if it < config.min_iter:
+                converged = False
+
             return converged
 
         # L_solver = KrylovSolver(L_mat.copy(), "cg", "sor")
         # L_solver.parameters.update({"relative_tolerance": 1.0e-14,
         #                             "absolute_tolerance": 1.0e-32})
 
-        # M_mat = assemble(Qp_trial * Qp_test * self.dIce)
-        # M_solver = KrylovSolver(M_mat.copy(), "cg", "sor")
-        # M_solver.parameters.update({"relative_tolerance": 1.0e-14,
-        #                             "absolute_tolerance": 1.0e-32})
+        Qp_test, Qp_trial = TestFunction(self.Qp), TrialFunction(self.Qp)
+
+        M_mat = assemble(inner(Qp_trial, Qp_test) * self.dIce)
+        M_solver = KrylovSolver(M_mat.copy(), "cg", "sor")
+        M_solver.parameters.update({"relative_tolerance": 1.0e-14,
+                                    "absolute_tolerance": 1.0e-32})
 
         # def B_0(x):
         #     """
@@ -858,15 +847,21 @@ class ssa_solver:
 
         #     return B_0_action
 
-        # def H_M_0(x):
-        #     """
-        #     Initial guess for inverse hessian action (mass matrix prec)
-        #     M^-1
-        #     """
-        #     M_inv_action = function_new(x, name="M_inv_action")
-        #     M_solver.solve(M_inv_action.vector(), x.vector().copy())
+        # TODO - refactor here - these should go in an 'inversion' module
+        # or in minimize_l_bfgs...
+        def H_M_0(*X):
+            """
+            Initial guess for inverse hessian action (mass matrix prec)
+            M^-1
+            """
 
-        #     return M_inv_action
+            M_inv_action = []
+            for i, x in enumerate(X):
+                this_action = function_new(x, name=f"M_inv_action_{i}")
+                M_solver.solve(this_action.vector(), x.vector())
+                M_inv_action.append(this_action)
+
+            return M_inv_action
 
         # def H_0(x):
         #     """
@@ -887,18 +882,22 @@ class ssa_solver:
 
         #     return H_0_action
 
-        # def B_M_0(x):
-        #     """
-        #     Initial guess for hessian action
+        def B_M_0(*X):
+            """
+            Initial guess for hessian action
 
-        #     M
-        #     """
-        #     B_0_action = function_new(x, name="B_0_action")
-        #     M_action = M_mat * x.vector()
-        #     B_0_action.vector()[:] = M_action
-        #     B_0_action.vector().apply("insert")
+            M
+            """
+            B_0_action = []
+            for i, x in enumerate(X):
+                this_action = function_new(x, name=f"B_0_action_{i}")
+                # M_action = M_mat * x.vector()
+                M_action = matrix_multiply(M_mat, x.vector())
+                this_action.vector()[:] = M_action
+                this_action.vector().apply("insert")
+                B_0_action.append(this_action)
 
-        #     return B_0_action
+            return B_0_action
 
         # L-BFGS-B line search configuration. For parameter values see
         # SciPy
@@ -912,16 +911,24 @@ class ssa_solver:
         # c1=1.0e-4, c2=0.9999,
         # H_0=H_M_0, M=B_M_0, M_inv=H_M_0)
 
+        if config.mass_precon:
+            H_0_fun = H_M_0
+            M_fun = B_M_0
+        else:
+            H_0_fun = None
+            M_fun = None
+
         cntrl_opt, result = minimize_l_bfgs(forward, cntrl, J0=J,
                                             m=config.m,
                                             s_atol=config.s_atol,
                                             g_atol=config.g_atol,
-                                            verbose=config.verbose,
-                                            c1=1.0e-3, c2=0.9,
+                                            c1=config.c1, c2=config.c2,
                                             converged=l_bfgs_converged,
                                             line_search_rank0=line_search_wolfe1,
+                                            theta_scale=config.theta_scale,
+                                            delta=config.delta_lbfgs,
                                             line_search_rank0_kwargs={"xtol": 0.1},
-                                            # H_0=H_0, M=B_0, M_inv=H_0,
+                                            H_0=H_0_fun, M=M_fun, M_inv=H_0_fun,
                                             block_theta_scale=config.dual,
                                             max_its=config.max_iter)
 
@@ -1161,11 +1168,27 @@ class ssa_solver:
         # Regularization
         Prior = self.model.get_prior()
         lap = Prior(self, self.Qp)
-        # lap = prior.Laplacian_flt(self, self.Qp)
+
         J_reg_alpha, J_reg_beta = lap.J_reg(alpha=alpha, beta=beta, beta_diff=betadiff)
 
         if do_alpha: J.addto(J_reg_alpha)
         if do_beta: J.addto(J_reg_beta)
+
+        # Get dict of regularisation components for e.g. L-curve analysis
+        J_reg_terms = lap.J_reg_terms(alpha=alpha, beta=beta, beta_diff=betadiff)
+
+        # for block in manager()._blocks + [manager()._block]:
+        #     for eq in block:
+        #         if isinstance(eq, EquationSolver):
+        #             solver_parameters = eq._solver_parameters
+        #             linear_solver_parameters = eq._linear_solver_parameters
+        #             adjoint_solver_parameters = eq._adjoint_solver_parameters
+        #             tlm_solver_parameters = eq._tlm_solver_parameters
+        #             print(f"Eq: {eq}")
+        #             print(f"Solver parameters: {solver_parameters}")
+        #             print(f"linear parameters: {linear_solver_parameters}")
+        #             print(f"adjoint parameters: {adjoint_solver_parameters}")
+        #             print(f"tlm parameters: {tlm_solver_parameters}")
 
         if verbose:
             J_ls_u = new_real_function(name="J_ls_term_x")
@@ -1176,20 +1199,28 @@ class ssa_solver:
             # Print out results
             J1 = J.value()
             J2 = J_ls_u.values()[0] + J_ls_v.values()[0]
-            J3 = assemble(J_reg_alpha) if do_alpha else 0.0
-            J4 = assemble(J_reg_beta) if do_beta else 0.0
 
-            J_fields = {"delta_alpha": self.delta_alpha,
-                      "gamma_alpha": self.gamma_alpha,
-                      "delta_beta": self.delta_beta,
-                      "delta_beta_gnd": self.delta_beta_gnd,
-                      "gamma_beta": self.gamma_beta,
-                      "J": J1,
-                      "J_ls": J2,
-                      "J_reg": sum([J3, J4]),
-                      "J_reg_alpha": J3,
-                      "J_reg_beta": J4,
-                      'J_reg/J_cst': ((J3+J4)/(J2))}
+            # Assemble & write out terms of regularisation term
+            J3 = 0.0
+            J_fields = {}
+            for term in J_reg_terms:
+                assembled = assemble(J_reg_terms[term])
+                J3 += assembled
+                J_fields[f"J_{term}"] = assembled
+
+            # Add params & full J terms to dict
+            J_fields = {**J_fields, **{"delta_alpha": self.delta_alpha,
+                                       "gamma_alpha": self.gamma_alpha,
+                                       "delta_beta": self.delta_beta,
+                                       "delta_beta_gnd": self.delta_beta_gnd,
+                                       "gamma_beta": self.gamma_beta,
+                                       "J": J1,
+                                       "J_ls": J2,
+                                       "J_reg": J3}}
+
+            # Additional separate regularisation terms
+            for term in J_reg_terms:
+                J_fields[f"J_{term}"] = assemble(J_reg_terms[term])
 
             info('Inversion Details')
             for key in J_fields:
