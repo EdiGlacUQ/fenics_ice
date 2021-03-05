@@ -55,6 +55,8 @@ ftol = 1e-4
 #gtol = 1e-12
 verbose = true
 
+delta_lbfgs = 1.0e3
+
 [ice_dynamics]
 
 sliding_law = 'linear' #budd, linear

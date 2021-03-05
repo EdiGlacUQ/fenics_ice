@@ -68,8 +68,9 @@ m = 20
 #  s_atol  - step absolute tolerance
 #  g_atol  - gradient absolute tolerance
 #  c1, c2  - wolfe linesearch params
-c1 = 1.0e-4
-c2 = 0.9999
+c1 = 1.0e-3
+c2 = 0.9
+delta_lbfgs = 1.0e3
 
 verbose = true
 
@@ -148,14 +149,14 @@ qoi = 'vaf'
 [testing]
 
 expected_init_alpha = 252.96603585543977
-expected_J_inv = 5641.530292596027
-expected_cntrl_norm = 130.8172947348776
-expected_delta_qoi = -71627844.67677236
-expected_u_norm = 1623463.8103848025
-expected_evals_sum = 760820.3521201984
-expected_evec0_norm = 199282.25931771257
-expected_cntrl_sigma_norm = 11852.113980507165
+expected_J_inv = 5401.636277026398
+expected_cntrl_norm = 130.5493001020352
+expected_delta_qoi = -71527851.08600831
+expected_u_norm = 1623086.580178228
+expected_evals_sum = 789787.7450944772
+expected_evec0_norm = 199339.769987309
+expected_cntrl_sigma_norm = 10833.512133263514
 expected_cntrl_sigma_prior_norm = 212760.36615831222
-expected_Q_sigma = 72742.83158449567
-expected_Q_sigma_prior = 17265279.357059754
+expected_Q_sigma = 67488.91852575667
+expected_Q_sigma_prior = 12832991.190309286
 

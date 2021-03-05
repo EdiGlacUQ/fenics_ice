@@ -55,6 +55,8 @@ ftol = 1e-4
 #gtol = 1e-12
 verbose = true
 
+delta_lbfgs = 1.0e6
+
 [ice_dynamics]
 
 sliding_law = 'linear' #budd, linear
@@ -129,13 +131,13 @@ qoi = 'h2' #or 'vaf'
 [testing]
 
 expected_init_alpha = 354.4076349907514
-expected_J_inv = 19571.0400571553
-expected_cntrl_norm = 634.6271559213047
-expected_delta_qoi = 10319539776.25
-expected_u_norm = 680243.8818239702
-expected_evals_sum = 4609672529.82716
-expected_evec0_norm = 14107234.914383156
-expected_cntrl_sigma_norm = 1033581.6620114205
+expected_J_inv = 19477.789463270794
+expected_cntrl_norm = 640.2368810131373
+expected_delta_qoi = 7882536534.5
+expected_u_norm = 679232.4239678511
+expected_evals_sum = 4409387763.616102
+expected_evec0_norm = 14110629.224357527
+expected_cntrl_sigma_norm = 453617.0614604275
 expected_cntrl_sigma_prior_norm = 17829318.24797431
-expected_Q_sigma = 12160106008.920103
-expected_Q_sigma_prior = 2814508864402.8193
+expected_Q_sigma = 2653415233.0661216
+expected_Q_sigma_prior = 2742169084034.437
