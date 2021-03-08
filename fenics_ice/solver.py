@@ -772,16 +772,18 @@ class ssa_solver:
          v_mismatch = ((v_pts-v_obs_pts)/v_std_pts)
          NormSqSolver(project(v_mismatch, obs_space), J_ls_term_v).solve()
         else:
-#         u_mismatch = Function(obs_space, name='u_mismatch')
+         u_mismatch = Function(obs_space, name='u_mismatch')
 #         u_mismatch.vector()[:] = u_pts.vector()[:]-u_obs_pts.vector()[:]
-         u_mismatch = project(u_pts-u_obs_pts,obs_space)
+         u_mis = u_pts-u_obs_pts
+         LocalProjectionSolver(u_mis,u_mismatch).solve()
          tmp_fcn_upts = Function(obs_space, name='tmp_fcn_upts')
          NumPyMatrixActionSolver(self.GammaInvObsU, u_mismatch, tmp_fcn_upts).solve()
          InnerProductSolver(u_mismatch, tmp_fcn_upts, J_ls_term_u).solve()
 
-#         v_mismatch = Function(obs_space, name='v_mismatch')
+         v_mismatch = Function(obs_space, name='v_mismatch')
 #         v_mismatch.vector()[:] = v_pts.vector()[:]-v_obs_pts.vector()[:]
-         v_mismatch = project(v_pts-v_obs_pts,obs_space)
+         v_mis = v_pts-v_obs_pts
+         LocalProjectionSolver(v_mis,v_mismatch).solve()
          tmp_fcn_vpts = Function(obs_space, name='tmp_fcn_vpts')
          NumPyMatrixActionSolver(self.GammaInvObsV, v_mismatch, tmp_fcn_vpts).solve()
          InnerProductSolver(v_mismatch, tmp_fcn_vpts, J_ls_term_v).solve()

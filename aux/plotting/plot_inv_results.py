@@ -39,7 +39,7 @@ sns.set()
 # Parameters:
 
 # Simulation Directory
-run_name = 'ismipc_rc_1e6'
+run_name = 'ismipc_1000_corr'
 dd = Path(os.environ['FENICS_ICE_BASE_DIR']) / 'example_cases' / run_name
 
 # Output Directory
@@ -167,5 +167,5 @@ cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal")
 cbar.ax.set_xlabel(r'$U-U_{obs}$ (m $yr^{-1}$)')
 
 plt.tight_layout(2.0)
-plt.savefig(os.path.join(outdir, 'inv_results.pdf'))
+#plt.savefig(os.path.join(outdir, 'inv_results.pdf'))
 plt.show()

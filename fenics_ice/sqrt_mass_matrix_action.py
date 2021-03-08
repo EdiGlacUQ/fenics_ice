@@ -5,6 +5,7 @@ from fenics import *
 
 import numpy as np
 import scipy.special as special
+from IPython import embed
 
 __all__ = \
     [
@@ -63,6 +64,7 @@ def A_root_action(A, x, tol, beta=1.0, max_terms=1000):
 
     y = x.copy()
     z = x.copy()
+
 
     j = 1
     while True:

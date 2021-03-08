@@ -28,6 +28,7 @@ from numpy.random import randn
 import logging
 from IPython import embed
 from scipy.linalg import inv as Invert
+from scipy.linalg import norm as matNorm
 
 log = logging.getLogger("fenics_ice")
 
@@ -77,6 +78,8 @@ class model:
         self.def_lat_dirichletbc()
         self.GammaInvObsU = None
         self.GammaInvObsV = None
+        self.McovU = None
+        self.McovV = None
 
         if init_fields:
             self.init_fields_from_data()
@@ -262,7 +265,8 @@ class model:
         xy = self.uv_obs_pts
         npts = np.size(xy,0)
         dist_decay = self.params.obs.pts_autocorr
-        Mcov = np.zeros((npts,npts))
+        self.McovU = np.zeros((npts,npts))
+        self.McovV = np.zeros((npts,npts))
         xpt1 = xy[:,0]
         ypt1 = xy[:,1]
         L = 40.e3
@@ -284,10 +288,13 @@ class model:
           dist_func = np.sqrt(distx**2+disty**2)
 
           row = self.u_std[i] * self.u_std * np.exp(-dist_func/dist_decay)
-          Mcov[i,:] = row
+          self.McovU[i,:] = row
+
+#         mnorm = matNorm(self.McovU,2)
+#         self.McovU = self.McovU / mnorm
     
          t1 = time.perf_counter()
-         self.GammaInvObsU = Invert(Mcov)
+         self.GammaInvObsU = Invert(self.McovU)
          self.GammaInvObsU = .5*(self.GammaInvObsU + self.GammaInvObsU.T)
          t2 = time.perf_counter()
          print('U cov matrix invert, time= ' + str(t2-t1) + ' sec')
@@ -307,10 +314,13 @@ class model:
           dist_func = np.sqrt(distx**2+disty**2)
 
           row = self.v_std[i] * self.v_std * np.exp(-dist_func/dist_decay)
-          Mcov[i,:] = row
+          self.McovV[i,:] = row
+
+#         mnorm = matNorm(self.McovV,2)
+#         self.McovV = self.McovV / mnorm
 
          t1 = time.perf_counter()
-         self.GammaInvObsV = Invert(Mcov)
+         self.GammaInvObsV = Invert(self.McovV)
          self.GammaInvObsV = .5*(self.GammaInvObsV + self.GammaInvObsV.T)
          t2 = time.perf_counter()
          print('V cov matrix invert, time= ' + str(t2-t1) + ' sec')

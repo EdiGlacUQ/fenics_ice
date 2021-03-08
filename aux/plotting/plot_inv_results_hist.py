@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import seaborn as sns
 import os
+import math
 from fenics import *
 from tlm_adjoint_fenics import *
 from fenics_ice import model, config, inout
@@ -41,7 +42,7 @@ sns.set()
 # Parameters:
 
 # Simulation Directory
-run_name = 'ismipc_rc_1e6'
+run_name = 'ismipc_4000_corr'
 if (len(sys.argv)>1):
     run_name = sys.argv[1]
 
@@ -105,12 +106,14 @@ alpha_file = str(next(results_dir.glob("*alpha.xml")))
 uv_obs_file = str(next(results_dir.glob("*uv_obs.xml")))
 alpha_sigma_file = str(next(results_dir.glob("*alpha_sigma.xml")))
 dQ_file = str(next(results_dir.glob("*dQ_ts.xml")))
+thick_file = str(next(results_dir.glob("*H_fwd.xml")))
 
 U = Function(V, U_file)
 alpha = Function(Qp, alpha_file)
 uv_obs = Function(M, uv_obs_file)
 alpha_sigma = Function(Qp, alpha_sigma_file)
 dQ = Function(Qp,dQ_file)
+H_fwd = Function(Q,thick_file)
 # B2 = Function(M, os.path.join(dd,'B2.xml'))
 
 u, v = U.split()
@@ -167,27 +170,31 @@ ax.set_aspect('equal')
 v    = B2.compute_vertex_values(mesh)
 minv = np.min(v)
 maxv = np.max(v)
-levels = np.linspace(minv,maxv,numlev)
-ticks = np.linspace(minv,maxv,3)
+levels = np.linspace(0,2000,numlev)
+ticks = np.linspace(0,2000,3)
 ax.tick_params(**tick_options)
 ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
     fontsize=13, fontweight='bold', va='top')
-c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap))
+c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap),extend='both')
 cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal",shrink=.75)
-cbar.ax.set_xlabel(r'${\beta^2}$ (Pa $m^{-1}$ yr)')
+cbar.ax.set_xlabel(r'${C^2}$ (Pa $m^{-1}$ yr)')
 
 ax  = fig.add_subplot(232)
 ax.set_aspect('equal')
 v    = alpha_sigma.compute_vertex_values(mesh)
 minv = np.min(v)
 maxv = np.max(v)
+minv = 0
+maxv = math.ceil(np.max(v)/10.)*10.
+#levels = np.linspace(0,50,numlev)
+#ticks = np.linspace(0,50,3)
 levels = np.linspace(minv,maxv,numlev)
 ticks = np.linspace(minv,maxv,3)
 ax.tick_params(**tick_options)
 ax.text(0.05, 0.95, 'b', transform=ax.transAxes,
     fontsize=13, fontweight='bold', va='top')
 c = ax.tricontourf(x, y, v, levels = levels, cmap=plt.get_cmap(cmap))
-cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal", format=ticker.FormatStrFormatter('%1.1e'),shrink=.75)
+cbar = plt.colorbar(c, ticks=ticks, pad=0.15, orientation="horizontal", format=ticker.FormatStrFormatter('%1.1e'),shrink=.75)
 cbar.ax.xaxis.set_major_locator(ticker.LinearLocator(3))
 
 cbar.ax.set_xlabel(r'$\sigma$ ($Pa^{0.5}$ $m^{-0.5}$ $yr^{0.5}$)')
@@ -207,6 +214,8 @@ cbar.ax.set_xlabel(r'$U$ (m $yr^{-1}$)')
 
 ax  = fig.add_subplot(234)
 ax.hist(tot_err.vector()[:])
+ax.text(0.05, 0.95, 'd', transform=ax.transAxes,
+    fontsize=13, fontweight='bold', va='top')
 plt.xlabel('velocity error (m yr$^{-1}$)')
 plt.ylabel('count')
 #v   = uv_obs.compute_vertex_values(mesh)
@@ -236,6 +245,7 @@ ax  = fig.add_subplot(235)
 ax.set_aspect('equal')
 v   = dQ.compute_vertex_values(mesh)
 max_diff = np.rint(np.max(np.abs(v)))
+max_diff=5.0e8
 levels = np.linspace(-max_diff,max_diff,numlev)
 ticks = np.linspace(-max_diff,max_diff,3)
 ax.tick_params(**tick_options)
@@ -243,7 +253,22 @@ ax.text(0.05, 0.95, 'e', transform=ax.transAxes,
     fontsize=13, fontweight='bold', va='top')
 c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
 cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal",shrink=.75)
-cbar.ax.set_xlabel(r'$\partial Q/\partial \beta$')
+cbar.ax.set_xlabel(r'$\partial Q/\partial C$ ($m^4 Pa^{-1} m a^{-1}$)',size=10)
+
+ax  = fig.add_subplot(236)
+ax.set_aspect('equal')
+v   = H_fwd.compute_vertex_values(mesh)
+max_diff = np.rint(np.max(np.abs(1000.-v)))
+max_diff=10.
+levels = np.linspace(1000.-max_diff,1000.+max_diff,numlev)
+ticks = np.linspace(1000.-max_diff,1000.+max_diff,3)
+ax.tick_params(**tick_options)
+ax.text(0.05, 0.95, 'f', transform=ax.transAxes,
+    fontsize=13, fontweight='bold', va='top')
+c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div),extend='both')
+cbar = plt.colorbar(c, ticks=ticks, pad=0.05, orientation="horizontal",shrink=.75)
+cbar.ax.set_xlabel(r'$H(T=30)$ $(m)$')
 
 plt.tight_layout(2.0)
 plt.savefig(os.path.join(outdir, run_name + '_inv_results.png'))
+

@@ -14,8 +14,8 @@ cp output_momsolve/ismipc_U_obs.h5 input/
 #Run each phase of the model in turn
 RUN_DIR=$FENICS_ICE_BASE_DIR/runs/
 python $RUN_DIR/run_inv.py ismipc_1000.toml
-#python $RUN_DIR/run_forward.py ismipc_1000.toml
-#python $RUN_DIR/run_eigendec.py ismipc_1000.toml
-#python $RUN_DIR/run_errorprop.py ismipc_1000.toml
-#python $RUN_DIR/run_invsigma.py ismipc_1000.toml
-#python $RUN_DIR/run_sample_post.py ismipc_1000.toml
+python $RUN_DIR/run_forward.py ismipc_1000.toml
+python $RUN_DIR/run_eigendec.py ismipc_1000.toml
+python $RUN_DIR/run_errorprop.py ismipc_1000.toml
+python $RUN_DIR/run_invsigma.py ismipc_1000.toml
+python $RUN_DIR/run_sample_post.py ismipc_1000.toml

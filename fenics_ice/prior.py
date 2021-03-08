@@ -18,6 +18,7 @@
 from dolfin import *
 from tlm_adjoint import *
 from .decorators import count_calls, timer
+from IPython import embed
 from fenics_ice.sqrt_mass_matrix_action import A_root_action
 
 class laplacian(object):

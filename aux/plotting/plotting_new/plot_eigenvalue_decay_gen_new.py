@@ -54,6 +54,8 @@ for i, rf in enumerate(run_folders):
     lpos = np.argwhere(lam > 0)
     lneg = np.argwhere(lam < 0)
     lind = np.arange(0,len(lam))
+#    plt.semilogy(lind[lpos], lam[lpos], '.', alpha = 0.5, mew=0, label =labels[i])
+#    plt.semilogy(lind[lneg], np.abs(lam[lneg]), '.k', alpha = 0.12, mew=0,)
     plt.semilogy(lind[lpos], 1./(1+lam[lpos]), '.', alpha = 0.5, mew=0, label =labels[i])
     plt.semilogy(lind[lneg], 1./(1+np.abs(lam[lneg])), '.k', alpha = 0.12, mew=0,)
 
@@ -62,3 +64,4 @@ plt.legend()
 plt.xlabel('Eigenvalue index')
 plt.ylabel('Uncertainty reduction')
 plt.savefig(os.path.join(outdir,figname), bbox_inches="tight")
+#plt.show()

@@ -18,4 +18,4 @@ python $RUN_DIR/run_forward.py ismipc_8000.toml
 python $RUN_DIR/run_eigendec.py ismipc_8000.toml
 python $RUN_DIR/run_errorprop.py ismipc_8000.toml
 python $RUN_DIR/run_invsigma.py ismipc_8000.toml
-#python $RUN_DIR/run_sample_post.py ismipc_8000.toml
+python $RUN_DIR/run_sample_post.py ismipc_8000.toml

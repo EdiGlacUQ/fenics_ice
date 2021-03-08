@@ -57,7 +57,8 @@ for i, rf in enumerate(run_folders):
 
     sigma_interp = np.interp(dQ_t, sigma_t, sigma_vals)
     sigma_prior_interp = np.interp(dQ_t, sigma_t, sigma_prior_vals)
-    
+   
+
     QoIs_MC = np.load(result_dir/"sampling_results.npy")
     QoIs_MC = QoIs_MC[:,QoIs_MC[-1,:]>0]
     print( str(np.shape(QoIs_MC)) + ' values OK')
@@ -74,19 +75,24 @@ for i, rf in enumerate(run_folders):
     upperlim = max(upperlim,np.max(s))
     upperlim = max(upperlim,np.max(sm))
 
+    if(i==0):
+     p1 = axarr[0].plot(x, y, 'b',label='$\gamma$=50')
+     p2 = axarr[0].fill_between(x, y-s, y+s, facecolor='b', alpha = .6)
+    else:
+     p3 = axarr[0].plot(x, y, 'g',label='$\gamma$=1')
+     p4 = axarr[0].fill_between(x, y-s, y+s, facecolor='g', alpha = .6)
 
-    axarr[0].plot(x, y, 'k' if i == 0 else 'k:')
 #    axarr[0].fill_between(x, y-sp, y+sp, facecolor='b')
-    axarr[0].fill_between(x, y-s, y+s, facecolor='b' if i == 0 else 'g', alpha = .6 if i==0 else .6)
 #    axarr[0].fill_between(x, y-sm, y+sm, facecolor='r' if i == 0 else 'y', alpha = .5 if i==0 else .6)
 
-    axarr[1].semilogy(x, sp, 'b' if i == 0 else 'g')
-    axarr[1].semilogy(x, s, 'b:' if i == 0 else 'g:')
+    axarr[1].semilogy(x, sp, 'b:' if i == 0 else 'g:')
+    axarr[1].semilogy(x, s, 'b' if i == 0 else 'g')
     if (i==0):
      clr = 'blue'
     else:
      clr = 'green'
     axarr[1].semilogy(sigma_t, sigma_mc_vals,color=clr,marker='+',linestyle='none',markersize=6)
+axarr[0].legend([(p1[0],p2),(p3[0],p4)],['$\gamma$=50','$\gamma$=1'])
 
 axarr[0].set_xlabel('Time (yrs)')
 axarr[1].set_xlabel('Time (yrs)')
