@@ -1,0 +1,132 @@
+#Sample configuration file for fenics_ice
+
+[io] #Directory specification
+
+run_name = "ismipc_1000"
+input_dir = "./input"
+output_dir = "./output"
+data_file = "ismipc_input.h5"
+
+# All these take default values prefixed by run_name
+# They are settable to enable restarting from different sims
+#inversion_file = "isimpc_rc_1e6_invout.h5" # default is $(run_name)_invout.h5
+#eigenvecs_file = "vr.h5" # default is $(run_name)_vr.h5
+#eigenvalue_file = "slepc_eig_all.p"
+#sigma_file = "sigma.p"
+#sigma_prior_file = "sigma_prior.p"
+#qoi_file = "Qval_ts.p"
+#dqoi_h5file = "dQ_ts.h5"
+
+log_level = "info" #This is default
+
+[constants]
+
+rhoi = 917.0
+rhow = 1030.0
+g = 9.81
+
+random_seed = 0
+
+[mesh]
+
+mesh_filename = "ismip_mesh.xml"
+periodic_bc = true
+
+[obs]
+
+vel_file = "ismipc_U_obs.h5"
+pts_len = 1000.0
+
+[inversion]
+
+
+max_iter = 200
+
+alpha_active = true
+beta_active = false
+simultaneous = false
+alt_iter = 2
+
+gamma_alpha = 1.0e1
+delta_alpha = 1.0e-5
+gamma_beta = 0.0
+delta_beta = 0.0
+
+ftol = 1e-4
+#gtol = 1e-12
+verbose = true
+
+[ice_dynamics]
+
+sliding_law = 'linear' #weertman, linear
+
+[momsolve]
+
+[momsolve.picard_params]
+nonlinear_solver = "newton"
+[momsolve.picard_params.newton_solver]
+linear_solver = "umfpack"
+maximum_iterations = 200
+absolute_tolerance = 1.0e-0
+relative_tolerance = 1.0e-3
+convergence_criterion = "incremental"
+error_on_nonconvergence =  false
+
+[momsolve.newton_params]
+nonlinear_solver = "newton"
+[momsolve.newton_params.newton_solver]
+linear_solver = "umfpack"
+maximum_iterations = 25
+absolute_tolerance = 1.0e-7
+relative_tolerance = 1.0e-8
+convergence_criterion = "incremental"
+error_on_nonconvergence = true
+
+# #used for weertman sliding: (TODO -test)
+# [momsolve.newton_params.newton_solver.lu_solver]
+# same_nonzero_pattern = false
+# symmetric = false
+# reuse_factorization = false
+
+[time]
+
+run_length = 30.0
+#steps_per_year = 30
+total_steps = 120
+#dt = 0.033333333
+num_sens = 5 #TODO rename
+num_samples = 1000 #TODO rename
+
+[eigendec]
+
+#num_eig = 200
+eig_algo = "slepc"
+misfit_only = true
+
+#power_iter = 1 <- not used yet, saving in case
+precondition_by = "prior" #prior by default
+eigenvalue_thresh = 1.0e-1
+
+[errorprop]
+
+qoi = 'h2' #or 'vaf'
+
+#TODO - not yet implemented
+[[boundaries]]
+    name = "Left Side"
+    id = 1
+
+[[boundaries]]
+    name = "Right Side"
+    id = 2
+
+[[boundaries]]
+    name = "Top Edge"
+    id = 3
+
+[[boundaries]]
+    name = "Bottom Edge"
+    id = 4
+
+[testing]
+
