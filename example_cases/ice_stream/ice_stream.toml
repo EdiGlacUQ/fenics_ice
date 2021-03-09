@@ -133,6 +133,7 @@ method = "memory"
 
 [eigendec]
 
+test_ed = true
 num_eig = 20
 eig_algo = "slepc"
 misfit_only = true

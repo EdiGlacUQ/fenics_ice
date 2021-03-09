@@ -31,6 +31,8 @@ import datetime
 # assure we're not using tlm_adjoint version
 from fenics_ice.eigendecomposition import eigendecompose
 from fenics_ice.eigendecomposition import PythonMatrix, slepc_monitor_callback, slepc_config_callback
+import fenics_ice.eigendecomposition as ED
+
 from fenics_ice import model, solver, prior, inout
 
 from fenics_ice import mesh as fice_mesh
@@ -127,19 +129,23 @@ def run_eigendec(config_file):
 
         assert not flagged_error[0]
 
-        results = {}
+        results = {}  # Create this empty dict & pass it to slepc_monitor_callback to fill
         # Eigendecomposition
-        eigendecompose(space,
-                       ghep_action,
-                       tolerance=1.0e-10,
-                       N_eigenvalues=num_eig,
-                       problem_type=SLEPc.EPS.ProblemType.GHEP,
-                       # solver_type=SLEPc.EPS.Type.ARNOLDI,
-                       configure=slepc_config_callback(reg_op, prior_action, space),
-                       monitor=slepc_monitor_callback(params, space, results))
+        esolver = eigendecompose(space,
+                                 ghep_action,
+                                 tolerance=1.0e-10,
+                                 N_eigenvalues=num_eig,
+                                 problem_type=SLEPc.EPS.ProblemType.GHEP,
+                                 # solver_type=SLEPc.EPS.Type.ARNOLDI,
+                                 configure=slepc_config_callback(reg_op, prior_action, space),
+                                 monitor=slepc_monitor_callback(params, space, results))
 
         vr = results['vr']
         lam = results['lam']
+
+        # Get the 'final' results from SLEPc & check/compare
+        if(params.eigendec.test_ed):
+            ED.test_eigendecomposition(esolver, results, space, params)
 
         if flagged_error[0]:
             # Note: I have been unable to confirm that this does anything in my setup

@@ -107,6 +107,7 @@ num_sens = 5 #TODO rename
 [eigendec]
 
 num_eig = 100
+test_ed = true
 eig_algo = "slepc"
 misfit_only = true
 

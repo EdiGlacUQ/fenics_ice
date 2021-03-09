@@ -205,7 +205,7 @@ class EigenDecCfg(ConfigPrinter):
     misfit_only: bool = False
     precondition_by: str = "prior"
     eigenvalue_thresh: float = 1e-1
-
+    test_ed: bool = False
     def __post_init__(self):
         assert self.precondition_by in ["mass", "prior"], \
             "Valid selections for 'precondition_by' are 'mass' or 'prior'"
