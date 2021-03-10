@@ -286,8 +286,8 @@ def slepc_config_callback(reg_op, prior_action, space):
                                             comm=comm)
         B_matrix.setUp()
 
-        config.view()  # TODO - should this go to log?
         config.setOperators(A_matrix, B_matrix)
+        config.view()
 
     return inner_fn
 

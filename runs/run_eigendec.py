@@ -136,10 +136,11 @@ def run_eigendec(config_file):
                                  tolerance=1.0e-10,
                                  N_eigenvalues=num_eig,
                                  problem_type=SLEPc.EPS.ProblemType.GHEP,
-                                 # solver_type=SLEPc.EPS.Type.ARNOLDI,
+                                 solver_type=SLEPc.EPS.Type.KRYLOVSCHUR,
                                  configure=slepc_config_callback(reg_op, prior_action, space),
                                  monitor=slepc_monitor_callback(params, space, results))
 
+        log.info("Finished eigendecomposition")
         vr = results['vr']
         lam = results['lam']
 
