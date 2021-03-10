@@ -107,6 +107,7 @@ num_sens = 5 #TODO rename
 [eigendec]
 
 num_eig = 100
+test_ed = true
 eig_algo = "slepc"
 misfit_only = true
 
@@ -143,8 +144,8 @@ expected_cntrl_norm = 634.1169296380102
 expected_delta_qoi = 9203293076.5
 expected_u_norm = 679971.0552142654
 expected_evals_sum = 462833.45984393836
-expected_evec0_norm = 141066.61428287256
-expected_cntrl_sigma_norm = 24643.123339645284
+expected_evec0_norm = 141066.6142828724
+expected_cntrl_sigma_norm = 24643.12333966026
 expected_cntrl_sigma_prior_norm = 178293.1824797416
-expected_Q_sigma = 1041960950.4735832
+expected_Q_sigma = 1041960949.1281117
 expected_Q_sigma_prior = 28116367708.150486

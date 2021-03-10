@@ -133,6 +133,7 @@ method = "memory"
 
 [eigendec]
 
+test_ed = true
 num_eig = 20
 eig_algo = "slepc"
 misfit_only = true
@@ -149,14 +150,14 @@ qoi = 'vaf'
 [testing]
 
 expected_init_alpha = 252.96603585543977
-expected_J_inv = 5401.636277026398
-expected_cntrl_norm = 130.5493001020352
-expected_delta_qoi = -71527851.08600831
-expected_u_norm = 1623086.580178228
-expected_evals_sum = 789787.7450944772
-expected_evec0_norm = 199339.769987309
-expected_cntrl_sigma_norm = 10833.512133263514
+expected_J_inv = 5401.63627696818
+expected_cntrl_norm = 130.54930010203577
+expected_delta_qoi = -71527851.08603191
+expected_u_norm = 1623086.5801779076
+expected_evals_sum = 789787.7450852914
+expected_evec0_norm = 199339.769911207
+expected_cntrl_sigma_norm = 10834.007419539732
 expected_cntrl_sigma_prior_norm = 212760.36615831222
-expected_Q_sigma = 67488.91852575667
-expected_Q_sigma_prior = 12832991.190309286
+expected_Q_sigma = 67749.2048847378
+expected_Q_sigma_prior = 12832991.191299107
 
