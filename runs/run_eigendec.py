@@ -133,7 +133,7 @@ def run_eigendec(config_file):
         # Eigendecomposition
         esolver = eigendecompose(space,
                                  ghep_action,
-                                 tolerance=1.0e-10,
+                                 tolerance=params.eigendec.tol,
                                  N_eigenvalues=num_eig,
                                  problem_type=SLEPc.EPS.ProblemType.GHEP,
                                  solver_type=SLEPc.EPS.Type.KRYLOVSCHUR,
