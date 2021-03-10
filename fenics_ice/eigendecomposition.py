@@ -217,44 +217,19 @@ def test_eigendecomposition(esolver, results, space, params):
 
     assert esolver.isHermitian(), "Expected Hermitian problem"
 
-    lam = np.full(N_ev, np.NAN,
-                  dtype=np.float64 if esolver.isHermitian() else np.complex128)
-    V_r = tuple(space_new(space) for n in range(N_ev))
-    if not esolver.isHermitian():
-        V_i = tuple(space_new(space) for n in range(N_ev))
-    v_r, v_i = A_matrix.getVecRight(), A_matrix.getVecRight()
-    for i in range(lam.shape[0]):
-        lam_i = esolver.getEigenpair(i, v_r, v_i)
-        lam[i] = lam_i.real
-        assert lam_i.imag == 0.0  # Check eigenvalue real real
-        function_set_values(V_r[i], v_r.getArray())
-        assert abs(v_i.getArray()).max() == 0.0
+    V_r = results['vr']
+    lam = results['lam']
 
+    for i, (V_r, lami) in enumerate(zip(V_r, lam)):
         # Check it's an eigenvector
-        residual = ev_resid(esolver, V_r[i], lam[i])
+        residual = ev_resid(esolver, V_r, lami)
         log.info(f"Residual norm for eigenvector {i} is {residual}")
-
-    # Compare eigenvalues between iteration & final
-    lam_diff = lam - results['lam']
-    print(f"Max eigenvalue difference: {np.max(np.abs(lam_diff))}")
-    assert np.max(lam_diff) == 0.0, "Eigenvalues from SLEPc monitor differ from final results"
 
     # Check uniqueness of eigenvalues
     esolver_tol = esolver.getTolerances()[0]
     lam_diff = (lam - np.roll(lam, -1))[:-1]
     if not np.all(lam_diff > (esolver_tol**2.0)):
         log.warning("Eigenvalues are not unique!")
-
-    # Compare eigenvectors:
-    # for i, vrr in enumerate(results['vr']):
-    #     vr_diff = norm(project(V_r[i] - vrr, space))
-    #     print(f"Eigenvector {i} difference norm: {vr_diff}")
-
-    for i, (vr_final, vr_iter) in enumerate(zip(results['vr'], V_r)):
-        vr_diff = norm(project(vr_final - vr_iter, space))
-        print(f"Eigenvector {i} difference norm: {vr_diff}")
-
-    return lam, (V_r if esolver.isHermitian() else (V_r, V_i))
 
 def slepc_config_callback(reg_op, prior_action, space):
     """Closure to define the slepc config callback"""

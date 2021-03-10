@@ -144,30 +144,31 @@ def run_eigendec(config_file):
         vr = results['vr']
         lam = results['lam']
 
-        # Get the 'final' results from SLEPc & check/compare
-        if(params.eigendec.test_ed):
-            ED.test_eigendecomposition(esolver, results, space, params)
-
         if flagged_error[0]:
             # Note: I have been unable to confirm that this does anything in my setup
             # Python errors within LaplacianPC seem to be raised even without the
             # @flag_errors decorator.
             raise Exception("Python errors in eigendecomposition preconditioner.")
 
-        # Check orthonormality of EVs
-        if num_eig is not None and num_eig < 100:
+        # Check the eigenvectors & eigenvalues
+        if(params.eigendec.test_ed):
+            ED.test_eigendecomposition(esolver, results, space, params)
 
+            if num_eig > 100:
+                log.warning("Requesting inner product of more than 100 EVs, this is expensive!")
             # Check for B (not B') orthogonality & normalisation
             for i in range(num_eig):
                 reg_op.action(vr[i].vector(), xg.vector())
                 norm = xg.vector().inner(Vector(vr[i].vector())) ** 0.5
-                print("EV %s norm %s" % (i, norm))
+                if (abs(1.0 - norm) > params.eigendec.tol):
+                    raise Exception(f"Eigenvector norm is {norm}")
 
             for i in range(num_eig):
                 reg_op.action(vr[i].vector(), xg.vector())
                 for j in range(i+1, num_eig):
                     inn = xg.vector().inner(Vector(vr[j].vector()))
-                    print("EV %s %s inner %s" % (i, j, inn))
+                    if(abs(inn) > params.eigendec.tol):
+                        raise Exception(f"Eigenvectors {i} & {j} inner product nonzero: {inn}")
 
         # Uses extreme amounts of disk space; suitable for ismipc only
         # #Save eigenfunctions
