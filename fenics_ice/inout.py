@@ -131,6 +131,8 @@ class Writer(ABC):
         if finalise:
             self.close()
 
+        self.comm.barrier()
+
 class VTKWriter(Writer):
     """Variable writer for .vtk"""
 
