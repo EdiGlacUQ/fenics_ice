@@ -107,6 +107,8 @@ def run_invsigma(config_file):
     lam = lam[pind]
     W = [W[i] for i in pind]
 
+    # this is a diagonal matrix but we only ever address it element-wise
+    # bit of a waste of space.
     D = np.diag(lam / (lam + 1))
 
     neg_flag = 0
@@ -119,16 +121,20 @@ def run_invsigma(config_file):
     # TODO - this isn't particularly well parallelised - can it be improved?
     for j in range(space.dim()):
 
-        # Who owns this index?
+        # Who owns this DOF?
         own_idx = y.vector().owns_index(j)
         ownership = np.where(comm.allgather(own_idx))[0]
         assert len(ownership) == 1
         idx_root  = ownership[0]
 
+        # Prior (P2)
         y.vector().zero()
         y.vector().vec().setValue(j, 1.0)
         y.vector().apply('insert')
+        reg_op.inv_action(y.vector(), x.vector())
+        P2 = x
 
+        # WDW (P1) ~ lam * V_r**2
         tmp2 = np.asarray([D[i, i] * w.vector().vec().getValue(j) for i, w in enumerate(W)])
         tmp2 = comm.bcast(tmp2, root=idx_root)
 
@@ -136,11 +142,11 @@ def run_invsigma(config_file):
         for tmp, w in zip(tmp2, W):
             P1.vector().axpy(tmp, w.vector())
 
-        reg_op.inv_action(y.vector(), x.vector())
-        P2 = x
-
         P_vec = P2.vector() - P1.vector()
 
+        # Extract jth component & save
+        # TODO why does this need to be communicated here? surely owning proc
+        # just inserts?
         dprod = comm.bcast(P_vec.vec().getValue(j), root=idx_root)
         dprod_prior = comm.bcast(P2.vector().vec().getValue(j), root=idx_root)
 
