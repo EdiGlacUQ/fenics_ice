@@ -46,8 +46,10 @@ class Writer(ABC):
     unnamed_re = re.compile("f_[0-9]+")
     suffix = None       # the subclass specific file extension
 
-    def __init__(self, fpath):
+    def __init__(self, fpath, comm=MPI.comm_world):
+        assert comm is not None, "Need an MPI communicator"
         self._fpath = Path(fpath)
+        self.comm = comm
         assert self._fpath.suffix == self.suffix
 
         self.stepped = None      # Single timestep file or multiple?
@@ -162,7 +164,6 @@ class XDMFWriter(Writer):
     """Variable writer for .xdmf"""
 
     suffix = '.xdmf'
-    comm = None
     # stepped = True  # XDMF file components always have a timestep associated
 
     def _write(self, variable, step):
@@ -187,9 +188,10 @@ class XDMFWriter(Writer):
         This overrides Writer's method because need to
         handle the 'mpi_comm' requirement (get it from variable)
         """
-
-        if self.comm is None:
-            self.comm = variable.function_space().mesh().mpi_comm()
+        # TODO - this overloaded write function no longer serves a purpose
+        # if the communicator doesn't need to be set
+        # if self.comm is None:
+        #     self.comm = variable.function_space().mesh().mpi_comm()
 
         super().write(variable, name, step, finalise)
 
