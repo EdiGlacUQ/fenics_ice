@@ -207,6 +207,7 @@ class EigenDecCfg(ConfigPrinter):
     eigenvalue_thresh: float = 1e-1
     test_ed: bool = False
     tol: float = 1.0e-10
+    max_iter: int = 1e6
 
     def __post_init__(self):
         assert self.precondition_by in ["mass", "prior"], \
