@@ -159,8 +159,8 @@ def test_writers(request, setup_deps, temp_model):
     vtkpath = inout.gen_path(mdl.params, "test", ".pvd")
     xdmfpath = vtkpath.with_suffix(".xdmf")
 
-    xdmfWriter = inout.XDMFWriter(xdmfpath)
-    vtkWriter = inout.VTKWriter(vtkpath)
+    xdmfWriter = inout.XDMFWriter(xdmfpath, comm=mdl.mesh.mpi_comm())
+    vtkWriter = inout.VTKWriter(vtkpath, comm=mdl.mesh.mpi_comm())
 
     # Check can write to file without error
     vtkWriter.write(test_fun, step=1)

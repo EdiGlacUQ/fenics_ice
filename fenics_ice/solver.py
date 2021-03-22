@@ -758,7 +758,8 @@ class ssa_solver:
         J = forward(cntrl)
         stop_annotating()
 
-        inv_grad_writer = inout.XDMFWriter(inout.gen_path(self.params, 'inv_grads', '.xdmf'))
+        inv_grad_writer = inout.XDMFWriter(inout.gen_path(self.params, 'inv_grads', '.xdmf'),
+                                           comm=self.mesh.mpi_comm())
 
         ##########################################
         # Uncomment for dependency graph output:
