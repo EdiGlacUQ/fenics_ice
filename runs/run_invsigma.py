@@ -31,8 +31,82 @@ from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 
 import matplotlib as mpl
-mpl.use("Agg")
+# mpl.use("Agg")
 import matplotlib.pyplot as plt
+
+def coarse_fun(mesh_in, params):
+
+    import random
+    from scipy.spatial import KDTree
+
+    comm = MPI.comm_world
+    rank = MPI.rank(comm)
+    root = rank == 0
+
+    # Ratio of n_patches to n_cells
+    downscale = 1.0e-1
+
+    # Test DG function
+    # DG0 gives triangle centroids
+    dg = FunctionSpace(mesh_in, 'DG', 0)
+    dg_fun = Function(dg)
+
+    # Get a random sample of cells (root bcast)
+    ncells = dg_fun.vector().size()
+    ntgt = int(np.floor(ncells * downscale))
+    if root:
+        tgt_cells = random.sample(range(ncells), ntgt)
+        tgt_cells.sort()
+    else:
+        tgt_cells = None
+
+    # Send to other procs
+    tgt_cells = comm.bcast(tgt_cells, root=0)
+
+    # Each compute own range
+    my_min, my_max = dg.dofmap().ownership_range()
+    my_max -= 1
+    my_tgt_cells = tgt_cells[np.searchsorted(tgt_cells, my_min):
+                             np.searchsorted(tgt_cells, my_max, side='right')]
+
+    # Get the requested local dofs
+    dg_gdofs = dg.dofmap().tabulate_local_to_global_dofs()  # all global dofs
+    dg_ldofs = np.arange(0, dg_gdofs.size)  # all local dofs
+
+    dg_gdof_idx = np.argsort(dg_gdofs)  # idx which sorts gdofs
+    dg_gdofs_sorted = dg_gdofs[dg_gdof_idx]  # sorted gdofs
+    dg_ldofs_sorted = dg_ldofs[dg_gdof_idx]  # 'sorted' ldofs
+
+    # Search our tgt_cells (gdofs) in sorted gdof list
+    tgt_local_idx = np.searchsorted(dg_gdofs_sorted, my_tgt_cells)
+    tgt_local = np.take(dg_ldofs_sorted, tgt_local_idx, mode='raise')
+    tgt_global = np.take(dg_gdofs_sorted, tgt_local_idx, mode='raise')
+
+    print(f"{rank}, min max: {my_min}, {my_max}")
+    print(f"{rank}, tgt 0: {my_tgt_cells[0]}, tgt -1 {my_tgt_cells[-1]}")
+    print(f"{rank}, tgt 0: {tgt_global[0]}, tgt -1 {tgt_global[-1]}")
+
+    assert np.all(tgt_global == my_tgt_cells), "Logic error - failed to find all tgt global dofs"
+
+    # Get the cell midpoints for local targets
+    my_tgt_cell_mids = dg.tabulate_dof_coordinates()[tgt_local]
+    # and broadcast to all
+    tgt_cell_mids = np.vstack(comm.allgather(my_tgt_cell_mids))
+
+    # Create DG mixed space
+    dg_el = FiniteElement("DG", mesh_in.ufl_cell(), 0)
+    mixedEl = dg_el * dg_el
+    dg2 = FunctionSpace(mesh_in, mixedEl)
+
+    # KDTree search to find nearest tgt midpoint
+    tree = KDTree(tgt_cell_mids)
+    dist, nearest = tree.query(dg2.tabulate_dof_coordinates())
+
+    dg2_fun = Function(dg2)
+    dg2_fun.vector()[:] = nearest
+    dg2_fun.vector().apply("insert")
+
+    return dg2_fun, ntgt
 
 def run_invsigma(config_file):
     """Compute control sigma values from eigendecomposition"""
@@ -111,7 +185,34 @@ def run_invsigma(config_file):
     # bit of a waste of space.
     D = np.diag(lam / (lam + 1))
 
-    neg_flag = 0
+    # Prior uncertainty (P2)
+    clust_fun, npatches = coarse_fun(mesh, params)
+    dg2_space = function_space(clust_fun)
+
+    # inout.write_variable(clust_fun, params,
+    #                      name="indic_test")
+    # plot(mesh)
+    # plot(clust_fun)
+    # plt.show()
+
+    dg_space = FunctionSpace(mesh, 'DG', 0)
+    cg_space = FunctionSpace(mesh, 'CG', 1)
+
+    indic = Function(dg2_space)
+    test = TestFunction(space)
+
+    for i in range(npatches):
+
+        indic.vector()[:] = (clust_fun.vector()[:] == i).astype(np.int)
+        indic.vector().apply("insert")
+
+        clust_lump = assemble(inner(indic, test)*dx)
+
+        from IPython import embed; embed()
+
+        reg_op.inv_action(clust_lump, x.vector())
+        P2 = x
+
 
     # Isaac Eq. 20
     # P2 = prior
@@ -119,6 +220,7 @@ def run_invsigma(config_file):
     # Note - don't think we're considering the cross terms
     # in the posterior covariance.
     # TODO - this isn't particularly well parallelised - can it be improved?
+    neg_flag = 0
     for j in range(space.dim()):
 
         # Who owns this DOF?
