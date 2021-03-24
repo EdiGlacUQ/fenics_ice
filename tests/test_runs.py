@@ -340,9 +340,9 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
     cntrl_sigma_prior_norm = norm(mdl_out.cntrl_sigma_prior)
 
     if pytest.parallel:
-        tol = 1e-6
+        tol = 1e-5
     else:
-        tol = 1e-7
+        tol = 1e-5
 
     pytest.check_float_result(cntrl_sigma_norm,
                               expected_cntrl_sigma_norm,
