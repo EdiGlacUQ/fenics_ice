@@ -164,11 +164,11 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
     pytest.check_float_result(delta_qoi,
                               expected_delta_qoi,
-                              work_dir, 'expected_delta_qoi')
+                              work_dir, 'expected_delta_qoi', tol=1.0e-5)
 
     pytest.check_float_result(u_norm,
                               expected_u_norm,
-                              work_dir, 'expected_u_norm')
+                              work_dir, 'expected_u_norm', tol=1.0e-5)
 
 @pytest.mark.tv
 def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
@@ -267,12 +267,14 @@ def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps, request):
     evals_sum = np.sum(slvr.eigenvals)
     evec0_norm = norm(slvr.eigenfuncs[0])
 
+    tol = 1e-5
+
     pytest.check_float_result(evals_sum,
                               expected_evals_sum,
-                              work_dir, 'expected_evals_sum')
+                              work_dir, 'expected_evals_sum', tol=tol)
     pytest.check_float_result(evec0_norm,
                               expected_evec0_norm,
-                              work_dir, 'expected_evec0_norm')
+                              work_dir, 'expected_evec0_norm', tol=tol)
 
 @pytest.mark.dependency()
 @pytest.mark.runs
@@ -302,7 +304,7 @@ def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
         tol = 5e-5
 
     else:
-        tol = 1e-7
+        tol = 1e-5
 
     pytest.check_float_result(Q_sigma,
                               expected_Q_sigma,
@@ -338,9 +340,9 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
     cntrl_sigma_prior_norm = norm(mdl_out.cntrl_sigma_prior)
 
     if pytest.parallel:
-        tol = 1e-6
+        tol = 1e-5
     else:
-        tol = 1e-7
+        tol = 1e-5
 
     pytest.check_float_result(cntrl_sigma_norm,
                               expected_cntrl_sigma_norm,
