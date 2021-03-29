@@ -336,8 +336,8 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
 
     mdl_out = run_invsigma.run_invsigma(toml_file)
 
-    cntrl_sigma_norm = norm(mdl_out.cntrl_sigma)
-    cntrl_sigma_prior_norm = norm(mdl_out.cntrl_sigma_prior)
+    cntrl_sigma_norm = sum([norm(sig) for sig in mdl_out.cntrl_sigma])
+    cntrl_sigma_prior_norm = sum([norm(sig) for sig in mdl_out.cntrl_sigma_prior])
 
     if pytest.parallel:
         tol = 1e-5

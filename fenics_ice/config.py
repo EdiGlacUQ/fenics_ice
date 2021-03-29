@@ -81,6 +81,13 @@ class ConfigParser(object):
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
 
+        # Optional invsigma section
+        try:
+            inv_sigma_dict = self.config_dict['invsigma']
+        except KeyError:
+            inv_sigma_dict = {}
+        self.inv_sigma = InvSigmaCfg(**inv_sigma_dict)
+
         try:
             cpoint_dict = self.config_dict['checkpointing']
         except KeyError:
@@ -193,6 +200,21 @@ class ErrorPropCfg(ConfigPrinter):
     Configuration related to error propagation
     """
     qoi: str = 'vaf'
+
+@dataclass(frozen=True)
+class InvSigmaCfg(ConfigPrinter):
+    """
+    Configuration related to InvSigma computation
+    """
+    patch_downscale: float = None
+    npatches: int = None
+
+    def __post_init__(self):
+        """Check & supply sensible defaults"""
+        assert (self.npatches is None) or (self.patch_downscale is None),\
+            "Provide only one of npatches, patwnscale in [invsigma]"
+        if self.npatches is None and self.patch_downscale is None:
+            object.__setattr__(self, 'patch_downscale', 0.1)
 
 @dataclass(frozen=True)
 class EigenDecCfg(ConfigPrinter):
