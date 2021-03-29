@@ -62,6 +62,9 @@ def coarse_fun(mesh_in, params):
         ntgt = int(np.floor(ncells * params.inv_sigma.patch_downscale))
 
     if root:
+        if params.constants.random_seed:
+            random.seed(params.constants.random_seed)
+
         tgt_cells = random.sample(range(ncells), ntgt)
         tgt_cells.sort()
     else:

@@ -139,5 +139,5 @@ expected_evals_sum = 469137.69850740803
 expected_evec0_norm = 141039.67528959393
 expected_Q_sigma = 1072146117.9000164
 expected_Q_sigma_prior = 28455983633.557426
-expected_cntrl_sigma_norm = 15052.488355604775
-expected_cntrl_sigma_prior_norm = 174793.31498146834
+expected_cntrl_sigma_norm = 15311.25029958487
+expected_cntrl_sigma_prior_norm = 174979.80915205725
