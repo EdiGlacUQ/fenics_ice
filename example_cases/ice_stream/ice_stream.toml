@@ -70,7 +70,7 @@ m = 20
 #  c1, c2  - wolfe linesearch params
 c1 = 1.0e-3
 c2 = 0.9
-delta_lbfgs = 1.0e3
+#delta_lbfgs = 1.0e3
 
 verbose = true
 
@@ -154,14 +154,14 @@ patch_downscale = 0.1
 [testing]
 
 expected_init_alpha = 252.96603585543977
-expected_J_inv = 5401.63627696818
-expected_cntrl_norm = 130.54930010203577
-expected_delta_qoi = -71527851.08603191
-expected_u_norm = 1623086.5801779076
-expected_evals_sum = 789787.7450852914
-expected_evec0_norm = 199339.769911207
-expected_Q_sigma = 67749.2048847378
-expected_Q_sigma_prior = 12832991.191299107
-expected_cntrl_sigma_norm = 13060.460196485223
+expected_J_inv = 4059.1062515088506
+expected_cntrl_norm = 124.7263545906588
+expected_delta_qoi = -71531362.78894019
+expected_u_norm = 1602113.032002924
+expected_evals_sum = 904305.3402959378
+expected_evec0_norm = 198978.70669631407
+expected_Q_sigma = 62295.188220275566
+expected_Q_sigma_prior = 9372249.500414811
+expected_cntrl_sigma_norm = 12507.05941933655
 expected_cntrl_sigma_prior_norm = 246045.26354099732
 

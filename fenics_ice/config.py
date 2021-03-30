@@ -147,7 +147,10 @@ class InversionCfg(ConfigPrinter):
     c1: float = 1.0e-3
     c2: float = 0.9
     theta_scale: bool = True
-    delta_lbfgs: float = 1.0
+    delta_lbfgs: float = None
+
+    wolfe_amax: float = 1.0e4
+    wolfe_xtol: float = 0.1
 
     # How many vector pairs to keep in limited memory hessian approx
     m: int = 30

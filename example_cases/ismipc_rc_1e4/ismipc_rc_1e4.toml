@@ -55,7 +55,7 @@ ftol = 1e-4
 #gtol = 1e-12
 verbose = true
 
-delta_lbfgs = 1.0e6
+#delta_lbfgs = 1.0e6
 
 [ice_dynamics]
 
@@ -131,13 +131,13 @@ qoi = 'h2' #or 'vaf'
 [testing]
 
 expected_init_alpha = 354.4076349907514
-expected_J_inv = 19477.789574422426
-expected_cntrl_norm = 640.2368168533287
-expected_delta_qoi = 7882602553.75
-expected_u_norm = 679232.4191345795
-expected_evals_sum = 4409388616.9061365
-expected_evec0_norm = 14110629.218366828
-expected_cntrl_sigma_norm = 78864.25777945669
+expected_J_inv = 19486.84210527481
+expected_cntrl_norm = 638.8030596539688
+expected_delta_qoi = 7992815099.0
+expected_u_norm = 679507.0833540559
+expected_evals_sum = 4430282551.171534
+expected_evec0_norm = 14110776.578640688
+expected_cntrl_sigma_norm = 143286.30095210797
 expected_cntrl_sigma_prior_norm = 17170535.93097015
-expected_Q_sigma = 2655399985.319494
-expected_Q_sigma_prior = 2742170356354.2354
+expected_Q_sigma = 5364492232.961965
+expected_Q_sigma_prior = 2750057902019.992

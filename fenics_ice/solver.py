@@ -919,19 +919,21 @@ class ssa_solver:
             H_0_fun = None
             M_fun = None
 
-        cntrl_opt, result = minimize_l_bfgs(forward, cntrl, J0=J,
-                                            m=config.m,
-                                            s_atol=config.s_atol,
-                                            g_atol=config.g_atol,
-                                            c1=config.c1, c2=config.c2,
-                                            converged=l_bfgs_converged,
-                                            line_search_rank0=line_search_wolfe1,
-                                            theta_scale=config.theta_scale,
-                                            delta=config.delta_lbfgs,
-                                            line_search_rank0_kwargs={"xtol": 0.1},
-                                            H_0=H_0_fun, M=M_fun, M_inv=H_0_fun,
-                                            block_theta_scale=config.dual,
-                                            max_its=config.max_iter)
+        cntrl_opt, result = minimize_l_bfgs(
+            forward, cntrl, J0=J,
+            m=config.m,
+            s_atol=config.s_atol,
+            g_atol=config.g_atol,
+            c1=config.c1, c2=config.c2,
+            converged=l_bfgs_converged,
+            line_search_rank0=line_search_wolfe1,
+            theta_scale=config.theta_scale,
+            delta=config.delta_lbfgs,
+            line_search_rank0_kwargs={"xtol": config.wolfe_xtol,
+                                      "amax": config.wolfe_amax},
+            H_0=H_0_fun, M=M_fun, M_inv=H_0_fun,
+            block_theta_scale=config.dual,
+            max_its=config.max_iter)
 
         self.set_control_fns(cntrl_opt)
 
