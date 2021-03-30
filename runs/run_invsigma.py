@@ -161,6 +161,12 @@ def run_invsigma(config_file):
         lam = eigendata[0].real.astype(np.float64)
         nlam = len(lam)
 
+    # Check if eigendecomposition successfully produced num_eig
+    # or if some are NaN
+    if np.any(np.isnan(lam)):
+        nlam = np.argwhere(np.isnan(lam))[0][0]
+        lam = lam[:nlam]
+
     # Read in the eigenvectors and check they are normalised
     # w.r.t. the prior (i.e. the B matrix in our GHEP)
     eps = params.constants.float_eps

@@ -79,6 +79,12 @@ def run_errorprop(config_file):
         lam = eigendata[0].real.astype(np.float64)
         nlam = len(lam)
 
+    # Check if eigendecomposition successfully produced num_eig
+    # or if some are NaN
+    if np.any(np.isnan(lam)):
+        nlam = np.argwhere(np.isnan(lam))[0][0]
+        lam = lam[:nlam]
+
     # and eigenvectors from .h5 file
     eps = params.constants.float_eps
     W = []
