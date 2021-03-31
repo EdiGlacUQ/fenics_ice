@@ -103,6 +103,7 @@ def run_errorprop(config_file):
     # take only the largest eigenvalues
     pind = np.flatnonzero(lam > threshlam)
     lam = lam[pind]
+    nlam = len(lam)
     W = [W[i] for i in pind]
 
     D = np.diag(lam / (lam + 1))  # D_r Isaac 20
@@ -141,6 +142,43 @@ def run_errorprop(config_file):
         # Prior only
         variance_prior = P2.vector().inner(dQ_cntrl.vector())
         sigma_prior[j] = np.sqrt(variance_prior)
+
+    # Look at the last sampled time and check how sigma QoI converges
+    # with addition of more eigenvectors
+
+    sigma_conv = []
+    sigma_steps = []
+    P1 = Function(space)
+
+    # How many steps?
+    conv_res = 100
+    conv_int = int(np.ceil(nlam/conv_res))
+
+    for i in range(0, nlam, conv_int):
+
+        # Reuse tmp1/tmp2 from above because its the last sens
+        for j in range(i, min(i+conv_int, nlam)):
+            P1.vector().axpy(tmp2[j], W[j].vector())
+
+        P_vec = P2.vector() - P1.vector()
+
+        variance = P_vec.inner(dQ_cntrl.vector())
+        sigma_conv.append(np.sqrt(variance))
+        sigma_steps.append(min(i+conv_int, nlam))
+
+
+    # if(MPI.comm_world.rank == 0):
+    plt.semilogy(sigma_steps, sigma_conv)
+    plt.title("Convergence of sigmaQoI")
+    plt.ylabel("sigma QoI")
+    plt.xlabel("Num eig")
+
+    plt.savefig(os.path.join(params.io.output_dir, "sigmaQoI_conv.pdf"))
+    plt.close()
+
+    sigmaqoi_file = os.path.join(params.io.output_dir, "sigma_qoi_convergence.p")
+    with open(sigmaqoi_file, 'wb') as pfile:
+        pickle.dump([sigma_steps, sigma_conv], pfile)
 
     # Test that eigenvectors are prior inverse orthogonal
     # y.vector().set_local(W[:,398])

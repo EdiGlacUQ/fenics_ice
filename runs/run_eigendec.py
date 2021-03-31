@@ -196,6 +196,7 @@ def run_eigendec(config_file):
     plt.semilogy(lind[lpos], lam[lpos], '.')
     plt.semilogy(lind[lneg], np.abs(lam[lneg]), '.')
     plt.savefig(os.path.join(params.io.output_dir, 'lambda.pdf'))
+    plt.close()
 
     # Note - for now this does nothing, but eventually if the whole series
     # of runs were done without re-initializing solver, it'd be important to
