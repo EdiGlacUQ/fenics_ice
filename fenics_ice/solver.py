@@ -1314,7 +1314,8 @@ class ddJ_wrapper(object):
         self.ddJ_F = Function(cntrl.function_space())
 
     def apply(self, x):
-        self.ddJ_F.vector().set_local(x.getArray())
+        with x.getBuffer(readonly=True) as x_a:
+            self.ddJ_F.vector().set_local(x_a)
         self.ddJ_F.vector().apply('insert')
         return self.ddJ_action(self.ddJ_F).vector().get_local()
 

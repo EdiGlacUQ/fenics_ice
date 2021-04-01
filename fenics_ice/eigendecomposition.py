@@ -99,8 +99,8 @@ class PythonMatrix:
     @flag_errors
     def mult(self, A, x, y):
         X = space_new(self._space)
-        x_a = x.getArray(readonly=True)
-        function_set_values(X, x_a)
+        with x.getBuffer(readonly=True) as x_a:
+            function_set_values(X, x_a)
         y_a = self._action(X)
         if is_function(y_a):
             y_a = function_get_values(y_a)
@@ -324,7 +324,8 @@ def slepc_monitor_callback(params, space, result_list):
             lam_i = eps.getEigenpair(i, v_r)
 
             result_list["lam"][i] = lam_i.real
-            function_set_values(V_r, v_r.getArray())
+            with v_r.getBuffer(readonly=True) as v_rr:
+                function_set_values(V_r, v_rr)
             V_r.rename("ev", "")
             result_list["vr"].append(V_r)
             ev_file.write(V_r, 'v', i)
