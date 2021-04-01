@@ -173,10 +173,13 @@ def run_errorprop(config_file):
     plt.ylabel("sigma QoI")
     plt.xlabel("Num eig")
 
-    plt.savefig(os.path.join(params.io.output_dir, "sigmaQoI_conv.pdf"))
+    plt.savefig(os.path.join(params.io.output_dir,
+                             "_".join((params.io.run_name, "sigmaQoI_conv.pdf"))))
     plt.close()
 
-    sigmaqoi_file = os.path.join(params.io.output_dir, "sigma_qoi_convergence.p")
+    sigmaqoi_file = os.path.join(params.io.output_dir,
+                                 "_".join((params.io.run_name, "sigma_qoi_convergence.p")))
+
     with open(sigmaqoi_file, 'wb') as pfile:
         pickle.dump([sigma_steps, sigma_conv], pfile)
 
