@@ -122,7 +122,7 @@ class ssa_solver:
         self.eigenfuncs = None
 
     def set_inv_params(self):
-
+        """Set delta_alpha, gamma_alpha, etc from config"""
         invparam = self.params.inversion
         self.delta_alpha = invparam.delta_alpha
         self.gamma_alpha = invparam.gamma_alpha
@@ -131,7 +131,7 @@ class ssa_solver:
         self.gamma_beta = invparam.gamma_beta
 
     def zero_inv_params(self):
-
+        """Set delta_alpha, gamma_alpha to zero (e.g. for misfit only hessian)"""
         self.delta_alpha = 1E-10
         self.gamma_alpha = 1E-10
         self.delta_beta = 1E-10
@@ -481,6 +481,15 @@ class ssa_solver:
         info("Time for solve: {0}".format(t1-t0))
 
     def def_thickadv_eq(self):
+        """
+        Define the thickness advection problem
+
+        Notes on use of DG(0) here:
+        ==========================
+        Thickness here is analogous to pressure in incompressible stokes system.
+        Equal order elements result in pressure modes (wiggles, inf-sup stability, LBB)
+        So 'thickness modes' will appear unless we use DG(0)
+        """
         U_np = self.U_np
         Ksi = self.Ksi
         trial_H = self.trial_H
@@ -497,14 +506,7 @@ class ssa_solver:
 
         fl_ex = self.float_conditional(H)
 
-        # Notes on use of DG(0) here:
-        # ==========================
-        # Thickness here is analogous to pressure in incompressible stokes system.
-        # Equal order elements result in pressure modes (wiggles, inf-sup stability, LBB)
-        # So 'thickness modes' will appear unless we use DG(0)
-
         # Crank Nicholson
-
         # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
         # - inner(grad(Ksi), U_np * 0.5 * (trial_H + H_np)) * dIce
         # + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm)))
@@ -557,7 +559,7 @@ class ssa_solver:
         self.H_bcs = []
 
     def solve_thickadv_eq(self):
-
+        """Solve the thickness equation defined in def_thickadv_eq"""
         H = self.H
         a, L = lhs(self.thickadv), rhs(self.thickadv)
         solve(a == L, H, bcs=self.H_bcs,
@@ -582,6 +584,7 @@ class ssa_solver:
 
         t = 0.0
 
+        # Initialize QoI structures
         self.Qval_ts = np.zeros(n_steps+1)
         Q = Functional(name="Q")
         Q_is = []
@@ -592,6 +595,7 @@ class ssa_solver:
         H_np = self.H_np
 
         if adjoint_flag:
+            # Define QoI sampling times & configure checkpointing
             num_sens = self.params.time.num_sens
             t_sens = np.flip(np.linspace(run_length, 0, num_sens))
 
@@ -602,15 +606,19 @@ class ssa_solver:
 
             inout.configure_tlm_checkpointing(self.params)
 
+        # Initial definition of momentum & thickness eqs
         self.def_thickadv_eq()
         self.def_mom_eq()
+        # Initial momentum solve
         self.solve_mom_eq()
         U_np.assign(U)
 
+        # Initial QoI computation
         if qoi_func is not None:
             qoi = qoi_func()
             self.Qval_ts[0] = assemble(qoi)
 
+        # Save QoI_0 if requested
         if adjoint_flag:
             if 0.0 in n_sens:
                 Q_i = Functional(name="Q_i")
@@ -620,6 +628,7 @@ class ssa_solver:
 
             new_block()
 
+        # Write out U & H at each timestep.
         if save:
             Hfile = Path(outdir) / "_".join((self.params.io.run_name,
                                              'H_ts.xdmf'))
@@ -651,7 +660,7 @@ class ssa_solver:
             n += 1
             t = n * float(dt)
 
-            # Record
+            # Save QoI
             if qoi_func is not None:
                 qoi = qoi_func()
                 self.Qval_ts[n] = assemble(qoi)
@@ -669,6 +678,7 @@ class ssa_solver:
             if save:
                 xdmf_hts.write(H_np, t)
                 xdmf_uts.write(U_np, t)
+        # End of timestepping loop
 
         if save:
             xdmf_hts.close()
@@ -687,7 +697,7 @@ class ssa_solver:
 
     def forward(self, f):
         """
-        Runs the forward model w/ controls 'f' and returns cost function 'J'
+        Run the forward model w/ controls 'f' and returns cost function 'J'
 
         Which controls are set (alpha, beta, both) is determined by
         self.set_control_fns() based on params. This function replaces 3
@@ -698,7 +708,6 @@ class ssa_solver:
         An annotated connection between 'f' and 'J' must be created, so
         self._alphaXbeta or _alpha, _beta must be set to f.
         """
-
         clear_caches()
 
         self.set_control_fns(f)
@@ -758,6 +767,8 @@ class ssa_solver:
         J = forward(cntrl)
         stop_annotating()
 
+        # Write out the gradients dJ/dAlpha & dJ/dBeta at each L-BFGS iteration
+        # for debugging/analysis.
         inv_grad_writer = inout.XDMFWriter(inout.gen_path(self.params, 'inv_grads', '.xdmf'),
                                            comm=self.mesh.mpi_comm())
 
@@ -779,9 +790,14 @@ class ssa_solver:
 
         def l_bfgs_converged(it, old_J_val, new_J_val,
                              new_cc, new_dJ, cc_change, dJ_change):
-            # Convergence tests and defaults as described in SciPy 1.5.2
-            # scipy.optimize._minimize._minimize_lbfgsb documentation
+            """
+            The callback for L-BFGS, which returns True iff convergence is reached.
 
+            Computes the convergence of both: J, dJ. Convergence is determined by
+            comparison with the thresholds set in TOML.
+
+            This callback also appends progress to inv_vals for writing to .CSV
+            """
             converged = False
             if(config.verbose):
                 info(f"Inversion inner iteration: {it}")
@@ -826,27 +842,11 @@ class ssa_solver:
 
         Qp_test, Qp_trial = TestFunction(self.Qp), TrialFunction(self.Qp)
 
+        # Mass matrix solver
         M_mat = assemble(inner(Qp_trial, Qp_test) * self.dIce)
         M_solver = KrylovSolver(M_mat.copy(), "cg", "sor")
         M_solver.parameters.update({"relative_tolerance": 1.0e-14,
                                     "absolute_tolerance": 1.0e-32})
-
-        # def B_0(x):
-        #     """
-        #     Step length something...
-
-        #     2.0 * L M^-1 L
-        #     """
-        #     L_action = L_mat * x.vector()
-
-        #     M_inv_L_action = function_new(x, name="M_inv_L_action")
-        #     M_solver.solve(M_inv_L_action.vector(), L_action)
-        #     del L_action
-
-        #     B_0_action = function_new(x, name="B_0_action")
-        #     B_0_action.vector().axpy(2.0, L_mat * M_inv_L_action.vector())
-
-        #     return B_0_action
 
         # TODO - refactor here - these should go in an 'inversion' module
         # or in minimize_l_bfgs...
@@ -864,6 +864,43 @@ class ssa_solver:
 
             return M_inv_action
 
+        def B_M_0(*X):
+            """
+            Initial guess for hessian action
+
+            M
+            """
+            B_0_action = []
+            for i, x in enumerate(X):
+                this_action = function_new(x, name=f"B_0_action_{i}")
+                # M_action = M_mat * x.vector()
+                M_action = matrix_multiply(M_mat, x.vector())
+                this_action.vector()[:] = M_action
+                this_action.vector().apply("insert")
+                B_0_action.append(this_action)
+
+            return B_0_action
+
+
+        # This was an attempt at prior-preconditioning, but couldn't get it working.
+        # def B_0(x):
+        #     """
+        #     Step length something...
+
+        #     2.0 * L M^-1 L
+        #     """
+        #     L_action = L_mat * x.vector()
+
+        #     M_inv_L_action = function_new(x, name="M_inv_L_action")
+        #     M_solver.solve(M_inv_L_action.vector(), L_action)
+        #     del L_action
+
+        #     B_0_action = function_new(x, name="B_0_action")
+        #     B_0_action.vector().axpy(2.0, L_mat * M_inv_L_action.vector())
+
+        #     return B_0_action
+
+        # This was an attempt at prior-preconditioning, but couldn't get it working.
         # def H_0(x):
         #     """
         #     Initial guess for inverse hessian action
@@ -883,34 +920,12 @@ class ssa_solver:
 
         #     return H_0_action
 
-        def B_M_0(*X):
-            """
-            Initial guess for hessian action
-
-            M
-            """
-            B_0_action = []
-            for i, x in enumerate(X):
-                this_action = function_new(x, name=f"B_0_action_{i}")
-                # M_action = M_mat * x.vector()
-                M_action = matrix_multiply(M_mat, x.vector())
-                this_action.vector()[:] = M_action
-                this_action.vector().apply("insert")
-                B_0_action.append(this_action)
-
-            return B_0_action
-
         # L-BFGS-B line search configuration. For parameter values see
         # SciPy
         #     Git master 0a7bc723d105288f4b728305733ed8cb3c8feeb5
         #     June 20 2020
         #     scipy/optimize/lbfgsb_src/lbfgsb.f
         #     lnsrlb subroutine
-
-        # For mass matrix preconditioner (still not working properly),
-        # use:
-        # c1=1.0e-4, c2=0.9999,
-        # H_0=H_M_0, M=B_M_0, M_inv=H_M_0)
 
         if config.mass_precon:
             H_0_fun = H_M_0
@@ -919,6 +934,34 @@ class ssa_solver:
             H_0_fun = None
             M_fun = None
 
+        # -------------------------------
+        # Minimize using L-BFGS
+        # -------------------------------
+        #
+        # line_search_rank0_kwargs depends on the choice of line_search_wolfe1
+        # or _wolfe2. James' suggestion is to stick with wolfe1, which uses
+        # Fortran MINPACK, as opposed to the pure-python wolfe2 implementation.
+        #
+        # Line search errors can often be solved by increasing amax, which
+        # represents the maximum step size.
+        #
+        # delta controls the theta scaling at the first iteration. Tend to find
+        # that actually setting this to None (default) works best.
+        #
+        # H_0, M, M_inv - setting these to the mass matrix function (H_M_0, B_M_0)
+        # removes the cell-size dependency of the minimization, improving performance
+        # with highly heteregenous meshes.
+        #
+        # block_theta_scale is really important for dual inversion, because alpha &
+        # beta tend to have very different magnitudes. Theta scaling both alpha & beta
+        # by their combined mean is a bad idea.
+        #
+        # l_bfgs_converged - callback, see definition above.
+        #
+        # s_atol, g_atol - these were the *old* internal convergence tests, before the
+        # l_bfgs_converged callback was implemented. So actually these conflict with our
+        # callback convergence tests and should be disabled.
+        #
         cntrl_opt, result = minimize_l_bfgs(
             forward, cntrl, J0=J,
             m=config.m,
