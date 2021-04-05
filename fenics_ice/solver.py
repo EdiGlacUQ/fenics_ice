@@ -115,7 +115,6 @@ class ssa_solver:
         self.dS = Measure('dS', domain=self.mesh)
         self.ds = Measure('ds', domain=self.mesh, subdomain_data=self.ff)
 
-        self.dIce = self.dx  # just an alias
         self.dt = Constant(self.params.time.dt, name="dt")
 
         self.eigenvals = None
@@ -305,7 +304,6 @@ class ssa_solver:
         g = constants.g
         n = constants.glen_n
         tol = constants.float_eps
-        dIce = self.dIce
         ds = self.ds
         sl = self.params.ice_dynamics.sliding_law
         vel_rp = constants.vel_rp
@@ -354,18 +352,18 @@ class ssa_solver:
         self.mom_F = (
             # Membrance Stresses
             -inner(grad(Phi_x), H * nu * as_vector([4 * u_x + 2 * v_y, u_y + v_x]))  # nu ~ 1e8, H ~ 1e3, u_x ~ 1e-3
-            * self.dIce
+            * dx
 
             - inner(grad(Phi_y), H * nu * as_vector([u_y + v_x, 4 * v_y + 2 * u_x]))
-            * self.dIce
+            * dx
 
             # Basal Drag
             - inner(Phi, (1.0 - fl_ex) * B2 * as_vector([u, v]))   # B2 spans 1e-7, 1e7,  2nd step u ~ 1e-18 to 1e2
-            * self.dIce
+            * dx
 
             # Driving Stress
             + ( div(Phi)*F - inner(grad(bed), W*Phi) )
-            * self.dIce
+            * dx
         )
 
         # Natural BC term which falls out of weak form:
@@ -500,30 +498,29 @@ class ssa_solver:
         smb = self.smb
         dt = self.dt
         nm = self.nm
-        dIce = self.dIce
         ds = self.ds
         dS = self.dS
 
         fl_ex = self.float_conditional(H)
 
         # Crank Nicholson
-        # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
-        # - inner(grad(Ksi), U_np * 0.5 * (trial_H + H_np)) * dIce
+        # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dx
+        # - inner(grad(Ksi), U_np * 0.5 * (trial_H + H_np)) * dx
         # + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm)))
         # * 0.5 * (trial_H + H_np))) * dS
         # + conditional(dot(U_np, nm) > 0, 1.0, 0.0)
         # *inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm))*ds # Outflow
         # + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)
         # *inner(Ksi, dot(U_np * H_init, nm))*ds # Inflow
-        # + bmelt*Ksi*dIce_flt) #basal melting
+        # + bmelt*Ksi*dx_flt) #basal melting
 
         # Backward Euler
         self.thickadv = (
             # dH/dt
-            + inner(Ksi, ((trial_H - H_np) / dt)) * dIce
+            + inner(Ksi, ((trial_H - H_np) / dt)) * dx
 
             # Advection
-            - inner(grad(Ksi), U_np * trial_H) * dIce
+            - inner(grad(Ksi), U_np * trial_H) * dx
 
             # Spatial gradient
             + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * trial_H))
@@ -538,15 +535,15 @@ class ssa_solver:
             * ds
 
             # basal melting
-            + bmelt*Ksi*fl_ex*dIce
+            + bmelt*Ksi*fl_ex*dx
 
             # surface mass balance
-            - smb*Ksi*dIce
+            - smb*Ksi*dx
         )
 
         # # Forward euler
-        # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dIce
-        # - inner(grad(Ksi), U_np * H_np) * dIce
+        # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dx
+        # - inner(grad(Ksi), U_np * H_np) * dx
         # + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * H_np)) * dS
         #
         # Outflow
@@ -554,7 +551,7 @@ class ssa_solver:
         #
         # Inflow
         # + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds
-        # + bmelt*Ksi*dIce_flt) #basal melting
+        # + bmelt*Ksi*dx_flt) #basal melting
 
         self.H_bcs = []
 
@@ -843,7 +840,7 @@ class ssa_solver:
         Qp_test, Qp_trial = TestFunction(self.Qp), TrialFunction(self.Qp)
 
         # Mass matrix solver
-        M_mat = assemble(inner(Qp_trial, Qp_test) * self.dIce)
+        M_mat = assemble(inner(Qp_trial, Qp_test) * dx)
         M_solver = KrylovSolver(M_mat.copy(), "cg", "sor")
         M_solver.parameters.update({"relative_tolerance": 1.0e-14,
                                     "absolute_tolerance": 1.0e-32})
@@ -1076,11 +1073,6 @@ class ssa_solver:
         beta_bgd = self.beta_bgd
         betadiff = beta-beta_bgd
 
-        # Measure
-        dIce = self.dIce
-        # ds = self.ds
-        # nm = self.nm
-
         # Determine observations within our mesh partition
         # Note that although cell_max counts ghost_cells,
         # compute_first_entity_collision seems to ignore
@@ -1285,12 +1277,11 @@ class ssa_solver:
         bed = self.bed
         rhoi = Constant(cnst.rhoi, name="Constant rhoi")
         rhow = Constant(cnst.rhow, name="Constant rhow")
-        dIce = self.dIce
 
         b_ex = conditional(bed < 0.0, 1.0, 0.0)
         HAF = ufl.Max(b_ex * (H + (rhow/rhoi)*bed) + (1-b_ex)*(H), 0.0)
 
-        Q_vaf = HAF * dIce
+        Q_vaf = HAF * dx
 
         if verbose:
             info(f"Q_vaf: {assemble(Q_vaf)}")
@@ -1299,7 +1290,7 @@ class ssa_solver:
 
     def comp_Q_h2(self, verbose=False):
         """QOI: Square integral of thickness"""
-        Q_h2 = self.H_np * self.H_np * self.dIce
+        Q_h2 = self.H_np * self.H_np * dx
         if verbose:
             info(f"Q_h2: {assemble(Q_h2)}")
 
