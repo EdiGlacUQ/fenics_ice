@@ -294,7 +294,8 @@ These are Python pickle files and, as such, can contain arbitrary data. They are
 
 \section{fice\_toolbox}
 
-The repository \href{https://github.com/EdiGlacUQ/fice_toolbox}{{\tt fice\_toolbox}} contains \textbf{some pretty useful stuff} which Joe felt were worth saving but which didn't quite make sense in the fenics\_ice repository. The structure is: \\
+The repository \href{https://github.com/EdiGlacUQ/fice_toolbox}{{\tt fice\_toolbox}} contains \textbf{some pretty useful stuff} which Joe felt were worth saving but which didn't quite make sense in the fenics\_ice repository. For example, some of the files are larger than typically stored in a git repo.
+So, to avoid bloat of the fenics_ice repo, I've stored them separately. The structure is: \\
 
 \dirtree{%
 .1 fice\_toolbox.
@@ -328,7 +329,7 @@ The script {\tt smith\_mesh\_metric\_mmg.py}, which makes use of {\tt meshtools.
 
 \subsection{scripts}
 
-Two pretty useful scripts in here. Neither of them take arguments (I was feeling lazy) so you have to edit the variables in the first few lines of each.
+Two pretty useful scripts in here.
 
 {\tt param\_sweep.py} will take a .toml file, a parameter name, and a range, and automatically produce a series of .toml files which sweep the requested parameter. It also produces a shell script which will call {\tt run\_inv.py} for each .toml. This script \textbf{saved me a lot of time} when doing L-curves.
 
