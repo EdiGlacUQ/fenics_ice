@@ -147,18 +147,41 @@ The core structure and key files are: \\
 
 \dirtree{%
 .1 fenics\_ice.
-.2 code.
+.2 fenics\_ice.
+.3 config.py.
+.3 decorators.py.
+.3 eigendecomposition.py.
+.3 fenics\_util.py.
+.3 graphviz.py.
+.3 inout.py.
+.3 mesh.py.
+.3 minimize\_l\_bfgs.py.
+.3 prior.py.
+.3 optim.py.
 .3 model.py.
 .3 solver.py.
+.3 test\_domains.py.
 .2 runs.
 .3 process\_eigendec.py.
-.3 run\_balancemeltrates.py.                                                                                              
-.3 run\_eigendec.py.                                                                                                      
-.3 run\_errorprop.py.                                                                                                      
-.3 run\_forward.py.                                                                                                        
-.3 run\_inv.py.                                                                                                  
-.3 run\_invsigma.py.                                                                                                    
+.3 run\_balancemeltrates.py.
+.3 run\_eigendec.py.
+.3 run\_errorprop.py.
+.3 run\_forward.py.
+.3 run\_inv.py.
+.3 run\_invsigma.py.
 .3 run\_momsolve.py.
+.2 example\_cases.
+.3 ice\_stream.
+.3 ice\_stream\_varres.
+.3 ismipc\_rc\_1e6.
+.3 ismipc\_rc\_1e4.
+.3 ismipc\_40x40.
+.3 ismipc\_30x30.
+.2 tests.
+.3 conftest.py.
+.3 test\_runs.py.
+.3 test\_model.py.
+.3 test\_config.py.
 .2 scripts.
 .3 ismipc.
 .4 forward\_solve.sh.
@@ -183,11 +206,14 @@ The core structure and key files are: \\
 .4 plot\_paths.py.
 .2 user\_guide.
 .3 user\_guide.pdf.
+.2 .github.
+.3 workflows.
+.4 test-fice.yml.
 }
 
-\section{Running Tests}
+\section{Tests \& Continuous Integration (Github Actions)}
 
-fenics\_ice is equipped with a pytest test suite. Tests are roughly split into unit tests (\texttt{test\_config.py}, \texttt{test\_model.py}) and integration tests (\texttt{test\_runs.py}). Several test cases are provided defined on two domains: ISMIP-C and an idealised ice stream domain (ICE\_STREAM). The ISMIP-C case runs in serial only, while ICE\_STREAM is used to test the parallel capabilities of fenics\_ice.
+fenics\_ice is equipped with a pytest test suite. Tests are roughly split into unit tests (\texttt{test\_config.py}, \texttt{test\_model.py}) and integration tests (\texttt{test\_runs.py}). Several test cases are provided defined on two domains: ISMIP-C and an idealised ice stream domain (ICE\_STREAM). The ISMIP-C case runs in serial only, while ICE\_STREAM is used to test the parallel capabilities of fenics\_ice. The cases in example\_cases which are used to define tests have a section at the end of their TOML config file called \texttt{[testing]}, which contains several `expected' values for various model outputs. Tests fail when the results don't match these expected values.
 
 To run all tests for a single ISMIP-C serial case, simply:
 \begin{spverbatim}
@@ -210,6 +236,25 @@ To test the parallel ICE\_STREAM case, run:
 > mpirun -n 2 pytest
 \end{spverbatim}
 
+\subsection{Continuous Integration with Github Actions}
+
+Whenever a new commit is pushed to the fenics\_ice github repository, this triggers a remote test suite. This instantiates a new virtual machine, installs the just-committed version of fenics\_ice inside a conda environment, and runs both serial and parallel tests. If these tests fail, it is likely that the most recent commit has changed the behaviour of fenics\_ice in an unexpected way.
+
+The setup for the fenics\_ice Github Actions test suite is contained entirely in the file:
+
+\texttt{fenics\_ice/.github/workflows/test-fice.yml}
+
+Note that the relative tolerances for the expected values are set quite high (between 1e-5 and 1e-7) because small differences in package versions between the virtual testing machine and your own machine can introduce differences. Furthermore, parallel simulations can be weakly non-deterministic, and this can be sufficient to cause tests to fail.
+
+\subsection{Updating Tests}
+
+Often, changes to the functionality of fenics\_ice will inevitably lead to a change in tests' expected results, and so it is necessary to update these expected values. This is easily accomplished by running the tests locally with the \texttt{--remake} flag. For example, by running both of the following commands:
+
+\texttt{pytest --all --remake}\\
+\texttt{mpirun -n 2 pytest --remake}\\
+
+fenics\_ice will modify the `expected\_...' values for each of the TOML configuration files. These updated values can then be committed and pushed, and the tests should also pass on Github Actions.
+
 \subsection{Taylor Verification}
 
 The pytest test suite also incorporates Taylor verification. At present this is only implemented for the inversion and forward phases of the model.
@@ -222,6 +267,76 @@ To perform Taylor verification, use the pytest mark \texttt{tv}, e.g.:
 Pytest will then perform Taylor verification and check that the resulting \texttt{min\_order} is above 1.95. Note that the --tv option *only* runs Taylor verification, and does not test model results. At present, Taylor verification of ICE\_STREAM works better with 3 cores as opposed to 2.
 
 Note that, for the ICE\_STREAM case, poor conditioning of the Hessian and undifferentiability of ice flotation results in failure of verification. As such, the ICE\_STREAM Taylor verification uses a value of 2 for Glen's N, and keeps the ice grounded.
+
+\section{Model Output \& Paraview}
+
+All output from a given simulation will be stored in the directory defined by \texttt{output\_dir} in the \texttt{[io]} .toml section, and all output files will be named according to the \texttt{run\_name}. This means \textbf{you can run multiple simulations in the same directory}. This makes it easy to perform a parameter sweep, so long as you remember to change the run\_name for each simulation.
+
+\subsection{.pvd, .pvtu, .vtu}
+
+A collection of files with these extensions represents a single (possibly parallel partitioned) dataset. Load the .pvd file into Paraview directly.
+
+\subsection{.xml}
+
+These are a (now deprecated) way to pass data from one fenics\_ice run phase to another. So, they aren't for visualisation.
+
+\subsection{.xdmf, .h5}
+
+These can be used for visualisation in Paraview and for passing data (e.g. Functions) between fenics\_ice run phases.
+
+To open these for viewing in Paraview, open the .xdmf file and select either the \texttt{Xdmf3ReaderS} or \texttt{Xdmf3ReaderT}. These datasets can have multiple `timesteps' (see Paraview's top panel) which may either represent actual timesteps or, for example, the eigenvector number. As with all Paraview variables, they can also have multiple components (vectors).
+
+For example, the eigenvector XDMF file from a dual eigendecomposition (`run\_name\_vr\_vis.xdmf') has N `timesteps', where N is the number of eigenvectors converged, and each has 3 components (alpha, beta, None). Paraview adds a 3rd dummy component to 2-component vectors.
+
+\subsection{.p}
+
+These are Python pickle files and, as such, can contain arbitrary data. They are typically used for data which doesn't `map' into physical space, such as the eigenvalues, the mean \& standard deviation of QoIs through time. They are opened via pickle.load in a Python script.
+
+\section{fice\_toolbox}
+
+The repository \href{https://github.com/EdiGlacUQ/fice_toolbox}{{\tt fice\_toolbox}} contains \textbf{some pretty useful stuff} which Joe felt were worth saving but which didn't quite make sense in the fenics\_ice repository. The structure is: \\
+
+\dirtree{%
+.1 fice\_toolbox.
+.2 cases.
+.3 ice\_stream.
+.3 ice\_stream\_var\_res.
+.3 ice\_stream\_wide.
+.3 ismipc\_test.
+.3 Smith.
+.2 meshing.
+.3 meshtools.py.
+.3 smith\_mesh\_metric\_mmg.py.
+.2 scripts.
+.3 smith\_l\_curve\_rough.py.
+.3 param\_sweep.py.
+.2 tests.
+.3 all sorts...
+}
+
+There should be READMEs all over that repository, so the following notes are to give a broad view of what you'll find there.
+
+\subsection{cases}
+
+This directory contains all the files/scripts needed to create all the cases that we've worked with, including ice\_stream and the Smith Glacier case. It also contains some .toml files for various simulations using those cases.
+
+The files in the Smith case directory include scripts for processing BedMachine data into a fenics\_ice ready format, interpolating Frank Pattyn's temperature fields, etc. It also contains various notes that Joe wrote when he was developing for the Smith case.
+
+\subsection{meshing}
+
+The script {\tt smith\_mesh\_metric\_mmg.py}, which makes use of {\tt meshtools.py}, generates the Smith irregular mesh. This might be \textbf{very useful} for making other domains quickly. {\tt meshtools.py} is a loosely defined library with various useful functions.
+
+\subsection{scripts}
+
+Two pretty useful scripts in here. Neither of them take arguments (I was feeling lazy) so you have to edit the variables in the first few lines of each.
+
+{\tt param\_sweep.py} will take a .toml file, a parameter name, and a range, and automatically produce a series of .toml files which sweep the requested parameter. It also produces a shell script which will call {\tt run\_inv.py} for each .toml. This script \textbf{saved me a lot of time} when doing L-curves.
+
+{\tt smith\_l\_curve\_rough.py} takes a `glob' defining a series of runs and plots the L-curve.
+
+\subsection{tests}
+
+This is a sort of scratch space where I've tested out loads of little fenics snippets as Proof of Concept or just to investigate behaviour. I committed it in the hopes it'll prove useful.
 
 \section{Tutorial: A Walkthrough of IsmipC}
 
