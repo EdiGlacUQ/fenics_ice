@@ -177,10 +177,11 @@ def run_invsigma(config_file):
             w = Function(space)
             hdf5data.read(w, f'v/vector_{i}')
 
-            # Test norm in prior == 1.0
-            reg_op.action(w.vector(), y.vector())
-            norm_in_prior = w.vector().inner(y.vector())
-            assert (abs(norm_in_prior - 1.0) < eps)
+            print(f"Getting eigenvector {i} of {nlam}")
+            # # Test norm in prior == 1.0
+            # reg_op.action(w.vector(), y.vector())
+            # norm_in_prior = w.vector().inner(y.vector())
+            # assert (abs(norm_in_prior - 1.0) < eps)
 
             W.append(w)
 
@@ -230,6 +231,8 @@ def run_invsigma(config_file):
 
     neg_flag = 0
     for i in range(npatches):
+
+        print(f"Working on patch {i} of {npatches}")
 
         # Create DG indicator function for patch i
         indic_1.vector()[:] = (clust_fun.vector()[:] == i).astype(int)
