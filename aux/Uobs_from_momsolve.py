@@ -25,7 +25,9 @@ import argparse
 
 def main(dd, infile, outfile, noise_sdev, L, seed=0, ls=None):
     """
-    Take velocity data from run_momsolve.py and add gaussian noise
+    Take velocity data from run_momsolve.py and add gaussian noise. This is used
+    for synthetic cases (ismipc/ice_stream) where there is no real velocity
+    observations.
 
     dd - (string/path) directory where input is found & where output is written
     infile - (string/path) input file name (.h5)

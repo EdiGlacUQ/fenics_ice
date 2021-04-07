@@ -16,8 +16,8 @@
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Generate a rectangular mesh for fenics sims. To replace the current case of
-run_inv.py making the mesh on the fly.
+Generate a rectangular mesh for (synthetic) fenics_ice sims. Previously, run_inv.py was
+responsible for generating the mesh at run time.
 """
 
 from mpi4py import MPI

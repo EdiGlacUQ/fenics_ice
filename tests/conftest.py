@@ -206,7 +206,7 @@ def persistent_temp_model(request, mpi_tmpdir, case_gen):
 
 def create_temp_model(request, mpi_tmpdir, case_gen, persist=False):
     """
-    Set up an ismip test case from HDF5 datafiles
+    Set up a test case from HDF5 datafiles
 
     Returns the path of the toml file
     """
