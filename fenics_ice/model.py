@@ -29,7 +29,13 @@ import logging
 log = logging.getLogger("fenics_ice")
 
 class model:
+    """
+    The 'model' object is the core of any fenics_ice simulation. It handles loading input
+    data into fields, generating FunctionSpaces & Functions, marking boundary conditions.
 
+    It has a self.solvers list which, at present, will only ever point to a single solver
+    object, defined in solver.py
+    """
     def __init__(self, mesh_in, input_data, param_in, init_fields=True,
                  init_vel_obs=True):
 

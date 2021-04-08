@@ -17,6 +17,10 @@
 
 """
 Classes & methods for parsing fenics_ice configuration files.
+
+Note that this code makes *extensive* use of the @dataclass decorator to avoid
+lots of boilerplate code. Each of the classes which is prepended with a @dataclass and
+which inherits from ConfigPrinter defines a seperate section of the configuration.
 """
 
 import os

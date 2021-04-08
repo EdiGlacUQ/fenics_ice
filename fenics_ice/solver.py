@@ -41,7 +41,9 @@ import logging
 log = logging.getLogger("fenics_ice")
 
 class ssa_solver:
-
+    """
+    The ssa_solver object is currently the only kind of fenics_ice 'solver' available.
+    """
     def __init__(self, model, mixed_space=False):
 
         # Enable aggressive compiler options
@@ -187,7 +189,6 @@ class ssa_solver:
         are set. The option to *assign* is only required because, in mixed space
         case, we specify mdl.alpha and mdl.beta, so must make use of FunctionAssigner.
         For consistency, 'initial' always assigns even when not using mixed space.
-
         """
 
         if not isinstance(f, (list, tuple)):
