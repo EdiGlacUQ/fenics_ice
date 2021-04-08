@@ -18,6 +18,7 @@
 \usepackage{bm}
 \usepackage{siunitx}
 \usepackage[nottoc,numbib]{tocbibind}
+\usepackage{todonotes}
 
 \DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
 \DeclareSIUnit\year{yr}
@@ -129,6 +130,8 @@ export PYTHONPATH
 
 \subsection{Overview}
 
+The top-level directory {\tt fenics\_ice} defines the library itself, while the {\tt runs/run\_*.py} scripts each execute a phase of a typical simulation. Section \ref{sec:uq} describes the function of each of these scripts. Several example cases are available in {\tt example\_cases}. For example, the script {\tt example\_cases/ice\_stream/run\_fwd.sh} executes every simulation phase in order, taking its configuration from the configuration file {\tt ice\_stream.toml}.
+
 The core of the ice sheet model is in two files: {\tt /code/model.py} and {\tt /code/solver.py}. These are utilized by the python scripts in the {\tt /runs} folder, which execute specific parts of a simulation. The python scripts there are generic to any simulation. Each new simulation then has its own primary folder in the {\tt /scripts} folder, with simple bash scripts which call program files in {\tt /runs} with specific parameters and data files.
 
 The bash scripts in {\tt /scripts} are where parameters and data file locations are specified; these are bash simple wrapper scripts for calling python scripts in {\tt /runs}. The data and parameters are used by the program files in {\tt /runs} to create a model object (via a class defined in {\tt model.py}) and subsequently a solver object (via a class defined in {\tt solver.py}). The model object contains all the necessary data for a simulation, such as topography, constants, and velocity observations for inversions. The solver object contains the ice sheet physics/inversion code. The model object is passed as a parameter to your solver object. This object then allows you to solve the SSA equations \cite{MacAyeal1989} on your domain, invert for basal drag or $B_{glen}$, and perform uncertainty quantification. The options of any python script in the {\tt /runs} folder can be viewed by typing 'python run\_xxx.py --help'.
@@ -182,28 +185,11 @@ The core structure and key files are: \\
 .3 test\_runs.py.
 .3 test\_model.py.
 .3 test\_config.py.
-.2 scripts.
-.3 ismipc.
-.4 forward\_solve.sh.
-.4 run\_all.sh.
-.4 uq\_30x30.sh.
-.4 uq\_40x40.sh.
-.4 uq\_rc\_1e4.sh.
-.4 uq\_rc\_1e6.sh.
 .2 aux.
 .3 gen\_ismipC\_domain.py.
 .3 test\_domains.py.
 .3 Uobs\_from\_momsolve.py.
-.2 input.
-.3 ismipc.
-.3 smith\_500m\_input.
-.2 output.
-.3 ismipc.
-.4 plot\_dq\_ts.py.
-.4 plot\_eigenvalue\_decay.py.
-.4 plot\_inv\_results.py.
-.4 plot\_leading\_eigenfuncs.py.
-.4 plot\_paths.py.
+.3 plotting.
 .2 user\_guide.
 .3 user\_guide.pdf.
 .2 .github.
@@ -211,7 +197,98 @@ The core structure and key files are: \\
 .4 test-fice.yml.
 }
 
-\section{Tests \& Continuous Integration (Github Actions)}
+\subsection{Configuration files (.toml)}
+
+{\tt fenics\_ice} uses \href{https://github.com/toml-lang/toml}{Tom's Obvious, Minimal Language} for configuration. See\\ {\tt example\_cases/ice\_stream/ice\_stream.toml} for an example.
+\textbf{Tip:} emacs has a `toml-mode' package which provides syntax highlighting!
+
+Configuration is split into sections denoted {\tt [thus]}, and the TOML file controls all aspects of a simulation, from the location of input \& output files {\tt [io]}, physical {\tt [constants]}, the definition of the {\tt [mesh]}, {\tt [ice dynamics]} and velocity {\tt [obs]}. Parameters for a specific model phase are defined in {\tt [inversion]}, {\tt [eigendec]}, {\tt [time]}, {\tt [errorprop]} and {\tt [invsigma]}.
+
+Most parameters which can take a sensible default value do so. During development, Joe has tried to ensure that every configurable parameter appears in at least one of the example\_case .toml files. However, the best way to get \textbf{an exhaustive list of all configurable parameters and their default values} is to look at the file {\tt fenics\_ice/config.py}.
+
+In addition to individual {\tt [sections]} describing some set of parameters, {\tt fenics\_ice} configuration files also define boundary conditions using the TOML {\tt [[list]]} specifier. Any section specifier in double brackets (e.g. {\tt [[BC]]}) can be defined multiple times, and will be parsed to a \textbf{list}. This enables us to easily specify a list of boundary conditions. More info on boundary conditions in Section \ref{sec:bc}.
+
+The cases in {\tt example\_cases} are also used to test the model, and so they have an additional .toml section called {\tt [testing]}. More info on this in Section \ref{sec:test}
+
+\subsection{Model \& Solver Objects}
+
+At run time, every simulation phase begins by the definition of a {\tt model} object, usually followed by the definition of a {\tt solver} object. These classes are defined in model.py and solver.py respectively. Broadly speaking, the {\tt model} object is responsible for loading \& storing input data, initialising function spaces and functions, and setting up boundary conditions. The model object has a list member called `solvers' which, at the present stage of fenics\_ice development, will only ever point to a single {\tt solver} object, described below.
+
+The {\tt ssa\_solver} object defined in solver.py is currently the only available solver, and it defines methods for solving both the shallow-shelf approximation (SSA), the time dependent thickness advection equation and inverse methods. It also has methods for getting the control functions from the model object, setting their values, and returning them to the model object. It also defines the Quantities of Interest, sliding laws, viscosity etc.
+
+Overall, the current split between model/solver is overly simple and really not ideal.
+Too many things are handled directly by the {\tt ssa\_solver} object which should exist as functions in other modules.
+Indeed, the {\tt ssa\_solver} class should really just handle the solution of the SSA equations, and the {\tt model} object should have a separate member which handles inversions, thickness advection, the definitions of dynamics, etc.
+
+In {\tt ssa\_solver}, {\tt def\_mom\_eq} defines the momentum equation (SSA), and {\tt def\_thickadv\_eq} defines the thickness advection equation. So these functions really represent the mathematical kernel of the model. The inverse model phase is carried out by {\tt ssa\_solver.inversion()}.
+
+\subsection{Control Functions \& Mixed Spaces}
+
+Work so far using {\tt fenics\_ice} has concentrated on two control functions: {\tt 
+alpha} and {\tt beta}. {\tt alpha} represents the basal sliding parameter which the rest of the glaciological community calls beta... while {\tt beta} represents the rheological parameter which the rest of the community typically calls A. At this point, it's too late to turn back.
+
+It's possible to carry out simulations where either {\tt alpha} or {\tt beta} or both are inverted for, and it's possible to eigendecompose the hessian of the cost function (J) with respect to the relevant control function(s). In the single-control case ({\tt alpha} or {\tt beta}), the control function is defined in a CG1 space ({\tt solver.Qp}). However, in the dual-control case, the control functions \textbf{must} be defined in a mixed space (CG1 x CG1, {\tt solver.QQ}) for eigendecomposition. The {\tt ssa\_solver} constructor argument {\tt mixed\_space} determines whether the control functions will form a mixed space function or separate CG1 space functions.
+
+If you look at {\tt run\_inv.py}, you'll notice it \textbf{never} uses a mixed space.
+This is because it's primarily the eigendecomposition \& subsequent operations involving the eigenfunctions which require the mixed space, and there is no tlm\_adjoint annotated connection between the inversion phase \& subsequent phases. Thus it is possible, and simplest, to simply treat the control functions as separate CG1 functions at this stage.
+
+The logic of getting \& setting the control function values is handled by the ssa\_solver methods: {\tt get\_control, get\_control\_space, set\_control\_fns, update\_model\_fns}. Note that the {\tt model} object has members {\tt alpha} and {\tt beta}, but the solver's equivalent members are actually \textbf{copies}, so one of the last things done by the {\tt inversion} method is to copy the solver's control functions back to the model.
+
+\subsection{Meshes} \label{sec:mesh}
+
+FEniCS has two native mesh formats: XML (deprecated) and XDMF. Older example cases (ismipc) use the XML format, whereas newer cases (ice\_stream, Smith) use XDMF. Meshes defined in XDMF files also have a .h5 file with the same name, which stores the actual data in binary format. For example, the mesh for the ice\_stream case is in {\tt example\_cases/ice\_stream/input} and consists of the files {\tt ice\_stream.xdmf} and {\tt ice\_stream.h5}. In that directory, you'll also find an XDMF called {\tt ice\_stream\_ff.xdmf}, which defines the FEniCS `facet function' associated with the mesh. This `facet function' is used to identify boundary conditions. Section \ref{sec:bc} describes how fenics\_ice deals with BCs internally.
+
+Meshes in fenics\_ice \textbf{must} conform to the ice domain, meaning every cell/element must be ice. Previously, meshes were defined over a whole region including ocean \& bare rock regions (nunataks), and an associated mask allowed fenics\_ice to define the ice-conforming region as a FEniCS \texttt{SubMesh}. However, {\tt SubMeshes} don't work in parallel, and other attempts to define a FEniCS {\tt Measure} on only part of a domain proved fruitless. So, we opted to abandon the attempt to use masked non-conforming meshes. Re-open that can of worms at your peril!
+
+Figure \ref{fig:smithmesh} shows the mesh for the Smith Glacier region. Resolution is highly heterogeneous, depending on observed strain rates. The mesh was produced by the script {\tt fice\_toolbox/meshing/smith\_mesh\_metric\_mmg.py}. See Section \ref{sec:toolbox} for more info on the fice\_toolbox repo.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=10cm]{./figures/smith_mesh.png}
+  \caption[Mesh of Smith Glacier]{Variable resolution mesh of Smith Glacier region. Mesh resolution depends on observed strain rates. The boundaries to the East and South are entirely ice-ice boundaries, whereas the North and West features calving fronts where ice meets ocean.}
+      \label{fig:smithmesh}
+\end{figure}
+
+
+\subsection{Boundary Conditions} \label{sec:bc}
+
+A 2D finite element mesh has 3 fundamental entity types: vertices (points), facets (edges) and cells (elements). Facets can be further divided into internal and external. For fenics\_ice boundary conditions we are exclusively concerned with \textbf{external facets}, i.e. the edges which form the domain's exterior ring. This is because we opt to work exclusively with conforming meshes, so the edge of the mesh also represents the edge of the domain.
+
+FEniCS (actually UFL) defines 3 in-built integral `measures': {\tt dx, ds, dS}. {\tt dx} integrates over the whole domain (all cells), {\tt ds} integrates over all \textbf{external} facets, and {\tt dS} integrates over \textbf{all} facets. The latter is rarely used in fenics\_ice (only for jump conditions in DG0 forms). All boundary conditions are integrated using the in-built {\tt ds}.
+
+Boundary conditions are defined by providing an XDMF file containing a FacetFunction. External facets are marked with integer labels, where each label value defines a single boundary. These are parsed into fenics\_ice via the {\tt model.mark\_BCs} method, which calls the function {\tt mesh.get\_ff\_from\_file}.
+
+The name of the file containing the FacetFunction is specified in the .toml via {\tt bc\_filename} in the {\tt [mesh]} section. Each {\tt [[BC]]} section in the .toml file specifies a different boundary condition, and each BC can apply to \emph{multiple labelled boundaries}:
+
+\begin{spverbatim}
+
+[mesh]
+mesh_filename = "ice_stream.xdmf"
+bc_filename = "ice_stream_ff.xdmf"
+
+[[BC]]
+name = "Lateral Margins" # unimportant
+labels = [1, 3, 4]
+flow_bc = "no_slip"
+
+[[BC]]
+name = "Calving Fronts"
+labels = [2]
+flow_bc = "calving"
+
+\end{spverbatim}
+
+At present, boundary conditions for the momentum solver (SSA) are supported. Future work could conceivably add BCs for thickness advection. Boundary conditions for SSA are enforced in {\tt solver.def\_mom\_eq}. The following SSA BCs are supported:
+\begin{itemize}
+\item calving -- Neumann, applies the stress associated with the ice cliff force imbalance.
+\item obs\_vel -- Dirichlet, applies the observed velocity.
+\item no\_slip -- Dirichlet, velocity = 0.0, 0.0
+\item natural -- No condition imposed
+\end{itemize}
+
+Note that the code contains references to the {\tt free\_slip} boundary condition (i.e. no penetration, no tangential friction), but this isn't actually implemented. This might be useful/essential for modelling a domain where lateral boundaries follow the direction of flow (PIG?).
+
+\section{Tests \& Continuous Integration (Github Actions)} \label{sec:test}
 
 fenics\_ice is equipped with a pytest test suite. Tests are roughly split into unit tests (\texttt{test\_config.py}, \texttt{test\_model.py}) and integration tests (\texttt{test\_runs.py}). Several test cases are provided defined on two domains: ISMIP-C and an idealised ice stream domain (ICE\_STREAM). The ISMIP-C case runs in serial only, while ICE\_STREAM is used to test the parallel capabilities of fenics\_ice. The cases in example\_cases which are used to define tests have a section at the end of their TOML config file called \texttt{[testing]}, which contains several `expected' values for various model outputs. Tests fail when the results don't match these expected values.
 
@@ -272,6 +349,14 @@ Note that, for the ICE\_STREAM case, poor conditioning of the Hessian and undiff
 
 All output from a given simulation will be stored in the directory defined by \texttt{output\_dir} in the \texttt{[io]} .toml section, and all output files will be named according to the \texttt{run\_name}. This means \textbf{you can run multiple simulations in the same directory}. This makes it easy to perform a parameter sweep, so long as you remember to change the run\_name for each simulation.
 
+A useful goal that Joe never quite got round to is to have all functions output into a \emph{single} output file. This is really useful in Paraview because it allows you to use the Calculator etc to compute combinations of variables etc. However, this doesn't seem to be supported by default in FEniCS. At least, it's certainly not possible using the old output format:
+
+\begin{spverbatim}
+outfile << function
+\end{spverbatim}
+
+If this can be implemented properly, it'd save a lot of faff with hundreds of output files for each simulation.
+
 \subsection{.pvd, .pvtu, .vtu}
 
 A collection of files with these extensions represents a single (possibly parallel partitioned) dataset. Load the .pvd file into Paraview directly.
@@ -292,10 +377,10 @@ For example, the eigenvector XDMF file from a dual eigendecomposition (`run\_nam
 
 These are Python pickle files and, as such, can contain arbitrary data. They are typically used for data which doesn't `map' into physical space, such as the eigenvalues, the mean \& standard deviation of QoIs through time. They are opened via pickle.load in a Python script.
 
-\section{fice\_toolbox}
+\section{fice\_toolbox} \label{sec:toolbox}
 
 The repository \href{https://github.com/EdiGlacUQ/fice_toolbox}{{\tt fice\_toolbox}} contains \textbf{some pretty useful stuff} which Joe felt were worth saving but which didn't quite make sense in the fenics\_ice repository. For example, some of the files are larger than typically stored in a git repo.
-So, to avoid bloat of the fenics_ice repo, I've stored them separately. The structure is: \\
+So, to avoid bloat of the fenics\_ice repo, I've stored them separately. The structure is: \\
 
 \dirtree{%
 .1 fice\_toolbox.
@@ -340,6 +425,8 @@ Two pretty useful scripts in here.
 This is a sort of scratch space where I've tested out loads of little fenics snippets as Proof of Concept or just to investigate behaviour. I committed it in the hopes it'll prove useful.
 
 \section{Tutorial: A Walkthrough of IsmipC}
+
+\textbf{This section provides a tutorial for the IsmipC simulation. However, at least some of the information here is likely to be out of date. A walk through of the Smith Glacier case is described in Section \ref{sec:smith}. This tutorial is left here in case it provides useful information not covered there.}
 
 The Ice Sheet Model Intercomparison Project for Higher-Order ice sheet Models (ISMIP-HOM) provides a standardized set of idealized tests for ice sheet models. In this walkthrough, we apply FenicsIce to the domain prescribed by experiment C (IsmipC). A description of IsmipC is provided in Section \ref{IsmipC} of this user guide. The original IsmipC is a static simulation, meaning time evolution is not considered. We'll extend it by running a dynamic simulation for the purposes of performing uncertainty quantification.
 
@@ -458,7 +545,7 @@ Copy the five files generated into {\tt \$FENICS\_ICE\_BASE\_DIR/input/ismipC/}.
 > cp mask_vel.xml u_*.xml v_*.xml ..
 \end{verbatim}
 
-\subsection{Uncertainty Quantification}
+\subsection{Uncertainty Quantification} \label{sec:uq}
 
 FenicsIce is developed with an aim of understanding uncertainty in ice sheet simulations. Because inversions for key ice-sheet model variables (basal drag and $B_{glen}$) solve under-determined systems of equations, the solutions may have large, and spatially varying error distributions. The novel capabality of FenicsIce is to propogate this uncertainty through a forward stepping simulation, allowing us to calculate the probability distribution of a quantity-of-interest through time, rather than a point estimate. 
 
@@ -725,6 +812,76 @@ In Experiment C, basal drag is parameterized with a linear sliding law, with the
 %
 where $t_y$ is the number of seconds in a year, converting $\beta$ to SI units.
 
+\section{Tutorial 2 : A Walkthrough of Smith Glacier} \label{sec:smith}
+
+This section walks through a fenics\_ice simulation of the Smith Glacier domain (actually Smith, Pope and Kohler Glaciers), from mesh generation, definition of .toml file, through to analysis of results.
+
+\subsection{Mesh Generation}
+
+Finite element simulations start with a mesh. The `Smith' mesh (Fig. \ref{fig:smithmesh}) is an unstructured grid with highly variable resolution (edge length). This mesh was generated using the script {\tt smith\_mesh\_metric\_mmg.py} in {\tt fice\_toolbox/meshing}. This section will describe the mesh generation process with reference to that script. The script depends on the following libraries which can (I think) be installed with conda:
+\begin{itemize}
+\item netCDF4
+\item gmsh
+\item meshio
+\item meshtools (local library, in same directory as smith\_mesh\_metric\_mmg.py)
+\end{itemize}
+
+It also requires a local MMG installation. See {\tt fice\_toolbox/meshing/README.md} for details of an installation script for MMG v5.5.2.
+
+We start with two datasets:
+
+\href{https://nsidc.org/data/nsidc-0545}{ASE velocity} from which we can compute strain rates.
+
+\href{https://nsidc.org/data/NSIDC-0756/versions/1}{BedMachine} which provides several geometry fields and, importantly, a raster mask defining ice, ocean, nunatak, etc.
+
+Note that the script refers to a `mask\_h5' dataset, but this is just an alternative to using the BedMachine mask.
+
+Velocity data are loaded and eigenstrains are computed. \textbf{Eigen}strain is important for an isotropic mesh because it is invariant under rotation. The mean eigenstrain for each cell through the timeseries is computed, and this also helps to fill holes in the data.
+
+The actual mesh generation occurs in two phases:
+\begin{enumerate}
+\item Initial uniform-resolution mesh generated by Gmsh.
+\item Mesh refinement using strain metric in MMG.
+\end{enumerate}
+
+The purpose of the first phase is to define points at which the metric can be interpolated. This interpolated metric then defines the final target edge length as a field.
+
+This script also automatically generates appropriate boundary labels for ice/ocean (calving) and ice/ice (edge of domain) boundaries by analysing the BedMachine mask. It writes out the required `\_ff.xdmf' and `\_ff.h5' files containing this boundary info in FEniCS-ready format. It also spits out a `\_BCs.txt' file which lists each boundary label and its associated boundary type (ocean, ice). This file helps the user write the [[BC]] sections in the .toml file.
+
+To conclude, given the following specification in {\tt smith\_mesh\_metric\_mmg.py}:
+
+\begin{spverbatim}
+mesh_outfile = ``smith_variable_ocean''
+\end{spverbatim}
+
+the script should produce the following output files:
+
+\begin{itemize}
+\item smith\_variable\_ocean.xdmf -- FEniCS XDMF mesh format
+\item smith\_variable\_ocean.h5 -- HDF5 data file for above
+\item smith\_variable\_ocean\_ff.xdmf -- FEniCS 'MeshValueCollection' containing FacetFunction
+\item smith\_variable\_ocean\_ff.h5 -- HDF5 data file for above
+\item smith\_variable\_ocean\_BCs.txt -- Human readable description of BC labels
+\end{itemize}
+
+\subsection{Input Data}
+
+In addition to the 2D mesh, we need data describing the ice thickness, bed elevation, SMB, melt rates, etc. This is accomplished by the script\\
+ {\tt fice\_toolbox/cases/Smith/BedMachine\_data/scripts/bedsurf\_smith\_bedmachine.py}.
+
+This script loads bedrock bedrock elevation, ice thickness \& ice surface elevation from BedMachine for a specified region. It also applies a gaussian filter to the surface elevation; this is necessary because the surface elevation is sufficiently high resolution to pick up crevasses. These crevasses are then transmitted to the ice-base elevation unless filtering is applied. The strength of gaussian filtering is controlled by the -sigma argument. The script produces an HDF5 data file called `smith\_bedmachine.h5' which, along with the 2D mesh, completely defines the geometry.
+
+The background field for beta is derived from temperature estimates from Frank Pattyn's work. Dan should know about this. It's processed by the script\\
+ {\tt fice\_toolbox/cases/Smith/BedMachine\_data/scripts/pattyn\_temp.py}. Note that the approach to initializing alpha and beta differs. An initial guess for alpha is derived internally by fenics\_ice in {\tt model.gen\_alpha}. However, for beta, the initial guess is derived from temperature data, and furthermore, the inversion \emph{penalises divergence from this initial guess}. This is not the case with alpha.
+
+So far, I have not addressed the need for \emph{basal melt and surface mass balance}. For now, SMB for the Smith domain is set to a constant 0.38 m/a and no basal melting is imposed. This should be improved upon.
+
+\subsection{Inversion \& L-curves}
+
+\subsection{Time-stepping}
+
+\subsection{Results in Paraview}
+
 \section{Publications}
 This section will be updated as publications with Fenics Ice appear.
 
@@ -739,4 +896,4 @@ This section will be updated when the GMD paper is published.
 
 
 
-\end{document}  
+\end{document} 
