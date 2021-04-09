@@ -57,74 +57,32 @@ Fenics Ice leverages the open source FEniCS computing platform for solving parti
 
 \section{Installation}
 
-The Fenics Ice model is built using the open source Python finite element software Fenics, and depends on the package tlm-adjoint for implementing inversion and error propagation capabilities. The script install.sh will attempt to create a suitable conda environment, install fenics\_ice and test the installation. Manual installation instructions are provided below.
+The Fenics Ice model is built using the open source Python finite element software \href{https://fenicsproject.org/}{FEniCS}, and depends on the package \href{https://github.com/jrmaddison/tlm_adjoint}{tlm\_adjoint} for implementing inversion and error propagation capabilities. The script install.sh will attempt to create a suitable conda environment and install fenics\_ice. Sections below serve to document the steps of install.sh.
 
-\subsection{Installing Fenics}
+\subsection{Conda Environment}
 
-The simplest way to install FEniCS and tlm-adjoint is to create a conda environment. 
- 
-1. Install Anaconda. This can be either Anaconda itself, or miniconda, which is a stripped down version. Ensure the Python version is greater than 3.6. Installer can be found here: https://www.anaconda.com/distribution/ 
+fenics\_ice relies heavily on conda to manage dependencies; conda is great because it encapsulates all the dependencies in an environment which is separate from the host system, but without the overhead of running a virtual machine or docker container. The conda environment in which fenics\_ice resides is described by the top-level YAML file {\tt environment.yml}. It is called `fenics\_ice', uses the channel conda-forge, and has several package dependencies. For now Python is pinned at version 3.8 and fenics is pinned at 2019.1.0. These lines from the installation script create the fenics\_ice conda environment and activate it:
 
-2. Add the conda-forge channel. \\
-conda config --add channels conda-forge \\
-conda config --set channel\_priority strict
+\begin{spverbatim}
+conda env create -f $FENICS_ICE_BASE_DIR/environment.yml
+conda activate fenics_ice
+\end{spverbatim} %$
 
-3. Create a new conda environment. \\
-conda create -n fenics -c conda-forge fenics fenics-dijitso fenics-dolfin fenics-ffc fenics-fiat fenics-libdolfin fenics-ufl
+\subsection{Installation of tlm\_adjoint \& fenics\_ice}
 
-4. Enter the conda environment: \\
-conda activate fenics
+Neither tlm\_adjoint or fenics\_ice are currently available through a conda channel or python repo. As they are both python tools, they are `installed' simply by downloading them and pointing our conda environment to their directories:
 
-5. Make sure the pip package manager is up to date: \\
-pip install -{}-upgrade pip
+\begin{spverbatim}
+#install tlm_adjoint & checkout the relevant devel branch
+git clone https://github.com/jrmaddison/tlm_adjoint.git
+cd $INSTALL_DIR/tlm_adjoint
+git checkout jtodd/fice_devel
 
-6. Install the following packages: \\
-conda install matplotlib numpy ipython scipy seaborn
-
-7. Install hdf5 for python: \\
-\url{http://docs.h5py.org/en/latest/index.html} \\
-pip install h5py
-
-8. Install pyrevolve: \\
-\url{https://github.com/opesci/pyrevolve}
-
-Change to directory where you would like to download pyrevolve to. You can delete the pyrevolve directory after finishing this step. \\ \\
-git clone \url{https://github.com/opesci/pyrevolve.git} \\
-cd pyrevolve/ \\
-python setup.py install
-
-9. Install mpi4py: \\
-\url{http://mpi4py.scipy.org/docs/} \\
-pip install mpi4py
-
-10. To enter this environment: \\
-conda activate fenics
-
-11. To exit: \\
-source deactivate fenics
-
-\subsection{Installing tlm\_adjoint}
-
-1. Clone the git repository to the local drive where you want it to live:\\
-git clone \url{https://github.com/jrmaddison/tlm_adjoint.git}
-
-\subsection{Installing Fenics Ice}
-
-1. Clone the git repository to the local drive where you want it to live: \\
-git clone \url{https://github.com/cpk26/fenics_ice.git}
-
-
-\subsection{Creating environment variables}
-Create an environment variable storing the fenics\_ice base directory by adding the following to .bashrc, amending the path appropriately for your system. \\
-FENICS\_ICE\_BASE\_DIR="/XXXX/XXXX/XXXX/fenics\_ice" \\                                            
-export FENICS\_ICE\_BASE\_DIR   
-
-
-\subsection{Modifying the Python Path}
-
-Modify the default paths python looks for modules to include tlm\_adjoint and fenics ice. Add to the end of .bashrc: \\
-PYTHONPATH=\"\$\{PYTHONPATH\}:/PATH/TO/tlm\_adjoint/python:/PATH/TO/fenics\_ice/code\" \\
-export PYTHONPATH
+# Point the conda environment to tlm_adjoint & fenics_ice
+conda develop $INSTALL_DIR/tlm_adjoint
+conda develop $FENICS_ICE_BASE_DIR
+#conda develop $INSTALL_DIR/fice_toolbox  <- Optional
+\end{spverbatim}
 
 \section{Program structure}
 
@@ -287,6 +245,63 @@ At present, boundary conditions for the momentum solver (SSA) are supported. Fut
 \end{itemize}
 
 Note that the code contains references to the {\tt free\_slip} boundary condition (i.e. no penetration, no tangential friction), but this isn't actually implemented. This might be useful/essential for modelling a domain where lateral boundaries follow the direction of flow (PIG?).
+
+\subsection{Notes on Parallelism} \label{sec:parallel}
+
+MPI parallelism is a core feature of FEniCS, and so there's very few traces of parallel code in fenics\_ice. It's mostly implemented through the PETSc backend. For example, given a function alpha:
+
+\begin{spverbatim}
+  norm(alpha)
+  norm(alpha.vector())
+\end{spverbatim}
+
+will return the function's L2 norm and the function's vector norm respectively. The same result will be returned on all processes. However, care needs to be taken when attempting to assign directly to vector values. In this case, the apply() function must be called to synchronise processes:
+
+\begin{spverbatim}
+    dg_fun.vector()[:] = nearest
+    dg_fun.vector().apply("insert")
+\end{spverbatim}
+
+The code above sets the values of dg\_fun's DOFs using the numpy array {\tt nearest}.
+
+Sometimes it's necessary to operate explicitly in parallel. See {\tt patch\_fun} in {\tt run\_invsigma.py}, which is responsible for decomposing the domain into small patches of cells over which integrals are calculated. Patch centre-points are chosen randomly, so one process (root) takes control of this operation, then broadcasts to other processes:
+
+\begin{spverbatim}
+    if root:
+        if params.constants.random_seed is not None:
+            random.seed(params.constants.random_seed)
+
+        tgt_cells = random.sample(range(ncells), ntgt)
+        tgt_cells.sort()
+    else:
+        tgt_cells = None
+
+    # Send to other procs
+    tgt_cells = comm.bcast(tgt_cells, root=0)
+\end{spverbatim}
+
+Note that non-root processes assign a value of {\tt None} to {\tt tgt\_cells}, because the symbol must be defined before being used in {\tt comm.bcast}.
+
+It's not even necessary to partition the model mesh prior to calling the model in parallel. This is handled at run time by FEniCS. Indeed, running a model phase in parallel is as simple as:
+{
+\begin{spverbatim}
+  mpirun -n 12 python $FENICS_ICE_BASE_DIR/runs/run_inv.py case_name.toml
+\end{spverbatim}
+}%$
+
+The number of cores (e.g. 12) can simply be changed, and FEniCS will handle decomposing the mesh into the required number of partitions. It will also correctly handle outputting results in parallel too.
+
+FEniCS has some unfortunate default behaviour with regards to OpenMP parallelism. Whereas MPI enables distributed memory parallelism (each processor addresses a different region of memory), OpenMP enables shared-memory parallelism (multi-threading). For typical fenics\_ice simulations, this actually \textbf{significantly slows down the simulation}. It is therefore recommended to ensure that the {\tt OMP\_NUM\_THREADS} environment variable is set to 1. The following section of the top-level {\tt install.sh} script ensures that the conda environment automatically sets \& unsets this environment variable:
+
+\begin{spverbatim}
+cd $CONDA_PREFIX
+mkdir -p ./etc/conda/activate.d
+mkdir -p ./etc/conda/deactivate.d
+touch ./etc/conda/activate.d/env_vars.sh
+touch ./etc/conda/deactivate.d/env_vars.sh
+echo "export OMP_NUM_THREADS=1" > ./etc/conda/activate.d/env_vars.sh
+echo "unset OMP_NUM_THREADS" > ./etc/conda/deactivate.d/env_vars.sh
+\end{spverbatim}%$
 
 \section{Tests \& Continuous Integration (Github Actions)} \label{sec:test}
 
@@ -877,6 +892,8 @@ The background field for beta is derived from temperature estimates from Frank P
 So far, I have not addressed the need for \emph{basal melt and surface mass balance}. For now, SMB for the Smith domain is set to a constant 0.38 m/a and no basal melting is imposed. This should be improved upon.
 
 \subsection{Inversion \& L-curves}
+
+
 
 \subsection{Time-stepping}
 

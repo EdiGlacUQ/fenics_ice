@@ -37,7 +37,7 @@ cd $INSTALL_DIR
 conda env create -f $FENICS_ICE_BASE_DIR/environment.yml
 conda activate fenics_ice
 
-#Create env variables
+# Create env variable 'OMP_NUM_THREADS' to prevent OpenMP threading
 cd $CONDA_PREFIX
 mkdir -p ./etc/conda/activate.d
 mkdir -p ./etc/conda/deactivate.d
@@ -48,12 +48,12 @@ echo "unset OMP_NUM_THREADS" > ./etc/conda/deactivate.d/env_vars.sh
 
 cd $INSTALL_DIR
 
-#install tlm_adjoint & fenics_ice
+# Install tlm_adjoint & checkout relevant devel branch
 git clone https://github.com/jrmaddison/tlm_adjoint.git
 cd $INSTALL_DIR/tlm_adjoint
 git checkout jtodd/fice_devel
 
-#PYTHONPATH equiv which doesn't pollute system environment namespace
+# Point the conda env to tlm_adjoint & fenics_ice
 conda develop $INSTALL_DIR/tlm_adjoint
 conda develop $FENICS_ICE_BASE_DIR
 #conda develop $INSTALL_DIR/fice_toolbox  <- system specific but this is how I use fice_toolbox
