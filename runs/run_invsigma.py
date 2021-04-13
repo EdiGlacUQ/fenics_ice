@@ -1,3 +1,4 @@
+
 # For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
 # root directory
 
@@ -34,11 +35,13 @@ import matplotlib as mpl
 # mpl.use("Agg")
 import matplotlib.pyplot as plt
 
-def coarse_fun(mesh_in, params):
+def patch_fun(mesh_in, params):
     """
     Create 'patches' of cells for invsigma calculation. Takes a random sample of
     cell midpoints via DG0 space, which become patch centrepoints. Then each DOF
     is assigned to its nearest centrepoint.
+
+    Returns a DG0 function where each cell is numbered by its assigned patch.
     """
     import random
     from scipy.spatial import KDTree
@@ -210,7 +213,7 @@ def run_invsigma(config_file):
     # in the posterior covariance.
 
     # Generate patches of cells for computing invsigma
-    clust_fun, npatches = coarse_fun(mesh, params)
+    clust_fun, npatches = patch_fun(mesh, params)
 
     # Create standard & mixed DG spaces
     dg_space = FunctionSpace(mesh, 'DG', 0)
@@ -232,7 +235,7 @@ def run_invsigma(config_file):
     neg_flag = 0
     for i in range(npatches):
 
-        print(f"Working on patch {i} of {npatches}")
+        print(f"Working on patch {i+1} of {npatches}")
 
         # Create DG indicator function for patch i
         indic_1.vector()[:] = (clust_fun.vector()[:] == i).astype(int)
@@ -250,6 +253,8 @@ def run_invsigma(config_file):
 
             clust_lump = assemble(inner(indic, test)*dx)
             patch_area = clust_lump.sum()  # Duplicate work here...
+
+            clust_lump /= patch_area
 
             # Prior variance
             reg_op.inv_action(clust_lump, x.vector())
@@ -275,12 +280,13 @@ def run_invsigma(config_file):
                 neg_flag = 1
                 continue
 
-            sigmas[j].vector()[:] += \
-                (indic_1.vector()[:] * (np.sqrt(cov_post) / patch_area))
+            # NB: "+=" here but each DOF will only be contributed to *once*
+            # Essentially we are constructing the sigmas functions from
+            # non-overlapping patches.
+            sigmas[j].vector()[:] += indic_1.vector()[:] * np.sqrt(cov_post)
             sigmas[j].vector().apply("insert")
 
-            sigma_priors[j].vector()[:] += \
-                (indic_1.vector()[:] * (np.sqrt(cov_prior) / patch_area))
+            sigma_priors[j].vector()[:] += indic_1.vector()[:] * np.sqrt(cov_prior)
             sigma_priors[j].vector().apply("insert")
 
 
