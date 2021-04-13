@@ -377,7 +377,7 @@ from IPython import embed; embed()
 \end{spverbatim}
 
 somewhere in your code and then run the model, execution will pause at this line and drop you into an IPython shell. This allows you to poke around, check the types \& values of variables, plot things, etc. It even works for a parallel simulation, though functionality is limited because you'll only be able to control \emph{one} of the partitions.
-\section{Model Output \& Paraview}
+\section{Model Output \& Paraview} \label{sec:output}
 
 All output from a given simulation will be stored in the directory defined by \texttt{output\_dir} in the \texttt{[io]} .toml section, and all output files will be named according to the \texttt{run\_name}. This means \textbf{you can run multiple simulations in the same directory}. This makes it easy to perform a parameter sweep, so long as you remember to change the run\_name for each simulation.
 
@@ -388,6 +388,8 @@ outfile << function
 \end{spverbatim}
 
 If this can be implemented properly, it'd save a lot of faff with hundreds of output files for each simulation.
+
+Don't try to compile \& install Paraview manually, it's a nightmare. Get a prebuilt binary instead. Paraview is a \textbf{really} powerful tool, but it's not very well documented. I recommend spending some time exploring the toolbars and the alphabetical list of filters.
 
 \subsection{.pvd, .pvtu, .vtu}
 
@@ -444,7 +446,7 @@ The files in the Smith case directory include scripts for processing BedMachine 
 
 The script {\tt smith\_mesh\_metric\_mmg.py}, which makes use of {\tt meshtools.py}, generates the Smith irregular mesh. This might be \textbf{very useful} for making other domains quickly. {\tt meshtools.py} is a loosely defined library with various useful functions.
 
-\subsection{scripts}
+\subsection{scripts} \label{sec:scripts}
 
 Two pretty useful scripts in here.
 
@@ -568,7 +570,7 @@ The python script {\tt Uobs\_from\_momsolve.py} takes the vector field in U.xml 
 /mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/input/ismipC/u_std.xml
 /mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/input/ismipC/v_obs.xml
 /mnt/c/Users/ckozi/Documents/Python/fenics/fenics_ice/input/ismipC/v_std.xml
-\end{spverbatim}
+\end{spverbatim} %$
 
 Copy the five files generated into {\tt \$FENICS\_ICE\_BASE\_DIR/input/ismipC/}. A study site in Antarctica or Greenland would require generating these files  from a surface velocity dataset such as NSIDC MEaSUREs.
 
@@ -672,7 +674,7 @@ python run_eigendec.py -s -m -p 0   -d $OUTPUT_DIR -o $EIGENDECOMP_DIR -f $EIGFI
 python run_errorprop.py -p 0 -d $FORWARD_DIR -e $EIGENDECOMP_DIR -l $EIGFILE -o $FORWARD_DIR
 python run_invsigma.py -p 0 -d $FORWARD_DIR -e $EIGENDECOMP_DIR -k $EIGENVECTOR_FILE -l $EIGENVALUE_FILE -d $OUTPUT_DIR -o $FORWARD_DIR
 
-\end{spverbatim}
+\end{spverbatim}%$
 
 The first python script {\tt run\_inv.py} performs the inversion. The {\tt -b} flag indicates that periodic boundary conditions should be applied at the domain boundary. Currently periodic boundary conditions cannot be specified on individual boundaries, but rather for the entire domain . Each of {\tt -x} and {\tt -y} specify the resolution in the number of cells in the x and y directions. At the present stage, resolution needs to be uniform in both axis. The {\tt -m} option specifies that a maximum of 200 iterations of gradient descent be performed to minimize the cost-function, while the input {-p 0} indicates we are optimizing basal drag. In the case of IsmipC, $B_{glen}$ is assigned a constant value. Scaling constants in the cost function for the inversion are specified by the {\tt -r} option. The first value scales the velocity misfit, RC2 and RC4 apply to the regularization of alpha, RC3 and RC5 apply to the regularization of beta. RC2 and RC3 specify the delta parameters in the cost function, and RC4 and RC5 specify the gamma parameters. The options {\tt -d} and {\tt -o} specify input and output directoies.
 
@@ -910,15 +912,92 @@ This script loads bedrock bedrock elevation, ice thickness \& ice surface elevat
 The background field for beta is derived from temperature estimates from Frank Pattyn's work. Dan should know about this. It's processed by the script\\
  {\tt fice\_toolbox/cases/Smith/BedMachine\_data/scripts/pattyn\_temp.py}. Note that the approach to initializing alpha and beta differs. An initial guess for alpha is derived internally by fenics\_ice in {\tt model.gen\_alpha}. However, for beta, the initial guess is derived from temperature data, and furthermore, the inversion \emph{penalises divergence from this initial guess}. This is not the case with alpha.
 
-So far, I have not addressed the need for \emph{basal melt and surface mass balance}. For now, SMB for the Smith domain is set to a constant 0.38 m/a and no basal melting is imposed. The files which describe these fields were generated using\\ {\tt fenics\_ice/input/smith\_500m\_input/gen\_smith\_domain.py}.
+So far, I have not addressed the need for \emph{basal melt and surface mass balance}. For now, SMB for the Smith domain is set to a constant 0.38 m/a and no basal melting is imposed. The files which describe these fields were generated using\\ {\tt fenics\_ice/input/smith\_500m\_input/gen\_smith\_domain.py}; this is Conrad's stuff.
+
+\subsection{Running Simulations}
+
+From within my `fenics\_ice' conda environment, I use a script containing the following code to run all phases of a simulation on 12 cores on the machine called `bow':
+
+\begin{spverbatim}
+#contents of run.sh
+mpirun -n 12 python ~/sources/fenics_ice/runs/run_eigendec.py smith.toml
+mpirun -n 12 python ~/sources/fenics_ice/runs/run_forward.py smith.toml
+mpirun -n 12 python ~/sources/fenics_ice/runs/run_invsigma.py smith.toml
+mpirun -n 12 python ~/sources/fenics_ice/runs/run_errorprop.py smith.toml
+\end{spverbatim}
+
+I call the script like this:
+\begin{spverbatim}
+nohup bash run.sh | tee log_smith_demo_run & disown
+\end{spverbatim}
+
+The combination of `nohup' and `\& disown' allows the simulation to run in the background once I end the ssh connection. This is \textbf{strongly} recommended, because if the connection drops accidentally the simulation will halt and there's no restart facility. Piping the output to `tee' creates a log file. Alternatively, if you wanted to keep separate logs for each run phase, you could add a {\tt | tee} on the end of each command in {\tt run.sh}.
+
+In the next couple of sections I'll describe some parts of the inversion \& eigendecomposition process. This is only 2 of the 5 run phases, but there's not much to say about the rest. They are described elsewhere in this document.
 
 \subsection{Inversion \& L-curves}
 
+The inverse model uses L-BFGS to minimize the cost function. Parameters for L-BFGS include, but are not limited to:
+
+\begin{spverbatim}
+[inversion]
+max_iter = 500       # Upper limit on L-BFGS iterations
+ftol = 1e-8          # Stopping criterion: decrease in J
+gtol = 1e-12         # Stopping criterion: decrease in dJ
+delta_lbfgs = 1.0e3  # initial theta scaling (off by default)
+\end{spverbatim}
+
+The following parameters describe the regularisation terms, and were obtained via L-curve analysis (e.g. Fig. \ref{fig:smith_lcurve}):
+\begin{spverbatim}
+gamma_alpha = 1e2
+delta_alpha = 1e-5
+gamma_beta = 1.0e2
+delta_beta = 1e-5
+delta_beta_gnd = 3e-5
+\end{spverbatim}
 
 
-\subsection{Time-stepping}
+L-curve analysis plots, for a range of parameter values, the cost function mismatch term (x-axis) against the regularisation term (y-axis).
+In general, the goal is to pick the largest regularisation term which does not increase the mismatch term.
+This can be quite subjective, and for the purposes of uncertainty quantification, it is common to slightly \emph{over}regularise.
+
+I wrote a couple of scripts in {\tt fice\_toolbox} to help perform the parameter sweeps required for an L-curve analysis, and to plot the results. The script {\tt param\_sweep.py} (Section \ref{sec:scripts}) generates a series of .toml files and a shell script to run each in turn. The script {\tt smith\_l\_curve\_rough.py} plots the L-curve.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=10cm]{./figures/smith_gamma_beta.png}
+  \caption[L-curve for delta\_beta for Smith Glacier]{L-curve for delta\_beta for Smith Glacier. Produced using script `smith\_l\_curve\_rough.py'}
+      \label{fig:smith_lcurve}
+\end{figure}
+
+
+\subsection{Eigendecomposition}
+
+I tend to set {\tt num\_eig} in the {\tt [eigendec]} .toml section to a large number (15000) and then just set it running (This could be improved -  see \ref{sec:improveed}).
+fenics\_ice writes out both the eigenfunctions and eigenvalues progressively, so you can monitor the latest results as the simulation progresses.
+Based on advice from James, I leave the eigendecomposition running until the smallest absolute eigenvalue reaches 1/3.
+This can be checked by inspecting the file {\tt output/run\_name\_eigvals.p}.
+There should be a script called {\tt eigvals.py} in with the Smith run files which prints out the smallest eigenvalue and also plots the eigenspectrum.
+
+Note that the use of {\tt nohup} means that, to halt the ED while it's running requires killing the running job. I achieve this via:
+
+\begin{spverbatim}
+  pkill -9 python
+\end{spverbatim}
+
+This is only really safe because I know the only python job that I have \emph{permission} to kill is the running fenics\_ice simulation. This wouldn't work properly if, for example, you were running multiple simulations at the same time. In this case, it might be worth investigating {\tt screen} or {\tt tmux} for finer grained control of running simulations.
+Alternatively, run on a system with a proper job queuing system like Torque or Slurm.
 
 \subsection{Results in Paraview}
+
+Once the simulation completes, results can be downloaded from the {\tt output} directory using rsync, then viewed in Paraview. Output formats and how these can be loaded into Paraview are described in Section \ref{sec:output}. Figure \ref{fig:smith_ed} shows the alpha component of the 21st eigenfunction for the Smith simulation. Note that I've changed the colour scheme and range to improve the visualisation, and that the `time' is set to 20 of 12355. Paraview interprets the series of eigenfunctions as a timeseries.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=14cm]{./figures/smith_21_ev_alpha.png}
+  \caption[]{Alpha component of 21st eigenfunction of the Smith simulation.}
+      \label{fig:smith_ed}
+\end{figure}
 
 \section{Development Priorities}
 
@@ -935,6 +1014,10 @@ There's no way at the moment to write multiple variables to a single PVD/PVTU fi
 \subsection{Sliding Laws}
 
 At present only a linear or a Budd-style sliding law is available. Dan and I discussed adding a Schoof law. This would be good because, as we've discussed, it might be less susceptible to issues of differentiability at the grounding line. It's also quite a popular sliding law, and it may be that future publications with fenics\_ice are criticised for not investigating this law.
+
+\subsection{Eigendecomposition} \label{sec:improveed}
+
+An easy \& quite useful improvement to the eigendecomposition would be to have it halt once the smallest eigenvalue reaches 1/3, which James advises is the critical point beyond which we really don't care about the rest of the eigenspectrum. This would be a pretty straight forward addition to the slepc monitor callback.
 
 \subsection{Time Dependent Inversions}
 
