@@ -360,6 +360,23 @@ Pytest will then perform Taylor verification and check that the resulting \textt
 
 Note that, for the ICE\_STREAM case, poor conditioning of the Hessian and undifferentiability of ice flotation results in failure of verification. As such, the ICE\_STREAM Taylor verification uses a value of 2 for Glen's N, and keeps the ice grounded.
 
+\subsection{Test Failures}
+
+If you're like me, you rely on Continuous Integration with Github Actions (GA), so you don't run the tests locally unless something goes wrong. So, in all likelihood, you've received a notification that the latest test suite has failed. My first step would be to \textbf{carefully check the log}; GA will provide you the full run logs from any run, and you can use this to discover exactly which test failed. Usually at this point, I realise that the code I've just pushed probably has an error in it. If so, see section debugging below for tips on what to do next.
+
+Sometimes tests fail even though you haven't changed anything, or you've only changed something which couldn't \emph{possibly} have affected the test that fails (updating a README for example). In this case, my first step would be to rerun the test suite by navigating into the specific job in GA and hitting `Re-run jobs'. If it fails again, pick an earlier commit for which the tests all passed, and rerun that one. If that fails, you've got an issue with an updated external dependency. For example, the latest version of UMFPACK or BLAS, or even Python or Ubuntu has been pushed, and this is affecting your tests. To get to the bottom of this, closely compare logs from GA for runs which passed and those which failed. In one previous case, GA's default Ubuntu had been updated from 18.04 to 20.04. The solution in this case is to either pin the version that GA uses, or to update your local environment to match that of GA.
+
+Sometimes parallel tests fail due to non-deterministic behaviour. I'm not quite sure which of fenics\_ice's dependencies cause this, but this is quite common in MPI codes. Not much to be done here except to relax your tests tolerances.
+
+\subsection{Debugging}
+
+If you've been modifying existing code or writing new code and you've introduced a test failure or unexpected behaviour, IPython's `embed' functionality is very useful. If you insert:
+
+\begin{spverbatim}
+from IPython import embed; embed()
+\end{spverbatim}
+
+somewhere in your code and then run the model, execution will pause at this line and drop you into an IPython shell. This allows you to poke around, check the types \& values of variables, plot things, etc. It even works for a parallel simulation, though functionality is limited because you'll only be able to control \emph{one} of the partitions.
 \section{Model Output \& Paraview}
 
 All output from a given simulation will be stored in the directory defined by \texttt{output\_dir} in the \texttt{[io]} .toml section, and all output files will be named according to the \texttt{run\_name}. This means \textbf{you can run multiple simulations in the same directory}. This makes it easy to perform a parameter sweep, so long as you remember to change the run\_name for each simulation.
@@ -681,7 +698,7 @@ The first plot we'll create allows us to examine the inversion results. We'll do
 \begin{spverbatim}
 >cd $FENICS_ICE_BASE_DIR/output/ismipC/
 >python plot_inv_results.py
-\end{spverbatim}
+\end{spverbatim} %$
 
 There are five panels in the output plot. The inverted basal drag from the inversion is shown in panel  \textbf{(a)}, and the uncertainty in panel  \textbf{(b)}. Panels  \textbf{(c)}-\textbf{(e)} visualize how well the inversion recreates the pseudo-observed velocities. 
 
@@ -833,14 +850,18 @@ This section walks through a fenics\_ice simulation of the Smith Glacier domain 
 
 \subsection{Mesh Generation}
 
-Finite element simulations start with a mesh. The `Smith' mesh (Fig. \ref{fig:smithmesh}) is an unstructured grid with highly variable resolution (edge length). This mesh was generated using the script {\tt smith\_mesh\_metric\_mmg.py} in {\tt fice\_toolbox/meshing}. This section will describe the mesh generation process with reference to that script. The script depends on the following libraries which can (I think) be installed with conda:
+Finite element simulations start with a mesh.
+The `Smith' mesh (Fig. \ref{fig:smithmesh}) is an unstructured grid with highly variable resolution (edge length).
+This mesh was generated using the script {\tt smith\_mesh\_metric\_mmg.py} in {\tt fice\_toolbox/meshing}.
+This section will describe the mesh generation process with reference to that script.
+The script depends on the following libraries which can (I think) be installed with conda:
 \begin{itemize}
 \item netCDF4
 \item gmsh
 \item meshio
-\item meshtools (local library, in same directory as smith\_mesh\_metric\_mmg.py)
 \end{itemize}
 
+and the local library `meshtools' which exists in the same directory as smith\_mesh\_metric\_mmg.py.
 It also requires a local MMG installation. See {\tt fice\_toolbox/meshing/README.md} for details of an installation script for MMG v5.5.2.
 
 We start with two datasets:
@@ -889,7 +910,7 @@ This script loads bedrock bedrock elevation, ice thickness \& ice surface elevat
 The background field for beta is derived from temperature estimates from Frank Pattyn's work. Dan should know about this. It's processed by the script\\
  {\tt fice\_toolbox/cases/Smith/BedMachine\_data/scripts/pattyn\_temp.py}. Note that the approach to initializing alpha and beta differs. An initial guess for alpha is derived internally by fenics\_ice in {\tt model.gen\_alpha}. However, for beta, the initial guess is derived from temperature data, and furthermore, the inversion \emph{penalises divergence from this initial guess}. This is not the case with alpha.
 
-So far, I have not addressed the need for \emph{basal melt and surface mass balance}. For now, SMB for the Smith domain is set to a constant 0.38 m/a and no basal melting is imposed. This should be improved upon.
+So far, I have not addressed the need for \emph{basal melt and surface mass balance}. For now, SMB for the Smith domain is set to a constant 0.38 m/a and no basal melting is imposed. The files which describe these fields were generated using\\ {\tt fenics\_ice/input/smith\_500m\_input/gen\_smith\_domain.py}.
 
 \subsection{Inversion \& L-curves}
 
@@ -898,6 +919,38 @@ So far, I have not addressed the need for \emph{basal melt and surface mass bala
 \subsection{Time-stepping}
 
 \subsection{Results in Paraview}
+
+\section{Development Priorities}
+
+Here's some thoughts on things which ought be improved or fixed, which I didn't quite get round to.
+
+\subsection{Run phases \& restarts}
+
+At the moment, there's no way to specify that a `run\_name' should restart from a different `run\_name'. For example, something I've wanted to do a couple of times is to run the same simulation twice, once where I eigendecompose only the alpha control function (e.g. `Smith\_aonly'), and once where I do a dual eigendecomposition (`Smith\_dual'). For \textbf{both} of these simulations, I might want to \emph{invert} for both alpha \& beta, so both simulations have the same initial inversion phase, which we might call `Smith\_invertdual'. But at the moment, fenics\_ice can't be instructed to run the eigendecomposition phase `Smith\_aonly' from the inversion phase `Smith\_invertdual'. If you were short on computing resources, the way to achieve this would be to create symlinks for each of the result files (`Smith\_aonly\_alpha.pvd' \textrightarrow  `Smith\_invertdual\_alpha.pvd'), but in practice I usually just end up running the same inversion phase twice, which is very inefficient. The elegant solution to this would be to allow the user to specify different 'run\_phase\_names' instead of a single 'run\_name'.
+
+\subsection{Output Formats}
+
+There's no way at the moment to write multiple variables to a single PVD/PVTU file. This is a feature that you won't miss because you've never had it, but it's \textbf{so useful} because it means Paraview is naturally aware of multiple variables defined on the same domain. This means you can perform all sorts of calculations on combinations of variables. It would also significantly reduce clutter (fewer files). Elmer does this and it should be achievable.
+
+\subsection{Sliding Laws}
+
+At present only a linear or a Budd-style sliding law is available. Dan and I discussed adding a Schoof law. This would be good because, as we've discussed, it might be less susceptible to issues of differentiability at the grounding line. It's also quite a popular sliding law, and it may be that future publications with fenics\_ice are criticised for not investigating this law.
+
+\subsection{Time Dependent Inversions}
+
+This is the big one - we'd like to be able to feed in velocity observations from multiple points in time to better constrain basal/rheological conditions. As an intermediate step, Dan's idea was to feed in a single snapshot accompanied by a thickening/thinning trend (dH/dt).
+
+\subsection{Code structure \& OO Best Practices}
+
+At the moment, I'm not totally happy with the structure of fenics\_ice in terms of the relationship between the model \& solver objects. It works fine, but it may hobble future development slightly. The solver class is a bit bloated and it's responsible for too many things. Why is a single 'solver' object responsible for both the SSA equations \& thickness advection? If temperature evolution was added, do we want a separate solver for that?
+
+\subsection{Expanding Test Coverage}
+
+The integration tests in test\_runs.py provide good overall coverage of every phase of a simulation. However, the unit tests in test\_model.py don't cover most of the code. Maybe this is OK - if the integration tests produce the right results, then you can be fairly confident you've not broken anything. But when things do go wrong, better coverage in the unit tests might make debugging easier.
+
+\subsection{Repo bloat}
+
+The fenics\_ice is way bigger than it needs to be because there's some massive datafiles which were accidentally committed way back when. Although these were subsequently deleted, they were never purged from history, meaning they still exist in the repo history. Purging these would make the repo a lot smaller, and probably isn't particularly hard to do.
 
 \section{Publications}
 This section will be updated as publications with Fenics Ice appear.
