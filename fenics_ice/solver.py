@@ -19,6 +19,8 @@ import timeit
 import time
 from pathlib import Path
 import numpy as np
+import sys
+
 
 from fenics import *
 from tlm_adjoint_fenics import *
@@ -28,6 +30,7 @@ from tlm_adjoint_fenics.hessian_optimization import *
 import ufl
 from IPython import embed
 from numpy_matrix_action import *
+from gauss_newton import GaussNewton
 
 
 
@@ -773,7 +776,6 @@ class ssa_solver:
          NormSqSolver(project(v_mismatch, obs_space), J_ls_term_v).solve()
         else:
          u_mismatch = Function(obs_space, name='u_mismatch')
-#         u_mismatch.vector()[:] = u_pts.vector()[:]-u_obs_pts.vector()[:]
          u_mis = u_pts-u_obs_pts
          LocalProjectionSolver(u_mis,u_mismatch).solve()
          tmp_fcn_upts = Function(obs_space, name='tmp_fcn_upts')
@@ -781,7 +783,6 @@ class ssa_solver:
          InnerProductSolver(u_mismatch, tmp_fcn_upts, J_ls_term_u).solve()
 
          v_mismatch = Function(obs_space, name='v_mismatch')
-#         v_mismatch.vector()[:] = v_pts.vector()[:]-v_obs_pts.vector()[:]
          v_mis = v_pts-v_obs_pts
          LocalProjectionSolver(v_mis,v_mismatch).solve()
          tmp_fcn_vpts = Function(obs_space, name='tmp_fcn_vpts')
@@ -862,6 +863,151 @@ class ssa_solver:
 
         return J
 
+#### JRM TO LOOK
+
+    def set_GN_action(self, cntrl):
+	
+#        stop_manager()
+        self.H_GN = GaussNewton(self.forward_alpha_solver, self.R_inv_action_solver)
+
+    def R_inv_action_solver(self, u_pts, v_pts):
+	
+#        u_pts = x[0]
+#        v_pts = x[1]
+
+        u_std = self.u_std
+        v_std = self.v_std
+        # Determine observations within our mesh partition
+        # TODO find a faster way to do this
+        u_obs = self.u_obs
+        uv_obs_pts = self.uv_obs_pts
+        cell_max = self.mesh.cells().shape[0]
+        obs_local = np.zeros_like(u_obs, dtype=np.bool)
+        for i, pt in enumerate(uv_obs_pts):
+            obs_local[i] = self.mesh.bounding_box_tree().\
+                compute_first_entity_collision(Point(pt)) <= cell_max
+
+        local_cnt = np.sum(obs_local)
+
+        obs_mesh = UnitIntervalMesh(MPI.comm_self, local_cnt)
+        obs_space = FunctionSpace(obs_mesh, "Discontinuous Lagrange", 0)
+
+        if self.GammaInvObsU is None:
+         u_return = Function(obs_space, name='u_return')
+         u_pts_scale = u_pts/u_std
+         LocalProjectionSolver(u_return,u_pts_scale).solve()
+         v_return = Function(obs_space, name='v_return')
+         v_pts_scale = v_pts/v_std
+         LocalProjectionSolver(v_return,v_pts_scale).solve()
+        else:
+         u_return = Function(obs_space, name='u_return')
+         NumPyMatrixActionSolver(self.GammaInvObsU, u_pts, u_return).solve()
+         v_return = Function(obs_space, name='v_return')
+         NumPyMatrixActionSolver(self.GammaInvObsV, v_pts, v_return).solve()
+ 
+        return u_return, v_return
+
+    def forward_alpha_solver(self, f):
+        """
+        Runs the forward model w/ given alpha (f)
+        """
+        clear_caches()
+
+        #If we're using a lumped mass approach, f is alpha_l, not alpha
+        if self.lumpedmass_inversion:
+            self.alpha = Function(f.function_space(), name='alpha')
+            LumpedMassSolver(f, self.alpha, p=-0.5).solve()
+            #TODO - 'boundary_correct(self.alpha)'?
+        else:
+            self.alpha = f
+            self.alpha.rename("alpha","")
+
+        self.def_mom_eq()
+        self.solve_mom_eq()
+        u,v = self.forward_obs_points(self)
+        return u, v
+
+    def forward_obs_points(self, verbose=False, noMisfit=False, noReg=False):
+        """
+        Compute the value of the cost function
+        Note: 'verbose' significantly decreases speed
+        """
+
+#        self.GammaInvObsU = model.GammaInvObsU
+#        self.GammaInvObsV = model.GammaInvObsV
+
+
+        #invconfig = self.params.inversion
+
+        #What are we inverting for?:
+        #do_alpha = invconfig.alpha_active
+        #do_beta = invconfig.beta_active
+
+        u,v = split(self.U)
+
+        # Observed velocities
+        u_obs = self.u_obs
+        #v_obs = self.v_obs
+        #u_std = self.u_std
+        #v_std = self.v_std
+        uv_obs_pts = self.uv_obs_pts
+
+        # Determine observations within our mesh partition
+        # TODO find a faster way to do this
+        cell_max = self.mesh.cells().shape[0]
+        obs_local = np.zeros_like(u_obs, dtype=np.bool)
+        for i, pt in enumerate(uv_obs_pts):
+            obs_local[i] = self.mesh.bounding_box_tree().\
+                compute_first_entity_collision(Point(pt)) <= cell_max
+
+        local_cnt = np.sum(obs_local)
+
+        alpha = self.alpha
+        beta = self.beta
+        #beta_bgd = self.beta_bgd
+        #betadiff = beta-beta_bgd
+
+        dIce = self.dIce
+        dIce_gnd = self.dIce_gnd
+        ds = self.ds
+        nm = self.nm
+
+        #regularization parameters
+        #delta_a = self.delta_alpha
+        #delta_b = self.delta_beta
+        #gamma_a = self.gamma_alpha
+        #gamma_b = self.gamma_beta
+
+        # Sample Discrete Points
+        
+        #Arbitrary mesh to define function for interpolated variables
+        obs_mesh = UnitIntervalMesh(MPI.comm_self, local_cnt)
+        obs_space = FunctionSpace(obs_mesh, "Discontinuous Lagrange", 0)
+
+        # Interpolate from model
+        u_pts = Function(obs_space, name='u_pts')
+        v_pts = Function(obs_space, name='v_pts')
+
+        # TODO - is projection to M instead of Q OK here?
+        # it's necessary for InterpolationSolver to work
+        uf = project(u, self.M1)
+        vf = project(v, self.M1)
+
+        uf.rename("uf", "")
+        vf.rename("vf", "")
+
+        interper2 = InterpolationSolver(uf,
+                                        u_pts,
+                                        x_coords=uv_obs_pts[obs_local])
+        interper2.solve()
+        P = interper2._B[0]._A._P
+        P_T = interper2._B[0]._A._P_T
+        InterpolationSolver(vf, v_pts, P=P, P_T=P_T).solve()
+		
+        return u_pts, v_pts
+
+##### END JRM TO LOOK
+
     def comp_Q_vaf(self, verbose=False):
         """QOI: Volume above flotation"""
 
@@ -928,7 +1074,7 @@ class ssa_solver:
         stop_manager()
 
         self.ddJ = SingleBlockHessian(J)
-
+		
     def save_ts_zero(self):
         self.H_init = Function(self.H_np.function_space())
         self.U_init = Function(self.U.function_space())

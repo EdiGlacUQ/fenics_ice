@@ -84,6 +84,7 @@ def run_eigendec(config_file):
 
     # Hessian Action
     slvr.set_hessian_action(cntrl)
+    slvr.set_GN_action(cntrl)
 
     # Mass matrix solver
     xg, xb = Function(space), Function(space)
@@ -114,6 +115,12 @@ def run_eigendec(config_file):
     def ghep_action(x):
         """Hessian action w/o preconditioning"""
         _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
+        # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
+        return function_get_values(ddJ_val)
+
+    def ghep_GN_action(x):
+        """Hessian action w/o preconditioning"""
+        ddJ_val = slvr.H_GN.action(cntrl, x)
         # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
         return function_get_values(ddJ_val)
 
@@ -183,7 +190,7 @@ def run_eigendec(config_file):
 
         # Eigendecomposition
         lam, vr = eigendecompose(space,
-                                 ghep_action,
+                                 ghep_GN_action,
                                  tolerance=1.0e-10,
                                  N_eigenvalues=num_eig,
                                  problem_type=SLEPc.EPS.ProblemType.GHEP,
