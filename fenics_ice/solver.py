@@ -872,33 +872,27 @@ class ssa_solver:
 
     def R_inv_action_solver(self, u_pts, v_pts):
 	
-#        u_pts = x[0]
-#        v_pts = x[1]
-
         u_std = self.u_std
         v_std = self.v_std
-        # Determine observations within our mesh partition
-        # TODO find a faster way to do this
         u_obs = self.u_obs
-        uv_obs_pts = self.uv_obs_pts
-        cell_max = self.mesh.cells().shape[0]
         obs_local = np.zeros_like(u_obs, dtype=np.bool)
-        for i, pt in enumerate(uv_obs_pts):
-            obs_local[i] = self.mesh.bounding_box_tree().\
-                compute_first_entity_collision(Point(pt)) <= cell_max
 
-        local_cnt = np.sum(obs_local)
+        obs_space = u_pts.ufl_function_space()
 
-        obs_mesh = UnitIntervalMesh(MPI.comm_self, local_cnt)
-        obs_space = FunctionSpace(obs_mesh, "Discontinuous Lagrange", 0)
+        u_std_pts = Function(obs_space, name='u_std_pts')
+        v_std_pts = Function(obs_space, name='v_std_pts')
+        u_std_pts.vector()[:] = u_std[obs_local]
+        v_std_pts.vector()[:] = v_std[obs_local]
+        u_std_pts.vector().apply("insert")
+        v_std_pts.vector().apply("insert")
 
         if self.GammaInvObsU is None:
          u_return = Function(obs_space, name='u_return')
-         u_pts_scale = u_pts/u_std
-         LocalProjectionSolver(u_return,u_pts_scale).solve()
+         u_pts_scale = u_pts/u_std_pts
+         LocalProjectionSolver(u_pts_scale,u_return).solve()
          v_return = Function(obs_space, name='v_return')
-         v_pts_scale = v_pts/v_std
-         LocalProjectionSolver(v_return,v_pts_scale).solve()
+         v_pts_scale = v_pts/v_std_pts
+         LocalProjectionSolver(v_pts_scale,v_return).solve()
         else:
          u_return = Function(obs_space, name='u_return')
          NumPyMatrixActionSolver(self.GammaInvObsU, u_pts, u_return).solve()
