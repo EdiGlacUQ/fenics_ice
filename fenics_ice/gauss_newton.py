@@ -6,6 +6,7 @@ from tlm_adjoint import Functional, InnerProductSolver, clear_caches, \
     function_is_checkpointed, function_is_static, function_name, \
     function_new, set_manager
 from tlm_adjoint import manager as _manager
+from IPython import embed
 
 from collections.abc import Sequence
 

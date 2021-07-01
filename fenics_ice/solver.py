@@ -875,7 +875,12 @@ class ssa_solver:
         u_std = self.u_std
         v_std = self.v_std
         u_obs = self.u_obs
+        uv_obs_pts = self.uv_obs_pts
         obs_local = np.zeros_like(u_obs, dtype=np.bool)
+        cell_max = self.mesh.cells().shape[0]
+        for i, pt in enumerate(uv_obs_pts):
+            obs_local[i] = self.mesh.bounding_box_tree().\
+                compute_first_entity_collision(Point(pt)) <= cell_max
 
         obs_space = u_pts.ufl_function_space()
 

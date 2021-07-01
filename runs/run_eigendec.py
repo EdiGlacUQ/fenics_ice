@@ -113,16 +113,22 @@ def run_eigendec(config_file):
     @count_calls()
     # @timer
     def ghep_action(x):
-        """Hessian action w/o preconditioning"""
-        _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
-        # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
-        return function_get_values(ddJ_val)
+        if (params.eigendec.use_gauss_newton):
+            """Hessian action w/o preconditioning"""
+            ddJ_val = slvr.H_GN.action(cntrl, x)
+            # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
+            return function_get_values(ddJ_val)
+        else:
+            """Hessian action w/o preconditioning"""
+            _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
+            # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
+            return function_get_values(ddJ_val)
 
-    def ghep_GN_action(x):
-        """Hessian action w/o preconditioning"""
-        ddJ_val = slvr.H_GN.action(cntrl, x)
-        # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
-        return function_get_values(ddJ_val)
+#     def ghep_GN_action(x):
+#         """Hessian action w/o preconditioning"""
+#         ddJ_val = slvr.H_GN.action(cntrl, x)
+#         # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
+#         return function_get_values(ddJ_val)
 
     @count_calls()
     def prior_action(x):
@@ -190,7 +196,7 @@ def run_eigendec(config_file):
 
         # Eigendecomposition
         lam, vr = eigendecompose(space,
-                                 ghep_GN_action,
+                                 ghep_action,
                                  tolerance=1.0e-10,
                                  N_eigenvalues=num_eig,
                                  problem_type=SLEPc.EPS.ProblemType.GHEP,
