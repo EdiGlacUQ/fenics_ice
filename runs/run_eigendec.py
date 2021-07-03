@@ -124,12 +124,6 @@ def run_eigendec(config_file):
             # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
             return function_get_values(ddJ_val)
 
-#     def ghep_GN_action(x):
-#         """Hessian action w/o preconditioning"""
-#         ddJ_val = slvr.H_GN.action(cntrl, x)
-#         # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
-#         return function_get_values(ddJ_val)
-
     @count_calls()
     def prior_action(x):
         """Define the action of the B matrix (prior)"""
