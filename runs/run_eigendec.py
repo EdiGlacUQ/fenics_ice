@@ -117,7 +117,7 @@ def run_eigendec(config_file):
             """Hessian action w/o preconditioning"""
             ddJ_val = slvr.H_GN.action(cntrl, x)
             # reg_op.inv_action(ddJ_val.vector(), xg.vector()) <- gnhep_prior
-            return function_get_values(ddJ_val)
+            return 2.0 * function_get_values(ddJ_val)
         else:
             """Hessian action w/o preconditioning"""
             _, _, ddJ_val = slvr.ddJ.action(cntrl, x)
