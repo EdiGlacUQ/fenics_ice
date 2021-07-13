@@ -840,7 +840,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
     with:
         X         Result of the minimization
         conv      Whether converged
-        reason    Reason for return (converged, tolerance reached, max_its)
+        reason    A string describing the reason for return
         its       Iterations taken
         F_calls   Number of functional evaluation calls
         Fp_calls  Number of functional gradient evaluation calls
@@ -932,6 +932,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         theta = 1.0
 
     it = 0
+    conv = None
     reason = None
     logger.info(f"L-BFGS: Iteration {it:d}, "
                  f"F calls {F_calls[0]:d}, "
@@ -940,6 +941,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
     while True:
         logger.debug(f"  Gradient norm = {np.sqrt(old_Fp_norm_sq):.6e}")
         if g_atol is not None and old_Fp_norm_sq <= g_atol * g_atol:
+            conv = True
             reason = "g_atol reached"
             break
 
@@ -1026,15 +1028,16 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
             s_norm_sq = abs(functions_inner(S, M(*S)))
             logger.debug(f"  Change norm = {np.sqrt(s_norm_sq):.6e}")
             if s_norm_sq <= s_atol * s_atol:
+                conv = True
                 reason = "s_atol reached"
                 break
-
-        conv = converged(it, old_F_val, new_F_val, X, new_Fp_val, S, Y)
-        if conv:
+        if converged(it, old_F_val, new_F_val, X, new_Fp_val, S, Y):
+            conv = True
             reason = "converged"
             break
 
         if it >= max_its:
+            conv = False
             reason = "max_its reached"
             break
 
@@ -1043,8 +1046,11 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         del new_F_val, new_Fp_val, new_Fp_val_rank0
         old_Fp_norm_sq = abs(functions_inner(old_Fp_val, M_inv(*old_Fp_val)))
 
-    assert(reason is not None)
-    return X[0] if len(X) == 1 else X, it, conv, reason, F_calls[0], Fp_calls[0], H_approx
+    assert conv is not None
+    assert reason is not None
+    return (X[0] if len(X) == 1 else X,
+            it, conv, reason, F_calls[0], Fp_calls[0],
+            H_approx)
 
 
 def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
