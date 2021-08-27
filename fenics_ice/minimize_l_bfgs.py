@@ -790,7 +790,8 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
                    M must be supplied.
         theta_scale  Whether to apply theta scaling (see above).
         block_theta_scale  Whether to apply separate theta scaling to each
-                  control function.
+                   control function. Intended to be used with block-diagonal
+                   H_0 (and M_inv if delta is not None).
         delta      Defines the initial theta scaling (see above). If delta is
                    None then no scaling is applied on the first iteration, or
                    when restarting due to line search failures.
