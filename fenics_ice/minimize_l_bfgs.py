@@ -5,7 +5,8 @@ from tlm_adjoint import OptimizationException, clear_caches, \
     function_assign, function_axpy, function_comm, function_copy, \
     function_get_values, function_inner, function_is_cached, \
     function_is_checkpointed, function_is_static, function_linf_norm, \
-    function_new, function_set_values, is_function, set_manager
+    function_new, function_set_values, is_function, restore_manager, \
+    set_manager
 from tlm_adjoint import manager as _manager
 
 from collections import deque
@@ -1077,6 +1078,7 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         last_F[1] = M0
         last_F[2] = J0
 
+    @restore_manager
     def F(*X, force=False):
         if not force and last_F[0] is not None:
             change_norm = 0.0
@@ -1091,7 +1093,6 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         functions_assign(M, X)
         clear_caches(*M)
 
-        old_manager = _manager()
         set_manager(manager)
         manager.reset()
         manager.stop()
@@ -1101,8 +1102,6 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         manager.start()
         last_F[2] = forward(last_F[1])
         manager.stop()
-
-        set_manager(old_manager)
 
         return last_F[2].value()
 
