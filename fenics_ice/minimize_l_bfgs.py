@@ -936,9 +936,9 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
     conv = None
     reason = None
     logger.info(f"L-BFGS: Iteration {it:d}, "
-                 f"F calls {F_calls[0]:d}, "
-                 f"Fp calls {Fp_calls[0]:d}, "
-                 f"functional value {old_F_val:.6e}")
+                f"F calls {F_calls[0]:d}, "
+                f"Fp calls {Fp_calls[0]:d}, "
+                f"functional value {old_F_val:.6e}")
     while True:
         logger.debug(f"  Gradient norm = {np.sqrt(old_Fp_norm_sq):.6e}")
         if g_atol is not None and old_Fp_norm_sq <= g_atol * g_atol:
@@ -1022,9 +1022,9 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
 
         it += 1
         logger.info(f"L-BFGS: Iteration {it:d}, "
-                     f"F calls {F_calls[0]:d}, "
-                     f"Fp calls {Fp_calls[0]:d}, "
-                     f"functional value {new_F_val:.6e}")
+                    f"F calls {F_calls[0]:d}, "
+                    f"Fp calls {Fp_calls[0]:d}, "
+                    f"functional value {new_F_val:.6e}")
         if s_atol is not None:
             s_norm_sq = abs(functions_inner(S, M(*S)))
             logger.debug(f"  Change norm = {np.sqrt(s_norm_sq):.6e}")
