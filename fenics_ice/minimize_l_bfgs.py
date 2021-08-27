@@ -236,9 +236,11 @@ class H_approximation:
         if not np.all(theta == 1.0):
             if(isinstance(theta, float)):  # convert to list if single float
                 theta = [theta for i in range(len(R))]
+            assert len(R) == len(theta)
             for r, th in zip(R, theta):
                 function_set_values(r, function_get_values(r) / th)
 
+        assert len(self._iterates) == len(alphas)
         for (rho, S, Y), alpha in zip(self._iterates, alphas):
             beta = rho * functions_inner(Y, R)
             functions_axpy(R, alpha - beta, S)
@@ -1010,6 +1012,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         if S_Y_added:
             if theta_scale:
                 if block_theta_scale and len(Y) > 1:
+                    assert len(S) == len(Y)
                     theta = [abs(function_inner(y, *H_0(y)) / function_inner(s, y))
                              for s, y in zip(S, Y)]
 
@@ -1083,6 +1086,7 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
     def F(*X, force=False):
         if not force and last_F[0] is not None:
             change_norm = 0.0
+            assert len(X) == len(last_F[0])
             for m, last_m in zip(X, last_F[0]):
                 change = function_copy(m)
                 function_axpy(change, -1.0, last_m)
