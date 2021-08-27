@@ -926,12 +926,16 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
                                skip_atol=skip_atol, skip_rtol=skip_rtol,
                                M=M, M_inv=M_inv)
     if theta_scale and delta is not None:
-        if len(X) > 1:
-            oFpv = [abs(function_inner(oF, M_inv(oF)[0])) for oF in old_Fp_val]
-            theta = np.sqrt(oFpv) / delta
+        if block_theta_scale and len(old_Fp_val) > 1:
+            old_M_inv_Fp = M_inv(*old_Fp_val)
+            assert len(old_Fp_val) == len(old_M_inv_Fp)
+            theta = [
+                np.sqrt(abs(function_inner(old_Fp_val[i], old_M_inv_Fp[i])))
+                / delta
+                for i in range(len(old_Fp_val))]
+            del old_M_inv_Fp
         else:
             theta = np.sqrt(old_Fp_norm_sq) / delta
-
     else:
         theta = 1.0
 
@@ -969,12 +973,16 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
             H_approx.reset()
 
             if theta_scale and delta is not None:
-                if len(X) > 1:
-                    oFpv = [abs(function_inner(oF, M_inv(oF)[0])) for oF in old_Fp_val]
-                    theta = np.sqrt(oFpv) / delta
+                if block_theta_scale and len(old_Fp_val) > 1:
+                    old_M_inv_Fp = M_inv(*old_Fp_val)
+                    assert len(old_Fp_val) == len(old_M_inv_Fp)
+                    theta = [
+                        np.sqrt(abs(function_inner(old_Fp_val[i], old_M_inv_Fp[i])))
+                        / delta
+                        for i in range(len(old_Fp_val))]
+                    del old_M_inv_Fp
                 else:
                     theta = np.sqrt(old_Fp_norm_sq) / delta
-
             else:
                 theta = 1.0
 
