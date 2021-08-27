@@ -234,8 +234,8 @@ class H_approximation:
 
         R = functions_copy(H_0(*X))
         if not np.all(theta == 1.0):
-            if(isinstance(theta, float)):  # convert to list if single float
-                theta = [theta for i in range(len(R))]
+            if isinstance(theta, (int, np.integer, float, np.floating)):
+                theta = [theta for r in R]
             assert len(R) == len(theta)
             for r, th in zip(R, theta):
                 function_set_values(r, function_get_values(r) / th)
