@@ -744,7 +744,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         R. H. Byrd, P. Lu, J. Nocedal, and C. Zhu, "A limited memory algorithm
         for bound constrained optimization", SIAM Journal on Scientific
         Computing 16(5), 1190--1208, 1995
-    but using y_k^T M_inv y_k in place of y_k^T y_k, and with a general H_0. On
+    but using y_k^T H_0 y_k in place of y_k^T y_k, and with a general H_0. On
     the first iteration, and when restarting due to line search failures, theta
     is set equal to
         theta = { sqrt(| g^T M_inv g |) / delta   if delta is not None
