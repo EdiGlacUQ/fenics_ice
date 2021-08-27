@@ -1019,13 +1019,16 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         S_inner_Y, S_Y_added, S_Y_removed = H_approx.append(S, Y, remove=True)
         if S_Y_added:
             if theta_scale:
+                H_0_Y = H_0(*Y)
                 if block_theta_scale and len(Y) > 1:
                     assert len(S) == len(Y)
-                    theta = [abs(function_inner(y, *H_0(y)) / function_inner(s, y))
-                             for s, y in zip(S, Y)]
+                    assert len(S) == len(H_0_Y)
+                    theta = [abs(function_inner(y, H_0_y) / function_inner(s, y))
+                             for s, y, H_0_y in zip(S, Y, H_0_Y)]
 
                 else:
-                    theta = functions_inner(Y, H_0(*Y)) / S_inner_Y
+                    theta = functions_inner(Y, H_0_Y) / S_inner_Y
+                del H_0_Y
 
         else:
             logger.warning(f"L-BFGS: Iteration {it + 1:d}, small or negative "
