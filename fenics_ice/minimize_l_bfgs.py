@@ -10,6 +10,7 @@ from tlm_adjoint import OptimizationException, clear_caches, \
 from tlm_adjoint import manager as _manager
 
 from collections import deque
+from collections.abc import Sequence
 import logging
 import numpy as np
 
@@ -1056,7 +1057,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
 
 def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
                     **kwargs):
-    if not isinstance(M0, (list, tuple)):
+    if not isinstance(M0, Sequence):
         (x,), optimization_data = minimize_l_bfgs(
             forward, (M0,), m, s_atol, g_atol, J0=J0, manager=manager,
             **kwargs)
