@@ -1123,8 +1123,7 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         return last_F[2].value()
 
     def Fp(*X):
-        if last_F[1] is None:
-            F(*X, force=True)
+        F(*X, force=last_F[1] is None)
         dJ = manager.compute_gradient(last_F[2], last_F[1])
         if manager._cp_method not in ["memory", "periodic_disk"]:
             last_F[1] = None
