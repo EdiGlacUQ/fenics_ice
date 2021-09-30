@@ -1324,7 +1324,7 @@ class ssa_solver:
         J = self.forward(cntrl[0])
         stop_manager()
 
-        self.ddJ = SingleBlockHessian(J)
+        self.ddJ = CachedHessian(J)
 
     def save_ts_zero(self):
         self.H_init = Function(self.H_np.function_space())
