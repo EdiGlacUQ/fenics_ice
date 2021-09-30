@@ -131,7 +131,7 @@ class H_approximation:
             Scientific Computing 16(5), 1190--1208, 1995
         Specifically, given a step s and gradient change y, only accepts the
         update if
-            s^T y > max(skip_atol, skip_rtol sqrt(| s^T M s y^T M_inv y |))
+            y^T s > max(skip_atol, skip_rtol sqrt(| s^T M s y^T M_inv y |))
         where the |.| is used to work around possible underflows.
 
         Arguments:
@@ -141,7 +141,7 @@ class H_approximation:
         Returns:
             (S_inner_Y, S_Y_added, S_Y_removed)
         with
-            S_inner_Y    s^T y
+            S_inner_Y    y^T s
             S_Y_added    Whether the given vector pair was added
             S_Y_removed  A list of any removed vector pairs
         """
@@ -159,7 +159,7 @@ class H_approximation:
             skip_tol = max(
                 self._skip_atol,
                 self._skip_rtol * np.sqrt(abs(functions_inner(S, self._M(*S))
-                                              * functions_inner(Y, self._M_inv(*Y)))))  # noqa: E501
+                                              * functions_inner(self._M_inv(*Y), Y))))  # noqa: E501
 
         S_inner_Y = functions_inner(S, Y)
         if S_inner_Y > skip_tol:
@@ -242,7 +242,7 @@ class H_approximation:
 
         assert len(self._iterates) == len(alphas)
         for (rho, S, Y), alpha in zip(self._iterates, alphas):
-            beta = rho * functions_inner(Y, R)
+            beta = rho * functions_inner(R, Y)
             functions_axpy(R, alpha - beta, S)
 
         return R[0] if len(R) == 1 else R
@@ -375,7 +375,7 @@ class H_approximation:
 
         F_X = np.zeros(2 * m, dtype=np.float64)
         for i in range(2 * m):
-            F_X[i] = functions_inner(F[i], X)
+            F_X[i] = functions_inner(X, F[i])
 
         G_inv_F_x = G_solve(F_X)
 
@@ -489,7 +489,7 @@ class H_approximation:
                         F_M_inv_F_T[i, m + j] = functions_inner(S_i, Y_j)
 
                     if i >= j:
-                        F_M_inv_F_T[m + i, m + j] = functions_inner(Y_i, F_M_inv[m + j])  # noqa: E501
+                        F_M_inv_F_T[m + i, m + j] = functions_inner(F_M_inv[m + j], Y_i)  # noqa: E501
                         if i > j:
                             F_M_inv_F_T[m + j, m + i] = F_M_inv_F_T[m + i, m + j]  # noqa: E501
             F_M_inv_F_T[m:, :m] = F_M_inv_F_T[:m, m:].T
@@ -498,7 +498,7 @@ class H_approximation:
                 F_M_inv[i] = functions_copy(M_inv(*F[i]))
             for i in range(2 * m):
                 for j in range(i + 1):
-                    F_M_inv_F_T[i, j] = functions_inner(F[i], F_M_inv[j])
+                    F_M_inv_F_T[i, j] = functions_inner(F_M_inv[j], F[i])
                     if i > j:
                         F_M_inv_F_T[j, i] = F_M_inv_F_T[i, j]
 
@@ -657,7 +657,7 @@ def line_search(F, Fp, X, minus_P, c1=1.0e-4, c2=0.9,
         functions_axpy(X, -X_rank0, minus_P)
         last_Fp[0] = float(X_rank0)
         last_Fp[1] = functions_copy(Fp(*X))
-        last_Fp[2] = -functions_inner(last_Fp[1], minus_P)
+        last_Fp[2] = -functions_inner(minus_P, last_Fp[1])
         return last_Fp[2]
 
     if old_F_val is None:
@@ -670,7 +670,7 @@ def line_search(F, Fp, X, minus_P, c1=1.0e-4, c2=0.9,
             old_Fp_val = (old_Fp_val,)
         if len(old_Fp_val) != len(X_rank1):
             raise OptimizationException("Incompatible shape")
-        old_Fp_val_rank0 = -functions_inner(old_Fp_val, minus_P)
+        old_Fp_val_rank0 = -functions_inner(minus_P, old_Fp_val)
     del old_Fp_val
 
     if comm.rank == 0:
@@ -921,7 +921,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
     if old_F_val is None:
         old_F_val = F(*X)
     old_Fp_val = functions_copy(Fp(*X))
-    old_Fp_norm_sq = abs(functions_inner(old_Fp_val, M_inv(*old_Fp_val)))
+    old_Fp_norm_sq = abs(functions_inner(M_inv(*old_Fp_val), old_Fp_val))
 
     H_approx = H_approximation(m=m,
                                skip_atol=skip_atol, skip_rtol=skip_rtol,
@@ -931,7 +931,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
             old_M_inv_Fp = M_inv(*old_Fp_val)
             assert len(old_Fp_val) == len(old_M_inv_Fp)
             theta = [
-                np.sqrt(abs(function_inner(old_Fp_val[i], old_M_inv_Fp[i])))
+                np.sqrt(abs(function_inner(old_M_inv_Fp[i], old_Fp_val[i])))
                 / delta
                 for i in range(len(old_Fp_val))]
             del old_M_inv_Fp
@@ -978,7 +978,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
                     old_M_inv_Fp = M_inv(*old_Fp_val)
                     assert len(old_Fp_val) == len(old_M_inv_Fp)
                     theta = [
-                        np.sqrt(abs(function_inner(old_Fp_val[i], old_M_inv_Fp[i])))
+                        np.sqrt(abs(function_inner(old_M_inv_Fp[i], old_Fp_val[i])))
                         / delta
                         for i in range(len(old_Fp_val))]
                     del old_M_inv_Fp
@@ -1024,11 +1024,11 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
                 if block_theta_scale and len(Y) > 1:
                     assert len(S) == len(Y)
                     assert len(S) == len(H_0_Y)
-                    theta = [abs(function_inner(y, H_0_y) / function_inner(s, y))
+                    theta = [abs(function_inner(H_0_y, y) / function_inner(s, y))
                              for s, y, H_0_y in zip(S, Y, H_0_Y)]
 
                 else:
-                    theta = functions_inner(Y, H_0_Y) / S_inner_Y
+                    theta = functions_inner(H_0_Y, Y) / S_inner_Y
                 del H_0_Y
 
         else:
@@ -1061,7 +1061,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         old_F_val = new_F_val
         old_Fp_val = new_Fp_val
         del new_F_val, new_Fp_val, new_Fp_val_rank0
-        old_Fp_norm_sq = abs(functions_inner(old_Fp_val, M_inv(*old_Fp_val)))
+        old_Fp_norm_sq = abs(functions_inner(M_inv(*old_Fp_val), old_Fp_val))
 
     assert conv is not None
     assert reason is not None
