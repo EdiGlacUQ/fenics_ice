@@ -1177,8 +1177,7 @@ class ssa_solver:
         interper2.solve()
 
         P = interper2._B[0]._A._P
-        P_T = interper2._B[0]._A._P_T
-        InterpolationSolver(vf, v_pts, P=P, P_T=P_T, tolerance=1.0).solve()
+        InterpolationSolver(vf, v_pts, P=P, tolerance=1.0).solve()
 
         J = Functional(name="J")
 
