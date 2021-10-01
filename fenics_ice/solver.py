@@ -1177,8 +1177,7 @@ class ssa_solver:
         interper2.solve()
 
         P = interper2._B[0]._A._P
-        P_T = interper2._B[0]._A._P_T
-        InterpolationSolver(vf, v_pts, P=P, P_T=P_T, tolerance=1.0).solve()
+        InterpolationSolver(vf, v_pts, P=P, tolerance=1.0).solve()
 
         J = Functional(name="J")
 
@@ -1189,15 +1188,15 @@ class ssa_solver:
         # (v-v_obs)**2.0)*self.dObs
 
         # Inner product
-        J_ls_term_u = new_real_function(name="J_term_u")
-        J_ls_term_v = new_real_function(name="J_term_v")
+        J_ls_term_u = new_scalar_function(name="J_term_u")
+        J_ls_term_v = new_scalar_function(name="J_term_v")
 
         u_mismatch = ((u_pts-u_obs_pts)/u_std_pts)
         NormSqSolver(project(u_mismatch, obs_space), J_ls_term_u).solve()
         v_mismatch = ((v_pts-v_obs_pts)/v_std_pts)
         NormSqSolver(project(v_mismatch, obs_space), J_ls_term_v).solve()
 
-        # J_ls_term_final = new_real_function()
+        # J_ls_term_final = new_scalar_function()
         # ExprEvaluationSolver(J_ls_term * \
         # lambda_a, J_ls_term_final).solve()
 
@@ -1230,8 +1229,8 @@ class ssa_solver:
         #             print(f"tlm parameters: {tlm_solver_parameters}")
 
         if verbose:
-            J_ls_u = new_real_function(name="J_ls_term_x")
-            J_ls_v = new_real_function(name="J_ls_term_y")
+            J_ls_u = new_scalar_function(name="J_ls_term_x")
+            J_ls_v = new_scalar_function(name="J_ls_term_y")
             ExprEvaluationSolver(J_ls_term_u, J_ls_u).solve()
             ExprEvaluationSolver(J_ls_term_v, J_ls_v).solve()
 
