@@ -5,10 +5,12 @@ from tlm_adjoint import OptimizationException, clear_caches, \
     function_assign, function_axpy, function_comm, function_copy, \
     function_get_values, function_inner, function_is_cached, \
     function_is_checkpointed, function_is_static, function_linf_norm, \
-    function_new, function_set_values, is_function, set_manager
+    function_new, function_set_values, is_function, restore_manager, \
+    set_manager
 from tlm_adjoint import manager as _manager
 
 from collections import deque
+from collections.abc import Sequence
 import logging
 import numpy as np
 
@@ -129,7 +131,7 @@ class H_approximation:
             Scientific Computing 16(5), 1190--1208, 1995
         Specifically, given a step s and gradient change y, only accepts the
         update if
-            s^T y > max(skip_atol, skip_rtol sqrt(| s^T M s y^T M_inv y |))
+            y^T s > max(skip_atol, skip_rtol sqrt(| s^T M s y^T M_inv y |))
         where the |.| is used to work around possible underflows.
 
         Arguments:
@@ -139,7 +141,7 @@ class H_approximation:
         Returns:
             (S_inner_Y, S_Y_added, S_Y_removed)
         with
-            S_inner_Y    s^T y
+            S_inner_Y    y^T s
             S_Y_added    Whether the given vector pair was added
             S_Y_removed  A list of any removed vector pairs
         """
@@ -157,7 +159,7 @@ class H_approximation:
             skip_tol = max(
                 self._skip_atol,
                 self._skip_rtol * np.sqrt(abs(functions_inner(S, self._M(*S))
-                                              * functions_inner(Y, self._M_inv(*Y)))))  # noqa: E501
+                                              * functions_inner(self._M_inv(*Y), Y))))  # noqa: E501
 
         S_inner_Y = functions_inner(S, Y)
         if S_inner_Y > skip_tol:
@@ -232,13 +234,15 @@ class H_approximation:
 
         R = functions_copy(H_0(*X))
         if not np.all(theta == 1.0):
-            if(isinstance(theta, float)):  # convert to list if single float
-                theta = [theta for i in range(len(R))]
+            if isinstance(theta, (int, np.integer, float, np.floating)):
+                theta = [theta for r in R]
+            assert len(R) == len(theta)
             for r, th in zip(R, theta):
                 function_set_values(r, function_get_values(r) / th)
 
+        assert len(self._iterates) == len(alphas)
         for (rho, S, Y), alpha in zip(self._iterates, alphas):
-            beta = rho * functions_inner(Y, R)
+            beta = rho * functions_inner(R, Y)
             functions_axpy(R, alpha - beta, S)
 
         return R[0] if len(R) == 1 else R
@@ -371,7 +375,7 @@ class H_approximation:
 
         F_X = np.zeros(2 * m, dtype=np.float64)
         for i in range(2 * m):
-            F_X[i] = functions_inner(F[i], X)
+            F_X[i] = functions_inner(X, F[i])
 
         G_inv_F_x = G_solve(F_X)
 
@@ -485,7 +489,7 @@ class H_approximation:
                         F_M_inv_F_T[i, m + j] = functions_inner(S_i, Y_j)
 
                     if i >= j:
-                        F_M_inv_F_T[m + i, m + j] = functions_inner(Y_i, F_M_inv[m + j])  # noqa: E501
+                        F_M_inv_F_T[m + i, m + j] = functions_inner(F_M_inv[m + j], Y_i)  # noqa: E501
                         if i > j:
                             F_M_inv_F_T[m + j, m + i] = F_M_inv_F_T[m + i, m + j]  # noqa: E501
             F_M_inv_F_T[m:, :m] = F_M_inv_F_T[:m, m:].T
@@ -494,7 +498,7 @@ class H_approximation:
                 F_M_inv[i] = functions_copy(M_inv(*F[i]))
             for i in range(2 * m):
                 for j in range(i + 1):
-                    F_M_inv_F_T[i, j] = functions_inner(F[i], F_M_inv[j])
+                    F_M_inv_F_T[i, j] = functions_inner(F_M_inv[j], F[i])
                     if i > j:
                         F_M_inv_F_T[j, i] = F_M_inv_F_T[i, j]
 
@@ -653,7 +657,7 @@ def line_search(F, Fp, X, minus_P, c1=1.0e-4, c2=0.9,
         functions_axpy(X, -X_rank0, minus_P)
         last_Fp[0] = float(X_rank0)
         last_Fp[1] = functions_copy(Fp(*X))
-        last_Fp[2] = -functions_inner(last_Fp[1], minus_P)
+        last_Fp[2] = -functions_inner(minus_P, last_Fp[1])
         return last_Fp[2]
 
     if old_F_val is None:
@@ -666,7 +670,7 @@ def line_search(F, Fp, X, minus_P, c1=1.0e-4, c2=0.9,
             old_Fp_val = (old_Fp_val,)
         if len(old_Fp_val) != len(X_rank1):
             raise OptimizationException("Incompatible shape")
-        old_Fp_val_rank0 = -functions_inner(old_Fp_val, minus_P)
+        old_Fp_val_rank0 = -functions_inner(minus_P, old_Fp_val)
     del old_Fp_val
 
     if comm.rank == 0:
@@ -740,7 +744,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         R. H. Byrd, P. Lu, J. Nocedal, and C. Zhu, "A limited memory algorithm
         for bound constrained optimization", SIAM Journal on Scientific
         Computing 16(5), 1190--1208, 1995
-    but using y_k^T M_inv y_k in place of y_k^T y_k, and with a general H_0. On
+    but using y_k^T H_0 y_k in place of y_k^T y_k, and with a general H_0. On
     the first iteration, and when restarting due to line search failures, theta
     is set equal to
         theta = { sqrt(| g^T M_inv g |) / delta   if delta is not None
@@ -786,7 +790,8 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
                    M must be supplied.
         theta_scale  Whether to apply theta scaling (see above).
         block_theta_scale  Whether to apply separate theta scaling to each
-                  control function.
+                   control function. Intended to be used with block-diagonal
+                   H_0 (and M_inv if delta is not None).
         delta      Defines the initial theta scaling (see above). If delta is
                    None then no scaling is applied on the first iteration, or
                    when restarting due to line search failures.
@@ -836,12 +841,12 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
                    available
 
     Returns:
-        (X, its, F_calls, Fp_calls, H_approx)
+        (X, its, conv, reason, F_calls, Fp_calls, H_approx)
     with:
         X         Result of the minimization
-        conv      Whether converged
-        reason    Reason for return (converged, tolerance reached, max_its)
         its       Iterations taken
+        conv      Whether converged
+        reason    A string describing the reason for return
         F_calls   Number of functional evaluation calls
         Fp_calls  Number of functional gradient evaluation calls
         H_approx  The inverse Hessian approximation
@@ -916,30 +921,36 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
     if old_F_val is None:
         old_F_val = F(*X)
     old_Fp_val = functions_copy(Fp(*X))
-    old_Fp_norm_sq = abs(functions_inner(old_Fp_val, M_inv(*old_Fp_val)))
+    old_Fp_norm_sq = abs(functions_inner(M_inv(*old_Fp_val), old_Fp_val))
 
     H_approx = H_approximation(m=m,
                                skip_atol=skip_atol, skip_rtol=skip_rtol,
                                M=M, M_inv=M_inv)
     if theta_scale and delta is not None:
-        if len(X) > 1:
-            oFpv = [abs(function_inner(oF, M_inv(oF)[0])) for oF in old_Fp_val]
-            theta = np.sqrt(oFpv) / delta
+        if block_theta_scale and len(old_Fp_val) > 1:
+            old_M_inv_Fp = M_inv(*old_Fp_val)
+            assert len(old_Fp_val) == len(old_M_inv_Fp)
+            theta = [
+                np.sqrt(abs(function_inner(old_M_inv_Fp[i], old_Fp_val[i])))
+                / delta
+                for i in range(len(old_Fp_val))]
+            del old_M_inv_Fp
         else:
             theta = np.sqrt(old_Fp_norm_sq) / delta
-
     else:
         theta = 1.0
 
     it = 0
+    conv = None
     reason = None
     logger.info(f"L-BFGS: Iteration {it:d}, "
-                 f"F calls {F_calls[0]:d}, "
-                 f"Fp calls {Fp_calls[0]:d}, "
-                 f"functional value {old_F_val:.6e}")
+                f"F calls {F_calls[0]:d}, "
+                f"Fp calls {Fp_calls[0]:d}, "
+                f"functional value {old_F_val:.6e}")
     while True:
         logger.debug(f"  Gradient norm = {np.sqrt(old_Fp_norm_sq):.6e}")
         if g_atol is not None and old_Fp_norm_sq <= g_atol * g_atol:
+            conv = True
             reason = "g_atol reached"
             break
 
@@ -963,12 +974,16 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
             H_approx.reset()
 
             if theta_scale and delta is not None:
-                if len(X) > 1:
-                    oFpv = [abs(function_inner(oF, M_inv(oF)[0])) for oF in old_Fp_val]
-                    theta = np.sqrt(oFpv) / delta
+                if block_theta_scale and len(old_Fp_val) > 1:
+                    old_M_inv_Fp = M_inv(*old_Fp_val)
+                    assert len(old_Fp_val) == len(old_M_inv_Fp)
+                    theta = [
+                        np.sqrt(abs(function_inner(old_M_inv_Fp[i], old_Fp_val[i])))
+                        / delta
+                        for i in range(len(old_Fp_val))]
+                    del old_M_inv_Fp
                 else:
                     theta = np.sqrt(old_Fp_norm_sq) / delta
-
             else:
                 theta = 1.0
 
@@ -1005,12 +1020,16 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         S_inner_Y, S_Y_added, S_Y_removed = H_approx.append(S, Y, remove=True)
         if S_Y_added:
             if theta_scale:
+                H_0_Y = H_0(*Y)
                 if block_theta_scale and len(Y) > 1:
-                    theta = [abs(function_inner(y, *H_0(y)) / function_inner(s, y))
-                             for s, y in zip(S, Y)]
+                    assert len(S) == len(Y)
+                    assert len(S) == len(H_0_Y)
+                    theta = [abs(function_inner(H_0_y, y) / function_inner(s, y))
+                             for s, y, H_0_y in zip(S, Y, H_0_Y)]
 
                 else:
-                    theta = functions_inner(Y, H_0(*Y)) / S_inner_Y
+                    theta = functions_inner(H_0_Y, Y) / S_inner_Y
+                del H_0_Y
 
         else:
             logger.warning(f"L-BFGS: Iteration {it + 1:d}, small or negative "
@@ -1019,37 +1038,41 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
 
         it += 1
         logger.info(f"L-BFGS: Iteration {it:d}, "
-                     f"F calls {F_calls[0]:d}, "
-                     f"Fp calls {Fp_calls[0]:d}, "
-                     f"functional value {new_F_val:.6e}")
+                    f"F calls {F_calls[0]:d}, "
+                    f"Fp calls {Fp_calls[0]:d}, "
+                    f"functional value {new_F_val:.6e}")
         if s_atol is not None:
             s_norm_sq = abs(functions_inner(S, M(*S)))
             logger.debug(f"  Change norm = {np.sqrt(s_norm_sq):.6e}")
             if s_norm_sq <= s_atol * s_atol:
+                conv = True
                 reason = "s_atol reached"
                 break
-
-        conv = converged(it, old_F_val, new_F_val, X, new_Fp_val, S, Y)
-        if conv:
+        if converged(it, old_F_val, new_F_val, X, new_Fp_val, S, Y):
+            conv = True
             reason = "converged"
             break
 
         if it >= max_its:
+            conv = False
             reason = "max_its reached"
             break
 
         old_F_val = new_F_val
         old_Fp_val = new_Fp_val
         del new_F_val, new_Fp_val, new_Fp_val_rank0
-        old_Fp_norm_sq = abs(functions_inner(old_Fp_val, M_inv(*old_Fp_val)))
+        old_Fp_norm_sq = abs(functions_inner(M_inv(*old_Fp_val), old_Fp_val))
 
-    assert(reason is not None)
-    return X[0] if len(X) == 1 else X, it, conv, reason, F_calls[0], Fp_calls[0], H_approx
+    assert conv is not None
+    assert reason is not None
+    return (X[0] if len(X) == 1 else X,
+            it, conv, reason, F_calls[0], Fp_calls[0],
+            H_approx)
 
 
 def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
                     **kwargs):
-    if not isinstance(M0, (list, tuple)):
+    if not isinstance(M0, Sequence):
         (x,), optimization_data = minimize_l_bfgs(
             forward, (M0,), m, s_atol, g_atol, J0=J0, manager=manager,
             **kwargs)
@@ -1071,9 +1094,11 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         last_F[1] = M0
         last_F[2] = J0
 
+    @restore_manager
     def F(*X, force=False):
         if not force and last_F[0] is not None:
             change_norm = 0.0
+            assert len(X) == len(last_F[0])
             for m, last_m in zip(X, last_F[0]):
                 change = function_copy(m)
                 function_axpy(change, -1.0, last_m)
@@ -1085,7 +1110,6 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         functions_assign(M, X)
         clear_caches(*M)
 
-        old_manager = _manager()
         set_manager(manager)
         manager.reset()
         manager.stop()
@@ -1096,13 +1120,10 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         last_F[2] = forward(last_F[1])
         manager.stop()
 
-        set_manager(old_manager)
-
         return last_F[2].value()
 
     def Fp(*X):
-        if last_F[1] is None:
-            F(*X, force=True)
+        F(*X, force=last_F[1] is None)
         dJ = manager.compute_gradient(last_F[2], last_F[1])
         if manager._cp_method not in ["memory", "periodic_disk"]:
             last_F[1] = None
