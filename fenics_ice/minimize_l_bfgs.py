@@ -841,12 +841,12 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
                    available
 
     Returns:
-        (X, its, F_calls, Fp_calls, H_approx)
+        (X, its, conv, reason, F_calls, Fp_calls, H_approx)
     with:
         X         Result of the minimization
+        its       Iterations taken
         conv      Whether converged
         reason    A string describing the reason for return
-        its       Iterations taken
         F_calls   Number of functional evaluation calls
         Fp_calls  Number of functional gradient evaluation calls
         H_approx  The inverse Hessian approximation
