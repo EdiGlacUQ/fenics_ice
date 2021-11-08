@@ -28,3 +28,4 @@ log*
 *.toc
 *.dot
 core
+.idea

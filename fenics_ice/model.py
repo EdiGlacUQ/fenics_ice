@@ -21,10 +21,12 @@ import ufl
 import numpy as np
 from pathlib import Path
 import scipy.spatial.qhull as qhull
+from scipy.interpolate import griddata
 from fenics_ice import inout, prior
 from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
 import logging
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -40,6 +42,7 @@ class model:
                  init_vel_obs=True):
 
         # Initiate parameters
+        self.extend = None
         self.params = param_in
         self.input_data = input_data
         self.solvers = []
@@ -203,13 +206,15 @@ class model:
         # Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
         # self.uv_obs_pts, self.mask_vel
         inout.read_vel_obs(self.params, self)
-
+        print('we start ---- ')
+        embed()
         # Functions for repeated ungridded interpolation
         # TODO - this will not handle extrapolation/missing data
         # nicely - unfound simplex are returned '-1' which takes the last
         # tri.simplices...
         def interp_weights(xy, uv, d=2):
             """Compute the nearest vertices & weights (for reuse)"""
+            print('weight interpolation starts ----')
             tri = qhull.Delaunay(xy)
             simplex = tri.find_simplex(uv)
 
@@ -232,13 +237,57 @@ class model:
             """Bilinear interpolation, given vertices & weights above"""
             return np.einsum('nj,nj->n', np.take(values, vtx), wts)
 
+        def interpolate_with_griddata(x, y, variable, x_grid, y_grid):
+            """
+            Nearest neighbor interpolation to deal with cloud point
+            velocity data
+            Takes arrays in the form (dim, )
+            """
+            return griddata((x.flatten(), y.flatten()), variable,
+                             (x_grid, y_grid),
+                             method='nearest')
+
         # Grab coordinates of both Lagrangian & DG function spaces
         # and compute (once) the interpolating arrays
         Q_coords = self.Q.tabulate_dof_coordinates()
         M_coords = self.M.tabulate_dof_coordinates()
 
-        vtx_Q, wts_Q = interp_weights(self.uv_obs_pts, Q_coords)
-        vtx_M, wts_M = interp_weights(self.uv_obs_pts, M_coords)
+        ## Calculate new uv_obs_pts from point cloud observations
+        # To interpolate later
+        dx = self.extend['dx'][0]
+        dy = self.extend['dy'][0]
+
+        xmin = self.extend['xmin'][0]
+        xmax = self.extend['xmax'][0]
+        ymin = self.extend['ymin'][0]
+        ymax = self.extend['ymax'][0]
+
+        x_construct = np.arange(xmin, xmax + dx, dx, dtype=np.float32)
+        y_construct = np.arange(ymin, ymax + dy, dy, dtype=np.float32)
+
+        xx, yy = np.meshgrid(x_construct, y_construct)
+
+        self.uv_obs_pts_new = np.vstack((xx.ravel(), yy.ravel())).T
+
+        # Interpolating the new velocities and uncertainties
+        x_vel, y_vel = np.split(self.uv_obs_pts, [-1], axis=1)
+        self.u_obs_int = interpolate_with_griddata(x_vel, y_vel, self.u_obs,
+                                                   xx, yy)
+        self.u_std_int = interpolate_with_griddata(x_vel, y_vel, self.u_std,
+                                                   xx, yy)
+
+        self.v_obs_int = interpolate_with_griddata(x_vel, y_vel, self.v_obs,
+                                                   xx, yy)
+        self.v_std_int = interpolate_with_griddata(x_vel, y_vel, self.v_std,
+                                                   xx, yy)
+
+        self.mask_vel_int = interpolate_with_griddata(x_vel, y_vel, self.mask_vel,
+                                                   xx, yy)
+
+        #From here still needs modifications!
+
+        vtx_Q, wts_Q = interp_weights(self.uv_obs_pts_new, Q_coords)
+        vtx_M, wts_M = interp_weights(self.uv_obs_pts_new, M_coords)
 
         # Define new functions to hold results
         self.u_obs_Q = Function(self.Q, name="u_obs", static=True)
@@ -254,17 +303,19 @@ class model:
         self.mask_vel_M = Function(self.M, name="mask_vel", static=True)
 
         # Fill via interpolation
-        self.u_obs_Q.vector()[:] = interpolate(self.u_obs, vtx_Q, wts_Q)
-        self.v_obs_Q.vector()[:] = interpolate(self.v_obs, vtx_Q, wts_Q)
-        self.u_std_Q.vector()[:] = interpolate(self.u_std, vtx_Q, wts_Q)
-        self.v_std_Q.vector()[:] = interpolate(self.v_std, vtx_Q, wts_Q)
+        self.u_obs_Q.vector()[:] = interpolate(self.u_obs_int, vtx_Q, wts_Q)
+        self.v_obs_Q.vector()[:] = interpolate(self.v_obs_int, vtx_Q, wts_Q)
+        self.u_std_Q.vector()[:] = interpolate(self.u_std_int, vtx_Q, wts_Q)
+        self.v_std_Q.vector()[:] = interpolate(self.v_std_int, vtx_Q, wts_Q)
         # self.mask_vel_Q.vector()[:] = interpolate(self.mask_vel, vtx_Q, wts_Q)
 
-        self.u_obs_M.vector()[:] = interpolate(self.u_obs, vtx_M, wts_M)
-        self.v_obs_M.vector()[:] = interpolate(self.v_obs, vtx_M, wts_M)
+        self.u_obs_M.vector()[:] = interpolate(self.u_obs_int, vtx_M, wts_M)
+        self.v_obs_M.vector()[:] = interpolate(self.v_obs_int, vtx_M, wts_M)
         # self.u_std_M.vector()[:] = interpolate(self.u_std, vtx_M, wts_M)
         # self.v_std_M.vector()[:] = interpolate(self.v_std, vtx_M, wts_M)
-        self.mask_vel_M.vector()[:] = interpolate(self.mask_vel, vtx_M, wts_M)
+        self.mask_vel_M.vector()[:] = interpolate(self.mask_vel_int, vtx_M, wts_M)
+        embed()
+        print('vel function finished ----')
 
     def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
                          vstd=Constant(1.0), ls=False):

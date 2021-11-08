@@ -34,6 +34,7 @@ from abc import ABC, abstractmethod
 
 from fenics import *
 from tlm_adjoint.fenics import configure_checkpointing
+from collections import defaultdict
 import numpy as np
 
 # Regex for catching unnamed vars
@@ -315,6 +316,16 @@ def read_vel_obs(params, model=None):
 
     infile = h5py.File(infile, 'r')
 
+    # Get grid extent for interpolate via griddata in model.py
+    list_extend = list(infile.attrs.keys())
+    assert len(list_extend) > 0, \
+        f"Invalid velocity file, you need to " \
+        f"specify grid extend and spacing for file {infile}"
+
+    extend = defaultdict(list)
+    for item in list_extend:
+        extend[item].append(infile.attrs[item])
+
     x_obs = field_from_vel_file(infile, 'x')
     y_obs = field_from_vel_file(infile, 'y')
     u_obs = field_from_vel_file(infile, 'u_obs')
@@ -335,8 +346,9 @@ def read_vel_obs(params, model=None):
         model.u_std = u_std
         model.v_std = v_std
         model.mask_vel = mask_vel
+        model.extend = extend
     else:
-        return uv_obs_pts, u_obs, v_obs, u_std, v_std, mask_vel
+        return uv_obs_pts, u_obs, v_obs, u_std, v_std, mask_vel, extend
 
 class DataNotFound(Exception):
     """Custom exception for unfound data"""
