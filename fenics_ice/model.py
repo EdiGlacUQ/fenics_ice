@@ -26,7 +26,6 @@ from fenics_ice import inout, prior
 from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
 import logging
-from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -206,15 +205,13 @@ class model:
         # Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
         # self.uv_obs_pts, self.mask_vel
         inout.read_vel_obs(self.params, self)
-        print('we start ---- ')
-        embed()
+
         # Functions for repeated ungridded interpolation
         # TODO - this will not handle extrapolation/missing data
         # nicely - unfound simplex are returned '-1' which takes the last
         # tri.simplices...
         def interp_weights(xy, uv, d=2):
             """Compute the nearest vertices & weights (for reuse)"""
-            print('weight interpolation starts ----')
             tri = qhull.Delaunay(xy)
             simplex = tri.find_simplex(uv)
 
@@ -312,8 +309,6 @@ class model:
         # self.u_std_M.vector()[:] = interpolate(self.u_std, vtx_M, wts_M)
         # self.v_std_M.vector()[:] = interpolate(self.v_std, vtx_M, wts_M)
         self.mask_vel_M.vector()[:] = interpolate(self.mask_vel_int, vtx_M, wts_M)
-        embed()
-        print('vel function finished ----')
 
     def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
                          vstd=Constant(1.0), ls=False):
