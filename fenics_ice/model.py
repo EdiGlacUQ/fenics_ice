@@ -284,8 +284,6 @@ class model:
         self.mask_vel_int = interpolate_with_griddata(x_vel, y_vel, self.mask_vel,
                                                    xx, yy)
 
-        #From here still needs modifications!
-
         vtx_Q, wts_Q = interp_weights(self.uv_obs_pts_new, Q_coords)
         vtx_M, wts_M = interp_weights(self.uv_obs_pts_new, M_coords)
 
