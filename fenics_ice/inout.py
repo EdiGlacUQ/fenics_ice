@@ -34,7 +34,6 @@ from abc import ABC, abstractmethod
 
 from fenics import *
 from tlm_adjoint.fenics import configure_checkpointing
-from collections import defaultdict
 import numpy as np
 
 # Regex for catching unnamed vars
@@ -307,9 +306,11 @@ def field_from_vel_file(infile, field_name):
 
 def read_vel_obs(params, model=None):
     """
-    Read velocity observations & uncertainty as point cloud
-    data with no nans and composite ice velocities & uncertainty
-    (gridded data set with no nans) from HDF5 file.
+    Reads velocity observations & uncertainty from a HDF5 file
+    containing:
+    - point cloud velocities (u_obs, v_obs) for inversion only
+    - gridded data set of composite ice velocities & uncertainties
+    use for alpha initialisation and boundary conditions
     All variables in the HDF5 file should be with the form
     (values, )
 

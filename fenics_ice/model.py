@@ -21,12 +21,10 @@ import ufl
 import numpy as np
 from pathlib import Path
 import scipy.spatial.qhull as qhull
-from scipy.interpolate import griddata
 from fenics_ice import inout, prior
 from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
 import logging
-from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -196,17 +194,24 @@ class model:
 
     def vel_obs_from_data(self):
         """
-        - Read velocity observations & uncertainty from HDF5 file.
-        - Additionally interpolates composite velocities arbitrarily spaced data
-        onto self.Q for use as boundary conditions etc...
+        Reads ice velocity observations (point cloud data)
+        and composite ice velocities (with no nans or missing data)
+        from HDF5 file.
+        - Additionally interpolates composite velocities
+        (gridded spaced data) onto self.Q for use as boundary
+        conditions and alpha initialisation.
+        - Velocities in a cloud point format are kept for inversion
+        only.
+
+        Expects an HDF5 file with the following list of variables
+        in a tuple format e.g. x -> (values, )
+        Generates:
+        self.u_obs, self.v_obs, self.u_std, self.v_std,
+        self.uv_obs_pts, self.mask_vel
+        self.u_comp, self.v_comp, self.u_comp_std, self.v_comp_std,
+        self.uv_comp_pts.
         """
 
-        # Read the obs (point cloud data) and composite velocities
-        # (gridded data set with no nans) from HDF5 file
-        # Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
-        # self.uv_obs_pts, self.mask_vel
-        # self.u_comp, self.v_comp, self.u_comp_std, self.v_comp_std,
-        # self.uv_comp_pts.
         inout.read_vel_obs(self.params, self)
         # Functions for repeated ungridded interpolation
         # TODO - this will not handle extrapolation/missing data
@@ -241,7 +246,6 @@ class model:
         Q_coords = self.Q.tabulate_dof_coordinates()
         M_coords = self.M.tabulate_dof_coordinates()
 
-        embed()
         vtx_Q, wts_Q = interp_weights(self.uv_comp_pts, Q_coords)
         vtx_M, wts_M = interp_weights(self.uv_comp_pts, M_coords)
 
@@ -272,7 +276,6 @@ class model:
         # IMPORTANT! this mask is not the vel mask of cloud point observations
         # it is the mask from the composite velocities
         self.mask_vel_M.vector()[:] = interpolate(self.mask_vel, vtx_M, wts_M)
-        embed()
 
     def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
                          vstd=Constant(1.0), ls=False):
