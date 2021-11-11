@@ -26,6 +26,7 @@ from fenics_ice import inout, prior
 from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
 import logging
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -41,7 +42,6 @@ class model:
                  init_vel_obs=True):
 
         # Initiate parameters
-        self.extend = None
         self.params = param_in
         self.input_data = input_data
         self.solvers = []
@@ -196,16 +196,18 @@ class model:
 
     def vel_obs_from_data(self):
         """
-        Read velocity observations & uncertainty from HDF5 file
-
-        Additionally interpolates these arbitrarily spaced data
-        onto self.Q for use as boundary conditions etc
+        - Read velocity observations & uncertainty from HDF5 file.
+        - Additionally interpolates composite velocities arbitrarily spaced data
+        onto self.Q for use as boundary conditions etc...
         """
-        # Read the obs from HDF5 file
+
+        # Read the obs (point cloud data) and composite velocities
+        # (gridded data set with no nans) from HDF5 file
         # Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
         # self.uv_obs_pts, self.mask_vel
+        # self.u_comp, self.v_comp, self.u_comp_std, self.v_comp_std,
+        # self.uv_comp_pts.
         inout.read_vel_obs(self.params, self)
-
         # Functions for repeated ungridded interpolation
         # TODO - this will not handle extrapolation/missing data
         # nicely - unfound simplex are returned '-1' which takes the last
@@ -234,55 +236,14 @@ class model:
             """Bilinear interpolation, given vertices & weights above"""
             return np.einsum('nj,nj->n', np.take(values, vtx), wts)
 
-        def interpolate_with_griddata(x, y, variable, x_grid, y_grid):
-            """
-            Nearest neighbor interpolation to deal with cloud point
-            velocity data
-            Takes arrays in the form (dim, )
-            """
-            return griddata((x.flatten(), y.flatten()), variable,
-                             (x_grid, y_grid),
-                             method='nearest')
-
         # Grab coordinates of both Lagrangian & DG function spaces
         # and compute (once) the interpolating arrays
         Q_coords = self.Q.tabulate_dof_coordinates()
         M_coords = self.M.tabulate_dof_coordinates()
 
-        ## Calculate new uv_obs_pts from point cloud observations
-        # To interpolate later
-        dx = self.extend['dx'][0]
-        dy = self.extend['dy'][0]
-
-        xmin = self.extend['xmin'][0]
-        xmax = self.extend['xmax'][0]
-        ymin = self.extend['ymin'][0]
-        ymax = self.extend['ymax'][0]
-
-        x_construct = np.arange(xmin, xmax + dx, dx, dtype=np.float32)
-        y_construct = np.arange(ymin, ymax + dy, dy, dtype=np.float32)
-
-        xx, yy = np.meshgrid(x_construct, y_construct)
-
-        self.uv_obs_pts_new = np.vstack((xx.ravel(), yy.ravel())).T
-
-        # Interpolating the new velocities and uncertainties
-        x_vel, y_vel = np.split(self.uv_obs_pts, [-1], axis=1)
-        self.u_obs_int = interpolate_with_griddata(x_vel, y_vel, self.u_obs,
-                                                   xx, yy)
-        self.u_std_int = interpolate_with_griddata(x_vel, y_vel, self.u_std,
-                                                   xx, yy)
-
-        self.v_obs_int = interpolate_with_griddata(x_vel, y_vel, self.v_obs,
-                                                   xx, yy)
-        self.v_std_int = interpolate_with_griddata(x_vel, y_vel, self.v_std,
-                                                   xx, yy)
-
-        self.mask_vel_int = interpolate_with_griddata(x_vel, y_vel, self.mask_vel,
-                                                   xx, yy)
-
-        vtx_Q, wts_Q = interp_weights(self.uv_obs_pts_new, Q_coords)
-        vtx_M, wts_M = interp_weights(self.uv_obs_pts_new, M_coords)
+        embed()
+        vtx_Q, wts_Q = interp_weights(self.uv_comp_pts, Q_coords)
+        vtx_M, wts_M = interp_weights(self.uv_comp_pts, M_coords)
 
         # Define new functions to hold results
         self.u_obs_Q = Function(self.Q, name="u_obs", static=True)
@@ -298,17 +259,20 @@ class model:
         self.mask_vel_M = Function(self.M, name="mask_vel", static=True)
 
         # Fill via interpolation
-        self.u_obs_Q.vector()[:] = interpolate(self.u_obs_int, vtx_Q, wts_Q)
-        self.v_obs_Q.vector()[:] = interpolate(self.v_obs_int, vtx_Q, wts_Q)
-        self.u_std_Q.vector()[:] = interpolate(self.u_std_int, vtx_Q, wts_Q)
-        self.v_std_Q.vector()[:] = interpolate(self.v_std_int, vtx_Q, wts_Q)
+        self.u_obs_Q.vector()[:] = interpolate(self.u_comp, vtx_Q, wts_Q)
+        self.v_obs_Q.vector()[:] = interpolate(self.v_comp, vtx_Q, wts_Q)
+        self.u_std_Q.vector()[:] = interpolate(self.u_comp_std, vtx_Q, wts_Q)
+        self.v_std_Q.vector()[:] = interpolate(self.v_comp_std, vtx_Q, wts_Q)
         # self.mask_vel_Q.vector()[:] = interpolate(self.mask_vel, vtx_Q, wts_Q)
 
-        self.u_obs_M.vector()[:] = interpolate(self.u_obs_int, vtx_M, wts_M)
-        self.v_obs_M.vector()[:] = interpolate(self.v_obs_int, vtx_M, wts_M)
+        self.u_obs_M.vector()[:] = interpolate(self.u_comp, vtx_M, wts_M)
+        self.v_obs_M.vector()[:] = interpolate(self.v_comp, vtx_M, wts_M)
         # self.u_std_M.vector()[:] = interpolate(self.u_std, vtx_M, wts_M)
         # self.v_std_M.vector()[:] = interpolate(self.v_std, vtx_M, wts_M)
-        self.mask_vel_M.vector()[:] = interpolate(self.mask_vel_int, vtx_M, wts_M)
+        # IMPORTANT! this mask is not the vel mask of cloud point observations
+        # it is the mask from the composite velocities
+        self.mask_vel_M.vector()[:] = interpolate(self.mask_vel, vtx_M, wts_M)
+        embed()
 
     def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
                          vstd=Constant(1.0), ls=False):

@@ -307,37 +307,50 @@ def field_from_vel_file(infile, field_name):
 
 def read_vel_obs(params, model=None):
     """
-    Read velocity observations & uncertainty from HDF5 file
+    Read velocity observations & uncertainty as point cloud
+    data with no nans and composite ice velocities & uncertainty
+    (gridded data set with no nans) from HDF5 file.
+    All variables in the HDF5 file should be with the form
+    (values, )
 
-    For now, expects an HDF5 file
+    Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
+    self.uv_obs_pts, self.mask_vel
+    self.u_comp, self.v_comp, self.u_comp_std, self.v_comp_std,
+    self.uv_comp_pts
     """
     infile = Path(params.io.input_dir) / params.obs.vel_file
     assert infile.exists(), f"Couldn't find velocity observations file: {infile}"
 
     infile = h5py.File(infile, 'r')
 
-    # Get grid extent for interpolate via griddata in model.py
-    list_extend = list(infile.attrs.keys())
-    assert len(list_extend) > 0, \
-        f"Invalid velocity file, you need to " \
-        f"specify grid extend and spacing for file {infile}"
-
-    extend = defaultdict(list)
-    for item in list_extend:
-        extend[item].append(infile.attrs[item])
-
+    # Read cloud point observations to be used in the Inversion and
+    # Cost function optimization only!
     x_obs = field_from_vel_file(infile, 'x')
     y_obs = field_from_vel_file(infile, 'y')
     u_obs = field_from_vel_file(infile, 'u_obs')
     v_obs = field_from_vel_file(infile, 'v_obs')
     u_std = field_from_vel_file(infile, 'u_std')
     v_std = field_from_vel_file(infile, 'v_std')
-    mask_vel = field_from_vel_file(infile, 'mask_vel')
+
+    # Read composite mean of velocity
+    # components and uncertainty to calculate
+    # initial alpha and define boundary conditions
+    mask_vel = field_from_vel_file(infile, 'mask_vel_comp')
+
+    x_comp = field_from_vel_file(infile, 'x_comp')
+    y_comp = field_from_vel_file(infile, 'y_comp')
+    u_comp = field_from_vel_file(infile, 'u_comp')
+    v_comp = field_from_vel_file(infile, 'v_comp')
+    u_comp_std = field_from_vel_file(infile, 'u_comp_std')
+    v_comp_std = field_from_vel_file(infile, 'v_comp_std')
 
     assert x_obs.size == y_obs.size == u_obs.size == v_obs.size
-    assert v_obs.size == u_std.size == v_std.size == mask_vel.size
+    assert v_obs.size == u_std.size == v_std.size
+    assert x_comp.size == y_comp.size == u_comp.size == v_comp.size
+    assert v_comp.size == u_comp_std.size == v_comp_std.size == mask_vel.size
 
     uv_obs_pts = np.vstack((x_obs, y_obs)).T
+    uv_comp_pts = np.vstack((x_comp, y_comp)).T
 
     if model is not None:
         model.uv_obs_pts = uv_obs_pts
@@ -345,10 +358,14 @@ def read_vel_obs(params, model=None):
         model.v_obs = v_obs
         model.u_std = u_std
         model.v_std = v_std
+        model.uv_comp_pts = uv_comp_pts
+        model.u_comp = u_comp
+        model.v_comp = v_comp
+        model.u_comp_std = u_comp_std
+        model.v_comp_std = v_comp_std
         model.mask_vel = mask_vel
-        model.extend = extend
     else:
-        return uv_obs_pts, u_obs, v_obs, u_std, v_std, mask_vel, extend
+        return uv_obs_pts, u_obs, v_obs, u_std, v_std, mask_vel, uv_comp_pts, u_comp, v_comp, u_comp_std, v_comp_std
 
 class DataNotFound(Exception):
     """Custom exception for unfound data"""
