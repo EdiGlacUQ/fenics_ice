@@ -173,13 +173,15 @@ class InversionCfg(ConfigPrinter):
     initial_guess_alpha: float = None
     initial_guess_alpha_method: str = "sia"
 
+    use_cloud_point_velocities: bool = False
+
     mass_precon: bool = True
 
     def __post_init__(self):
         """
         Check consistency of inversion parameters.
         """
-        assert (self.alpha_active or self.beta_active)
+        assert (self.alpha_active or self.beta_active or self.use_cloud_point_velocities)
 
         assert self.initial_guess_alpha_method.lower() in ["sia", "wearing", "constant"]
 

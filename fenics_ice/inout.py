@@ -324,15 +324,6 @@ def read_vel_obs(params, model=None):
 
     infile = h5py.File(infile, 'r')
 
-    # Read cloud point observations to be used in the Inversion and
-    # Cost function optimization only!
-    x_obs = field_from_vel_file(infile, 'x')
-    y_obs = field_from_vel_file(infile, 'y')
-    u_obs = field_from_vel_file(infile, 'u_obs')
-    v_obs = field_from_vel_file(infile, 'v_obs')
-    u_std = field_from_vel_file(infile, 'u_std')
-    v_std = field_from_vel_file(infile, 'v_std')
-
     # Read composite mean of velocity
     # components and uncertainty to calculate
     # initial alpha and define boundary conditions
@@ -344,6 +335,25 @@ def read_vel_obs(params, model=None):
     v_comp = field_from_vel_file(infile, 'v_comp')
     u_comp_std = field_from_vel_file(infile, 'u_comp_std')
     v_comp_std = field_from_vel_file(infile, 'v_comp_std')
+
+    if params.inversion.use_cloud_point_velocities:
+        logging.warning(f"You are using cloud point data for optimizing J, "
+                        f"inversion results might not be smooth")
+        # Read cloud point observations to be used in the Inversion and
+        # Cost function optimization only!
+        x_obs = field_from_vel_file(infile, 'x')
+        y_obs = field_from_vel_file(infile, 'y')
+        u_obs = field_from_vel_file(infile, 'u_obs')
+        v_obs = field_from_vel_file(infile, 'v_obs')
+        u_std = field_from_vel_file(infile, 'u_std')
+        v_std = field_from_vel_file(infile, 'v_std')
+    else:
+        x_obs = x_comp
+        y_obs = y_comp
+        u_obs = u_comp
+        v_obs = v_comp
+        u_std = u_comp_std
+        v_std = v_comp_std
 
     assert x_obs.size == y_obs.size == u_obs.size == v_obs.size
     assert v_obs.size == u_std.size == v_std.size
