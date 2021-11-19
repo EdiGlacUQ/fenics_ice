@@ -323,30 +323,37 @@ def read_vel_obs(params, model=None):
     assert infile.exists(), f"Couldn't find velocity observations file: {infile}"
 
     infile = h5py.File(infile, 'r')
+    keys = list(infile.keys())
 
-    # Read composite mean of velocity
-    # components and uncertainty to calculate
-    # initial alpha and define boundary conditions
-    mask_vel = field_from_vel_file(infile, 'mask_vel_comp')
+    assert 'u_obs' in keys, \
+        f"Your vel file has not been configure correctly " \
+        f"make sure you have velocity data with the correct var names " \
+        f"x, y, u_obs, v_obs, u_obs_std, v_obs_std "
 
-    x_comp = field_from_vel_file(infile, 'x_comp')
-    y_comp = field_from_vel_file(infile, 'y_comp')
-    u_comp = field_from_vel_file(infile, 'u_comp')
-    v_comp = field_from_vel_file(infile, 'v_comp')
-    u_comp_std = field_from_vel_file(infile, 'u_comp_std')
-    v_comp_std = field_from_vel_file(infile, 'v_comp_std')
+    # Read composite mean of velocity data as default
+    mask_vel = field_from_vel_file(infile, 'mask_vel')
+    x_comp = field_from_vel_file(infile, 'x')
+    y_comp = field_from_vel_file(infile, 'y')
+    u_comp = field_from_vel_file(infile, 'u_obs')
+    v_comp = field_from_vel_file(infile, 'v_obs')
+    u_comp_std = field_from_vel_file(infile, 'u_std')
+    v_comp_std = field_from_vel_file(infile, 'v_std')
 
     if params.inversion.use_cloud_point_velocities:
         logging.warning(f"You are using cloud point data for optimizing J, "
                         f"inversion results might not be smooth")
+        assert 'u_cloud' in keys, \
+            f"Your vel file has not been configure correctly " \
+            f"make sure you have cloud point data with the correct var names " \
+            f"x_cloud, y_cloud, u_cloud, v_cloud, u_cloud_std, v_cloud_std"
         # Read cloud point observations to be used in the Inversion and
         # Cost function optimization only!
-        x_obs = field_from_vel_file(infile, 'x')
-        y_obs = field_from_vel_file(infile, 'y')
-        u_obs = field_from_vel_file(infile, 'u_obs')
-        v_obs = field_from_vel_file(infile, 'v_obs')
-        u_std = field_from_vel_file(infile, 'u_std')
-        v_std = field_from_vel_file(infile, 'v_std')
+        x_obs = field_from_vel_file(infile, 'x_cloud')
+        y_obs = field_from_vel_file(infile, 'y_cloud')
+        u_obs = field_from_vel_file(infile, 'u_cloud')
+        v_obs = field_from_vel_file(infile, 'v_cloud')
+        u_std = field_from_vel_file(infile, 'u_cloud_std')
+        v_std = field_from_vel_file(infile, 'v_cloud_std')
     else:
         x_obs = x_comp
         y_obs = y_comp
@@ -376,7 +383,8 @@ def read_vel_obs(params, model=None):
         model.v_comp_std = v_comp_std
         model.mask_vel = mask_vel
     else:
-        return uv_obs_pts, u_obs, v_obs, u_std, v_std, mask_vel, uv_comp_pts, u_comp, v_comp, u_comp_std, v_comp_std
+        return uv_obs_pts, u_obs, v_obs, u_std, v_std, mask_vel, \
+               uv_comp_pts, u_comp, v_comp, u_comp_std, v_comp_std
 
 class DataNotFound(Exception):
     """Custom exception for unfound data"""
