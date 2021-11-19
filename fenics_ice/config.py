@@ -181,7 +181,7 @@ class InversionCfg(ConfigPrinter):
         """
         Check consistency of inversion parameters.
         """
-        assert (self.alpha_active or self.beta_active or self.use_cloud_point_velocities)
+        assert (self.alpha_active or self.beta_active)
 
         assert self.initial_guess_alpha_method.lower() in ["sia", "wearing", "constant"]
 
