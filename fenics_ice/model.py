@@ -195,22 +195,22 @@ class model:
 
     def vel_obs_from_data(self):
         """
-        Reads ice velocity observations (point cloud data)
-        and composite ice velocities (with no nans or missing data)
-        from HDF5 file.
+        Reads ice velocity observations from HDF5 file.
         - Additionally interpolates composite velocities
-        (gridded spaced data) onto self.Q for use as boundary
-        conditions and alpha initialisation.
-        - Velocities in a cloud point format are kept for inversion
-        only.
+            (gridded spaced data) to mesh coordinates
+            to be use in setting the boundary conditions
+            and alpha initialisation.
+        - Velocities in a cloud point format are kept to compute
+            the value of the cost function only if
+            params.inversion.use_cloud_point_velocities = true
+            else we use composite velocities
 
         Expects an HDF5 file with the following list of variables
-        in a tuple format e.g. x -> (values, )
-        Generates:
-        self.u_obs, self.v_obs, self.u_std, self.v_std,
-        self.uv_obs_pts, self.mask_vel
-        self.u_comp, self.v_comp, self.u_comp_std, self.v_comp_std,
-        self.uv_comp_pts.
+            u_obs, v_obs, u_std, v_std, mask_vel, x, y (as default)
+            and if params.inversion.use_cloud_point_velocities = true
+        expects the variables above plus cloud point data with the name:
+            u_cloud, v_cloud, u_cloud_std, v_cloud_std, x_could, y_could
+        Everything without nan's and in a tuple format e.g. x -> (values, )
         """
         infile = Path(self.params.io.input_dir) / self.params.obs.vel_file
         if self.params.inversion.use_cloud_point_velocities:

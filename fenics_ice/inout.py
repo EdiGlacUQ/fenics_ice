@@ -309,16 +309,24 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
     """
     Reads velocity observations & uncertainty from a HDF5 file
     containing:
-    - point cloud velocities (u_obs, v_obs) for inversion only
+    - point cloud velocities (u_obs, v_obs) to compute the value
+        of the cost function only and only used if use_cloud_point=True.
     - gridded data set of composite ice velocities & uncertainties
-    use for alpha initialisation and boundary conditions
+        use for alpha initialisation and boundary conditions even
+        if point cloud data is given. And also use to compute the value
+        of the cost function as default.
     All variables in the HDF5 file should be with the form
     (values, )
 
-    Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
-    self.uv_obs_pts, self.mask_vel
-    self.u_comp, self.v_comp, self.u_comp_std, self.v_comp_std,
-    self.uv_comp_pts
+    Params:
+    -------
+    infile: path to .h5 path
+    model: fenics_ice model object
+    use_cloud_point: bool
+    Returns:
+    --------
+    model.vel_obs: as a python directory with the velocity data
+    out: python directory if model=None
     """
     assert infile.exists(), f"Couldn't find velocity observations file: {infile}"
 
