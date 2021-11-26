@@ -215,8 +215,8 @@ class model:
         infile = Path(self.params.io.input_dir) / self.params.obs.vel_file
         if self.params.inversion.use_cloud_point_velocities:
             inout.read_vel_obs(infile,
-                               self.params.inversion.use_cloud_point_velocities,
-                               self)
+                               self,
+                               self.params.inversion.use_cloud_point_velocities)
         else:
             inout.read_vel_obs(infile, self)
         # Functions for repeated ungridded interpolation

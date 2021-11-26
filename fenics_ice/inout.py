@@ -305,7 +305,7 @@ def field_from_vel_file(infile, field_name):
 
     return np.ravel(field[:])
 
-def read_vel_obs(infile, use_cloud_point=False, model=None):
+def read_vel_obs(infile, model=None, use_cloud_point=False):
     """
     Reads velocity observations & uncertainty from a HDF5 file
     containing:
