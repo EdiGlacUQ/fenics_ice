@@ -92,11 +92,11 @@ class ssa_solver:
 
         # Save observations for inversions
         try:
-            self.u_obs = model.u_obs
-            self.v_obs = model.v_obs
-            self.u_std = model.u_std
-            self.v_std = model.v_std
-            self.uv_obs_pts = model.uv_obs_pts
+            self.u_obs = model.vel_obs['u_obs'][0]
+            self.v_obs = model.vel_obs['v_obs'][0]
+            self.u_std = model.vel_obs['u_std'][0]
+            self.v_std = model.vel_obs['v_std'][0]
+            self.uv_obs_pts = model.vel_obs['uv_obs_pts'][0]
         except:
             pass
 

@@ -31,6 +31,7 @@ import netCDF4
 import git
 from scipy import interpolate as interp
 from abc import ABC, abstractmethod
+from collections import defaultdict
 
 from fenics import *
 from tlm_adjoint.fenics import configure_checkpointing
@@ -304,7 +305,7 @@ def field_from_vel_file(infile, field_name):
 
     return np.ravel(field[:])
 
-def read_vel_obs(params, model=None):
+def read_vel_obs(infile, use_cloud_point=False, model=None):
     """
     Reads velocity observations & uncertainty from a HDF5 file
     containing:
@@ -319,72 +320,78 @@ def read_vel_obs(params, model=None):
     self.u_comp, self.v_comp, self.u_comp_std, self.v_comp_std,
     self.uv_comp_pts
     """
-    infile = Path(params.io.input_dir) / params.obs.vel_file
     assert infile.exists(), f"Couldn't find velocity observations file: {infile}"
 
     infile = h5py.File(infile, 'r')
-    keys = list(infile.keys())
-
-    assert 'u_obs' in keys, \
-        f"Your vel file has not been configure correctly " \
-        f"make sure you have velocity data with the correct var names " \
-        f"x, y, u_obs, v_obs, u_obs_std, v_obs_std "
 
     # Read composite mean of velocity data as default
     mask_vel = field_from_vel_file(infile, 'mask_vel')
-    x_comp = field_from_vel_file(infile, 'x')
-    y_comp = field_from_vel_file(infile, 'y')
-    u_comp = field_from_vel_file(infile, 'u_obs')
-    v_comp = field_from_vel_file(infile, 'v_obs')
-    u_comp_std = field_from_vel_file(infile, 'u_std')
-    v_comp_std = field_from_vel_file(infile, 'v_std')
+    x = field_from_vel_file(infile, 'x')
+    y = field_from_vel_file(infile, 'y')
+    u_obs = field_from_vel_file(infile, 'u_obs')
+    v_obs = field_from_vel_file(infile, 'v_obs')
+    u_std = field_from_vel_file(infile, 'u_std')
+    v_std = field_from_vel_file(infile, 'v_std')
 
-    if params.inversion.use_cloud_point_velocities:
-        logging.warning(f"You are using cloud point data for optimizing J, "
-                        f"inversion results might not be smooth")
-        assert 'u_cloud' in keys, \
-            f"Your vel file has not been configure correctly " \
-            f"make sure you have cloud point data with the correct var names " \
-            f"x_cloud, y_cloud, u_cloud, v_cloud, u_cloud_std, v_cloud_std"
+    if use_cloud_point:
         # Read cloud point observations to be used in the Inversion and
         # Cost function optimization only!
-        x_obs = field_from_vel_file(infile, 'x_cloud')
-        y_obs = field_from_vel_file(infile, 'y_cloud')
-        u_obs = field_from_vel_file(infile, 'u_cloud')
-        v_obs = field_from_vel_file(infile, 'v_cloud')
-        u_std = field_from_vel_file(infile, 'u_cloud_std')
-        v_std = field_from_vel_file(infile, 'v_cloud_std')
+        x_cloud = field_from_vel_file(infile, 'x_cloud')
+        y_cloud = field_from_vel_file(infile, 'y_cloud')
+        u_cloud = field_from_vel_file(infile, 'u_cloud')
+        v_cloud = field_from_vel_file(infile, 'v_cloud')
+        u_cloud_std = field_from_vel_file(infile, 'u_cloud_std')
+        v_cloud_std = field_from_vel_file(infile, 'v_cloud_std')
     else:
-        x_obs = x_comp
-        y_obs = y_comp
-        u_obs = u_comp
-        v_obs = v_comp
-        u_std = u_comp_std
-        v_std = v_comp_std
+        x_cloud = x.copy()
+        y_cloud = y.copy()
+        u_cloud = u_obs.copy()
+        v_cloud = v_obs.copy()
+        u_cloud_std = u_std.copy()
+        v_cloud_std = v_std.copy()
 
-    assert x_obs.size == y_obs.size == u_obs.size == v_obs.size
-    assert v_obs.size == u_std.size == v_std.size
-    assert x_comp.size == y_comp.size == u_comp.size == v_comp.size
-    assert v_comp.size == u_comp_std.size == v_comp_std.size == mask_vel.size
+    uv_cloud_pts = np.vstack((x_cloud, y_cloud)).T
+    uv_obs_pts = np.vstack((x, y)).T
 
-    uv_obs_pts = np.vstack((x_obs, y_obs)).T
-    uv_comp_pts = np.vstack((x_comp, y_comp)).T
+    # assert x_cloud.size == y_cloud.size == u_cloud.size == v_cloud.size
+    # assert v_cloud.size == u_cloud_std.size == v_cloud_std.size
+    # assert x.size == y.size == u_obs.size == v_obs.size
+    # assert v_obs.size == u_std.size == v_std.size == mask_vel.size
+    out = defaultdict(list)
+    out['uv_obs_pts'].append(uv_cloud_pts)
+    out['u_obs'].append(u_cloud)
+    out['v_obs'].append(v_cloud)
+    out['u_std'].append(u_cloud_std)
+    out['v_std'].append(v_cloud_std)
+    out['uv_comp_pts'].append(uv_obs_pts)
+    out['u_comp'].append(u_obs)
+    out['v_comp'].append(v_obs)
+    out['u_comp_std'].append(u_std)
+    out['v_comp_std'].append(v_std)
+    out['mask_vel'].append(mask_vel)
+
+    #Test that when we read a cloud point data file we have less data
+    # than the composite
+    keys = list(out.keys())
+    sizes_pts=[]
+    sizes=[]
+    for key in keys:
+        if '_pts' in key:
+            sizes_pts = np.append(sizes_pts, out[key][0].size)
+        else:
+            sizes=np.append(sizes, out[key][0].size)
+    if use_cloud_point:
+        assert sizes_pts[0] < sizes_pts[-1]
+        assert np.all(sizes[0:4] == sizes[0])
+        assert np.all(sizes[4:-1] == sizes[-1])
+    else:
+        assert sizes_pts[0] == sizes_pts[-1]
+        assert np.all(sizes)
 
     if model is not None:
-        model.uv_obs_pts = uv_obs_pts
-        model.u_obs = u_obs
-        model.v_obs = v_obs
-        model.u_std = u_std
-        model.v_std = v_std
-        model.uv_comp_pts = uv_comp_pts
-        model.u_comp = u_comp
-        model.v_comp = v_comp
-        model.u_comp_std = u_comp_std
-        model.v_comp_std = v_comp_std
-        model.mask_vel = mask_vel
+        model.vel_obs = out
     else:
-        return uv_obs_pts, u_obs, v_obs, u_std, v_std, mask_vel, \
-               uv_comp_pts, u_comp, v_comp, u_comp_std, v_comp_std
+        return out
 
 class DataNotFound(Exception):
     """Custom exception for unfound data"""
