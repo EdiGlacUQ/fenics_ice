@@ -353,10 +353,6 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
     uv_cloud_pts = np.vstack((x_cloud, y_cloud)).T
     uv_obs_pts = np.vstack((x, y)).T
 
-    # assert x_cloud.size == y_cloud.size == u_cloud.size == v_cloud.size
-    # assert v_cloud.size == u_cloud_std.size == v_cloud_std.size
-    # assert x.size == y.size == u_obs.size == v_obs.size
-    # assert v_obs.size == u_std.size == v_std.size == mask_vel.size
     out = defaultdict(list)
     out['uv_obs_pts'].append(uv_cloud_pts)
     out['u_obs'].append(u_cloud)

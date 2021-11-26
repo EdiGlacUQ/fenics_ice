@@ -29,7 +29,6 @@ def init_model(model_dir, toml_file):
 
     # Switch to the working directory
     os.chdir(model_dir)
-    print(model_dir/toml_file)
     assert (model_dir/toml_file).exists()
 
     # Get the relevant filenames from test case
@@ -108,9 +107,7 @@ def test_initialize_vel_obs(request, setup_deps, temp_model):
     setup_deps.set_case_dependency(request, ["test_initialize_fields"])
 
     work_dir = temp_model["work_dir"]
-    print(work_dir)
     toml_file = temp_model["toml_filename"]
-    print(toml_file)
     mdl = init_model(work_dir, toml_file)
     initialize_vel_obs(mdl)
 
