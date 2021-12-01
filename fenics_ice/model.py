@@ -215,10 +215,10 @@ class model:
         infile = Path(self.params.io.input_dir) / self.params.obs.vel_file
         if self.params.inversion.use_cloud_point_velocities:
             inout.read_vel_obs(infile,
-                               self,
-                               self.params.inversion.use_cloud_point_velocities)
+                               model=self,
+                               use_cloud_point=self.params.inversion.use_cloud_point_velocities)
         else:
-            inout.read_vel_obs(infile, self)
+            inout.read_vel_obs(infile, model=self)
         # Functions for repeated ungridded interpolation
         # TODO - this will not handle extrapolation/missing data
         # nicely - unfound simplex are returned '-1' which takes the last

@@ -376,21 +376,15 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
 
     #Test that when we read a cloud point data file we have less data
     # than the composite
-    keys = list(out.keys())
-    sizes_pts=[]
-    sizes=[]
-    for key in keys:
-        if '_pts' in key:
-            sizes_pts = np.append(sizes_pts, out[key][0].size)
-        else:
-            sizes=np.append(sizes, out[key][0].size)
+    sizes_pts = np.array([out[key][0].size for key in filter(lambda key: "_pts" in key, out)])
+    sizes = np.array([out[key][0].size for key in filter(lambda key: "_pts" not in key, out)])
     if use_cloud_point:
         assert sizes_pts[0] < sizes_pts[-1]
         assert np.all(sizes[0:4] == sizes[0])
         assert np.all(sizes[4:-1] == sizes[-1])
     else:
         assert sizes_pts[0] == sizes_pts[-1]
-        assert np.all(sizes)
+        assert np.all(sizes == sizes[0])
 
     if model is not None:
         model.vel_obs = out
