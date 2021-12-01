@@ -87,7 +87,6 @@ def test_tv_run_inversion(persistent_temp_model, monkeypatch):
 
     if alpha_active:
 
-        #fwd_alpha = mdl_out.solvers[0].forward_alpha
         fwd_alpha = mdl_out.solvers[0].forward
         alpha = mdl_out.solvers[0].alpha
 
@@ -111,7 +110,6 @@ def test_tv_run_inversion(persistent_temp_model, monkeypatch):
 
     if beta_active:
 
-        #fwd_beta = mdl_out.solvers[0].forward_beta
         fwd_beta = mdl_out.solvers[0].forward
         beta = mdl_out.solvers[0].beta
 
