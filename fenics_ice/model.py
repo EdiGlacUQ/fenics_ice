@@ -25,6 +25,7 @@ from fenics_ice import inout, prior
 from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
 import logging
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -147,7 +148,17 @@ class model:
     def bglen_from_data(self):
         """Get bglen field from initial input data"""
         self.bglen = self.input_data.interpolate("Bglen", self.Q)
+        """Get bglen mask field from input data"""
+        self.bglen_mask = self.input_data.interpolate("Bglenmask", self.M)
 
+        """bglen_mask is currently just bglen where data available and nan elsehere"""
+        """Following is hacky way to convert this to 0 where nan, 1 elsewhere"""
+        temp_vec = self.bglen_mask.vector()[:]
+        temp_vec[np.isnan(temp_vec)] = 0.0
+        temp_vec[temp_vec>0.0]=1.0
+        self.bglen_mask.vector()[:] = temp_vec
+        """Following appears in inout.interpolate -- is something similar needed?"""
+        self.bglen_mask.vector().apply("insert")
 
     def alpha_from_inversion(self):
         """Get alpha field from inversion step"""
