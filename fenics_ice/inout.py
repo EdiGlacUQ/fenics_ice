@@ -31,7 +31,6 @@ import netCDF4
 import git
 from scipy import interpolate as interp
 from abc import ABC, abstractmethod
-from collections import defaultdict
 
 from fenics import *
 from tlm_adjoint.fenics import configure_checkpointing
@@ -361,23 +360,22 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
     uv_cloud_pts = np.vstack((x_cloud, y_cloud)).T
     uv_obs_pts = np.vstack((x, y)).T
 
-    out = defaultdict(list)
-    out['uv_obs_pts'].append(uv_cloud_pts)
-    out['u_obs'].append(u_cloud)
-    out['v_obs'].append(v_cloud)
-    out['u_std'].append(u_cloud_std)
-    out['v_std'].append(v_cloud_std)
-    out['uv_comp_pts'].append(uv_obs_pts)
-    out['u_comp'].append(u_obs)
-    out['v_comp'].append(v_obs)
-    out['u_comp_std'].append(u_std)
-    out['v_comp_std'].append(v_std)
-    out['mask_vel'].append(mask_vel)
+    out = {'uv_obs_pts': uv_cloud_pts,
+           'u_obs': u_cloud,
+           'v_obs': v_cloud,
+           'u_std': u_cloud_std,
+           'v_std': v_cloud_std,
+           'uv_comp_pts': uv_obs_pts,
+           'u_comp': u_obs,
+           'v_comp': v_obs,
+           'u_comp_std': u_std,
+           'v_comp_std': v_std,
+           'mask_vel': mask_vel}
 
     #Test that when we read a cloud point data file we have less data
     # than the composite
-    sizes_pts = np.array([out[key][0].size for key in filter(lambda key: "_pts" in key, out)])
-    sizes = np.array([out[key][0].size for key in filter(lambda key: "_pts" not in key, out)])
+    sizes_pts = np.array([out[key].size for key in filter(lambda key: "_pts" in key, out)])
+    sizes = np.array([out[key].size for key in filter(lambda key: "_pts" not in key, out)])
     if use_cloud_point:
         assert sizes_pts[0] < sizes_pts[-1]
         assert np.all(sizes[0:4] == sizes[0])

@@ -252,9 +252,9 @@ class model:
         Q_coords = self.Q.tabulate_dof_coordinates()
         M_coords = self.M.tabulate_dof_coordinates()
 
-        vtx_Q, wts_Q = interp_weights(self.vel_obs['uv_comp_pts'][0],
+        vtx_Q, wts_Q = interp_weights(self.vel_obs['uv_comp_pts'],
                                       Q_coords)
-        vtx_M, wts_M = interp_weights(self.vel_obs['uv_comp_pts'][0],
+        vtx_M, wts_M = interp_weights(self.vel_obs['uv_comp_pts'],
                                       M_coords)
 
         # Define new functions to hold results
@@ -271,19 +271,19 @@ class model:
         self.mask_vel_M = Function(self.M, name="mask_vel", static=True)
 
         # Fill via interpolation
-        self.u_obs_Q.vector()[:] = interpolate(self.vel_obs['u_comp'][0], vtx_Q, wts_Q)
-        self.v_obs_Q.vector()[:] = interpolate(self.vel_obs['v_comp'][0], vtx_Q, wts_Q)
-        self.u_std_Q.vector()[:] = interpolate(self.vel_obs['u_comp_std'][0], vtx_Q, wts_Q)
-        self.v_std_Q.vector()[:] = interpolate(self.vel_obs['v_comp_std'][0], vtx_Q, wts_Q)
+        self.u_obs_Q.vector()[:] = interpolate(self.vel_obs['u_comp'], vtx_Q, wts_Q)
+        self.v_obs_Q.vector()[:] = interpolate(self.vel_obs['v_comp'], vtx_Q, wts_Q)
+        self.u_std_Q.vector()[:] = interpolate(self.vel_obs['u_comp_std'], vtx_Q, wts_Q)
+        self.v_std_Q.vector()[:] = interpolate(self.vel_obs['v_comp_std'], vtx_Q, wts_Q)
         # self.mask_vel_Q.vector()[:] = interpolate(self.mask_vel, vtx_Q, wts_Q)
 
-        self.u_obs_M.vector()[:] = interpolate(self.vel_obs['u_comp'][0], vtx_M, wts_M)
-        self.v_obs_M.vector()[:] = interpolate(self.vel_obs['v_comp'][0], vtx_M, wts_M)
+        self.u_obs_M.vector()[:] = interpolate(self.vel_obs['u_comp'], vtx_M, wts_M)
+        self.v_obs_M.vector()[:] = interpolate(self.vel_obs['v_comp'], vtx_M, wts_M)
         # self.u_std_M.vector()[:] = interpolate(self.u_std, vtx_M, wts_M)
         # self.v_std_M.vector()[:] = interpolate(self.v_std, vtx_M, wts_M)
         # IMPORTANT! this mask is not the vel mask of cloud point observations
         # it is the mask from the composite velocities
-        self.mask_vel_M.vector()[:] = interpolate(self.vel_obs['mask_vel'][0], vtx_M, wts_M)
+        self.mask_vel_M.vector()[:] = interpolate(self.vel_obs['mask_vel'], vtx_M, wts_M)
 
     def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
                          vstd=Constant(1.0), ls=False):
