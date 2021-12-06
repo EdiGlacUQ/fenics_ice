@@ -40,6 +40,7 @@ class model:
                  init_vel_obs=True):
 
         # Initiate parameters
+        self.vel_obs = None
         self.params = param_in
         self.input_data = input_data
         self.solvers = []
@@ -194,16 +195,30 @@ class model:
 
     def vel_obs_from_data(self):
         """
-        Read velocity observations & uncertainty from HDF5 file
+        Reads ice velocity observations from HDF5 file.
+        - Additionally interpolates composite velocities
+            (gridded spaced data) to mesh coordinates
+            to be use in setting the boundary conditions
+            and alpha initialisation.
+        - Velocities in a cloud point format are kept to compute
+            the value of the cost function only if
+            params.inversion.use_cloud_point_velocities = true
+            else we use composite velocities
 
-        Additionally interpolates these arbitrarily spaced data
-        onto self.Q for use as boundary conditions etc
+        Expects an HDF5 file with the following list of variables
+            u_obs, v_obs, u_std, v_std, mask_vel, x, y (as default)
+            and if params.inversion.use_cloud_point_velocities = true
+        expects the variables above plus cloud point data with the name:
+            u_cloud, v_cloud, u_cloud_std, v_cloud_std, x_could, y_could
+        Everything without nan's and in a tuple format e.g. x -> (values, )
         """
-        # Read the obs from HDF5 file
-        # Generates self.u_obs, self.v_obs, self.u_std, self.v_std,
-        # self.uv_obs_pts, self.mask_vel
-        inout.read_vel_obs(self.params, self)
-
+        infile = Path(self.params.io.input_dir) / self.params.obs.vel_file
+        if self.params.inversion.use_cloud_point_velocities:
+            inout.read_vel_obs(infile,
+                               model=self,
+                               use_cloud_point=self.params.inversion.use_cloud_point_velocities)
+        else:
+            inout.read_vel_obs(infile, model=self)
         # Functions for repeated ungridded interpolation
         # TODO - this will not handle extrapolation/missing data
         # nicely - unfound simplex are returned '-1' which takes the last
@@ -237,8 +252,10 @@ class model:
         Q_coords = self.Q.tabulate_dof_coordinates()
         M_coords = self.M.tabulate_dof_coordinates()
 
-        vtx_Q, wts_Q = interp_weights(self.uv_obs_pts, Q_coords)
-        vtx_M, wts_M = interp_weights(self.uv_obs_pts, M_coords)
+        vtx_Q, wts_Q = interp_weights(self.vel_obs['uv_comp_pts'],
+                                      Q_coords)
+        vtx_M, wts_M = interp_weights(self.vel_obs['uv_comp_pts'],
+                                      M_coords)
 
         # Define new functions to hold results
         self.u_obs_Q = Function(self.Q, name="u_obs", static=True)
@@ -254,17 +271,19 @@ class model:
         self.mask_vel_M = Function(self.M, name="mask_vel", static=True)
 
         # Fill via interpolation
-        self.u_obs_Q.vector()[:] = interpolate(self.u_obs, vtx_Q, wts_Q)
-        self.v_obs_Q.vector()[:] = interpolate(self.v_obs, vtx_Q, wts_Q)
-        self.u_std_Q.vector()[:] = interpolate(self.u_std, vtx_Q, wts_Q)
-        self.v_std_Q.vector()[:] = interpolate(self.v_std, vtx_Q, wts_Q)
+        self.u_obs_Q.vector()[:] = interpolate(self.vel_obs['u_comp'], vtx_Q, wts_Q)
+        self.v_obs_Q.vector()[:] = interpolate(self.vel_obs['v_comp'], vtx_Q, wts_Q)
+        self.u_std_Q.vector()[:] = interpolate(self.vel_obs['u_comp_std'], vtx_Q, wts_Q)
+        self.v_std_Q.vector()[:] = interpolate(self.vel_obs['v_comp_std'], vtx_Q, wts_Q)
         # self.mask_vel_Q.vector()[:] = interpolate(self.mask_vel, vtx_Q, wts_Q)
 
-        self.u_obs_M.vector()[:] = interpolate(self.u_obs, vtx_M, wts_M)
-        self.v_obs_M.vector()[:] = interpolate(self.v_obs, vtx_M, wts_M)
+        self.u_obs_M.vector()[:] = interpolate(self.vel_obs['u_comp'], vtx_M, wts_M)
+        self.v_obs_M.vector()[:] = interpolate(self.vel_obs['v_comp'], vtx_M, wts_M)
         # self.u_std_M.vector()[:] = interpolate(self.u_std, vtx_M, wts_M)
         # self.v_std_M.vector()[:] = interpolate(self.v_std, vtx_M, wts_M)
-        self.mask_vel_M.vector()[:] = interpolate(self.mask_vel, vtx_M, wts_M)
+        # IMPORTANT! this mask is not the vel mask of cloud point observations
+        # it is the mask from the composite velocities
+        self.mask_vel_M.vector()[:] = interpolate(self.vel_obs['mask_vel'], vtx_M, wts_M)
 
     def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
                          vstd=Constant(1.0), ls=False):

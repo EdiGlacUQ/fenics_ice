@@ -112,7 +112,7 @@ def test_initialize_vel_obs(request, setup_deps, temp_model):
     initialize_vel_obs(mdl)
 
     assert mdl.u_obs_Q is not None  # TODO - better test here
-    assert mdl.uv_obs_pts.size > 0
+    assert mdl.vel_obs['uv_obs_pts'].size > 0
     assert np.linalg.norm(mdl.latbc.vector()[:]) != 0.0
 
 

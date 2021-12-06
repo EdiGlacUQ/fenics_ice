@@ -87,7 +87,7 @@ def test_tv_run_inversion(persistent_temp_model, monkeypatch):
 
     if alpha_active:
 
-        fwd_alpha = mdl_out.solvers[0].forward_alpha
+        fwd_alpha = mdl_out.solvers[0].forward
         alpha = mdl_out.solvers[0].alpha
 
         min_order = taylor_test_tlm(fwd_alpha,
@@ -110,7 +110,7 @@ def test_tv_run_inversion(persistent_temp_model, monkeypatch):
 
     if beta_active:
 
-        fwd_beta = mdl_out.solvers[0].forward_beta
+        fwd_beta = mdl_out.solvers[0].forward
         beta = mdl_out.solvers[0].beta
 
         min_order = taylor_test_tlm(fwd_beta,
@@ -181,7 +181,6 @@ def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
     # Switch to the working directory
     monkeypatch.chdir(work_dir)
-
     EQReset()
 
     mdl_out = run_forward.run_forward(toml_file)
@@ -203,9 +202,9 @@ def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
     def forward_ts(cntrl, cntrl_init, name):
         slvr.reset_ts_zero()
         if(name == 'alpha'):
-            slvr.alpha = cntrl
+            slvr._alpha = cntrl
         elif(name == 'beta'):
-            slvr.beta = cntrl
+            slvr._beta = cntrl
         else:
             raise ValueError(f"Unrecognised cntrl name: {name}")
 
@@ -213,9 +212,9 @@ def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
         # Reset after simulation - confirmed necessary
         if(name == 'alpha'):
-            slvr.alpha = cntrl_init
+            slvr._alpha = cntrl_init
         elif(name == 'beta'):
-            slvr.beta = cntrl_init
+            slvr._beta = cntrl_init
         else:
             raise ValueError(f"Bad control name {name}")
 
