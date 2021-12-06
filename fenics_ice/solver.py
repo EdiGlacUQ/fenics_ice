@@ -36,9 +36,29 @@ from .minimize_l_bfgs import \
 #from dolfin_adjoint import *
 #from dolfin_adjoint_custom import EquationSolver
 import ufl
+import mpi4py.MPI as MPI
 import logging
+from scipy.sparse import spdiags
 
 log = logging.getLogger("fenics_ice")
+
+
+def interpolation_matrix(y, x_coords, tolerance=0.0):
+    from tlm_adjoint.fenics.fenics_equations import greedy_coloring, \
+        interpolation_matrix, point_cells
+
+    space = function_space(y)
+
+    y_cells, y_distances = point_cells(x_coords, space.mesh())
+    if (y_distances > tolerance).any():
+        raise RuntimeError("Unable to locate one or more cells")
+
+    y_colors = greedy_coloring(space)
+
+    P = interpolation_matrix(x_coords, y, y_cells, y_colors)
+
+    return P
+
 
 class ssa_solver:
     """
@@ -1090,78 +1110,8 @@ class ssa_solver:
             raise NotImplementedError("At least one partition has no velocity observations. "
                                       "Need to implement a dummy point w/ semi-inner-product "
                                       "to handle this case.")
-
-        local_cnt = np.sum(obs_local)
+        
         local_obs_pts = [(u, v) for u, v in uv_obs_pts[obs_local]]
-
-        # Sample Discrete Points
-
-        # Arbitrary mesh to define function for interpolated variables
-
-        # Gather info from other partitions on global point counts etc
-        comm = self.mesh.mpi_comm()
-        rank = comm.rank
-
-        global_vcnts = comm.allgather(local_cnt)  # points on each partition
-        global_vcnt = sum(global_vcnts)  # total number of points
-
-        # TODO - better way to check no duplicate points?
-        # assert global_vcnt == len(obs_local), ("Mismatch between total number of observation "
-        # "points and the sum of those assigned to each partition. "
-        # "Note that this might not necessarily be an error - should be handled better.")
-
-        # each partition has 1 fewer elem than points
-        global_ecnts = [vc-1 for vc in global_vcnts]
-        global_ecnt = sum(global_ecnts)
-
-        # Compute global idx offsets
-        vidx_offset = 0
-        for i in range(rank):
-            vidx_offset += global_vcnts[i]
-
-        obs_mesh = Mesh()
-
-        editor = MeshEditor()
-        editor.open(obs_mesh, "interval", 1, 2)
-        editor.init_vertices_global(local_cnt, global_vcnt)
-        editor.init_cells_global(max(local_cnt-1, 0), global_ecnt)
-
-        # Add vertices
-        for i in range(local_cnt):
-            editor.add_vertex_global(i, i+vidx_offset, local_obs_pts[i])
-
-        # Add elements  - NOTE - possibly need to add cells to connect partitions
-        # Also may need to handle edge case where a partition has no obs pts (caught above)
-        for i in range(local_cnt-1):
-            editor.add_cell(i, [i, i+1])
-
-        editor.close()
-        obs_mesh.init()
-        obs_mesh.order()
-
-        obs_space = FunctionSpace(obs_mesh, "CG", 1)
-
-        # NB: this dofmap approach depends on CG space! (dofs at nodes)
-        dofmap = vertex_to_dof_map(obs_space)
-
-        u_obs_pts = Function(obs_space, name='u_obs_pts')
-        v_obs_pts = Function(obs_space, name='v_obs_pts')
-        u_std_pts = Function(obs_space, name='u_std_pts')
-        v_std_pts = Function(obs_space, name='v_std_pts')
-
-        u_obs_pts.vector()[:] = u_obs[obs_local][dofmap]
-        v_obs_pts.vector()[:] = v_obs[obs_local][dofmap]
-        u_std_pts.vector()[:] = u_std[obs_local][dofmap]
-        v_std_pts.vector()[:] = v_std[obs_local][dofmap]
-
-        u_obs_pts.vector().apply("insert")
-        v_obs_pts.vector().apply("insert")
-        u_std_pts.vector().apply("insert")
-        v_std_pts.vector().apply("insert")
-
-        # Interpolate from model
-        u_pts = Function(obs_space, name='u_pts')
-        v_pts = Function(obs_space, name='v_pts')
 
         # Project modelled velocity to DG1 to simplify graph coloring
         interp_space = FunctionSpace(self.mesh, 'DG', 1)
@@ -1171,34 +1121,94 @@ class ssa_solver:
         uf.rename("uf", "")
         vf.rename("vf", "")
 
-        # TODO - what's the significance of missing some points here?
-        # Does this affect the value of the cost function?
-        interper2 = InterpolationSolver(uf, u_pts, tolerance=1.0)
-        interper2.solve()
-
-        P = interper2._B[0]._A._P
-        InterpolationSolver(vf, v_pts, P=P, tolerance=1.0).solve()
-
         J = Functional(name="J")
 
-        # Continuous
-        # data misfit component of J (Isaac 12), with
-        # diagonal noise covariance matrix
-        # J_ls = lambda_a*(u_std**(-2.0)*(u-u_obs)**2.0 + v_std**(-2.0)*\
-        # (v-v_obs)**2.0)*self.dObs
+        # The following evaluates
+        #   (P u - u_obs)^T R_u_obs^{-1} (P u - u_obs)
+        #   + (P v - v_obs)^T R_v_obs^{-1} (P v - v_obs)
+        # for the case where R_u_obs and R_v_obs are diagonal, with diagonals
+        # u_std ** 2 and v_std ** 2 respectively.
+        #
+        # Note that this *does not* annotate equations necessary for computing
+        # derivatives with respect to u_obs, v_obs, u_std, or v_std.
 
-        # Inner product
-        J_ls_term_u = new_scalar_function(name="J_term_u")
-        J_ls_term_v = new_scalar_function(name="J_term_v")
+        if not hasattr(self, "_cached_J_mismatch_data"):
+            from tlm_adjoint.fenics.fenics_equations import InterpolationMatrix
 
-        u_mismatch = ((u_pts-u_obs_pts)/u_std_pts)
-        NormSqSolver(project(u_mismatch, obs_space), J_ls_term_u).solve()
-        v_mismatch = ((v_pts-v_obs_pts)/v_std_pts)
-        NormSqSolver(project(v_mismatch, obs_space), J_ls_term_v).solve()
+            P = interpolation_matrix(
+                uf, np.array(local_obs_pts, dtype=function_dtype(uf)),
+                tolerance=0.0)
 
-        # J_ls_term_final = new_scalar_function()
-        # ExprEvaluationSolver(J_ls_term * \
-        # lambda_a, J_ls_term_final).solve()
+            u_PRP = InterpolationMatrix(
+                P.T @ spdiags(1.0 / (u_std[obs_local] ** 2),
+                              0, P.shape[0], P.shape[0]) @ P)
+            v_PRP = InterpolationMatrix(
+                P.T @ spdiags(1.0 / (v_std[obs_local] ** 2),
+                              0, P.shape[0], P.shape[0]) @ P)
+
+            l_u_obs = function_new(uf, name="l_u_obs")
+            function_set_values(
+                l_u_obs, P.T @ (u_obs[obs_local] / (u_std[obs_local] ** 2)))
+            l_v_obs = function_new(vf, name="l_v_obs")
+            function_set_values(
+                l_v_obs, P.T @ (v_obs[obs_local] / (v_std[obs_local] ** 2)))
+
+            J_u_obs_local = np.dot(u_obs[obs_local],
+                                   u_obs[obs_local] / (u_std[obs_local] ** 2))
+            J_u_obs = np.full(1, np.NAN, dtype=function_dtype(uf))
+            function_comm(uf).Allreduce(
+                np.array(J_u_obs_local, dtype=function_dtype(uf)),
+                J_u_obs, op=MPI.SUM)
+            J_u_obs, = J_u_obs
+
+            J_v_obs_local = np.dot(v_obs[obs_local],
+                                   v_obs[obs_local] / (v_std[obs_local] ** 2))
+            J_v_obs = np.full(1, np.NAN, dtype=function_dtype(vf))
+            function_comm(vf).Allreduce(
+                np.array(J_v_obs_local, dtype=function_dtype(vf)),
+                J_v_obs, op=MPI.SUM)
+            J_v_obs, = J_v_obs
+
+            self._cached_J_mismatch_data \
+                = (u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs)
+        u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs = \
+            self._cached_J_mismatch_data
+
+        J_ls_term_u = Functional(name="J_term_u", space=J.space())
+        J_ls_term_v = Functional(name="J_term_v", space=J.space())
+
+        # u^T P^T R_u_obs^{-1} P u
+        J_term = space_new(J.space())
+        InnerProductSolver(uf, uf, J_term, M=u_PRP).solve()
+        J_ls_term_u.addto(J_term)
+
+        # v^T P^T R_v_obs^{-1} P v
+        J_term = space_new(J.space())
+        InnerProductSolver(vf, vf, J_term, M=v_PRP).solve()
+        J_ls_term_v.addto(J_term)
+
+        # -2 u_obs^T R_u_obs^{-1} P u
+        J_term = space_new(J.space())
+        InnerProductSolver(uf, l_u_obs, J_term, alpha=-2.0).solve()
+        J_ls_term_u.addto(J_term)
+
+        # -2 v_obs^T R_v_obs^{-1} P v
+        J_term = space_new(J.space())
+        InnerProductSolver(vf, l_v_obs, J_term, alpha=-2.0).solve()
+        J_ls_term_v.addto(J_term)
+
+        # u_obs R_u_obs^{-1} u_obs
+        J_term = space_new(J.space())
+        function_assign(J_term, J_u_obs)
+        J_ls_term_u.addto(J_term)
+
+        # v_obs R_v_obs^{-1} v_obs
+        J_term = space_new(J.space())
+        function_assign(J_term, J_v_obs)
+        J_ls_term_v.addto(J_term)
+
+        J_ls_term_u = J_ls_term_u.fn()
+        J_ls_term_v = J_ls_term_v.fn()
 
         J.addto(J_ls_term_u)
         J.addto(J_ls_term_v)
