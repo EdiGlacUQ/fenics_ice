@@ -1135,7 +1135,7 @@ class ssa_solver:
             from tlm_adjoint.fenics.fenics_equations import InterpolationMatrix
 
             P = interpolation_matrix(
-                uf, np.array(local_obs_pts, dtype=function_dtype(uf)),
+                uf, np.array(local_obs_pts, dtype=uv_obs_pts.dtype),
                 tolerance=0.0)
 
             u_PRP = InterpolationMatrix(
