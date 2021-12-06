@@ -1110,7 +1110,7 @@ class ssa_solver:
             raise NotImplementedError("At least one partition has no velocity observations. "
                                       "Need to implement a dummy point w/ semi-inner-product "
                                       "to handle this case.")
-        
+
         local_obs_pts = [(u, v) for u, v in uv_obs_pts[obs_local]]
 
         # Project modelled velocity to DG1 to simplify graph coloring
