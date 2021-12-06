@@ -1115,11 +1115,10 @@ class ssa_solver:
 
         # Project modelled velocity to DG1 to simplify graph coloring
         interp_space = FunctionSpace(self.mesh, 'DG', 1)
-        uf = project(u, interp_space)
-        vf = project(v, interp_space)
-
-        uf.rename("uf", "")
-        vf.rename("vf", "")
+        uf = space_new(interp_space, name="uf")
+        LocalProjectionSolver(u, uf).solve()
+        vf = space_new(interp_space, name="vf")
+        LocalProjectionSolver(v, vf).solve()
 
         J = Functional(name="J")
 
