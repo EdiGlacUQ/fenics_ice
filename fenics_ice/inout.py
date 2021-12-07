@@ -375,6 +375,7 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
         # than the composite
         sizes_pts = np.array([out[key].size for key in filter(lambda key: "_pts" in key, out)])
         sizes = np.array([out[key].size for key in filter(lambda key: "_pts" not in key, out)])
+        infile.close()
         if use_cloud_point:
             assert sizes_pts[0] < sizes_pts[-1]
             assert np.all(sizes[0:4] == sizes[0])
