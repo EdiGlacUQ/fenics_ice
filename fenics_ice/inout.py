@@ -355,7 +355,7 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
             v_cloud = v_obs.copy()
             u_cloud_std = u_std.copy()
             v_cloud_std = v_std.copy()
-
+        infile.close()
         uv_cloud_pts = np.vstack((x_cloud, y_cloud)).T
         uv_obs_pts = np.vstack((x, y)).T
 
@@ -375,7 +375,6 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
         # than the composite
         sizes_pts = np.array([out[key].size for key in filter(lambda key: "_pts" in key, out)])
         sizes = np.array([out[key].size for key in filter(lambda key: "_pts" not in key, out)])
-        infile.close()
         if use_cloud_point:
             assert sizes_pts[0] < sizes_pts[-1]
             assert np.all(sizes[0:4] == sizes[0])
