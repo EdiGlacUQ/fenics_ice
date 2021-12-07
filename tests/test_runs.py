@@ -314,7 +314,7 @@ def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
                               work_dir,
                               'expected_Q_sigma_prior', tol=tol)
 
-@pytest.mark.order(5)
+@pytest.mark.tv
 @pytest.mark.dependency(["test_run_eigendec"],["test_run_errorprop"])
 def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
 
