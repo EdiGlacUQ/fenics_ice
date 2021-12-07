@@ -1154,17 +1154,17 @@ class ssa_solver:
 
             J_u_obs_local = np.dot(u_obs[obs_local],
                                    u_obs[obs_local] / (u_std[obs_local] ** 2))
-            J_u_obs = np.full(1, np.NAN, dtype=function_dtype(uf))
+            J_u_obs = np.full(1, np.NAN, dtype=J_u_obs_local.dtype)
             function_comm(uf).Allreduce(
-                np.array(J_u_obs_local, dtype=function_dtype(uf)),
+                np.array(J_u_obs_local, dtype=J_u_obs_local.dtype),
                 J_u_obs, op=MPI.SUM)
             J_u_obs, = J_u_obs
 
             J_v_obs_local = np.dot(v_obs[obs_local],
                                    v_obs[obs_local] / (v_std[obs_local] ** 2))
-            J_v_obs = np.full(1, np.NAN, dtype=function_dtype(vf))
+            J_v_obs = np.full(1, np.NAN, dtype=J_v_obs_local.dtype)
             function_comm(vf).Allreduce(
-                np.array(J_v_obs_local, dtype=function_dtype(vf)),
+                np.array(J_v_obs_local, dtype=J_v_obs_local.dtype),
                 J_v_obs, op=MPI.SUM)
             J_v_obs, = J_v_obs
 
