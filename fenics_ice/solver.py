@@ -1069,7 +1069,7 @@ class ssa_solver:
              rhoi = constants.rhoi
              H_float = -(rhow/rhoi) * self.bed
 
-            fl_beta_mask = ufl.operators.Conditional(ufl.operators.And(H <= H_float, self.model.bglen_mask > 0.0),
+            fl_beta_mask = ufl.operators.Conditional(ufl.operators.And(H > H_float, self.model.bglen_mask > 0.0),
                                           Constant(1.0, cell=triangle, name="Const data"),
                                           Constant(0.0, cell=triangle, name="Const no data"))
 
