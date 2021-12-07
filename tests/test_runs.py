@@ -314,7 +314,7 @@ def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
                               work_dir,
                               'expected_Q_sigma_prior', tol=tol)
 
-@pytest.mark.skipif(pytest.parallel, reason='broken in parallel')
+#@pytest.mark.skipif(pytest.parallel, reason='broken in parallel')
 @pytest.mark.dependency(["test_run_eigendec"],["test_run_errorprop"])
 def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
 
@@ -332,7 +332,7 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
     expected_cntrl_sigma_prior_norm = params.testing.expected_cntrl_sigma_prior_norm
 
     EQReset()
-
+    print('run_invsigma_starts')
     mdl_out = run_invsigma.run_invsigma(toml_file)
 
     cntrl_sigma_norm = sum([norm(sig) for sig in mdl_out.cntrl_sigma])
