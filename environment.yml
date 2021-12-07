@@ -25,4 +25,5 @@ dependencies:
   - pytest-benchmark
   - pytest-mpi
   - pytest-dependency
+  - pytest-order
   - cytoolz

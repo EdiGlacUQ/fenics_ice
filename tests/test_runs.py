@@ -32,8 +32,8 @@ def EQReset():
     clear_caches()
     stop_manager()
 
+@pytest.mark.order(1)
 @pytest.mark.dependency()
-@pytest.mark.runs
 def test_run_inversion(persistent_temp_model, monkeypatch):
 
     work_dir = persistent_temp_model["work_dir"]
@@ -131,11 +131,11 @@ def test_tv_run_inversion(persistent_temp_model, monkeypatch):
                                             seed=1.0e-5)
         assert(min_order > 1.95)
 
-@pytest.mark.dependency()
-@pytest.mark.runs
+@pytest.mark.order(2)
+@pytest.mark.dependency(["test_run_inversion"])
 def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
-    setup_deps.set_case_dependency(request, ["test_run_inversion"])
+    #setup_deps.set_case_dependency(request, ["test_run_inversion"])
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
@@ -240,11 +240,11 @@ def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
         assert(min_order > 1.95)
 
 
-@pytest.mark.dependency()
-@pytest.mark.runs
+@pytest.mark.order(3)
+@pytest.mark.dependency(['test_run_forward'], ['test_run_inversion'])
 def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps, request):
 
-    setup_deps.set_case_dependency(request, ["test_run_inversion"])
+    #setup_deps.set_case_dependency(request, ["test_run_inversion"])
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
@@ -275,11 +275,11 @@ def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps, request):
                               expected_evec0_norm,
                               work_dir, 'expected_evec0_norm', tol=tol)
 
-@pytest.mark.dependency()
-@pytest.mark.runs
+@pytest.mark.order(4)
+@pytest.mark.dependency(["test_run_eigendec", "test_run_forward"])
 def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
 
-    setup_deps.set_case_dependency(request, ["test_run_eigendec", "test_run_forward"])
+    #setup_deps.set_case_dependency(request, ["test_run_eigendec", "test_run_forward"])
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
@@ -314,11 +314,11 @@ def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
                               work_dir,
                               'expected_Q_sigma_prior', tol=tol)
 
-@pytest.mark.dependency()
-@pytest.mark.runs
+@pytest.mark.order(5)
+@pytest.mark.dependency(["test_run_eigendec"],["test_run_errorprop"])
 def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
 
-    setup_deps.set_case_dependency(request, ["test_run_eigendec"])
+    #setup_deps.set_case_dependency(request, ["test_run_eigendec"])
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
