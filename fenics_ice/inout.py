@@ -329,7 +329,7 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
     """
     assert infile.exists(), f"Couldn't find velocity observations file: {infile}"
 
-    with h5py.File(infile, 'r', libver='latest', swmr=True) as infile:
+    with h5py.File(infile, 'r') as infile:
         # Read composite mean of velocity data as default
         mask_vel = field_from_vel_file(infile, 'mask_vel')
         x = field_from_vel_file(infile, 'x')
@@ -348,7 +348,7 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
             v_cloud = field_from_vel_file(infile, 'v_cloud')
             u_cloud_std = field_from_vel_file(infile, 'u_cloud_std')
             v_cloud_std = field_from_vel_file(infile, 'v_cloud_std')
-            infile.close()
+
         else:
             x_cloud = x.copy()
             y_cloud = y.copy()
@@ -357,6 +357,7 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
             u_cloud_std = u_std.copy()
             v_cloud_std = v_std.copy()
         infile.close()
+
         uv_cloud_pts = np.vstack((x_cloud, y_cloud)).T
         uv_obs_pts = np.vstack((x, y)).T
 
