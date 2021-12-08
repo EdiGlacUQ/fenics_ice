@@ -304,39 +304,89 @@ def field_from_vel_file(infile, field_name):
 
     return np.ravel(field[:])
 
-def read_vel_obs(params, model=None):
+def read_vel_obs(infile, model=None, use_cloud_point=False):
     """
-    Read velocity observations & uncertainty from HDF5 file
+    Reads velocity observations & uncertainty from a HDF5 file
+    containing:
+    - point cloud velocities (u_obs, v_obs) to compute the value
+        of the cost function only and only used if use_cloud_point=True.
+    - gridded data set of composite ice velocities & uncertainties
+        use for alpha initialisation and boundary conditions even
+        if point cloud data is given. And also use to compute the value
+        of the cost function as default.
+    All variables in the HDF5 file should be with the form
+    (values, )
 
-    For now, expects an HDF5 file
+    Params:
+    -------
+    infile: path to .h5 path
+    model: fenics_ice model object
+    use_cloud_point: bool
+    Returns:
+    --------
+    model.vel_obs: as a python directory with the velocity data
+    out: python directory if model=None
     """
-    infile = Path(params.io.input_dir) / params.obs.vel_file
     assert infile.exists(), f"Couldn't find velocity observations file: {infile}"
 
-    infile = h5py.File(infile, 'r')
+    with h5py.File(infile, 'r') as infile:
+        # Read composite mean of velocity data as default
+        mask_vel = field_from_vel_file(infile, 'mask_vel')
+        x = field_from_vel_file(infile, 'x')
+        y = field_from_vel_file(infile, 'y')
+        u_obs = field_from_vel_file(infile, 'u_obs')
+        v_obs = field_from_vel_file(infile, 'v_obs')
+        u_std = field_from_vel_file(infile, 'u_std')
+        v_std = field_from_vel_file(infile, 'v_std')
 
-    x_obs = field_from_vel_file(infile, 'x')
-    y_obs = field_from_vel_file(infile, 'y')
-    u_obs = field_from_vel_file(infile, 'u_obs')
-    v_obs = field_from_vel_file(infile, 'v_obs')
-    u_std = field_from_vel_file(infile, 'u_std')
-    v_std = field_from_vel_file(infile, 'v_std')
-    mask_vel = field_from_vel_file(infile, 'mask_vel')
+        if use_cloud_point:
+            # Read cloud point observations to be used in the Inversion and
+            # Cost function optimization only!
+            x_cloud = field_from_vel_file(infile, 'x_cloud')
+            y_cloud = field_from_vel_file(infile, 'y_cloud')
+            u_cloud = field_from_vel_file(infile, 'u_cloud')
+            v_cloud = field_from_vel_file(infile, 'v_cloud')
+            u_cloud_std = field_from_vel_file(infile, 'u_cloud_std')
+            v_cloud_std = field_from_vel_file(infile, 'v_cloud_std')
+        else:
+            x_cloud = x.copy()
+            y_cloud = y.copy()
+            u_cloud = u_obs.copy()
+            v_cloud = v_obs.copy()
+            u_cloud_std = u_std.copy()
+            v_cloud_std = v_std.copy()
 
-    assert x_obs.size == y_obs.size == u_obs.size == v_obs.size
-    assert v_obs.size == u_std.size == v_std.size == mask_vel.size
+        uv_cloud_pts = np.vstack((x_cloud, y_cloud)).T
+        uv_obs_pts = np.vstack((x, y)).T
 
-    uv_obs_pts = np.vstack((x_obs, y_obs)).T
+        out = {'uv_obs_pts': uv_cloud_pts,
+               'u_obs': u_cloud,
+               'v_obs': v_cloud,
+               'u_std': u_cloud_std,
+               'v_std': v_cloud_std,
+               'uv_comp_pts': uv_obs_pts,
+               'u_comp': u_obs,
+               'v_comp': v_obs,
+               'u_comp_std': u_std,
+               'v_comp_std': v_std,
+               'mask_vel': mask_vel}
 
-    if model is not None:
-        model.uv_obs_pts = uv_obs_pts
-        model.u_obs = u_obs
-        model.v_obs = v_obs
-        model.u_std = u_std
-        model.v_std = v_std
-        model.mask_vel = mask_vel
-    else:
-        return uv_obs_pts, u_obs, v_obs, u_std, v_std, mask_vel
+        #Test that when we read a cloud point data file we have less data
+        # than the composite
+        sizes_pts = np.array([out[key].size for key in filter(lambda key: "_pts" in key, out)])
+        sizes = np.array([out[key].size for key in filter(lambda key: "_pts" not in key, out)])
+        if use_cloud_point:
+            assert sizes_pts[0] < sizes_pts[-1]
+            assert np.all(sizes[0:4] == sizes[0])
+            assert np.all(sizes[4:-1] == sizes[-1])
+        else:
+            assert sizes_pts[0] == sizes_pts[-1]
+            assert np.all(sizes == sizes[0])
+
+        if model is not None:
+            model.vel_obs = out
+        else:
+            return out
 
 class DataNotFound(Exception):
     """Custom exception for unfound data"""
