@@ -20,7 +20,6 @@ from tlm_adjoint.fenics import *
 import ufl
 from .decorators import count_calls, timer, flag_errors
 from abc import ABC, abstractmethod
-from IPython import embed
 
 class Prior(ABC):
     """Abstraction for prior used by both comp_J_inv and run_eigendec.py"""
