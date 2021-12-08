@@ -43,21 +43,16 @@ from scipy.sparse import spdiags
 log = logging.getLogger("fenics_ice")
 
 
-def interpolation_matrix(y, x_coords, tolerance=0.0):
+def interpolation_matrix(x_coords, y, tolerance=0.0):
     from tlm_adjoint.fenics.fenics_equations import greedy_coloring, \
-        interpolation_matrix, point_cells
+        interpolation_matrix, point_owners
 
-    space = function_space(y)
-
-    y_cells, y_distances = point_cells(x_coords, space.mesh())
-    if (y_distances > tolerance).any():
-        raise RuntimeError("Unable to locate one or more cells")
-
-    y_colors = greedy_coloring(space)
-
+    y_space = function_space(y)
+    y_cells = point_owners(x_coords, y_space, tolerance=tolerance)
+    y_colors = greedy_coloring(y_space)
     P = interpolation_matrix(x_coords, y, y_cells, y_colors)
 
-    return P
+    return y_cells, P
 
 
 class ssa_solver:
@@ -1094,25 +1089,6 @@ class ssa_solver:
         beta_bgd = self.beta_bgd
         betadiff = beta-beta_bgd
 
-        # Determine observations within our mesh partition
-        # Note that although cell_max counts ghost_cells,
-        # compute_first_entity_collision seems to ignore
-        # ghost elements, and so arrives at the right answer
-        cell_max = self.mesh.cells().shape[0]
-        obs_local = np.zeros_like(u_obs, dtype=bool)
-
-        bbox = self.mesh.bounding_box_tree()
-        for i in range(uv_obs_pts.shape[0]):
-            p = Point(uv_obs_pts[i, 0], uv_obs_pts[i, 1])
-            obs_local[i] = bbox.compute_first_entity_collision(p) <= cell_max
-
-        if np.sum(obs_local) == 0:
-            raise NotImplementedError("At least one partition has no velocity observations. "
-                                      "Need to implement a dummy point w/ semi-inner-product "
-                                      "to handle this case.")
-
-        local_obs_pts = [(u, v) for u, v in uv_obs_pts[obs_local]]
-
         # Project modelled velocity to DG1 to simplify graph coloring
         interp_space = FunctionSpace(self.mesh, 'DG', 1)
         uf = space_new(interp_space, name="uf")
@@ -1138,9 +1114,8 @@ class ssa_solver:
         if not hasattr(self, "_cached_J_mismatch_data"):
             from tlm_adjoint.fenics.fenics_equations import InterpolationMatrix
 
-            P = interpolation_matrix(
-                uf, np.array(local_obs_pts, dtype=uv_obs_pts.dtype),
-                tolerance=0.0)
+            obs_cells, P = interpolation_matrix(uv_obs_pts, uf, tolerance=0.0)
+            obs_local = np.array(obs_cells >= 0, dtype=bool)
 
             u_PRP = InterpolationMatrix(
                 P.T @ spdiags(1.0 / (u_std[obs_local] ** 2),
