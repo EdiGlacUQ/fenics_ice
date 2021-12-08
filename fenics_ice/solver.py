@@ -48,7 +48,7 @@ def interpolation_matrix(x_coords, y_space, tolerance=0.0):
         interpolation_matrix, point_owners
 
     y_cells = point_owners(x_coords, y_space, tolerance=tolerance)
-    x_local = np.array(y_cells >= 0, dtype=bool)    
+    x_local = np.array(y_cells >= 0, dtype=bool)
     y_colors = greedy_coloring(y_space)
     P = interpolation_matrix(x_coords[x_local, :], space_new(y_space),
                              y_cells[x_local], y_colors)
@@ -1142,7 +1142,7 @@ class ssa_solver:
             self._cached_J_mismatch_data \
                 = (interp_space,
                    u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs)
-        (interp_space, 
+        (interp_space,
          u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs) = \
             self._cached_J_mismatch_data
 
