@@ -348,7 +348,6 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
             v_cloud = field_from_vel_file(infile, 'v_cloud')
             u_cloud_std = field_from_vel_file(infile, 'u_cloud_std')
             v_cloud_std = field_from_vel_file(infile, 'v_cloud_std')
-
         else:
             x_cloud = x.copy()
             y_cloud = y.copy()

@@ -135,8 +135,6 @@ def test_tv_run_inversion(persistent_temp_model, monkeypatch):
 @pytest.mark.dependency(["test_run_inversion"])
 def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
-    #setup_deps.set_case_dependency(request, ["test_run_inversion"])
-
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
 
@@ -244,8 +242,6 @@ def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 @pytest.mark.dependency(['test_run_forward'], ['test_run_inversion'])
 def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps, request):
 
-    #setup_deps.set_case_dependency(request, ["test_run_inversion"])
-
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
 
@@ -278,8 +274,6 @@ def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps, request):
 @pytest.mark.order(4)
 @pytest.mark.dependency(["test_run_eigendec", "test_run_forward"])
 def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
-
-    #setup_deps.set_case_dependency(request, ["test_run_eigendec", "test_run_forward"])
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
@@ -314,11 +308,8 @@ def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
                               work_dir,
                               'expected_Q_sigma_prior', tol=tol)
 
-#@pytest.mark.skipif(pytest.parallel, reason='broken in parallel')
 @pytest.mark.dependency(["test_run_eigendec"],["test_run_errorprop"])
 def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
-
-    #setup_deps.set_case_dependency(request, ["test_run_eigendec"])
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
@@ -332,7 +323,6 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
     expected_cntrl_sigma_prior_norm = params.testing.expected_cntrl_sigma_prior_norm
 
     EQReset()
-    print('run_invsigma_starts')
     mdl_out = run_invsigma.run_invsigma(toml_file)
 
     cntrl_sigma_norm = sum([norm(sig) for sig in mdl_out.cntrl_sigma])
