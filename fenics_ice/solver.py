@@ -48,11 +48,12 @@ def interpolation_matrix(x_coords, y_space, tolerance=0.0):
         interpolation_matrix, point_owners
 
     y_cells = point_owners(x_coords, y_space, tolerance=tolerance)
+    x_local = np.array(y_cells >= 0, dtype=bool)    
     y_colors = greedy_coloring(y_space)
-    P = interpolation_matrix(x_coords, space_new(y_space),
-                             y_cells, y_colors)
+    P = interpolation_matrix(x_coords[x_local, :], space_new(y_space),
+                             y_cells[x_local], y_colors)
 
-    return y_cells, P
+    return x_local, P
 
 
 class ssa_solver:
@@ -1105,9 +1106,8 @@ class ssa_solver:
 
             interp_space = FunctionSpace(self.mesh, "DG", 1)
 
-            obs_cells, P = interpolation_matrix(
+            obs_local, P = interpolation_matrix(
                 uv_obs_pts, interp_space, tolerance=0.0)
-            obs_local = np.array(obs_cells >= 0, dtype=bool)
 
             u_PRP = InterpolationMatrix(
                 P.T @ spdiags(1.0 / (u_std[obs_local] ** 2),
