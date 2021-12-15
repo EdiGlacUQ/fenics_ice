@@ -15,30 +15,20 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-import time
-from pathlib import Path
-import numpy as np
-
 from fenics import *
-from fenics_ice import inout, prior
 from tlm_adjoint.fenics import *
-from tlm_adjoint.hessian_optimization import *
 
-from tlm_adjoint.fenics.backend_code_generator_interface import matrix_multiply
-
+from . import inout
 from .minimize_l_bfgs import minimize_l_bfgs
 from .minimize_l_bfgs import \
-    line_search_rank0_scipy_scalar_search_wolfe1 as line_search_wolfe1
-from .minimize_l_bfgs import \
-    line_search_rank0_scipy_scalar_search_wolfe2 as line_search_wolfe2
+    line_search_rank0_scipy_scalar_search_wolfe1 as line_search_rank0
 
-
-#from dolfin_adjoint import *
-#from dolfin_adjoint_custom import EquationSolver
-import ufl
-import mpi4py.MPI as MPI
 import logging
-from scipy.sparse import spdiags
+import mpi4py.MPI as MPI
+import numpy as np
+from pathlib import Path
+import time
+import ufl
 
 log = logging.getLogger("fenics_ice")
 
@@ -884,6 +874,10 @@ class ssa_solver:
 
             M
             """
+
+            from tlm_adjoint.fenics.backend_code_generator_interface import \
+                matrix_multiply
+
             B_0_action = []
             for i, x in enumerate(X):
                 this_action = function_new(x, name=f"B_0_action_{i}")
@@ -983,7 +977,7 @@ class ssa_solver:
             g_atol=config.g_atol,
             c1=config.c1, c2=config.c2,
             converged=l_bfgs_converged,
-            line_search_rank0=line_search_wolfe1,
+            line_search_rank0=line_search_rank0,
             theta_scale=config.theta_scale,
             delta=config.delta_lbfgs,
             line_search_rank0_kwargs={"xtol": config.wolfe_xtol,
@@ -1103,6 +1097,7 @@ class ssa_solver:
 
         if not hasattr(self, "_cached_J_mismatch_data"):
             from tlm_adjoint.fenics.fenics_equations import InterpolationMatrix
+            from scipy.sparse import spdiags
 
             interp_space = FunctionSpace(self.mesh, "DG", 1)
 
