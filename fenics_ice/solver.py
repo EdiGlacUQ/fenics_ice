@@ -79,6 +79,7 @@ def interpolation_matrix(x_coords, y_space, tolerance):
             log.warning("Observation point %i discarded, coordinate (%s)"
                         % (i, ", ".join(map(lambda c: f"{c}",
                                             x_coords[i, :]))))
+            x_local[i] = False
 
     return x_local, P
 
