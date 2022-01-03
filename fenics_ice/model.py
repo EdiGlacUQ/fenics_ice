@@ -161,7 +161,7 @@ class model:
         for cell in range(self.mesh.num_cells()):
           if not Cell(self.mesh, cell).is_ghost():
             local_dofs = dofmap_Q.cell_dofs(cell)
-            global_dofs = np.empty(np.shape(local_dofs),dtype=int)
+            global_dofs = np.full(np.shape(local_dofs),-1,dtype=int)
             for dof in range(len(local_dofs)):
               global_dofs[dof] = dofmap_Q.local_to_global_index(local_dofs[dof])
             if (temp_vec[global_dofs] < 1.0-1.0e-10).any():

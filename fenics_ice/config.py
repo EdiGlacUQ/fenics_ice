@@ -377,7 +377,7 @@ class IOCfg(ConfigPrinter):
     bmelt_field_name: str = "bmelt"
     smb_field_name: str = "smb"
     bglen_field_name: str = "Bglen"
-    bglenmask_field_name: str = "Bglen"
+    bglenmask_field_name: str = "Bglenmask"
     alpha_field_name: str = "alpha"
 
     inversion_file: str = None
