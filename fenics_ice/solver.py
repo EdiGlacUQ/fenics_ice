@@ -69,9 +69,6 @@ def interpolation_matrix(x_coords, y_space, tolerance):
 
     y_cells = point_owners(x_coords, y_space, tolerance=np.inf)
     x_local = np.array(y_cells >= 0, dtype=bool)
-    y_colors = greedy_coloring(y_space)
-    P = interpolation_matrix(x_coords[x_local, :], space_new(y_space),
-                             y_cells[x_local], y_colors)
 
     x_global = interior(x_coords, y_space, tolerance)
     for i in range(x_coords.shape[0]):
@@ -80,6 +77,10 @@ def interpolation_matrix(x_coords, y_space, tolerance):
                         % (i, ", ".join(map(lambda c: f"{c}",
                                             x_coords[i, :]))))
             x_local[i] = False
+
+    y_colors = greedy_coloring(y_space)
+    P = interpolation_matrix(x_coords[x_local, :], space_new(y_space),
+                             y_cells[x_local], y_colors)
 
     return x_local, P
 
