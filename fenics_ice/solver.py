@@ -492,6 +492,8 @@ class ssa_solver:
 
         momsolver.solve(annotate=annotate_flag)
 
+        t1 = time.time()
+        info("Time for solve: {0}".format(t1-t0))
 
     def def_thickadv_eq(self):
         """
@@ -730,17 +732,8 @@ class ssa_solver:
         # self.test_outfile << self.alpha
 
         self.def_mom_eq()
-
-        t0 = time.time()
         self.solve_mom_eq()
-        t1 = time.time()
-        info("Time for solve: {0}".format(t1-t0))
-
-        t0 = time.time()
         J = self.comp_J_inv()
-        t1 = time.time()
-        info("Time for cost eval: {0}".format(t1-t0))
-
         return J
 
     def get_control(self):
@@ -1070,29 +1063,6 @@ class ssa_solver:
 
         return fl_ex
 
-    def bglen_data_conditional(self, H, glen_mask, H_float=None):
-        """Compute a ufl Conditional where floating=1, grounded=0"""
-
-        if not self.params.ice_dynamics.allow_flotation:
-            fl_beta_mask = ufl.operators.Conditional(self.model.bglen_mask == 1, 
-                                          Constant(1.0, cell=triangle, name="Const data"),
-                                          Constant(0.0, cell=triangle, name="Const no data"))
-        else:
-            
-            if H_float is None:
-             constants = self.params.constants
-             rhow = constants.rhow
-             rhoi = constants.rhoi
-             H_float = -(rhow/rhoi) * self.bed
-
-            fl_beta_mask = ufl.operators.Conditional(ufl.operators.And(H > H_float, self.model.bglen_mask == 1),
-                                          Constant(1.0, cell=triangle, name="Const data"),
-                                          Constant(0.0, cell=triangle, name="Const no data"))
-
-        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
-
-        return fl_beta_mask
-
     def comp_J_inv(self, verbose=False):
         """
         Compute the value of the cost function
@@ -1287,7 +1257,6 @@ class ssa_solver:
             info('')
 
             inout.dict_to_csv(J_fields, 'Js', self.params)
-
 
         return J
 
