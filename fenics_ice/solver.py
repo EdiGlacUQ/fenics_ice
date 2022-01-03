@@ -73,9 +73,9 @@ def interpolation_matrix(x_coords, y_space, tolerance):
     x_global = interior(x_coords, y_space, tolerance)
     for i in range(x_coords.shape[0]):
         if x_local[i] and not x_global[i]:
-            log.warning("Observation point %i discarded, coordinate (%s)"
-                        % (i, ", ".join(map(lambda c: f"{c}",
-                                            x_coords[i, :]))))
+            log.info("Observation point %i discarded, coordinate (%s)"
+                     % (i, ", ".join(map(lambda c: f"{c}",
+                                         x_coords[i, :]))))
             x_local[i] = False
 
     y_colors = greedy_coloring(y_space)
