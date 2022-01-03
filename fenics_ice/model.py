@@ -148,7 +148,28 @@ class model:
     def bglen_from_data(self):
         """Get bglen field from initial input data"""
         self.bglen = self.input_data.interpolate("Bglen", self.Q)
+        """Get bglen mask field from input data"""
+        bglen_mask_CG = self.input_data.interpolate("Bglenmask", self.Q, default=1.0)
+        self.bglen_mask = Function(self.M, name="bglen_mask")
 
+        dofmap_M = self.M.dofmap()
+        dofmap_Q = self.Q.dofmap()
+
+        """bglen_mask is currently 1 where there is data, zero elsewhere"""
+        temp_vec = bglen_mask_CG.vector().gather(np.arange(self.Q.dim()))
+        bmask_loc = np.ones(self.bglen_mask.vector().local_size(), dtype=np.float64)
+        for cell in range(self.mesh.num_cells()):
+          if not Cell(self.mesh, cell).is_ghost():
+            local_dofs = dofmap_Q.cell_dofs(cell)
+            global_dofs = np.full(np.shape(local_dofs),-1,dtype=int)
+            for dof in range(len(local_dofs)):
+              global_dofs[dof] = dofmap_Q.local_to_global_index(local_dofs[dof])
+            if (temp_vec[global_dofs] < 1.0-1.0e-10).any():
+              bmask_loc[dofmap_M.cell_dofs(cell)] = 0
+
+        self.bglen_mask.vector().set_local(bmask_loc)
+        """Following appears in inout.interpolate -- is something similar needed?"""
+        self.bglen_mask.vector().apply("insert")
 
     def alpha_from_inversion(self):
         """Get alpha field from inversion step"""
