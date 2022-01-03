@@ -1155,7 +1155,7 @@ class ssa_solver:
                                    u_obs[obs_local] / (u_std[obs_local] ** 2))
             J_u_obs = np.full(1, np.NAN, dtype=J_u_obs_local.dtype)
             space_comm(interp_space).Allreduce(
-                np.array(J_u_obs_local, dtype=J_u_obs_local.dtype),
+                np.array([J_u_obs_local], dtype=J_u_obs_local.dtype),
                 J_u_obs, op=MPI.SUM)
             J_u_obs, = J_u_obs
 
@@ -1163,7 +1163,7 @@ class ssa_solver:
                                    v_obs[obs_local] / (v_std[obs_local] ** 2))
             J_v_obs = np.full(1, np.NAN, dtype=J_v_obs_local.dtype)
             space_comm(interp_space).Allreduce(
-                np.array(J_v_obs_local, dtype=J_v_obs_local.dtype),
+                np.array([J_v_obs_local], dtype=J_v_obs_local.dtype),
                 J_v_obs, op=MPI.SUM)
             J_v_obs, = J_v_obs
 
