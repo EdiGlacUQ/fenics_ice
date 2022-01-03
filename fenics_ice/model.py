@@ -149,7 +149,7 @@ class model:
         """Get bglen field from initial input data"""
         self.bglen = self.input_data.interpolate("Bglen", self.Q)
         """Get bglen mask field from input data"""
-        bglen_mask_CG = self.input_data.interpolate("Bglenmask", self.Q)
+        bglen_mask_CG = self.input_data.interpolate("Bglenmask", self.Q, default=1.0)
         self.bglen_mask = Function(self.M, name="bglen_mask")
 
         dofmap_M = self.M.dofmap()
