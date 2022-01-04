@@ -39,6 +39,7 @@ import ufl
 import mpi4py.MPI as MPI
 import logging
 from scipy.sparse import spdiags
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -1062,6 +1063,30 @@ class ssa_solver:
                                           Constant(0.0, cell=triangle, name="Const Grounded"))
 
         return fl_ex
+
+    def bglen_data_conditional(self, H, glen_mask, H_float=None):
+        """Compute a ufl Conditional where floating=1, grounded=0"""
+
+        if not self.params.ice_dynamics.allow_flotation:
+            fl_beta_mask = ufl.operators.Conditional(ufl.eq(self.model.bglen_mask,1.0), 
+                                          Constant(1.0, cell=triangle, name="Const data"),
+                                          Constant(0.0, cell=triangle, name="Const no data"))
+        else:
+            
+            if H_float is None:
+             constants = self.params.constants
+             rhow = constants.rhow
+             rhoi = constants.rhoi
+             H_float = -(rhow/rhoi) * self.bed
+
+
+            fl_beta_mask = ufl.operators.Conditional(ufl.operators.And(H > H_float, ufl.eq(self.model.bglen_mask,1.0)),
+                                          Constant(1.0, cell=triangle, name="Const data"),
+                                          Constant(0.0, cell=triangle, name="Const no data"))
+
+        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+
+        return fl_beta_mask
 
     def comp_J_inv(self, verbose=False):
         """
