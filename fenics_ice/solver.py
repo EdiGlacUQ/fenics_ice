@@ -39,6 +39,7 @@ import ufl
 import mpi4py.MPI as MPI
 import logging
 from scipy.sparse import spdiags
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -1074,7 +1075,7 @@ class ssa_solver:
         """Compute a ufl Conditional where floating=1, grounded=0"""
 
         if not self.params.ice_dynamics.allow_flotation:
-            fl_beta_mask = ufl.operators.Conditional(self.model.bglen_mask == 1, 
+            fl_beta_mask = ufl.operators.Conditional(ufl.eq(self.model.bglen_mask,1.0), 
                                           Constant(1.0, cell=triangle, name="Const data"),
                                           Constant(0.0, cell=triangle, name="Const no data"))
         else:
@@ -1085,7 +1086,8 @@ class ssa_solver:
              rhoi = constants.rhoi
              H_float = -(rhow/rhoi) * self.bed
 
-            fl_beta_mask = ufl.operators.Conditional(ufl.operators.And(H > H_float, self.model.bglen_mask == 1),
+
+            fl_beta_mask = ufl.operators.Conditional(ufl.operators.And(H > H_float, ufl.eq(self.model.bglen_mask,1.0)),
                                           Constant(1.0, cell=triangle, name="Const data"),
                                           Constant(0.0, cell=triangle, name="Const no data"))
 
