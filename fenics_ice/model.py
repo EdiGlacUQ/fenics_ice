@@ -25,6 +25,7 @@ from fenics_ice import inout, prior
 from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
 import logging
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -145,9 +146,11 @@ class model:
         """Get alpha field from initial input data (run_momsolve only)"""
         self.alpha.assign(self.input_data.interpolate("alpha", self.Qp))
 
-    def bglen_from_data(self):
+    def bglen_from_data(self,mask_only=False):
         """Get bglen field from initial input data"""
-        self.bglen = self.input_data.interpolate("Bglen", self.Q)
+        if not mask_only:
+          self.bglen = self.input_data.interpolate("Bglen", self.Q)
+
         """Get bglen mask field from input data"""
         bglen_mask_CG = self.input_data.interpolate("Bglenmask", self.Q, default=1.0)
         self.bglen_mask = Function(self.M, name="bglen_mask")
