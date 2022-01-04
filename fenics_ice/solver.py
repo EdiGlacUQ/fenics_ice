@@ -493,6 +493,8 @@ class ssa_solver:
 
         momsolver.solve(annotate=annotate_flag)
 
+        t1 = time.time()
+        info("Time for solve: {0}".format(t1-t0))
 
     def def_thickadv_eq(self):
         """
@@ -731,17 +733,8 @@ class ssa_solver:
         # self.test_outfile << self.alpha
 
         self.def_mom_eq()
-
-        t0 = time.time()
         self.solve_mom_eq()
-        t1 = time.time()
-        info("Time for solve: {0}".format(t1-t0))
-
-        t0 = time.time()
         J = self.comp_J_inv()
-        t1 = time.time()
-        info("Time for cost eval: {0}".format(t1-t0))
-
         return J
 
     def get_control(self):
@@ -1289,7 +1282,6 @@ class ssa_solver:
             info('')
 
             inout.dict_to_csv(J_fields, 'Js', self.params)
-
 
         return J
 
