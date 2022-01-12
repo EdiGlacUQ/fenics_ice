@@ -60,7 +60,6 @@ def run_errorprop(config_file):
     # Load alpha/beta fields
     mdl.alpha_from_inversion()
     mdl.beta_from_inversion()
-    mdl.bglen_from_data(mask_only=True)
 
     # Setup our solver object
     slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual)
