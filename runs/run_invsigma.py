@@ -31,9 +31,9 @@ from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 
-import matplotlib as mpl
+# import matplotlib as mpl
 # mpl.use("Agg")
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 def patch_fun(mesh_in, params):
     """
@@ -145,7 +145,6 @@ def run_invsigma(config_file):
     # Load alpha/beta fields
     mdl.alpha_from_inversion()
     mdl.beta_from_inversion()
-    mdl.bglen_from_data(mask_only=True)
 
     # Setup our solver object
     slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual)

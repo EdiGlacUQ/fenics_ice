@@ -39,22 +39,25 @@ import ufl
 import mpi4py.MPI as MPI
 import logging
 from scipy.sparse import spdiags
-from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
 
-def interpolation_matrix(x_coords, y_space, tolerance=0.0):
+def interpolation_matrix(y, x_coords, tolerance=0.0):
     from tlm_adjoint.fenics.fenics_equations import greedy_coloring, \
-        interpolation_matrix, point_owners
+        interpolation_matrix, point_cells
 
-    y_cells = point_owners(x_coords, y_space, tolerance=tolerance)
-    x_local = np.array(y_cells >= 0, dtype=bool)
-    y_colors = greedy_coloring(y_space)
-    P = interpolation_matrix(x_coords[x_local, :], space_new(y_space),
-                             y_cells[x_local], y_colors)
+    space = function_space(y)
 
-    return x_local, P
+    y_cells, y_distances = point_cells(x_coords, space.mesh())
+    if (y_distances > tolerance).any():
+        raise RuntimeError("Unable to locate one or more cells")
+
+    y_colors = greedy_coloring(space)
+
+    P = interpolation_matrix(x_coords, y, y_cells, y_colors)
+
+    return P
 
 
 class ssa_solver:
@@ -1064,30 +1067,6 @@ class ssa_solver:
 
         return fl_ex
 
-    def bglen_data_conditional(self, H, glen_mask, H_float=None):
-        """Compute a ufl Conditional where floating=1, grounded=0"""
-
-        if not self.params.ice_dynamics.allow_flotation:
-            fl_beta_mask = ufl.operators.Conditional(ufl.eq(self.model.bglen_mask,1.0), 
-                                          Constant(1.0, cell=triangle, name="Const data"),
-                                          Constant(0.0, cell=triangle, name="Const no data"))
-        else:
-            
-            if H_float is None:
-             constants = self.params.constants
-             rhow = constants.rhow
-             rhoi = constants.rhoi
-             H_float = -(rhow/rhoi) * self.bed
-
-
-            fl_beta_mask = ufl.operators.Conditional(ufl.operators.And(H > H_float, ufl.eq(self.model.bglen_mask,1.0)),
-                                          Constant(1.0, cell=triangle, name="Const data"),
-                                          Constant(0.0, cell=triangle, name="Const no data"))
-
-        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
-
-        return fl_beta_mask
-
     def comp_J_inv(self, verbose=False):
         """
         Compute the value of the cost function
@@ -1115,6 +1094,32 @@ class ssa_solver:
         beta_bgd = self.beta_bgd
         betadiff = beta-beta_bgd
 
+        # Determine observations within our mesh partition
+        # Note that although cell_max counts ghost_cells,
+        # compute_first_entity_collision seems to ignore
+        # ghost elements, and so arrives at the right answer
+        cell_max = self.mesh.cells().shape[0]
+        obs_local = np.zeros_like(u_obs, dtype=bool)
+
+        bbox = self.mesh.bounding_box_tree()
+        for i in range(uv_obs_pts.shape[0]):
+            p = Point(uv_obs_pts[i, 0], uv_obs_pts[i, 1])
+            obs_local[i] = bbox.compute_first_entity_collision(p) <= cell_max
+
+        if np.sum(obs_local) == 0:
+            raise NotImplementedError("At least one partition has no velocity observations. "
+                                      "Need to implement a dummy point w/ semi-inner-product "
+                                      "to handle this case.")
+
+        local_obs_pts = [(u, v) for u, v in uv_obs_pts[obs_local]]
+
+        # Project modelled velocity to DG1 to simplify graph coloring
+        interp_space = FunctionSpace(self.mesh, 'DG', 1)
+        uf = space_new(interp_space, name="uf")
+        LocalProjectionSolver(u, uf).solve()
+        vf = space_new(interp_space, name="vf")
+        LocalProjectionSolver(v, vf).solve()
+
         J = Functional(name="J")
 
         # The following evaluates
@@ -1129,10 +1134,9 @@ class ssa_solver:
         if not hasattr(self, "_cached_J_mismatch_data"):
             from tlm_adjoint.fenics.fenics_equations import InterpolationMatrix
 
-            interp_space = FunctionSpace(self.mesh, "DG", 1)
-
-            obs_local, P = interpolation_matrix(
-                uv_obs_pts, interp_space, tolerance=0.0)
+            P = interpolation_matrix(
+                uf, np.array(local_obs_pts, dtype=uv_obs_pts.dtype),
+                tolerance=0.0)
 
             u_PRP = InterpolationMatrix(
                 P.T @ spdiags(1.0 / (u_std[obs_local] ** 2),
@@ -1141,17 +1145,17 @@ class ssa_solver:
                 P.T @ spdiags(1.0 / (v_std[obs_local] ** 2),
                               0, P.shape[0], P.shape[0]) @ P)
 
-            l_u_obs = space_new(interp_space, name="l_u_obs")
+            l_u_obs = function_new(uf, name="l_u_obs")
             function_set_values(
                 l_u_obs, P.T @ (u_obs[obs_local] / (u_std[obs_local] ** 2)))
-            l_v_obs = space_new(interp_space, name="l_v_obs")
+            l_v_obs = function_new(vf, name="l_v_obs")
             function_set_values(
                 l_v_obs, P.T @ (v_obs[obs_local] / (v_std[obs_local] ** 2)))
 
             J_u_obs_local = np.dot(u_obs[obs_local],
                                    u_obs[obs_local] / (u_std[obs_local] ** 2))
             J_u_obs = np.full(1, np.NAN, dtype=J_u_obs_local.dtype)
-            space_comm(interp_space).Allreduce(
+            function_comm(uf).Allreduce(
                 np.array(J_u_obs_local, dtype=J_u_obs_local.dtype),
                 J_u_obs, op=MPI.SUM)
             J_u_obs, = J_u_obs
@@ -1159,26 +1163,15 @@ class ssa_solver:
             J_v_obs_local = np.dot(v_obs[obs_local],
                                    v_obs[obs_local] / (v_std[obs_local] ** 2))
             J_v_obs = np.full(1, np.NAN, dtype=J_v_obs_local.dtype)
-            space_comm(interp_space).Allreduce(
+            function_comm(vf).Allreduce(
                 np.array(J_v_obs_local, dtype=J_v_obs_local.dtype),
                 J_v_obs, op=MPI.SUM)
             J_v_obs, = J_v_obs
 
             self._cached_J_mismatch_data \
-                = (interp_space,
-                   u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs)
-        (interp_space,
-         u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs) = \
+                = (u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs)
+        u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs = \
             self._cached_J_mismatch_data
-
-        uf = space_new(interp_space, name="uf")
-        LocalProjectionSolver(
-            u, uf,
-            cache_jacobian=False, cache_rhs_assembly=False).solve()
-        vf = space_new(interp_space, name="vf")
-        LocalProjectionSolver(
-            v, vf,
-            cache_jacobian=False, cache_rhs_assembly=False).solve()
 
         J_ls_term_u = Functional(name="J_term_u", space=J.space())
         J_ls_term_v = Functional(name="J_term_v", space=J.space())
