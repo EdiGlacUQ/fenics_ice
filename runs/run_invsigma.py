@@ -31,9 +31,9 @@ from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 
-# import matplotlib as mpl
-# mpl.use("Agg")
-# import matplotlib.pyplot as plt
+import matplotlib as mpl
+#mpl.use("Agg")
+import matplotlib.pyplot as plt
 
 def patch_fun(mesh_in, params):
     """
