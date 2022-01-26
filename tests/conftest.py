@@ -16,6 +16,8 @@
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
 # -*- coding: utf-8 -*-
+import os.path
+import tempfile
 
 import pytest
 from pytest_dependency import depends
@@ -24,6 +26,7 @@ from pathlib import Path
 import shutil
 import toml
 import pickle
+import subprocess
 
 import fenics_ice as fice
 import fenics_ice.fenics_util as fu
@@ -31,7 +34,7 @@ from aux import gen_rect_mesh
 
 # Global variables
 pytest.repo_dir = Path(fice.__file__).parents[1]
-pytest.data_dir = Path(pytest.repo_dir/"tests"/"data")
+pytest.data_dir = Path(tempfile.gettempdir())/"fenics_ice_test_data"/"example_cases"
 pytest.case_dir = pytest.repo_dir/"example_cases"
 pytest.active_cases = []
 
@@ -40,6 +43,7 @@ pytest.case_list = []
 pytest.case_list.append({"case_dir": "ismipc_rc_1e6",
                          "toml_file": "ismipc_rc_1e6.toml",
                          "serial": True,
+                         "data_dir": pytest.data_dir / "ismipc",
                          "mesh_nx": 20,
                          "mesh_ny": 20,
                          "mesh_L": 40000})
@@ -47,6 +51,7 @@ pytest.case_list.append({"case_dir": "ismipc_rc_1e6",
 pytest.case_list.append({"case_dir": "ismipc_rc_1e4",
                          "toml_file": "ismipc_rc_1e4.toml",
                          "serial": True,
+                         "data_dir": pytest.data_dir / "ismipc",
                          "mesh_nx": 20,
                          "mesh_ny": 20,
                          "mesh_L": 40000})
@@ -54,6 +59,7 @@ pytest.case_list.append({"case_dir": "ismipc_rc_1e4",
 pytest.case_list.append({"case_dir": "ismipc_30x30",
                          "toml_file": "ismipc_30x30.toml",
                          "serial": True,
+                         "data_dir": pytest.data_dir / "ismipc",
                          "mesh_nx": 30,
                          "mesh_ny": 30,
                          "mesh_L": 40000})
@@ -61,11 +67,17 @@ pytest.case_list.append({"case_dir": "ismipc_30x30",
 pytest.case_list.append({"case_dir": "ice_stream",
                          "toml_file": "ice_stream.toml",
                          "serial": False,
-                         "data_dir": pytest.case_dir / "ice_stream",
+                         "data_dir": pytest.data_dir / "ice_stream",
                          "tv_settings": {"obs": { "vel_file": "ice_stream_U_obs_tv.h5"},
                                          "constants": {"glen_n": 2.0},
                                          "ice_dynamics": {"allow_flotation": False}
                          }
+})
+
+pytest.case_list.append({"case_dir": "smith_glacier",
+                         "toml_file": "smith.toml",
+                         "serial": False,
+                         "data_dir": pytest.data_dir / "smith_glacier"
 })
 
 def check_float_result(value, expected, work_dir, value_name, tol=None):
@@ -105,12 +117,27 @@ def pytest_addoption(parser):
     """Option to run all (currently 3) test cases - or just 1 (default)"""
     parser.addoption("--all", action="store_true", help="run all combinations")
     parser.addoption("--remake", action="store_true",
-                     help="Store new 'expectd values' to file instead of testing")
+                     help="Store new 'expected values' to file instead of testing")
+    parser.addoption("--key", action="store", help="Run only test with a key marker")
 
 def pytest_configure(config):
 
     from mpi4py import MPI
     pytest.parallel = MPI.COMM_WORLD.size > 1
+
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+
+    # Clone the input data once even when test are run in parallel
+    if rank == 0:
+        path_to_data = '/tmp/fenics_ice_test_data'
+        if os.path.exists(path_to_data):
+            pass
+        else:
+            subprocess.check_call(
+            ["git", "clone", "https://github.com/EdiGlacUQ/fenics_ice_test_data.git", "/tmp/fenics_ice_test_data"])
+    else:
+        pass
 
     config.addinivalue_line(
         "markers", "short: tests which run quickly"
@@ -120,6 +147,9 @@ def pytest_configure(config):
     )
     config.addinivalue_line(
         "markers", "tv: taylor verification"
+    )
+    config.addinivalue_line(
+        "markers", "key: specify a test key"
     )
 
     pytest.remake_cases = config.option.remake
@@ -163,9 +193,24 @@ def pytest_collection_modifyitems(config, items):
         return  # let pytest handle this
 
     skip_mymarker = pytest.mark.skip(reason='Taylor verification not selected')
+    filter_marker = pytest.mark.skip(reason='Smith Glacier test to be run alone')
     for item in items:
         if 'tv' in item.keywords:
             item.add_marker(skip_mymarker)
+        if 'key' in item.keywords:
+            print(item.keywords)
+            item.add_marker(filter_marker)
+
+    filter = config.getoption("--key")
+    if filter:
+        new_items = []
+        for item in items:
+            mark = item.get_closest_marker("key")
+            if mark and mark.args and mark.args[0] == filter:
+                # collect all items that have a key marker with that value
+                new_items.append(item)
+        items[:] = new_items
+
 
 @pytest.fixture
 def case_gen(request):
@@ -188,9 +233,13 @@ def pytest_generate_tests(metafunc):
         else:
             case_ids = [i for i, case in enumerate(pytest.case_list) if case["serial"]]
 
-        if not metafunc.config.getoption("all"):
+        if metafunc.config.getoption("key") == 'smith':
+            case_ids = [case_ids[-1]]
+        elif not metafunc.config.getoption("all"):
             case_ids = [case_ids[0]]
 
+        print('final case_ids --------------')
+        print(case_ids)
         metafunc.parametrize("case_gen", case_ids, indirect=True)
 
 
@@ -270,11 +319,11 @@ def create_temp_model(request, mpi_tmpdir, case_gen, persist=False):
 
         # Copy or generate the mesh
         mesh_filename = config["mesh"]["mesh_filename"]
-        mesh_file = (case_dir / "input" / mesh_filename)
+        mesh_file = (data_dir / case_gen['data_dir'] / config['io']['input_dir'] / mesh_filename)
 
         try:
             mesh_ff_filename = config["mesh"]["bc_filename"]
-            mesh_ff_file = (case_dir / "input" / mesh_ff_filename)
+            mesh_ff_file = (data_dir / case_gen['data_dir']  / "input" / mesh_ff_filename)
         except KeyError:
             mesh_ff_file = None
 
