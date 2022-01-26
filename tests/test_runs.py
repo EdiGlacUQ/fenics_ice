@@ -347,11 +347,8 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps):
 @pytest.mark.key('smith')
 def test_run_smith_inversion(temp_model, monkeypatch):
 
-    print('We are running smith')
-
     work_dir = temp_model["work_dir"]
     toml_file = temp_model["toml_filename"]
-
 
     # Switch to the working directory
     monkeypatch.chdir(work_dir)

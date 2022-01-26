@@ -198,7 +198,6 @@ def pytest_collection_modifyitems(config, items):
         if 'tv' in item.keywords:
             item.add_marker(skip_mymarker)
         if 'key' in item.keywords:
-            print(item.keywords)
             item.add_marker(filter_marker)
 
     filter = config.getoption("--key")
@@ -238,8 +237,6 @@ def pytest_generate_tests(metafunc):
         elif not metafunc.config.getoption("all"):
             case_ids = [case_ids[0]]
 
-        print('final case_ids --------------')
-        print(case_ids)
         metafunc.parametrize("case_gen", case_ids, indirect=True)
 
 
