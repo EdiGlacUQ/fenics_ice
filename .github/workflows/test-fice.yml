@@ -66,3 +66,4 @@ jobs:
           cd $GITHUB_WORKSPACE/fenics_ice/
           pytest -v --order-scope=module --color=yes
           mpirun -n 2 pytest -v --order-scope=module --color=yes
+          mpirun -n 2 pytest -m key --key=smith --color=yes
