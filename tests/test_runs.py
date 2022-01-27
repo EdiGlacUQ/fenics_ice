@@ -356,23 +356,16 @@ def test_run_smith_inversion(temp_model, monkeypatch):
     # Get expected values from the toml file
     params = config.ConfigParser(toml_file, top_dir=work_dir)
     #expected_cntrl_norm = params.testing.expected_cntrl_norm
-    #expected_J_inv = params.testing.expected_J_inv
+    expected_J_inv = params.testing.expected_J_inv
 
     EQReset()
 
     # Run the thing
     mdl_out = run_inv.run_inv(toml_file)
 
+    # Test inversion value
+    J_inv = mdl_out.solvers[0].J_inv.value()
 
-    #cntrl = mdl_out.solvers[0].get_control()[0]
-    #cntrl_norm = norm(cntrl.vector())
-
-    #J_inv = mdl_out.solvers[0].J_inv.value()
-
-    # pytest.check_float_result(cntrl_norm,
-    #                           expected_cntrl_norm,
-    #                           work_dir, 'expected_cntrl_norm')
-    #
-    # pytest.check_float_result(J_inv,
-    #                           expected_J_inv,
-    #                           work_dir, 'expected_J_inv')
+    pytest.check_float_result(J_inv,
+                              expected_J_inv,
+                              work_dir, 'expected_J_inv')

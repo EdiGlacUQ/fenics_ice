@@ -134,3 +134,7 @@ qoi = 'h2' #or 'vaf'
 
 patch_downscale = 0.1
 # npatches = 100
+
+[testing]
+
+expected_J_inv = 625620918.9914922
