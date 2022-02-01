@@ -39,9 +39,6 @@ from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 from fenics_ice.decorators import count_calls, timer, flagged_error
 
-import slepc4py.SLEPc as SLEPc
-import petsc4py.PETSc as PETSc
-
 import numpy as np
 import matplotlib as mpl
 mpl.use("Agg")
@@ -131,6 +128,7 @@ def run_eigendec(config_file):
 
         results = {}  # Create this empty dict & pass it to slepc_monitor_callback to fill
         # Eigendecomposition
+        import slepc4py.SLEPc as SLEPc
         esolver = eigendecompose(space,
                                  ghep_action,
                                  tolerance=params.eigendec.tol,
