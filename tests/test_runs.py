@@ -343,3 +343,29 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps):
                               expected_cntrl_sigma_prior_norm,
                               work_dir,
                               "expected_cntrl_sigma_prior_norm", tol=tol)
+
+@pytest.mark.key('smith')
+def test_run_smith_inversion(temp_model, monkeypatch):
+
+    work_dir = temp_model["work_dir"]
+    toml_file = temp_model["toml_filename"]
+
+    # Switch to the working directory
+    monkeypatch.chdir(work_dir)
+
+    # Get expected values from the toml file
+    params = config.ConfigParser(toml_file, top_dir=work_dir)
+    #expected_cntrl_norm = params.testing.expected_cntrl_norm
+    expected_J_inv = params.testing.expected_J_inv
+
+    EQReset()
+
+    # Run the thing
+    mdl_out = run_inv.run_inv(toml_file)
+
+    # Test inversion value
+    J_inv = mdl_out.solvers[0].J_inv.value()
+
+    pytest.check_float_result(J_inv,
+                              expected_J_inv,
+                              work_dir, 'expected_J_inv')
