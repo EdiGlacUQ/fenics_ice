@@ -48,10 +48,9 @@ echo "unset OMP_NUM_THREADS" > ./etc/conda/deactivate.d/env_vars.sh
 
 cd $INSTALL_DIR
 
-# Install tlm_adjoint & checkout relevant branch
-git clone https://github.com/jrmaddison/tlm_adjoint.git
+# Install tlm_adjoint
+git clone https://github.com/EdiGlacUQ/tlm_adjoint.git
 cd $INSTALL_DIR/tlm_adjoint
-git checkout fenics_ice
 
 # Point the conda env to tlm_adjoint & fenics_ice
 conda develop $INSTALL_DIR/tlm_adjoint
