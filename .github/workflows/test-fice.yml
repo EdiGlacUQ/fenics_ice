@@ -16,8 +16,7 @@ jobs:
       # Get tlm-adjoint code
       - uses: actions/checkout@v2
         with:
-          repository: 'jrmaddison/tlm_adjoint'
-          ref: 'fenics_ice'
+          repository: 'EdiGlacUQ/tlm_adjoint'
           path: 'tlm_adjoint'
 
       # Get miniconda & prerequisites
