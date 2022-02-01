@@ -610,6 +610,7 @@ class ssa_solver:
             n_sens = np.round(t_sens/dt)
 
             reset_manager()
+            clear_caches()
             start_manager()
 
             inout.configure_tlm_checkpointing(self.params)
