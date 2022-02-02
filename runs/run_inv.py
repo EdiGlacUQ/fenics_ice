@@ -130,6 +130,7 @@ def run_inv(config_file):
 
 
 if __name__ == "__main__":
-    stop_annotating()
+    stop_manager()
+
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_inv(sys.argv[1])

@@ -382,7 +382,7 @@ def run_invsigma(config_file):
 
 
 if __name__ == "__main__":
-    stop_annotating()
+    stop_manager()
 
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_invsigma(sys.argv[1])

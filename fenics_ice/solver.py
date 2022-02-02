@@ -610,7 +610,8 @@ class ssa_solver:
             n_sens = np.round(t_sens/dt)
 
             reset_manager()
-            start_annotating()
+            clear_caches()
+            start_manager()
 
             inout.configure_tlm_checkpointing(self.params)
 
@@ -769,11 +770,9 @@ class ssa_solver:
 
         reset_manager()
         clear_caches()
-
-        start_annotating()
-
+        start_manager()
         J = forward(cntrl)
-        stop_annotating()
+        stop_manager()
 
         # Write out the gradients dJ/dAlpha & dJ/dBeta at each L-BFGS iteration
         # for debugging/analysis.
@@ -1006,9 +1005,9 @@ class ssa_solver:
         # Re-compute velocities with inversion results
         reset_manager()
         clear_caches()
-        start_annotating()
+        start_manager()
         self.solve_mom_eq()
-        stop_annotating()
+        stop_manager()
 
         # Print out inversion results/parameter values
         self.J_inv = self.comp_J_inv(verbose=True)

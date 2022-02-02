@@ -37,7 +37,8 @@ import numpy as np
 import time
 import datetime
 
-stop_annotating()
+stop_manager()
+
 
 def run_forward(config_file):
 
@@ -91,7 +92,7 @@ def run_forward(config_file):
 
 
 if __name__ == "__main__":
-    stop_annotating()
+    stop_manager()
 
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_forward(sys.argv[1])
