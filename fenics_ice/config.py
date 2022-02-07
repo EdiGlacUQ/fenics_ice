@@ -387,6 +387,7 @@ class IOCfg(ConfigPrinter):
     sigma_prior_file: str = None  # "sigma_prior.p"
 
     log_level: str = "info"
+    output_var_format: str = "both"
 
     def set_default_filename(self, attr_name, suffix):
         """Sets a default filename (prefixed with run_name) & check suffix"""
@@ -411,6 +412,11 @@ class IOCfg(ConfigPrinter):
                                           "debug"], \
             "Invalid log level"
 
+        assert self.output_var_format in ["pvd",
+                                          "xml",
+                                          "both"], \
+            "Invalid variable output file format"
+
         fname_default_suff = {
             'inversion_file': 'invout.h5',
             'eigenvecs_file': 'vr.h5',
@@ -434,6 +440,7 @@ class TimeCfg(ConfigPrinter):
     total_steps: int = None
     dt: float = None
     num_sens: int = 1
+    save_every_tstep: bool = False
 
     def __post_init__(self):
         """
