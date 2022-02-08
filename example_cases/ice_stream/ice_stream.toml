@@ -12,6 +12,7 @@ alpha_data_file = "ice_stream_data.h5"
 bglen_data_file = "ice_stream_data.h5"
 
 log_level = "info" #This is default
+output_var_format = "xml"
 
 [constants]
 
