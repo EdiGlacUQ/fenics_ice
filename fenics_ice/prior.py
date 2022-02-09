@@ -330,10 +330,10 @@ class Laplacian_flt(Laplacian):
         if self.beta_active:
 
             self.terms['delta_beta'] = \
-                self.delta_beta * fl_ex * inner(beta_diff, self.test[self.beta_idx]) * dx
+                self.delta_beta * (1.0-fl_ex) * inner(beta_diff, self.test[self.beta_idx]) * dx
 
             self.terms['delta_beta_gnd'] = \
-                (self.delta_beta_gnd * (1.0 - fl_ex) *
+                (self.delta_beta_gnd * fl_ex *
                  inner(beta_diff, self.test[self.beta_idx])) * dx
 
             self.terms['gamma_beta'] = \
