@@ -140,6 +140,6 @@ patch_downscale = 0.1
 
 [testing]
 
-expected_J_inv = 566220228.1028463
+expected_J_inv = 625620918.9914922 
 # the following are needed once the input data is updated
-#expected_J_inv = 625620918.9914922 
+#expected_J_inv = 566220228.1028463
