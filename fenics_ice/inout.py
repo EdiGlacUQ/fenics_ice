@@ -274,14 +274,22 @@ def write_variable(var, params, name=None):
         name = var_name
 
     outvar.rename(name, "")
-
     # Prefix the run name
-    outfname = Path(params.io.output_dir)/"_".join((params.io.run_name, name))
-    vtk_fname = str(outfname.with_suffix(".pvd"))
-    xml_fname = str(outfname.with_suffix(".xml"))
+    outfname = Path(params.io.output_dir) / "_".join((params.io.run_name, name))
 
-    File(vtk_fname) << outvar
-    File(xml_fname) << outvar
+    # Write out output according to user specified format in toml
+    output_var_format = params.io.output_var_format
+    if 'pvd' in output_var_format:
+        vtk_fname = str(outfname.with_suffix(".pvd"))
+        File(vtk_fname) << outvar
+    if 'xml' in output_var_format:
+        xml_fname = str(outfname.with_suffix(".xml"))
+        File(xml_fname) << outvar
+    if 'both' in output_var_format:
+        vtk_fname = str(outfname.with_suffix(".pvd"))
+        xml_fname = str(outfname.with_suffix(".xml"))
+        File(vtk_fname) << outvar
+        File(xml_fname) << outvar
 
     logging.info("Writing function %s to file %s" % (name, outfname))
 
@@ -620,13 +628,15 @@ def setup_logging(params):
     # TODO - Doesn't work yet - can't redirect output from fenics etc
     # run_name = params.io.run_name
     # logfile = run_name + ".log"
-
     # Get the FFC logger to shut up
     logging.getLogger('UFL').setLevel(logging.WARNING)
     logging.getLogger('FFC').setLevel(logging.WARNING)
-    logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.WARNING)
-
     log_level = params.io.log_level
+
+    if log_level == 'critical':
+        logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.WARNING)
+    else:
+        logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.DEBUG)
 
     numeric_level = getattr(logging, log_level.upper(), None)
     if not isinstance(numeric_level, int):

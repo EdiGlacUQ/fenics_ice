@@ -576,7 +576,7 @@ class ssa_solver:
                                  "relative_tolerance": 1e-11,
               })  # Not sure these solver params are necessary (linear solve)
 
-    def timestep(self, save=1, adjoint_flag=1, qoi_func=None ):
+    def timestep(self, adjoint_flag=1, qoi_func=None ):
         """
         Time evolving model
         Returns the QoI
@@ -587,6 +587,7 @@ class ssa_solver:
         n_steps = config.total_steps
         dt = config.dt
         run_length = config.run_length
+        save_every_tstep = config.save_every_tstep
 
         outdir = self.params.io.output_dir
 
@@ -638,7 +639,7 @@ class ssa_solver:
             new_block()
 
         # Write out U & H at each timestep.
-        if save:
+        if save_every_tstep:
             Hfile = Path(outdir) / "_".join((self.params.io.run_name,
                                              'H_ts.xdmf'))
             Ufile = Path(outdir) / "_".join((self.params.io.run_name,
@@ -684,12 +685,12 @@ class ssa_solver:
             if n < n_steps and adjoint_flag:
                 new_block()
 
-            if save:
+            if save_every_tstep:
                 xdmf_hts.write(H_np, t)
                 xdmf_uts.write(U_np, t)
         # End of timestepping loop
 
-        if save:
+        if save_every_tstep:
             xdmf_hts.close()
             xdmf_uts.close()
 
