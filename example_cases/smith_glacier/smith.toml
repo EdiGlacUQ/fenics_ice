@@ -12,6 +12,8 @@ bed_data_file = "smith_bedmachine.h5"
 smb_data_file = "smith_smb.h5"
 bglen_data_file = "smith_bglen.h5"
 bglen_field_name = "bglen"
+bglenmask_data_file = "smith_bglen.h5"
+bglenmask_field_name = "bglenmask"
 
 log_level = "error" #This is default
 
@@ -137,4 +139,5 @@ patch_downscale = 0.1
 
 [testing]
 
-expected_J_inv = 625620918.9914922
+# expected_J_inv = 625620918.9914922 
+expected_J_inv = 566220228.1028463
