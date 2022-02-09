@@ -11,9 +11,10 @@ thick_data_file = "smith_bedmachine.h5"
 bed_data_file = "smith_bedmachine.h5"
 smb_data_file = "smith_smb.h5"
 bglen_data_file = "smith_bglen.h5"
-bglenmask_data_file = "smith_bglen.h5"
 bglen_field_name = "bglen"
-bglenmask_field_name = "bglenmask"
+# the following are needed once the input data is updated
+#bglenmask_data_file = "smith_bglen.h5"
+#bglenmask_field_name = "bglenmask"
 
 log_level = "error" #This is default
 
@@ -140,3 +141,5 @@ patch_downscale = 0.1
 [testing]
 
 expected_J_inv = 566220228.1028463
+# the following are needed once the input data is updated
+#expected_J_inv = 625620918.9914922 
