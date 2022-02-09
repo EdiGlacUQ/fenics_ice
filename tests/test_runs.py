@@ -150,11 +150,6 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps):
 
     mdl_out = run_forward.run_forward(toml_file)
 
-    # from fenics_ice import graphviz
-    # manager_graph = graphviz.dot()
-    # with open("forward_manager.dot", "w") as outfile:
-    #     outfile.write(manager_graph)
-
     slvr = mdl_out.solvers[0]
 
     delta_qoi = slvr.Qval_ts[-1] - slvr.Qval_ts[0]
@@ -182,11 +177,6 @@ def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps):
     EQReset()
 
     mdl_out = run_forward.run_forward(toml_file)
-
-    # from fenics_ice import graphviz
-    # manager_graph = graphviz.dot()
-    # with open("forward_manager.dot", "w") as outfile:
-    #     outfile.write(manager_graph)
 
     slvr = mdl_out.solvers[0]
 

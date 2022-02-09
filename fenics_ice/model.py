@@ -20,7 +20,6 @@ from dolfin import *
 import ufl
 import numpy as np
 from pathlib import Path
-import scipy.spatial.qhull as qhull
 from fenics_ice import inout, prior
 from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
@@ -249,7 +248,8 @@ class model:
         # tri.simplices...
         def interp_weights(xy, uv, d=2):
             """Compute the nearest vertices & weights (for reuse)"""
-            tri = qhull.Delaunay(xy)
+            from scipy.spatial import Delaunay
+            tri = Delaunay(xy)
             simplex = tri.find_simplex(uv)
 
             if not np.all(simplex >= 0):
