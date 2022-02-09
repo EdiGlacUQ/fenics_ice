@@ -368,6 +368,7 @@ class IOCfg(ConfigPrinter):
     bmelt_data_file: str = None
     smb_data_file: str = None
     bglen_data_file: str = None
+    bglenmask_data_file: str = None
     alpha_data_file: str = None
 
     thick_field_name: str = "thick"
@@ -376,6 +377,7 @@ class IOCfg(ConfigPrinter):
     bmelt_field_name: str = "bmelt"
     smb_field_name: str = "smb"
     bglen_field_name: str = "Bglen"
+    bglenmask_field_name: str = "Bglen"
     alpha_field_name: str = "alpha"
 
     inversion_file: str = None
