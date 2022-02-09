@@ -781,14 +781,6 @@ class ssa_solver:
                                            comm=self.mesh.mpi_comm())
 
         ##########################################
-        # Uncomment for dependency graph output:
-        ##########################################
-        # from fenics_ice import graphviz
-        # manager_graph = graphviz.dot()
-        # with open("/home/joe/sources/fenics_ice/debug_mixed.dot", "w") as outfile:
-        #     outfile.write(manager_graph)
-
-        ##########################################
         # Uncomment for Taylor Verification:
         ##########################################
         # dJ = compute_gradient(J, self.alpha)
