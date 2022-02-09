@@ -12,9 +12,8 @@ bed_data_file = "smith_bedmachine.h5"
 smb_data_file = "smith_smb.h5"
 bglen_data_file = "smith_bglen.h5"
 bglen_field_name = "bglen"
-# the following are needed once the input data is updated
-#bglenmask_data_file = "smith_bglen.h5"
-#bglenmask_field_name = "bglenmask"
+bglenmask_data_file = "smith_bglen.h5"
+bglenmask_field_name = "bglenmask"
 
 log_level = "error" #This is default
 
