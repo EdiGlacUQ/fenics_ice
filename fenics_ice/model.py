@@ -51,6 +51,10 @@ class model:
         self.Q = FunctionSpace(self.mesh, 'Lagrange', 1)
 
         self.M = FunctionSpace(self.mesh, 'DG', 0)
+        # below definition is for melt domains and a dedicated DG(0) 
+        # thickness and bed. We should allow flexibility 
+        # for self.M to be CG
+        self.M2 = FunctionSpace(self.mesh, 'DG', 0)
         self.RT = FunctionSpace(self.mesh, 'RT', 1)
 
         # Based on IsmipC: alpha, beta, and U are periodic.
@@ -78,9 +82,11 @@ class model:
             self.init_fields_from_data()
         else:  # initialize these to avoid complaint on solver creation
             self.bed = None
+            self.bed_DG = None
             self.bmelt = None
             self.smb = None
             self.H = None
+            self.H_DG = None
             self.H_np = None
             self.surf = None
 
@@ -110,12 +116,16 @@ class model:
         min_thick = self.params.ice_dynamics.min_thickness
 
         self.bed = self.field_from_data("bed", self.Q, static=True)
+        self.bed_DG = self.field_from_data("bed_DG", self.M2, static=True)
         self.bmelt = self.field_from_data("bmelt", self.M, default=0.0, static=True)
         self.smb = self.field_from_data("smb", self.M, default=0.0, static=True)
         self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
+        self.melt_domains = self.field_from_data("melt_domains", self.M2, default=1.0, method='nearest')
 
         self.H = self.H_np.copy(deepcopy=True)
         self.H.rename("thick_H", "")
+        H_DG = space_new(M2, name="H_DG")
+        LocalProjectionSolver(H, H_DG).solve()
 
         self.gen_surf()  # surf = bed + thick
 

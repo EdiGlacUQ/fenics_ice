@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from pathlib import Path
 import pprint
+from IPython import embed
 from fenics import parameters as fenics_params
 
 class ConfigPrinter(object):
@@ -84,6 +85,7 @@ class ConfigParser(object):
         self.obs = ObsCfg(**self.config_dict['obs'])
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
+        self.melt = MeltParamCfg(**self.config_dict['melt'])
 
         # Optional invsigma section
         try:
@@ -209,6 +211,16 @@ class ErrorPropCfg(ConfigPrinter):
     Configuration related to error propagation
     """
     qoi: str = 'vaf'
+
+@dataclass(frozen=True)
+class MeltParamCfg(ConfigPrinter):
+    """
+    Configuration related to depth-dependent melt parameterisation
+    """
+    depth_therm_domain_1: float = 0.0
+    depth_therm_domain_2: float = 0.0
+    max_melt_domain_1: float = 0.0
+    max_melt_domain_2: float = 0.0
 
 @dataclass(frozen=True)
 class InvSigmaCfg(ConfigPrinter):
@@ -370,6 +382,7 @@ class IOCfg(ConfigPrinter):
     bglen_data_file: str = None
     bglenmask_data_file: str = None
     alpha_data_file: str = None
+    melt_domains_data_file: str = None
 
     thick_field_name: str = "thick"
     bed_field_name: str = "bed"
@@ -379,6 +392,7 @@ class IOCfg(ConfigPrinter):
     bglen_field_name: str = "Bglen"
     bglenmask_field_name: str = "Bglen"
     alpha_field_name: str = "alpha"
+    melt_domains_field_name: str = "melt_domains"
 
     inversion_file: str = None
     qoi_file: str = None  # "Qval_ts.p"

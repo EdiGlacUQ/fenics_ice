@@ -77,8 +77,10 @@ class ssa_solver:
 
         # Fields
         self.bed = model.bed
+        self.bed_DG = model.bed_DG
         self.H_np = model.H_np
         self.H = model.H
+        self.H_DG = model.H_DG
         self.beta_bgd = model.beta_bgd
         self.bmelt = model.bmelt
         self.smb = model.smb
@@ -575,6 +577,7 @@ class ssa_solver:
                                  "absolute_tolerance": 1e-10,
                                  "relative_tolerance": 1e-11,
               })  # Not sure these solver params are necessary (linear solve)
+        LocalProjectionSolver(H, H_DG).solve() 
 
     def timestep(self, adjoint_flag=1, qoi_func=None ):
         """
@@ -1076,6 +1079,49 @@ class ssa_solver:
         # Note: cell=triangle just suppresses a UFL warning ("missing cell")
 
         return fl_beta_mask
+
+    def melt_conditional(self, H):
+        """Compute a ufl Conditional where melt nonzero=1, no melt=0"""
+
+        constants = self.params.constants
+        rhow = constants.rhow
+        rhoi = constants.rhoi
+        H_float_dg = -(rhow/rhoi) * self.bed_DG
+
+        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+        melt_mask = ufl.operators.Conditional(ufl.operators.And(H_DG < H_float_DG, self.model.melt_domains > 0, H > 10.0),
+                                          Constant(1.0, cell=triangle, name="Const Melt"),
+                                          Constant(0.0, cell=triangle, name="Const No Melt"))
+
+        return melt_mask
+
+    def melt_depth_conditional(self, H):
+        """Compute a ufl Conditional where domain = 1 or 2"""
+
+        constants = self.params.melt
+        depth1 = melt.depth_therm_domain_1
+        depth2 = melt.depth_therm_domain_2
+
+        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+        melt_depth = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),
+                                          Constant(depth1, cell=triangle, name="Depth Domain 1"),
+                                          Constant(depth2, cell=triangle, name="Depth Domain 2"))
+
+        return melt_depth
+
+    def melt_max_conditional(self, H):
+        """Compute a ufl Conditional where domain = 1 or 2"""
+
+        constants = self.params.melt
+        max1 = melt.max_melt_domain_1
+        max2 = melt.max_melt_domain_2
+
+        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+        melt_max = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),
+                                          Constant(max1, cell=triangle, name="MMelt Domain 1"),
+                                          Constant(max2, cell=triangle, name="MMelt Domain 2"))
+
+        return melt_max
 
     def comp_J_inv(self, verbose=False):
         """
