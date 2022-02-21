@@ -1152,10 +1152,10 @@ class ssa_solver:
                 tolerance=0.0)
 
             u_PRP = InterpolationMatrix(
-                P.T @ spdiags(fac * 1.0 / (u_std[obs_local] ** 2),
+                P.T @ spdiags(1.0 / (u_std[obs_local] ** 2),
                               0, P.shape[0], P.shape[0]) @ P)
             v_PRP = InterpolationMatrix(
-                P.T @ spdiags(fac * 1.0 / (v_std[obs_local] ** 2),
+                P.T @ spdiags(1.0 / (v_std[obs_local] ** 2),
                               0, P.shape[0], P.shape[0]) @ P)
 
             l_u_obs = function_new(uf, name="l_u_obs")
@@ -1189,32 +1189,32 @@ class ssa_solver:
         J_ls_term_u = Functional(name="J_term_u", space=J.space())
         J_ls_term_v = Functional(name="J_term_v", space=J.space())
 
-        # u^T P^T R_u_obs^{-1} P u
+        # .5 * u^T P^T R_u_obs^{-1} P u
         J_term = space_new(J.space())
-        InnerProductSolver(uf, uf, J_term, M=u_PRP).solve()
+        InnerProductSolver(uf, uf, J_term, M=u_PRP, alpha = fac).solve()
         J_ls_term_u.addto(J_term)
 
-        # v^T P^T R_v_obs^{-1} P v
+        # .5 * v^T P^T R_v_obs^{-1} P v
         J_term = space_new(J.space())
-        InnerProductSolver(vf, vf, J_term, M=v_PRP).solve()
+        InnerProductSolver(vf, vf, J_term, M=v_PRP, alpha = fac).solve()
         J_ls_term_v.addto(J_term)
 
-        # -2 u_obs^T R_u_obs^{-1} P u
+        # -.5 * 2 * u_obs^T R_u_obs^{-1} P u
         J_term = space_new(J.space())
         InnerProductSolver(uf, l_u_obs, J_term, alpha=-2.0 * fac).solve()
         J_ls_term_u.addto(J_term)
 
-        # -2 v_obs^T R_v_obs^{-1} P v
+        # -.5 * 2 * v_obs^T R_v_obs^{-1} P v
         J_term = space_new(J.space())
         InnerProductSolver(vf, l_v_obs, J_term, alpha=-2.0 * fac).solve()
         J_ls_term_v.addto(J_term)
 
-        # u_obs R_u_obs^{-1} u_obs
+        # .5 * u_obs R_u_obs^{-1} u_obs
         J_term = space_new(J.space())
         function_assign(J_term, fac * J_u_obs)
         J_ls_term_u.addto(J_term)
 
-        # v_obs R_v_obs^{-1} v_obs
+        # .5 * v_obs R_v_obs^{-1} v_obs
         J_term = space_new(J.space())
         function_assign(J_term, fac * J_v_obs)
         J_ls_term_v.addto(J_term)
