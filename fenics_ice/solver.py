@@ -506,8 +506,8 @@ class ssa_solver:
         trial_H = self.trial_H
         H_np = self.H_np
         H = self.H
+        H_DG = self.H_DG
         H_init = self.H_init
-        bmelt = self.bmelt
         smb = self.smb
         dt = self.dt
         nm = self.nm
@@ -515,6 +515,23 @@ class ssa_solver:
         dS = self.dS
 
         fl_ex = self.float_conditional(H)
+
+        if (self.params.use_melt_parameterisation):
+
+          constants = self.params.constants
+          rhow = constants.rhow
+          rhoi = constants.rhoi
+          depth = -rhoi/rhow * H
+          meltcond = melt_conditional(H,H_DG)
+          meltdepthparam = melt_depth_conditional()
+          meltmaxparam = melt_max_conditional()
+          bmelt = meltcond * meltmaxparam / 2.0 * 
+            (1.0 + ufl.tanh((H-meltdepthparam/2.0)/(meltdepthparam/4.0)))
+          
+        else:
+
+          bmelt = self.bmelt
+          
 
         # Crank Nicholson
         # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dx
@@ -1080,7 +1097,7 @@ class ssa_solver:
 
         return fl_beta_mask
 
-    def melt_conditional(self, H):
+    def melt_conditional(self, H, H_DG):
         """Compute a ufl Conditional where melt nonzero=1, no melt=0"""
 
         constants = self.params.constants
@@ -1095,7 +1112,7 @@ class ssa_solver:
 
         return melt_mask
 
-    def melt_depth_conditional(self, H):
+    def melt_depth_conditional(self):
         """Compute a ufl Conditional where domain = 1 or 2"""
 
         constants = self.params.melt
@@ -1109,7 +1126,7 @@ class ssa_solver:
 
         return melt_depth
 
-    def melt_max_conditional(self, H):
+    def melt_max_conditional(self):
         """Compute a ufl Conditional where domain = 1 or 2"""
 
         constants = self.params.melt
