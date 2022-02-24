@@ -29,6 +29,7 @@ import numpy as np
 from pathlib import Path
 import time
 import ufl
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -516,17 +517,18 @@ class ssa_solver:
 
         fl_ex = self.float_conditional(H)
 
-        if (self.params.use_melt_parameterisation):
+        if (self.params.melt.use_melt_parameterisation):
 
           constants = self.params.constants
           rhow = constants.rhow
           rhoi = constants.rhoi
           depth = -rhoi/rhow * H
-          meltcond = melt_conditional(H,H_DG)
-          meltdepthparam = melt_depth_conditional()
-          meltmaxparam = melt_max_conditional()
-          bmelt = meltcond * meltmaxparam / 2.0 * 
-            (1.0 + ufl.tanh((H-meltdepthparam/2.0)/(meltdepthparam/4.0)))
+          meltcond = self.melt_conditional(H,H_DG)
+          meltdepthparam = self.melt_depth_conditional()
+          meltmaxparam = self.melt_max_conditional()
+          bmelt = meltcond * meltmaxparam / 2.0 * \
+           (1.0 + ufl.tanh((H-meltdepthparam/2.0)/(meltdepthparam/4.0)))
+          self.melt_field = project(bmelt, self.M)
           
         else:
 
@@ -594,7 +596,7 @@ class ssa_solver:
                                  "absolute_tolerance": 1e-10,
                                  "relative_tolerance": 1e-11,
               })  # Not sure these solver params are necessary (linear solve)
-        LocalProjectionSolver(H, H_DG).solve() 
+        LocalProjectionSolver(self.H, self.H_DG).solve() 
 
     def timestep(self, adjoint_flag=1, qoi_func=None ):
         """
@@ -678,6 +680,7 @@ class ssa_solver:
             begin("Starting timestep %i of %i, time = %.16e a" % (n + 1, n_steps, t))
 
             # Solve
+
 
             # Simple Scheme
             self.solve_thickadv_eq()
@@ -1103,10 +1106,11 @@ class ssa_solver:
         constants = self.params.constants
         rhow = constants.rhow
         rhoi = constants.rhoi
-        H_float_dg = -(rhow/rhoi) * self.bed_DG
+        H_float_DG = -(rhow/rhoi) * self.bed_DG
 
         # Note: cell=triangle just suppresses a UFL warning ("missing cell")
-        melt_mask = ufl.operators.Conditional(ufl.operators.And(H_DG < H_float_DG, self.model.melt_domains > 0, H > 10.0),
+        melt_mask = ufl.operators.Conditional(ufl.operators.And(H_DG < H_float_DG, 
+                                              ufl.operators.And(self.model.melt_domains > 0, H > 10.0)),
                                           Constant(1.0, cell=triangle, name="Const Melt"),
                                           Constant(0.0, cell=triangle, name="Const No Melt"))
 
@@ -1116,8 +1120,8 @@ class ssa_solver:
         """Compute a ufl Conditional where domain = 1 or 2"""
 
         constants = self.params.melt
-        depth1 = melt.depth_therm_domain_1
-        depth2 = melt.depth_therm_domain_2
+        depth1 = constants.depth_therm_domain_1
+        depth2 = constants.depth_therm_domain_2
 
         # Note: cell=triangle just suppresses a UFL warning ("missing cell")
         melt_depth = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),
@@ -1130,8 +1134,8 @@ class ssa_solver:
         """Compute a ufl Conditional where domain = 1 or 2"""
 
         constants = self.params.melt
-        max1 = melt.max_melt_domain_1
-        max2 = melt.max_melt_domain_2
+        max1 = constants.max_melt_domain_1
+        max2 = constants.max_melt_domain_2
 
         # Note: cell=triangle just suppresses a UFL warning ("missing cell")
         melt_max = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),

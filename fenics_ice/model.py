@@ -23,6 +23,7 @@ from pathlib import Path
 from fenics_ice import inout, prior
 from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
+from IPython import embed
 import logging
 
 log = logging.getLogger("fenics_ice")
@@ -116,7 +117,6 @@ class model:
         min_thick = self.params.ice_dynamics.min_thickness
 
         self.bed = self.field_from_data("bed", self.Q, static=True)
-        self.bed_DG = self.field_from_data("bed_DG", self.M2, static=True)
         self.bmelt = self.field_from_data("bmelt", self.M, default=0.0, static=True)
         self.smb = self.field_from_data("smb", self.M, default=0.0, static=True)
         self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
@@ -124,8 +124,10 @@ class model:
 
         self.H = self.H_np.copy(deepcopy=True)
         self.H.rename("thick_H", "")
-        H_DG = space_new(M2, name="H_DG")
-        LocalProjectionSolver(H, H_DG).solve()
+        self.H_DG = Function(self.M2, name="H_DG")
+        self.bed_DG = Function(self.M2, name="bed_DG")
+        self.H_DG.assign(project(self.H,self.M2))        
+        self.bed_DG.assign(project(self.bed,self.M2))        
 
         self.gen_surf()  # surf = bed + thick
 

@@ -217,7 +217,7 @@ class MeltParamCfg(ConfigPrinter):
     """
     Configuration related to depth-dependent melt parameterisation
     """
-    use_melt_parameterisation = False
+    use_melt_parameterisation: bool = False
     depth_therm_domain_1: float = 0.0
     depth_therm_domain_2: float = 0.0
     max_melt_domain_1: float = 0.0
