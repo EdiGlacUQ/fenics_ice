@@ -29,6 +29,7 @@ import numpy as np
 from pathlib import Path
 import time
 import ufl
+import weakref
 
 log = logging.getLogger("fenics_ice")
 
@@ -62,7 +63,7 @@ class ssa_solver:
         parameters["form_compiler"]["cpp_optimize_flags"] = "-O2 -ffast-math -march=native"
         parameters["form_compiler"]["precision"] = 16
 
-        self.model = model
+        self._model = weakref.ref(model)
         self.model.solvers.append(self)
         self.params = model.params
         self.mixed_space = mixed_space
@@ -131,6 +132,13 @@ class ssa_solver:
 
         self.eigenvals = None
         self.eigenfuncs = None
+
+    @property
+    def model(self):
+        model = self._model()
+        if model is None:
+            raise RuntimeError("referent not alive")
+        return model
 
     def set_inv_params(self):
         """Set delta_alpha, gamma_alpha, etc from config"""
