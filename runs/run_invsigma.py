@@ -16,6 +16,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from fenics_ice.backend import FiniteElement, Function, FunctionSpace, \
+    HDF5File, MPI, TestFunction, assemble, assign, inner, dx
+
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -23,9 +26,6 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 import sys
 import pickle
 import numpy as np
-
-from dolfin import *
-from tlm_adjoint.fenics import *
 
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
@@ -383,7 +383,5 @@ def run_invsigma(config_file):
 
 
 if __name__ == "__main__":
-    stop_manager()
-
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_invsigma(sys.argv[1])

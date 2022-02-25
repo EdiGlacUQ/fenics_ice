@@ -15,10 +15,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from fenics_ice.backend import File, Function, FunctionSpace, Mesh
+
 import os
 import sys
 import argparse
-from fenics import *
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt

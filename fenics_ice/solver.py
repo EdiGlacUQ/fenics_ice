@@ -15,8 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics import *
-from tlm_adjoint.fenics import *
+from .backend import *
 
 from . import inout
 from .minimize_l_bfgs import minimize_l_bfgs
