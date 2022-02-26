@@ -522,12 +522,12 @@ class ssa_solver:
           constants = self.params.constants
           rhow = constants.rhow
           rhoi = constants.rhoi
-          depth = -rhoi/rhow * H
-          meltcond = self.melt_conditional(H,H_DG)
+          depth = -rhoi/rhow * H_np
+          meltcond = self.melt_conditional(H_np,H_DG)
           meltdepthparam = self.melt_depth_conditional()
           meltmaxparam = self.melt_max_conditional()
           bmelt = meltcond * meltmaxparam / 2.0 * \
-           (1.0 + ufl.tanh((H-meltdepthparam/2.0)/(meltdepthparam/4.0)))
+           (1.0 + ufl.tanh((H_np-meltdepthparam/2.0)/(meltdepthparam/4.0)))
           self.melt_field = project(bmelt, self.M)
           
         else:
@@ -596,7 +596,7 @@ class ssa_solver:
                                  "absolute_tolerance": 1e-10,
                                  "relative_tolerance": 1e-11,
               })  # Not sure these solver params are necessary (linear solve)
-        LocalProjectionSolver(self.H, self.H_DG).solve() 
+        LocalProjectionSolver(H, self.H_DG).solve() 
 
     def timestep(self, adjoint_flag=1, qoi_func=None ):
         """
