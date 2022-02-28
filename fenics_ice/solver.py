@@ -77,7 +77,6 @@ class ssa_solver:
 
         # Fields
         self.bed = model.bed
-        self.H_np = model.H_np
         self.H = model.H
         self.beta_bgd = model.beta_bgd
         self.bmelt = model.bmelt
@@ -112,7 +111,6 @@ class ssa_solver:
 
         # Trial/Test Functions
         self.U = Function(self.V, name="U")
-        self.U_np = Function(self.V, name="U_np")
         self.Phi = TestFunction(self.V)
         self.Ksi = TestFunction(self.M)
         self.pTau = TestFunction(self.Qp)
@@ -499,10 +497,9 @@ class ssa_solver:
         Equal order elements result in pressure modes (wiggles, inf-sup stability, LBB)
         So 'thickness modes' will appear unless we use DG(0)
         """
-        U_np = self.U_np
+        U = self.U
         Ksi = self.Ksi
         trial_H = self.trial_H
-        H_np = self.H_np
         H = self.H
         H_init = self.H_init
         bmelt = self.bmelt
@@ -514,35 +511,24 @@ class ssa_solver:
 
         fl_ex = self.float_conditional(H)
 
-        # Crank Nicholson
-        # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dx
-        # - inner(grad(Ksi), U_np * 0.5 * (trial_H + H_np)) * dx
-        # + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm)))
-        # * 0.5 * (trial_H + H_np))) * dS
-        # + conditional(dot(U_np, nm) > 0, 1.0, 0.0)
-        # *inner(Ksi, dot(U_np * 0.5 * (trial_H + H_np), nm))*ds # Outflow
-        # + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)
-        # *inner(Ksi, dot(U_np * H_init, nm))*ds # Inflow
-        # + bmelt*Ksi*dx_flt) #basal melting
-
         # Backward Euler
         self.thickadv = (
             # dH/dt
-            + inner(Ksi, ((trial_H - H_np) / dt)) * dx
+            + inner(Ksi, ((trial_H - H) / dt)) * dx
 
             # Advection
-            - inner(grad(Ksi), U_np * trial_H) * dx
+            - inner(grad(Ksi), U * trial_H) * dx
 
             # Spatial gradient
-            + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * trial_H))
+            + inner(jump(Ksi), jump(0.5 * (dot(U, nm) + abs(dot(U, nm))) * trial_H))
             * dS
 
             # Outflow at boundaries
-            + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * trial_H, nm))
+            + conditional(dot(U, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U * trial_H, nm))
             * ds
 
             # Inflow at boundaries
-            + conditional(dot(U_np, nm) < 0, 1.0, 0.0)*inner(Ksi, dot(U_np * H_init, nm))
+            + conditional(dot(U, nm) < 0, 1.0, 0.0)*inner(Ksi, dot(U * H_init, nm))
             * ds
 
             # basal melting
@@ -551,18 +537,6 @@ class ssa_solver:
             # surface mass balance
             - smb*Ksi*dx
         )
-
-        # # Forward euler
-        # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dx
-        # - inner(grad(Ksi), U_np * H_np) * dx
-        # + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * H_np)) * dS
-        #
-        # Outflow
-        # + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * H_np, nm))*ds
-        #
-        # Inflow
-        # + conditional(dot(U_np, nm) < 0, 1.0 , 0.0)*inner(Ksi, dot(U_np * H_init, nm))*ds
-        # + bmelt*Ksi*dx_flt) #basal melting
 
         self.H_bcs = []
 
@@ -599,9 +573,7 @@ class ssa_solver:
         Q_is = []
 
         U = self.U
-        U_np = self.U_np
-        # H = self.H
-        H_np = self.H_np
+        H = self.H
 
         if adjoint_flag:
             # Define QoI sampling times & configure checkpointing
@@ -621,7 +593,6 @@ class ssa_solver:
         self.def_mom_eq()
         # Initial momentum solve
         self.solve_mom_eq()
-        U_np.assign(U)
 
         # Initial QoI computation
         if qoi_func is not None:
@@ -648,8 +619,8 @@ class ssa_solver:
             xdmf_hts = XDMFFile(self.mesh.mpi_comm(), str(Hfile))
             xdmf_uts = XDMFFile(self.mesh.mpi_comm(), str(Ufile))
 
-            xdmf_hts.write(H_np, 0.0)
-            xdmf_uts.write(U_np, 0.0)
+            xdmf_hts.write(H, 0.0)
+            xdmf_uts.write(U, 0.0)
 
         ########################
         # Main timestepping loop
@@ -661,10 +632,8 @@ class ssa_solver:
 
             # Simple Scheme
             self.solve_thickadv_eq()
-            H_np.assign(self.H)
 
             self.solve_mom_eq()
-            U_np.assign(self.U)
 
             # increment time
             n += 1
@@ -686,8 +655,8 @@ class ssa_solver:
                 new_block()
 
             if save_every_tstep:
-                xdmf_hts.write(H_np, t)
-                xdmf_uts.write(U_np, t)
+                xdmf_hts.write(H, t)
+                xdmf_uts.write(U, t)
         # End of timestepping loop
 
         if save_every_tstep:
@@ -1293,7 +1262,7 @@ class ssa_solver:
         """QOI: Volume above flotation"""
         cnst = self.params.constants
 
-        H = self.H_np
+        H = self.H
         bed = self.bed
         rhoi = Constant(cnst.rhoi, name="Constant rhoi")
         rhow = Constant(cnst.rhow, name="Constant rhow")
@@ -1310,7 +1279,7 @@ class ssa_solver:
 
     def comp_Q_h2(self, verbose=False):
         """QOI: Square integral of thickness"""
-        Q_h2 = self.H_np * self.H_np * dx
+        Q_h2 = self.H * self.H * dx
         if verbose:
             info(f"Q_h2: {assemble(Q_h2)}")
 
@@ -1346,7 +1315,7 @@ class ssa_solver:
         self.ddJ = CachedHessian(J)
 
     def save_ts_zero(self):
-        self.H_init = Function(self.H_np.function_space())
+        self.H_init = Function(self.H.function_space())
         self.U_init = Function(self.U.function_space())
 
         self.H_init.assign(self.H, annotate=False)
@@ -1357,8 +1326,6 @@ class ssa_solver:
 
     def reset_ts_zero(self):
         self.U.assign(self.U_init, annotate=False)
-        self.U_np.assign(self.U_init, annotate=False)
-        self.H_np.assign(self.H_init, annotate=False)
         self.H.assign(self.H_init, annotate=False)
 
 # TODO - this isn't referenced anywhere

@@ -81,7 +81,6 @@ class model:
             self.bmelt = None
             self.smb = None
             self.H = None
-            self.H_np = None
             self.surf = None
 
         if init_vel_obs:
@@ -112,9 +111,7 @@ class model:
         self.bed = self.field_from_data("bed", self.Q, static=True)
         self.bmelt = self.field_from_data("bmelt", self.M, default=0.0, static=True)
         self.smb = self.field_from_data("smb", self.M, default=0.0, static=True)
-        self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
-
-        self.H = self.H_np.copy(deepcopy=True)
+        self.H = self.field_from_data("thick", self.M, min_val=min_thick)
         self.H.rename("thick_H", "")
 
         self.gen_surf()  # surf = bed + thick
