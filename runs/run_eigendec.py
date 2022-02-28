@@ -16,6 +16,9 @@
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
 #!/usr/bin/env python
+
+from fenics_ice.backend import Function, Vector, function_get_values
+
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -23,8 +26,6 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 import sys
 import resource
 
-from fenics import *
-from tlm_adjoint.fenics import *
 from pathlib import Path
 import datetime
 
@@ -206,8 +207,6 @@ def run_eigendec(config_file):
     return mdl
 
 if __name__ == "__main__":
-    stop_manager()
-
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_eigendec(sys.argv[1])
 

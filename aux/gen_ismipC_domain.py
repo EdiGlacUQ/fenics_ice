@@ -26,7 +26,6 @@ import argparse
 import h5py
 from pathlib import Path
 
-from fenics import File, RectangleMesh, Point
 from fenics_ice import test_domains
 
 def main(outfname, L, nx, ny, reflect):

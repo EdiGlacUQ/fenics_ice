@@ -17,11 +17,11 @@
 
 # -*- coding: utf-8 -*-
 
+from fenics_ice.backend import Function, norm
+
 import pytest
 import os
 import numpy as np
-from fenics import *
-from tlm_adjoint.fenics import *
 import fenics_ice as fice
 from fenics_ice import model, config, inout, solver
 

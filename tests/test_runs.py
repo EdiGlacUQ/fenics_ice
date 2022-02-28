@@ -15,11 +15,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from fenics_ice.backend import clear_caches, compute_gradient, norm, \
+    reset_manager, stop_manager, taylor_test, taylor_test_tlm, \
+    taylor_test_tlm_adjoint
+
 import pytest
 import numpy as np
 from runs import run_inv, run_forward, run_eigendec, run_errorprop, run_invsigma
-from tlm_adjoint.fenics import *
-from fenics import norm
 from fenics_ice import config
 from pathlib import Path
 from mpi4py import MPI

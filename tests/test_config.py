@@ -15,10 +15,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+import fenics_ice.backend as fe
+
 from mpi4py import MPI
 import pytest
 import numpy as np
-import fenics as fe
 import fenics_ice as fice
 from fenics_ice import config, inout, test_domains
 from pathlib import Path

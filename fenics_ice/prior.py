@@ -15,8 +15,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with fenics_ice.  If not, see <https://www.gnu.org/licenses/>.
 
-from dolfin import *
-from tlm_adjoint.fenics import *
+from .backend import Constant, Function, KrylovSolver, TestFunctions, \
+    TrialFunctions, Vector, assemble, dx, grad, inner, solve
+
 import ufl
 from .decorators import count_calls, timer, flag_errors
 from abc import ABC, abstractmethod

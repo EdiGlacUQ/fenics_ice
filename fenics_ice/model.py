@@ -15,8 +15,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics import *
-from dolfin import *
+from .backend import *
+
 import ufl
 import numpy as np
 from pathlib import Path

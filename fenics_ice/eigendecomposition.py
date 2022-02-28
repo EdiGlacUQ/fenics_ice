@@ -50,17 +50,15 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from tlm_adjoint.fenics import function_get_values, function_global_size, \
-    function_local_size, function_set_values, is_function, space_comm, \
-    space_new
+from .backend import HDF5File, XDMFFile, function_get_values, \
+    function_global_size, function_local_size, function_set_values, \
+    is_function, norm, project, space_comm, space_new
 
 from fenics_ice import prior
-from fenics import norm, project
 
 import pickle
 import numpy as np
 import petsc4py.PETSc as PETSc
-from fenics import HDF5File, XDMFFile
 from pathlib import Path
 import os
 import logging

@@ -23,6 +23,8 @@ lots of boilerplate code. Each of the classes which is prepended with a @datacla
 which inherits from ConfigPrinter defines a seperate section of the configuration.
 """
 
+from .backend import parameters as fenics_params
+
 import os
 import math
 import toml
@@ -30,7 +32,6 @@ from dataclasses import dataclass, field
 import numpy as np
 from pathlib import Path
 import pprint
-from fenics import parameters as fenics_params
 
 class ConfigPrinter(object):
     """
