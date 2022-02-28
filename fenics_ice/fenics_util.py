@@ -18,6 +18,8 @@
 from .backend import Constant, File, Function, FunctionSpace, Mesh, \
     VectorFunctionSpace, project
 
+from . import model
+
 import numpy as np
 import sys
 import os
@@ -25,7 +27,6 @@ from pylab import plt
 from matplotlib import colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from IPython import embed
-from fenics_ice import model
 import collections.abc
 
 def plot_variable(u, name, direc, cmap='gist_yarg', scale='lin', numLvls=12,
