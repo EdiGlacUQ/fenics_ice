@@ -404,7 +404,7 @@ class IOCfg(ConfigPrinter):
     sigma_prior_file: str = None  # "sigma_prior.p"
 
     log_level: str = "info"
-    output_var_format: str = "both"
+    output_var_format: str = "pvd"
 
     def set_default_filename(self, attr_name, suffix):
         """Sets a default filename (prefixed with run_name) & check suffix"""
@@ -457,7 +457,10 @@ class TimeCfg(ConfigPrinter):
     total_steps: int = None
     dt: float = None
     num_sens: int = 1
-    save_every_tstep: bool = False
+    # frequency in years to save output. 
+    # will adjust so that it is an integer number of time steps.
+    # will not write files if set to zero.
+    save_frequency: float = 0
 
     def __post_init__(self):
         """

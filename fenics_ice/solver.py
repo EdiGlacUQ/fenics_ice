@@ -522,18 +522,15 @@ class ssa_solver:
           constants = self.params.constants
           rhow = constants.rhow
           rhoi = constants.rhoi
-          depth = -rhoi/rhow * H_np
+          depth = rhoi/rhow * H_np
           meltcond = self.melt_conditional(H_np,H_DG)
           meltdepthparam = self.melt_depth_conditional()
           meltmaxparam = self.melt_max_conditional()
-          bmelt = meltcond * meltmaxparam / 2.0 * \
-           (1.0 + ufl.tanh((H_np-meltdepthparam/2.0)/(meltdepthparam/4.0)))
-          self.melt_field = project(bmelt, self.M)
+          self.bmelt = meltcond * meltmaxparam / 2.0 * \
+           (1.0 + ufl.tanh((depth-meltdepthparam/2.0)/(meltdepthparam/4.0)))
+          self.melt_field = project(self.bmelt, self.M)
           
-        else:
-
-          bmelt = self.bmelt
-          
+        bmelt = self.bmelt
 
         # Crank Nicholson
         # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dx
@@ -567,7 +564,7 @@ class ssa_solver:
             * ds
 
             # basal melting
-            + bmelt*Ksi*fl_ex*dx
+            + bmelt*Ksi*dx
 
             # surface mass balance
             - smb*Ksi*dx
@@ -597,6 +594,7 @@ class ssa_solver:
                                  "relative_tolerance": 1e-11,
               })  # Not sure these solver params are necessary (linear solve)
         LocalProjectionSolver(H, self.H_DG).solve() 
+        self.melt_field = project(self.bmelt, self.M)
 
     def timestep(self, adjoint_flag=1, qoi_func=None ):
         """
@@ -609,8 +607,13 @@ class ssa_solver:
         n_steps = config.total_steps
         dt = config.dt
         run_length = config.run_length
-        save_every_tstep = config.save_every_tstep
-
+        save_frequency = config.save_frequency
+        n_save_frequency = int(np.round(save_frequency/dt))
+        if (n_save_frequency < 1): 
+         n_save_frequency = 1
+        elif(n_save_frequency > n_steps):
+         n_save_frequency = n_steps
+       
         outdir = self.params.io.output_dir
 
         t = 0.0
@@ -661,17 +664,34 @@ class ssa_solver:
             new_block()
 
         # Write out U & H at each timestep.
-        if save_every_tstep:
-            Hfile = Path(outdir) / "_".join((self.params.io.run_name,
-                                             'H_ts.xdmf'))
-            Ufile = Path(outdir) / "_".join((self.params.io.run_name,
-                                             'U_ts.xdmf'))
+        if (save_frequency>0):
+            #Hfile = Path(outdir) / "_".join((self.params.io.run_name,
+            #                                 'H_ts.xdmf'))
+            #%Ufile = Path(outdir) / "_".join((self.params.io.run_name,
+            #                                 'U_ts.xdmf'))
 
-            xdmf_hts = XDMFFile(self.mesh.mpi_comm(), str(Hfile))
-            xdmf_uts = XDMFFile(self.mesh.mpi_comm(), str(Ufile))
+            #xdmf_hts = XDMFFile(self.mesh.mpi_comm(), str(Hfile))
+            #xdmf_uts = XDMFFile(self.mesh.mpi_comm(), str(Ufile))
 
-            xdmf_hts.write(H_np, 0.0)
-            xdmf_uts.write(U_np, 0.0)
+            #xdmf_hts.write(H_np, 0.0)
+            #xdmf_uts.write(U_np, 0.0)
+
+            Hname = "H_timestep_" + str(0)
+            inout.write_variable(H_np, self.params, name=Hname)
+            Uname = "U_timestep_" + str(0)
+            inout.write_variable(U_np, self.params, name=Uname)
+
+            if self.params.melt.use_melt_parameterisation:
+
+              #Meltfile = Path(outdir) / "_".join((self.params.io.run_name,
+              #                               'Melt_ts.xdmf'))
+              #xdmf_mts = XDMFFile(self.mesh.mpi_comm(), str(Meltfile))
+              #xdmf_mts.write(self.melt_field, 0.0)
+
+              Mname = "Melt_timestep_" + str(0)
+              inout.write_variable(self.melt_field, self.params, name=Mname)
+
+
 
         ########################
         # Main timestepping loop
@@ -681,13 +701,18 @@ class ssa_solver:
 
             # Solve
 
-
+            #melt_field_prev = self.melt_field.copy(deepcopy=True)
             # Simple Scheme
+            #self.def_thickadv_eq()
             self.solve_thickadv_eq()
             H_np.assign(self.H)
 
             self.solve_mom_eq()
             U_np.assign(self.U)
+
+            #melt_field_diff = project(self.melt_field-melt_field_prev,self.melt_field.function_space())
+            #print("GOT HERE")
+            #print(np.max(np.abs(melt_field_diff.vector()[:])))
 
             # increment time
             n += 1
@@ -708,14 +733,26 @@ class ssa_solver:
             if n < n_steps and adjoint_flag:
                 new_block()
 
-            if save_every_tstep:
-                xdmf_hts.write(H_np, t)
-                xdmf_uts.write(U_np, t)
+            if ((save_frequency>0) and (n%n_save_frequency==0)):
+                #xdmf_hts.write(H_np, t)
+                #xdmf_uts.write(U_np, t)
+
+                Hname = "H_timestep_" + str(n)
+                inout.write_variable(H_np, self.params, name=Hname)
+                Uname = "U_timestep_" + str(n)
+                inout.write_variable(U_np, self.params, name=Uname)
+
+                if self.params.melt.use_melt_parameterisation:
+                  #xdmf_mts.write(self.melt_field, t)
+                  Mname = "Melt_timestep_" + str(n)
+                  inout.write_variable(self.melt_field, self.params, name=Mname)
         # End of timestepping loop
 
-        if save_every_tstep:
-            xdmf_hts.close()
-            xdmf_uts.close()
+        #if (save_frequency>0):
+        #    xdmf_hts.close()
+        #    xdmf_uts.close()
+        #    if self.params.melt.use_melt_parameterisation:
+        #      xdmf_mts.close()
 
         return Q_is if qoi_func is not None else None
 

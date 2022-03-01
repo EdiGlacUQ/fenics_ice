@@ -285,11 +285,18 @@ def write_variable(var, params, name=None):
     if 'xml' in output_var_format:
         xml_fname = str(outfname.with_suffix(".xml"))
         File(xml_fname) << outvar
-    if 'both' in output_var_format:
+    if 'h5' in output_var_format:
+        hdf5out = HDF5File(MPI.comm_world, str(outfname.with_suffix(".h5"), 'w')
+        hdf5out.write(outvar, name)
+        hdf5out.close()
+    if 'all' in output_var_format:
         vtk_fname = str(outfname.with_suffix(".pvd"))
         xml_fname = str(outfname.with_suffix(".xml"))
         File(vtk_fname) << outvar
         File(xml_fname) << outvar
+        hdf5out = HDF5File(MPI.comm_world, str(outfname.with_suffix(".h5"), 'w')
+        hdf5out.write(outvar, name)a
+        hdf5out.close()
 
     logging.info("Writing function %s to file %s" % (name, outfname))
 
