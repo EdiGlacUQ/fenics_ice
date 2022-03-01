@@ -1133,13 +1133,15 @@ class ssa_solver:
         J = Functional(name="J")
 
         # The following evaluates
-        #   (P u - u_obs)^T R_u_obs^{-1} (P u - u_obs)
-        #   + (P v - v_obs)^T R_v_obs^{-1} (P v - v_obs)
+        #   0.5 * (P u - u_obs)^T R_u_obs^{-1} (P u - u_obs)
+        #   + 0.5 * (P v - v_obs)^T R_v_obs^{-1} (P v - v_obs)
         # for the case where R_u_obs and R_v_obs are diagonal, with diagonals
         # u_std ** 2 and v_std ** 2 respectively.
         #
         # Note that this *does not* annotate equations necessary for computing
         # derivatives with respect to u_obs, v_obs, u_std, or v_std.
+
+        fac = 0.5
 
         if not hasattr(self, "_cached_J_mismatch_data"):
             from tlm_adjoint.fenics.fenics_equations import InterpolationMatrix
@@ -1187,34 +1189,34 @@ class ssa_solver:
         J_ls_term_u = Functional(name="J_term_u", space=J.space())
         J_ls_term_v = Functional(name="J_term_v", space=J.space())
 
-        # u^T P^T R_u_obs^{-1} P u
+        # .5 * u^T P^T R_u_obs^{-1} P u
         J_term = space_new(J.space())
-        InnerProductSolver(uf, uf, J_term, M=u_PRP).solve()
+        InnerProductSolver(uf, uf, J_term, M=u_PRP, alpha = fac).solve()
         J_ls_term_u.addto(J_term)
 
-        # v^T P^T R_v_obs^{-1} P v
+        # .5 * v^T P^T R_v_obs^{-1} P v
         J_term = space_new(J.space())
-        InnerProductSolver(vf, vf, J_term, M=v_PRP).solve()
+        InnerProductSolver(vf, vf, J_term, M=v_PRP, alpha = fac).solve()
         J_ls_term_v.addto(J_term)
 
-        # -2 u_obs^T R_u_obs^{-1} P u
+        # -.5 * 2 * u_obs^T R_u_obs^{-1} P u
         J_term = space_new(J.space())
-        InnerProductSolver(uf, l_u_obs, J_term, alpha=-2.0).solve()
+        InnerProductSolver(uf, l_u_obs, J_term, alpha=-2.0 * fac).solve()
         J_ls_term_u.addto(J_term)
 
-        # -2 v_obs^T R_v_obs^{-1} P v
+        # -.5 * 2 * v_obs^T R_v_obs^{-1} P v
         J_term = space_new(J.space())
-        InnerProductSolver(vf, l_v_obs, J_term, alpha=-2.0).solve()
+        InnerProductSolver(vf, l_v_obs, J_term, alpha=-2.0 * fac).solve()
         J_ls_term_v.addto(J_term)
 
-        # u_obs R_u_obs^{-1} u_obs
+        # .5 * u_obs R_u_obs^{-1} u_obs
         J_term = space_new(J.space())
-        function_assign(J_term, J_u_obs)
+        function_assign(J_term, fac * J_u_obs)
         J_ls_term_u.addto(J_term)
 
-        # v_obs R_v_obs^{-1} v_obs
+        # .5 * v_obs R_v_obs^{-1} v_obs
         J_term = space_new(J.space())
-        function_assign(J_term, J_v_obs)
+        function_assign(J_term, fac * J_v_obs)
         J_ls_term_v.addto(J_term)
 
         J_ls_term_u = J_ls_term_u.fn()
