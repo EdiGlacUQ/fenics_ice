@@ -19,16 +19,15 @@
 Run the momentum solver only. Primarily used to generate velocity field
 for ismip-c case before running the main model.
 """
+
+from fenics_ice.backend import HDF5File
+
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 import sys
 from pathlib import Path
-from dolfin import *
-from tlm_adjoint.fenics import *
-
-# from fenics import *
 
 from fenics_ice import model, solver, inout
 import fenics_ice.mesh as fice_mesh
@@ -76,7 +75,5 @@ def run_momsolve(config_file):
 
 
 if __name__ == "__main__":
-    stop_manager()
-
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_momsolve(sys.argv[1])

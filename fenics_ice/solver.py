@@ -15,8 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics import *
-from tlm_adjoint.fenics import *
+from .backend import *
 
 from . import inout
 from .minimize_l_bfgs import minimize_l_bfgs
@@ -29,6 +28,7 @@ import numpy as np
 from pathlib import Path
 import time
 import ufl
+import weakref
 
 log = logging.getLogger("fenics_ice")
 
@@ -62,7 +62,7 @@ class ssa_solver:
         parameters["form_compiler"]["cpp_optimize_flags"] = "-O2 -ffast-math -march=native"
         parameters["form_compiler"]["precision"] = 16
 
-        self.model = model
+        self.model = weakref.proxy(model)
         self.model.solvers.append(self)
         self.params = model.params
         self.mixed_space = mixed_space

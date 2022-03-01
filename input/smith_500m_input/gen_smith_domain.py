@@ -15,10 +15,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from fenics_ice.backend import File, Point, RectangleMesh
+
 import os
 import argparse
 from pathlib import Path
-from fenics import *
 import scipy.interpolate as interp
 import matplotlib.pyplot as plt
 
