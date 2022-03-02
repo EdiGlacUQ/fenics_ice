@@ -22,9 +22,10 @@ Module to handle all things mesh to avoid code repetition in run scripts.
 from .backend import FunctionSpace, MPI, Mesh, MeshFunction, \
     MeshValueCollection, VectorFunctionSpace, XDMFFile, parameters
 
+from . import model
+
 import os
 import numpy as np
-from fenics_ice import model
 from pathlib import Path
 import logging
 

@@ -54,7 +54,7 @@ from .backend import HDF5File, XDMFFile, function_get_values, \
     function_global_size, function_local_size, function_set_values, \
     is_function, norm, project, space_comm, space_new
 
-from fenics_ice import prior
+from . import prior
 
 import pickle
 import numpy as np
