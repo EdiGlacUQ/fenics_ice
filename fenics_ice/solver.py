@@ -1253,8 +1253,8 @@ class ssa_solver:
         if verbose:
             J_ls_u = new_scalar_function(name="J_ls_term_x")
             J_ls_v = new_scalar_function(name="J_ls_term_y")
-            ExprEvaluationSolver(J_ls_term_u, J_ls_u).solve()
-            ExprEvaluationSolver(J_ls_term_v, J_ls_v).solve()
+            AssignmentSolver(J_ls_term_u, J_ls_u).solve()
+            AssignmentSolver(J_ls_term_v, J_ls_v).solve()
 
             # Print out results
             J1 = J.value()
