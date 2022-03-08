@@ -616,6 +616,8 @@ class ssa_solver:
        
         outdir = self.params.io.output_dir
 
+        embed()
+
         t = 0.0
 
         # Initialize QoI structures

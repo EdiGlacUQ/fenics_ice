@@ -431,7 +431,7 @@ class IOCfg(ConfigPrinter):
 
         assert self.output_var_format in ["pvd",
                                           "xml",
-                                          "both"], \
+                                          "all"], \
             "Invalid variable output file format"
 
         fname_default_suff = {
