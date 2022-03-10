@@ -593,7 +593,6 @@ class ssa_solver:
                                  "relative_tolerance": 1e-11,
               })  # Not sure these solver params are necessary (linear solve)
         LocalProjectionSolver(H, self.H_DG).solve() 
-        self.melt_field = project(self.bmelt, self.M)
 
     def timestep(self, adjoint_flag=1, qoi_func=None ):
         """
@@ -719,6 +718,7 @@ class ssa_solver:
                 inout.write_variable(U_np, self.params, name=Uname)
 
                 if self.params.melt.use_melt_parameterisation:
+                  self.melt_field = project(self.bmelt, self.M)
                   Mname = "Melt_timestep_" + str(n)
                   inout.write_variable(self.melt_field, self.params, name=Mname)
         # End of timestepping loop
