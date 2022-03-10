@@ -23,7 +23,6 @@ import scipy.interpolate as interp
 import matplotlib.pyplot as plt
 
 import numpy as np
-from IPython import embed
 
 #########################################
 #Details of model domain grid + Constants

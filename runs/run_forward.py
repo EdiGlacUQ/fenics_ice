@@ -80,11 +80,14 @@ def run_forward(config_file):
     inout.write_dqval(dQ_ts, [var.name() for var in cntrl], params)
 
     # Output final velocity, surface & thickness (visualisation)
-    inout.write_variable(slvr.U, params, name="U_fwd")
-    inout.write_variable(mdl.surf, params, name="surf_fwd")
+    inout.write_variable(slvr.U, params, name="U_fwd",
+                         phase_suffix=params.time.phase_suffix)
+    inout.write_variable(mdl.surf, params, name="surf_fwd",
+                         phase_suffix=params.time.phase_suffix)
 
     H = project(mdl.H, mdl.Q)
-    inout.write_variable(H, params, name="H_fwd")
+    inout.write_variable(H, params, name="H_fwd",
+                         phase_suffix=params.time.phase_suffix)
 
     return mdl
 

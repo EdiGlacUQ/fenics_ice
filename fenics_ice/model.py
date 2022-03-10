@@ -20,6 +20,7 @@ from .backend import *
 from . import inout, prior
 from . import mesh as fice_mesh
 
+import os.path
 import ufl
 import numpy as np
 from pathlib import Path
@@ -177,6 +178,11 @@ class model:
     def alpha_from_inversion(self):
         """Get alpha field from inversion step"""
         inversion_file = self.params.io.inversion_file
+
+        phase_suffix = self.params.inversion.phase_suffix
+        if len(phase_suffix) > 0:
+            inversion_file = self.params.io.run_name + phase_suffix + '_invout.h5'
+
         outdir = self.params.io.output_dir
 
         with HDF5File(self.mesh.mpi_comm(),
@@ -187,6 +193,11 @@ class model:
     def beta_from_inversion(self):
         """Get beta field from inversion step"""
         inversion_file = self.params.io.inversion_file
+
+        phase_suffix = self.params.inversion.phase_suffix
+        if len(phase_suffix) > 0:
+            inversion_file = self.params.io.run_name + phase_suffix + '_invout.h5'
+
         outdir = self.params.io.output_dir
 
         with HDF5File(self.mesh.mpi_comm(),
@@ -459,8 +470,8 @@ class model:
         else:
             raise NotImplementedError(f"Don't have code for method {method}")
 
-
-        inout.write_variable(self.alpha, self.params, name="alpha_init_guess")
+        phase_suffix = self.params.inversion.phase_suffix
+        inout.write_variable(self.alpha, self.params, name="alpha_init_guess", phase_suffix=phase_suffix)
 
     def mark_BCs(self):
         """

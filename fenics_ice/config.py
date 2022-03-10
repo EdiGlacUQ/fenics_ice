@@ -177,6 +177,7 @@ class InversionCfg(ConfigPrinter):
     use_cloud_point_velocities: bool = False
 
     mass_precon: bool = True
+    phase_suffix: str = ''
 
     def __post_init__(self):
         """
@@ -210,6 +211,7 @@ class ErrorPropCfg(ConfigPrinter):
     Configuration related to error propagation
     """
     qoi: str = 'vaf'
+    phase_suffix: str = ''
 
 @dataclass(frozen=True)
 class InvSigmaCfg(ConfigPrinter):
@@ -218,6 +220,7 @@ class InvSigmaCfg(ConfigPrinter):
     """
     patch_downscale: float = None
     npatches: int = None
+    phase_suffix: str = ''
 
     def __post_init__(self):
         """Check & supply sensible defaults"""
@@ -240,6 +243,7 @@ class EigenDecCfg(ConfigPrinter):
     test_ed: bool = False
     tol: float = 1.0e-10
     max_iter: int = 1e6
+    phase_suffix: str = ''
 
     def __post_init__(self):
         assert self.precondition_by in ["mass", "prior"], \
@@ -432,6 +436,7 @@ class IOCfg(ConfigPrinter):
 
         for fname in fname_default_suff:
             self.set_default_filename(fname, fname_default_suff[fname])
+            #embed()
 
 @dataclass(frozen=True)
 class TimeCfg(ConfigPrinter):
@@ -444,6 +449,7 @@ class TimeCfg(ConfigPrinter):
     dt: float = None
     num_sens: int = 1
     save_every_tstep: bool = False
+    phase_suffix: str = ''
 
     def __post_init__(self):
         """

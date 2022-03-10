@@ -45,10 +45,19 @@ def run_errorprop(config_file):
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
 
+    phase_suffix_e = params.eigendec.phase_suffix
+    phase_suffix_qoi = params.time.phase_suffix
+
     lamfile = params.io.eigenvalue_file
     vecfile = params.io.eigenvecs_file
     threshlam = params.eigendec.eigenvalue_thresh
     dqoi_h5file = params.io.dqoi_h5file
+
+    if len(phase_suffix_e) > 0:
+        lamfile = params.io.run_name + phase_suffix_e + '_eigvals.p'
+        vecfile = params.io.run_name + phase_suffix_e + '_vr.h5'
+    if len(phase_suffix_qoi) > 0:
+        dqoi_h5file = params.io.run_name + phase_suffix_qoi + '_dQ_ts.h5'
 
     # Get model mesh
     mesh = fice_mesh.get_mesh(params)
@@ -174,11 +183,15 @@ def run_errorprop(config_file):
     plt.xlabel("Num eig")
 
     plt.savefig(os.path.join(params.io.output_dir,
-                             "_".join((params.io.run_name, "sigmaQoI_conv.pdf"))))
+                             "_".join((params.io.run_name,
+                                       phase_suffix_qoi +
+                                       "sigmaQoI_conv.pdf"))))
     plt.close()
 
     sigmaqoi_file = os.path.join(params.io.output_dir,
-                                 "_".join((params.io.run_name, "sigma_qoi_convergence.p")))
+                                 "_".join((params.io.run_name,
+                                           phase_suffix_qoi +
+                                           "sigma_qoi_convergence.p")))
 
     with open(sigmaqoi_file, 'wb') as pfile:
         pickle.dump([sigma_steps, sigma_conv], pfile)
@@ -193,6 +206,11 @@ def run_errorprop(config_file):
     # Output model variables in ParaView+Fenics friendly format
     sigma_file = params.io.sigma_file
     sigma_prior_file = params.io.sigma_prior_file
+
+    if len(phase_suffix_qoi) > 0:
+        sigma_file = params.io.run_name + phase_suffix_qoi + '_sigma.p'
+        sigma_prior_file = params.io.run_name + phase_suffix_qoi + '_sigma_prior.p'
+
     with open( os.path.join(outdir, sigma_file), "wb" ) as sigfile:
         pickle.dump( [sigma, t_sens], sigfile)
     with open( os.path.join(outdir, sigma_prior_file), "wb" ) as sigpfile:

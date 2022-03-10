@@ -132,9 +132,17 @@ def run_invsigma(config_file):
     input_data = inout.InputData(params)
 
     eigendir = outdir
+
+    phase_suffix_e = params.eigendec.phase_suffix
+    phase_suffix_qoi = params.error_prop.phase_suffix
+
     lamfile = params.io.eigenvalue_file
     vecfile = params.io.eigenvecs_file
     threshlam = params.eigendec.eigenvalue_thresh
+
+    if len(phase_suffix_e) > 0:
+        lamfile = params.io.run_name + phase_suffix_e + '_eigvals.p'
+        vecfile = params.io.run_name + phase_suffix_e + '_vr.h5'
 
     # Get model mesh
     mesh = fice_mesh.get_mesh(params)
@@ -374,8 +382,10 @@ def run_invsigma(config_file):
         sigmas[i].rename("sigma_"+name, "")
         sigma_priors[i].rename("sigma_prior_"+name, "")
 
-        inout.write_variable(sigmas[i], params)
-        inout.write_variable(sigma_priors[i], params)
+        phase_suffix_sigma = params.inv_sigma.phase_suffix
+
+        inout.write_variable(sigmas[i], params, phase_suffix=phase_suffix_sigma)
+        inout.write_variable(sigma_priors[i], params, phase_suffix=phase_suffix_sigma)
 
     mdl.cntrl_sigma = sigmas
     mdl.cntrl_sigma_prior = sigma_priors
