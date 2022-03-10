@@ -15,13 +15,14 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics import *
-from dolfin import *
+from .backend import *
+
+from . import inout, prior
+from . import mesh as fice_mesh
+
 import ufl
 import numpy as np
 from pathlib import Path
-from fenics_ice import inout, prior
-from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
 import logging
 

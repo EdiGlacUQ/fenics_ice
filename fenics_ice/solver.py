@@ -15,8 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics import *
-from tlm_adjoint.fenics import *
+from .backend import *
 
 from . import inout
 from .minimize_l_bfgs import minimize_l_bfgs
@@ -29,6 +28,7 @@ import numpy as np
 from pathlib import Path
 import time
 import ufl
+import weakref
 
 log = logging.getLogger("fenics_ice")
 
@@ -62,7 +62,7 @@ class ssa_solver:
         parameters["form_compiler"]["cpp_optimize_flags"] = "-O2 -ffast-math -march=native"
         parameters["form_compiler"]["precision"] = 16
 
-        self.model = model
+        self.model = weakref.proxy(model)
         self.model.solvers.append(self)
         self.params = model.params
         self.mixed_space = mixed_space
@@ -1206,13 +1206,15 @@ class ssa_solver:
         J = Functional(name="J")
 
         # The following evaluates
-        #   (P u - u_obs)^T R_u_obs^{-1} (P u - u_obs)
-        #   + (P v - v_obs)^T R_v_obs^{-1} (P v - v_obs)
+        #   0.5 * (P u - u_obs)^T R_u_obs^{-1} (P u - u_obs)
+        #   + 0.5 * (P v - v_obs)^T R_v_obs^{-1} (P v - v_obs)
         # for the case where R_u_obs and R_v_obs are diagonal, with diagonals
         # u_std ** 2 and v_std ** 2 respectively.
         #
         # Note that this *does not* annotate equations necessary for computing
         # derivatives with respect to u_obs, v_obs, u_std, or v_std.
+
+        fac = 0.5
 
         if not hasattr(self, "_cached_J_mismatch_data"):
             from tlm_adjoint.fenics.fenics_equations import InterpolationMatrix
@@ -1260,34 +1262,34 @@ class ssa_solver:
         J_ls_term_u = Functional(name="J_term_u", space=J.space())
         J_ls_term_v = Functional(name="J_term_v", space=J.space())
 
-        # u^T P^T R_u_obs^{-1} P u
+        # .5 * u^T P^T R_u_obs^{-1} P u
         J_term = space_new(J.space())
-        InnerProductSolver(uf, uf, J_term, M=u_PRP).solve()
+        InnerProductSolver(uf, uf, J_term, M=u_PRP, alpha = fac).solve()
         J_ls_term_u.addto(J_term)
 
-        # v^T P^T R_v_obs^{-1} P v
+        # .5 * v^T P^T R_v_obs^{-1} P v
         J_term = space_new(J.space())
-        InnerProductSolver(vf, vf, J_term, M=v_PRP).solve()
+        InnerProductSolver(vf, vf, J_term, M=v_PRP, alpha = fac).solve()
         J_ls_term_v.addto(J_term)
 
-        # -2 u_obs^T R_u_obs^{-1} P u
+        # -.5 * 2 * u_obs^T R_u_obs^{-1} P u
         J_term = space_new(J.space())
-        InnerProductSolver(uf, l_u_obs, J_term, alpha=-2.0).solve()
+        InnerProductSolver(uf, l_u_obs, J_term, alpha=-2.0 * fac).solve()
         J_ls_term_u.addto(J_term)
 
-        # -2 v_obs^T R_v_obs^{-1} P v
+        # -.5 * 2 * v_obs^T R_v_obs^{-1} P v
         J_term = space_new(J.space())
-        InnerProductSolver(vf, l_v_obs, J_term, alpha=-2.0).solve()
+        InnerProductSolver(vf, l_v_obs, J_term, alpha=-2.0 * fac).solve()
         J_ls_term_v.addto(J_term)
 
-        # u_obs R_u_obs^{-1} u_obs
+        # .5 * u_obs R_u_obs^{-1} u_obs
         J_term = space_new(J.space())
-        function_assign(J_term, J_u_obs)
+        function_assign(J_term, fac * J_u_obs)
         J_ls_term_u.addto(J_term)
 
-        # v_obs R_v_obs^{-1} v_obs
+        # .5 * v_obs R_v_obs^{-1} v_obs
         J_term = space_new(J.space())
-        function_assign(J_term, J_v_obs)
+        function_assign(J_term, fac * J_v_obs)
         J_ls_term_v.addto(J_term)
 
         J_ls_term_u = J_ls_term_u.fn()
@@ -1324,8 +1326,8 @@ class ssa_solver:
         if verbose:
             J_ls_u = new_scalar_function(name="J_ls_term_x")
             J_ls_v = new_scalar_function(name="J_ls_term_y")
-            ExprEvaluationSolver(J_ls_term_u, J_ls_u).solve()
-            ExprEvaluationSolver(J_ls_term_v, J_ls_v).solve()
+            AssignmentSolver(J_ls_term_u, J_ls_u).solve()
+            AssignmentSolver(J_ls_term_v, J_ls_v).solve()
 
             # Print out results
             J1 = J.value()
