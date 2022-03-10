@@ -23,7 +23,6 @@ from pathlib import Path
 from fenics_ice import inout, prior
 from fenics_ice import mesh as fice_mesh
 from numpy.random import randn
-from IPython import embed
 import logging
 
 log = logging.getLogger("fenics_ice")

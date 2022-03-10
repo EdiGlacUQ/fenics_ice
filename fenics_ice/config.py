@@ -30,7 +30,6 @@ from dataclasses import dataclass, field
 import numpy as np
 from pathlib import Path
 import pprint
-from IPython import embed
 from fenics import parameters as fenics_params
 
 class ConfigPrinter(object):

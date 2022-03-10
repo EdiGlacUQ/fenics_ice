@@ -29,7 +29,6 @@ import numpy as np
 from pathlib import Path
 import time
 import ufl
-from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -616,8 +615,6 @@ class ssa_solver:
        
         outdir = self.params.io.output_dir
 
-        embed()
-
         t = 0.0
 
         # Initialize QoI structures
@@ -667,16 +664,6 @@ class ssa_solver:
 
         # Write out U & H at each timestep.
         if (save_frequency>0):
-            #Hfile = Path(outdir) / "_".join((self.params.io.run_name,
-            #                                 'H_ts.xdmf'))
-            #%Ufile = Path(outdir) / "_".join((self.params.io.run_name,
-            #                                 'U_ts.xdmf'))
-
-            #xdmf_hts = XDMFFile(self.mesh.mpi_comm(), str(Hfile))
-            #xdmf_uts = XDMFFile(self.mesh.mpi_comm(), str(Ufile))
-
-            #xdmf_hts.write(H_np, 0.0)
-            #xdmf_uts.write(U_np, 0.0)
 
             Hname = "H_timestep_" + str(0)
             inout.write_variable(H_np, self.params, name=Hname)
@@ -684,11 +671,6 @@ class ssa_solver:
             inout.write_variable(U_np, self.params, name=Uname)
 
             if self.params.melt.use_melt_parameterisation:
-
-              #Meltfile = Path(outdir) / "_".join((self.params.io.run_name,
-              #                               'Melt_ts.xdmf'))
-              #xdmf_mts = XDMFFile(self.mesh.mpi_comm(), str(Meltfile))
-              #xdmf_mts.write(self.melt_field, 0.0)
 
               Mname = "Melt_timestep_" + str(0)
               inout.write_variable(self.melt_field, self.params, name=Mname)
@@ -703,18 +685,12 @@ class ssa_solver:
 
             # Solve
 
-            #melt_field_prev = self.melt_field.copy(deepcopy=True)
             # Simple Scheme
-            #self.def_thickadv_eq()
             self.solve_thickadv_eq()
             H_np.assign(self.H)
 
             self.solve_mom_eq()
             U_np.assign(self.U)
-
-            #melt_field_diff = project(self.melt_field-melt_field_prev,self.melt_field.function_space())
-            #print("GOT HERE")
-            #print(np.max(np.abs(melt_field_diff.vector()[:])))
 
             # increment time
             n += 1
@@ -736,8 +712,6 @@ class ssa_solver:
                 new_block()
 
             if ((save_frequency>0) and (n%n_save_frequency==0)):
-                #xdmf_hts.write(H_np, t)
-                #xdmf_uts.write(U_np, t)
 
                 Hname = "H_timestep_" + str(n)
                 inout.write_variable(H_np, self.params, name=Hname)
@@ -745,16 +719,9 @@ class ssa_solver:
                 inout.write_variable(U_np, self.params, name=Uname)
 
                 if self.params.melt.use_melt_parameterisation:
-                  #xdmf_mts.write(self.melt_field, t)
                   Mname = "Melt_timestep_" + str(n)
                   inout.write_variable(self.melt_field, self.params, name=Mname)
         # End of timestepping loop
-
-        #if (save_frequency>0):
-        #    xdmf_hts.close()
-        #    xdmf_uts.close()
-        #    if self.params.melt.use_melt_parameterisation:
-        #      xdmf_mts.close()
 
         return Q_is if qoi_func is not None else None
 
@@ -1116,7 +1083,7 @@ class ssa_solver:
         return fl_ex
 
     def bglen_data_conditional(self, H, glen_mask, H_float=None):
-        """Compute a ufl Conditional where floating=1, grounded=0"""
+        """Compute a ufl Conditional where dat available=1, o.w. 0"""
 
         if not self.params.ice_dynamics.allow_flotation:
             fl_beta_mask = ufl.operators.Conditional(ufl.eq(self.model.bglen_mask,1.0), 
@@ -1156,7 +1123,7 @@ class ssa_solver:
         return melt_mask
 
     def melt_depth_conditional(self):
-        """Compute a ufl Conditional where domain = 1 or 2"""
+        """Compute a ufl Conditional where melt domain = 1 or 2, and return appropriate param"""
 
         constants = self.params.melt
         depth1 = constants.depth_therm_domain_1
@@ -1170,7 +1137,7 @@ class ssa_solver:
         return melt_depth
 
     def melt_max_conditional(self):
-        """Compute a ufl Conditional where domain = 1 or 2"""
+        """Compute a ufl Conditional where melt domain = 1 or 2, and return appropriate param"""
 
         constants = self.params.melt
         max1 = constants.max_melt_domain_1
