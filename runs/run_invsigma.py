@@ -26,6 +26,7 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 import sys
 import pickle
 import numpy as np
+from pathlib import Path
 
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
@@ -60,7 +61,7 @@ def patch_fun(mesh_in, params):
 
     # Ratio of n_patches to n_cells
     if params.inv_sigma.npatches is not None:
-        ntgt = param.inv_sigma.npatches
+        ntgt = params.inv_sigma.npatches
     else:
         ntgt = int(np.floor(ncells * params.inv_sigma.patch_downscale))
 
@@ -127,15 +128,14 @@ def run_invsigma(config_file):
     inout.log_preamble("inv sigma", params)
 
     outdir = params.io.output_dir
+    diags_dir = params.io.diagnostics_dir
 
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
 
-    eigendir = outdir
-
+    # Eigen decomposition params
     phase_suffix_e = params.eigendec.phase_suffix
-    phase_suffix_qoi = params.error_prop.phase_suffix
-
+    eigendir = Path(outdir)/params.eigendec.phase_name/phase_suffix_e
     lamfile = params.io.eigenvalue_file
     vecfile = params.io.eigenvecs_file
     threshlam = params.eigendec.eigenvalue_thresh
@@ -384,8 +384,14 @@ def run_invsigma(config_file):
 
         phase_suffix_sigma = params.inv_sigma.phase_suffix
 
-        inout.write_variable(sigmas[i], params, phase_suffix=phase_suffix_sigma)
-        inout.write_variable(sigma_priors[i], params, phase_suffix=phase_suffix_sigma)
+        inout.write_variable(sigmas[i], params,
+                             outdir=outdir,
+                             phase_name=params.inv_sigma.phase_name,
+                             phase_suffix=phase_suffix_sigma)
+        inout.write_variable(sigma_priors[i], params,
+                             outdir=outdir,
+                             phase_name=params.inv_sigma.phase_name,
+                             phase_suffix=phase_suffix_sigma)
 
     mdl.cntrl_sigma = sigmas
     mdl.cntrl_sigma_prior = sigma_priors

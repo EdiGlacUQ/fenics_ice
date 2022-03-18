@@ -118,8 +118,32 @@ class ConfigParser(object):
             "Unable to find input directory"
 
         outdir = (self.top_dir / self.io.output_dir)
+        diag_dir = (self.top_dir/ self.io.diagnostics_dir)
+
+        ph_names = [self.inversion.phase_name,
+                    self.time.phase_name,
+                    self.eigendec.phase_name,
+                    self.error_prop.phase_name,
+                    self.inv_sigma.phase_name]
+
+        ph_suffix = [self.inversion.phase_suffix,
+                    self.time.phase_suffix,
+                    self.eigendec.phase_suffix,
+                    self.error_prop.phase_suffix,
+                    self.inv_sigma.phase_suffix]
+
+        for ph, suff in zip(ph_names, ph_suffix):
+            out_dir = (outdir / ph / suff)
+            out_diag_dirs = (diag_dir/ ph / suff)
+            if not out_dir.is_dir():
+                out_dir.mkdir(parents=True, exist_ok=True)
+            if not out_diag_dirs.is_dir():
+                out_diag_dirs.mkdir(parents=True, exist_ok=True)
+
         if not outdir.is_dir():
             outdir.mkdir(parents=True, exist_ok=True)
+        if not diag_dir.is_dir():
+            diag_dir.mkdir(parents=True, exist_ok=True)
 
     def set_tlm_adjoint_params(self):
         """Set some parameters for tlm_adjoint"""
@@ -177,6 +201,7 @@ class InversionCfg(ConfigPrinter):
     use_cloud_point_velocities: bool = False
 
     mass_precon: bool = True
+    phase_name: str = 'inversion'
     phase_suffix: str = ''
 
     def __post_init__(self):
@@ -211,6 +236,7 @@ class ErrorPropCfg(ConfigPrinter):
     Configuration related to error propagation
     """
     qoi: str = 'vaf'
+    phase_name: str = 'error_prop'
     phase_suffix: str = ''
 
 @dataclass(frozen=True)
@@ -220,6 +246,7 @@ class InvSigmaCfg(ConfigPrinter):
     """
     patch_downscale: float = None
     npatches: int = None
+    phase_name: str = 'inv_sigma'
     phase_suffix: str = ''
 
     def __post_init__(self):
@@ -243,6 +270,7 @@ class EigenDecCfg(ConfigPrinter):
     test_ed: bool = False
     tol: float = 1.0e-10
     max_iter: int = 1e6
+    phase_name: str = 'eigendec'
     phase_suffix: str = ''
 
     def __post_init__(self):
@@ -364,6 +392,8 @@ class IOCfg(ConfigPrinter):
     run_name: str
     input_dir: str
     output_dir: str
+    diagnostics_dir: str
+    write_diagnostics: bool = False
 
     data_file: str = None
 
@@ -449,6 +479,7 @@ class TimeCfg(ConfigPrinter):
     dt: float = None
     num_sens: int = 1
     save_every_tstep: bool = False
+    phase_name: str = 'forward'
     phase_suffix: str = ''
 
     def __post_init__(self):

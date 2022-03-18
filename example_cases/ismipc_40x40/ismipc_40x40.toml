@@ -6,6 +6,7 @@
 run_name = "ismipc_40x40"
 input_dir = "./input"
 output_dir = "./output"
+diagnostics_dir = "./diagnostics"
 data_file = "ismipc_input.h5"
 
 # All these take default values prefixed by run_name

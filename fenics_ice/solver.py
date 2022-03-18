@@ -590,6 +590,7 @@ class ssa_solver:
         save_every_tstep = config.save_every_tstep
 
         outdir = self.params.io.output_dir
+        diag_dir = self.params.io.diagnostics_dir
 
         t = 0.0
 
@@ -641,10 +642,14 @@ class ssa_solver:
         # Write out U & H at each timestep.
         if save_every_tstep:
 
+            phase_name = self.params.time.phase_name
             phase_suffix = self.params.time.phase_suffix
-            Hfile = Path(outdir) / "_".join((self.params.io.run_name + phase_suffix,
+
+            outdirsteps = Path(diag_dir)/phase_name/phase_suffix
+
+            Hfile = outdirsteps/"_".join((self.params.io.run_name + phase_suffix,
                                              'H_ts.xdmf'))
-            Ufile = Path(outdir) / "_".join((self.params.io.run_name + phase_suffix,
+            Ufile = outdirsteps/"_".join((self.params.io.run_name + phase_suffix,
                                              'U_ts.xdmf'))
 
             xdmf_hts = XDMFFile(self.mesh.mpi_comm(), str(Hfile))

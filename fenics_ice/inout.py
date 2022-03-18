@@ -200,7 +200,7 @@ class XDMFWriter(Writer):
 def gen_path(params, name, suffix, phase_suffix=''):
     """Convert e.g. 'alpha' into outdir/runname_alpha.pvd"""
 
-    outdir = Path(params.io.output_dir)
+    outdir = Path(params.io.output_dir) / params.inversion.phase_name / phase_suffix
     outfname = Path("_".join((params.io.run_name+phase_suffix, name))).with_suffix(suffix)
     return outdir/outfname
 
@@ -211,6 +211,7 @@ def write_qval(Qval, params):
     """
 
     outdir = params.io.output_dir
+    phase_name = params.time.phase_name
     filename = params.io.qoi_file
     phase_suffix = params.time.phase_suffix
 
@@ -221,7 +222,9 @@ def write_qval(Qval, params):
     n_steps = params.time.total_steps
     ts = np.linspace(0, run_length, n_steps+1)
 
-    with open(Path(outdir)/filename, 'wb') as pickle_file:
+    outdir_final = Path(outdir)/phase_name/phase_suffix
+
+    with open(outdir_final/filename, 'wb') as pickle_file:
         pickle.dump([Qval, ts], pickle_file)
 
 def write_dqval(dQ_ts, cntrl_names, params):
@@ -230,14 +233,19 @@ def write_dqval(dQ_ts, cntrl_names, params):
     """
 
     outdir = params.io.output_dir
+    diagdir = params.io.diagnostics_dir
+    phase_name = params.time.phase_name
     h5_filename = params.io.dqoi_h5file
     phase_suffix = params.time.phase_suffix
 
     if len(phase_suffix) > 0:
         h5_filename = params.io.run_name + phase_suffix + '_dQ_ts.h5'
 
-    vtkfile = File(str((Path(outdir)/h5_filename).with_suffix(".pvd")))
-    hdf5out = HDF5File(MPI.comm_world, str(Path(outdir)/h5_filename), 'w')
+    diagdir_f = Path(diagdir)/phase_name/phase_suffix
+    outdir_f = Path(outdir)/phase_name/phase_suffix
+    # TODO add this file to diags once Dan makes his pull request
+    vtkfile = File(str((diagdir_f/h5_filename).with_suffix(".pvd")))
+    hdf5out = HDF5File(MPI.comm_world, str(outdir_f/h5_filename), 'w')
     n = 0.0
 
     # Loop dQ sample times ('num_sens')
@@ -257,7 +265,7 @@ def write_dqval(dQ_ts, cntrl_names, params):
 
     hdf5out.close()
 
-def write_variable(var, params, name=None, phase_suffix=''):
+def write_variable(var, params, name=None, outdir=None, phase_name='', phase_suffix=''):
     """
     Produce xml & vtk output of supplied variable (prefixed with run name)
 
@@ -284,7 +292,7 @@ def write_variable(var, params, name=None, phase_suffix=''):
 
     outvar.rename(name, "")
     # Prefix the run name
-    outfname = Path(params.io.output_dir) / "_".join((params.io.run_name+phase_suffix, name))
+    outfname = Path(outdir) / phase_name / phase_suffix / "_".join((params.io.run_name+phase_suffix, name))
     #embed()
 
     # Write out output according to user specified format in toml
@@ -750,9 +758,10 @@ def configure_tlm_checkpointing(params):
 
 def write_inversion_info(params, conv_info, header="J, F_crit, G_crit_alpha, G_crit_beta"):
 
+    phase_name = params.inversion.phase_name
     phase_suffix = params.inversion.phase_suffix
     """Write out a list of tuples containing convergence info for inversion"""
-    outfname = Path(params.io.output_dir)/"_".join((params.io.run_name+phase_suffix,
+    outfname = Path(params.io.output_dir) / phase_name / phase_suffix /"_".join((params.io.run_name+phase_suffix,
                                                     "inversion_progress.csv"))
 
     np.savetxt(outfname, conv_info, delimiter=",", header=header)

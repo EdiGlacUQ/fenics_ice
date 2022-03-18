@@ -26,6 +26,7 @@ import numpy as np
 from pathlib import Path
 from numpy.random import randn
 import logging
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -183,10 +184,12 @@ class model:
         if len(phase_suffix) > 0:
             inversion_file = self.params.io.run_name + phase_suffix + '_invout.h5'
 
-        outdir = self.params.io.output_dir
+        outdir = Path(self.params.io.output_dir) / \
+                 self.params.inversion.phase_name / \
+                 self.params.inversion.phase_suffix
 
         with HDF5File(self.mesh.mpi_comm(),
-                      str(Path(outdir)/inversion_file),
+                      str(outdir/inversion_file),
                       'r') as infile:
             infile.read(self.alpha, 'alpha')
 
@@ -198,10 +201,12 @@ class model:
         if len(phase_suffix) > 0:
             inversion_file = self.params.io.run_name + phase_suffix + '_invout.h5'
 
-        outdir = self.params.io.output_dir
+        outdir = Path(self.params.io.output_dir) / \
+                 self.params.inversion.phase_name / \
+                 self.params.inversion.phase_suffix
 
         with HDF5File(self.mesh.mpi_comm(),
-                      str(Path(outdir)/inversion_file),
+                      str(outdir/inversion_file),
                       'r') as infile:
             infile.read(self.beta, 'beta')
 
@@ -470,8 +475,17 @@ class model:
         else:
             raise NotImplementedError(f"Don't have code for method {method}")
 
-        phase_suffix = self.params.inversion.phase_suffix
-        inout.write_variable(self.alpha, self.params, name="alpha_init_guess", phase_suffix=phase_suffix)
+        write_diag = self.params.io.write_diagnostics
+        if write_diag:
+            diag_dir = self.params.io.diagnostics_dir
+            phase_suffix = self.params.inversion.phase_suffix
+            phase_name = self.params.inversion.phase_name
+            inout.write_variable(self.alpha,
+                                 self.params,
+                                 name="alpha_init_guess",
+                                 outdir=diag_dir,
+                                 phase_name=phase_name,
+                                 phase_suffix=phase_suffix)
 
     def mark_BCs(self):
         """
