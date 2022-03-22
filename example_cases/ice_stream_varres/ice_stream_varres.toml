@@ -3,6 +3,7 @@
 run_name = "ice_stream_varres"
 input_dir = "./input"
 output_dir = "./output"
+diagnostics_dir = "./diagnostics"
 
 
 thick_data_file = "ice_stream_varres_data.h5"

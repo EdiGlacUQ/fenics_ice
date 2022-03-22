@@ -46,6 +46,8 @@ def run_forward(config_file):
     inout.log_preamble("forward", params)
 
     outdir = params.io.output_dir
+    diag_dir = params.io.diagnostics_dir
+    phase_name = params.time.phase_name
 
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
@@ -80,12 +82,17 @@ def run_forward(config_file):
     inout.write_dqval(dQ_ts, [var.name() for var in cntrl], params)
 
     # Output final velocity, surface & thickness (visualisation)
-    inout.write_variable(slvr.U, params, name="U_fwd")
-    inout.write_variable(mdl.surf, params, name="surf_fwd")
+    inout.write_variable(slvr.U, params, name="U_fwd",
+                         outdir=diag_dir, phase_name=phase_name,
+                         phase_suffix=params.time.phase_suffix)
+    inout.write_variable(mdl.surf, params, name="surf_fwd",
+                         outdir=diag_dir, phase_name=phase_name,
+                         phase_suffix=params.time.phase_suffix)
 
     H = project(mdl.H, mdl.Q)
-    inout.write_variable(H, params, name="H_fwd")
-
+    inout.write_variable(H, params, name="H_fwd",
+                         outdir=diag_dir, phase_name=phase_name,
+                         phase_suffix=params.time.phase_suffix)
     return mdl
 
 

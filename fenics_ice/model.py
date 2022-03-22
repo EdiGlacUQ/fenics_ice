@@ -20,11 +20,13 @@ from .backend import *
 from . import inout, prior
 from . import mesh as fice_mesh
 
+import os.path
 import ufl
 import numpy as np
 from pathlib import Path
 from numpy.random import randn
 import logging
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -177,20 +179,34 @@ class model:
     def alpha_from_inversion(self):
         """Get alpha field from inversion step"""
         inversion_file = self.params.io.inversion_file
-        outdir = self.params.io.output_dir
+
+        phase_suffix = self.params.inversion.phase_suffix
+        if len(phase_suffix) > 0:
+            inversion_file = self.params.io.run_name + phase_suffix + '_invout.h5'
+
+        outdir = Path(self.params.io.output_dir) / \
+                 self.params.inversion.phase_name / \
+                 self.params.inversion.phase_suffix
 
         with HDF5File(self.mesh.mpi_comm(),
-                      str(Path(outdir)/inversion_file),
+                      str(outdir/inversion_file),
                       'r') as infile:
             infile.read(self.alpha, 'alpha')
 
     def beta_from_inversion(self):
         """Get beta field from inversion step"""
         inversion_file = self.params.io.inversion_file
-        outdir = self.params.io.output_dir
+
+        phase_suffix = self.params.inversion.phase_suffix
+        if len(phase_suffix) > 0:
+            inversion_file = self.params.io.run_name + phase_suffix + '_invout.h5'
+
+        outdir = Path(self.params.io.output_dir) / \
+                 self.params.inversion.phase_name / \
+                 self.params.inversion.phase_suffix
 
         with HDF5File(self.mesh.mpi_comm(),
-                      str(Path(outdir)/inversion_file),
+                      str(outdir/inversion_file),
                       'r') as infile:
             infile.read(self.beta, 'beta')
 
@@ -459,8 +475,17 @@ class model:
         else:
             raise NotImplementedError(f"Don't have code for method {method}")
 
-
-        inout.write_variable(self.alpha, self.params, name="alpha_init_guess")
+        write_diag = self.params.io.write_diagnostics
+        if write_diag:
+            diag_dir = self.params.io.diagnostics_dir
+            phase_suffix = self.params.inversion.phase_suffix
+            phase_name = self.params.inversion.phase_name
+            inout.write_variable(self.alpha,
+                                 self.params,
+                                 name="alpha_init_guess",
+                                 outdir=diag_dir,
+                                 phase_name=phase_name,
+                                 phase_suffix=phase_suffix)
 
     def mark_BCs(self):
         """

@@ -3,6 +3,7 @@
 run_name = "ice_stream_fltgnd"
 input_dir = "./input"
 output_dir = "./output"
+diagnostics_dir = "./diagnostics"
 
 
 thick_data_file = "ice_stream_data.h5"
@@ -163,6 +164,6 @@ expected_evals_sum = 736229.8062639176
 expected_evec0_norm = 197951.57467338388
 expected_Q_sigma = 96218.0668438537
 expected_Q_sigma_prior = 27734752.37554298
-expected_cntrl_sigma_norm = 12507.05941933655
-expected_cntrl_sigma_prior_norm = 246045.26354099732
+expected_cntrl_sigma_norm = 12942.381361235446
+expected_cntrl_sigma_prior_norm = 246045.26354100602
 

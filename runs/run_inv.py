@@ -36,7 +36,6 @@ from fenics_ice.config import ConfigParser
 # import pickle
 import datetime
 
-
 def run_inv(config_file):
     """Run the inversion part of the simulation"""
     # Read run config file
@@ -70,16 +69,25 @@ def run_inv(config_file):
     slvr = solver.ssa_solver(mdl)
     slvr.inversion()
 
-    ###########################
-    #  Write out variables    #
-    ###########################
+    ##############################################
+    #  Write out variables in outdir and         #
+    #  diagnostics folder                        #
+    #############################################
 
-    outdir = params.io.output_dir
+    phase_name = params.inversion.phase_name
+    phase_suffix = params.inversion.phase_suffix
+    outdir = Path(params.io.output_dir) / phase_name / phase_suffix
+    diag_dir = Path(params.io.diagnostics_dir)
 
     # Required for next phase (HDF5):
 
     invout_file = params.io.inversion_file
-    invout = HDF5File(mesh.mpi_comm(), str(Path(outdir)/invout_file), 'w')
+
+    phase_suffix = params.inversion.phase_suffix
+    if len(phase_suffix) > 0:
+        invout_file = params.io.run_name + phase_suffix + '_invout.h5'
+
+    invout = HDF5File(mesh.mpi_comm(), str(outdir/invout_file), 'w')
 
     invout.parameters.add("gamma_alpha", slvr.gamma_alpha)
     invout.parameters.add("delta_alpha", slvr.delta_alpha)
@@ -92,40 +100,62 @@ def run_inv(config_file):
     invout.write(mdl.beta, 'beta')
 
     # For visualisation (XML & VTK):
+    if params.io.write_diagnostics:
 
-    inout.write_variable(slvr.U, params)
-    inout.write_variable(mdl.beta, params)
+        inout.write_variable(slvr.U, params, outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
+        inout.write_variable(mdl.beta,
+                             params, outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
 
-    mdl.beta_bgd.rename("beta_bgd", "")
-    inout.write_variable(mdl.beta_bgd, params)
+        mdl.beta_bgd.rename("beta_bgd", "")
+        inout.write_variable(mdl.beta_bgd,
+                             params, outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
 
-    inout.write_variable(mdl.bed, params)
-    H = project(mdl.H, mdl.M)
-    H.rename("thick", "")
-    inout.write_variable(H, params)
+        inout.write_variable(mdl.bed,
+                             params, outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
+        H = project(mdl.H, mdl.M)
+        H.rename("thick", "")
+        inout.write_variable(H,
+                             params, outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
 
-    fl_ex = project(slvr.float_conditional(H), mdl.M)
-    inout.write_variable(fl_ex, params, name='float')
+        fl_ex = project(slvr.float_conditional(H), mdl.M)
+        inout.write_variable(fl_ex, params, name='float',
+                             outdir=diag_dir, phase_name=phase_name, phase_suffix=phase_suffix)
 
-    inout.write_variable(mdl.mask_vel_M, params, name="mask_vel")
+        inout.write_variable(mdl.mask_vel_M, params, name="mask_vel",
+                             outdir=diag_dir, phase_name=phase_name, phase_suffix=phase_suffix)
 
-    inout.write_variable(mdl.u_obs_Q, params)
-    inout.write_variable(mdl.v_obs_Q, params)
-    inout.write_variable(mdl.u_std_Q, params)
-    inout.write_variable(mdl.v_std_Q, params)
+        inout.write_variable(mdl.u_obs_Q, params, outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
+        inout.write_variable(mdl.v_obs_Q, params, outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
+        inout.write_variable(mdl.u_std_Q, params, outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
+        inout.write_variable(mdl.v_std_Q, params, outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
 
-    U_obs = project((mdl.v_obs_Q**2 + mdl.u_obs_Q**2)**(1.0/2.0), mdl.M)
-    U_obs.rename("uv_obs", "")
-    inout.write_variable(U_obs, params, name="uv_obs")
+        U_obs = project((mdl.v_obs_Q**2 + mdl.u_obs_Q**2)**(1.0/2.0), mdl.M)
+        U_obs.rename("uv_obs", "")
+        inout.write_variable(U_obs, params, name="uv_obs", outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
 
-    inout.write_variable(mdl.alpha, params)
+        inout.write_variable(mdl.alpha, params, outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
 
-    Bglen = project(slvr.beta_to_bglen(slvr.beta), mdl.M)
-    Bglen.rename("Bglen", "")
-    inout.write_variable(Bglen, params)
-    inout.write_variable(slvr.bmelt, params, name="bmelt")
-    inout.write_variable(slvr.smb, params, name="smb")
-    inout.write_variable(mdl.surf, params, name="surf")
+        Bglen = project(slvr.beta_to_bglen(slvr.beta), mdl.M)
+        Bglen.rename("Bglen", "")
+        inout.write_variable(Bglen, params, outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
+        inout.write_variable(slvr.bmelt, params, name="bmelt", outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
+        inout.write_variable(slvr.smb, params, name="smb", outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
+        inout.write_variable(mdl.surf, params, name="surf", outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
 
     return mdl
 

@@ -62,6 +62,7 @@ import petsc4py.PETSc as PETSc
 from pathlib import Path
 import os
 import logging
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -284,11 +285,17 @@ def slepc_monitor_callback(params, space, result_list):
     result_list["vr"] = []
 
     # Open results files
-    ev_filepath = Path(params.io.output_dir) / params.io.eigenvecs_file
+    eigenvecs_file = params.io.eigenvecs_file
+    phase_suffix = params.eigendec.phase_suffix
+    if len(phase_suffix) > 0:
+        eigenvecs_file = params.io.run_name + phase_suffix + '_vr.h5'
+
+    outdir = Path(params.io.output_dir)/params.eigendec.phase_name/params.eigendec.phase_suffix
+    diagdir = Path(params.io.diagnostics_dir)/params.eigendec.phase_name/params.eigendec.phase_suffix
+    ev_filepath = outdir / eigenvecs_file
     # Delete files to avoid append
     ev_filepath.unlink(missing_ok=True)
-
-    p = ev_filepath
+    p = diagdir/ eigenvecs_file
     ev_xdmf_filepath = Path(p).parent / Path(p.stem + "_vis").with_suffix(".xdmf")
 
     ev_xdmf_file = XDMFFile(space.mesh().mpi_comm(), str(ev_xdmf_filepath))
@@ -300,7 +307,11 @@ def slepc_monitor_callback(params, space, result_list):
     ev_file = HDF5File(space.mesh().mpi_comm(), str(ev_filepath), 'w')
     ev_file.close()
 
-    lam_file = Path(params.io.output_dir) / params.io.eigenvalue_file
+    eigenvalue_file = params.io.eigenvalue_file
+    phase_suffix = params.eigendec.phase_suffix
+    if len(phase_suffix) > 0:
+        eigenvalue_file = params.io.run_name + phase_suffix + '_eigvals.p'
+    lam_file = outdir / eigenvalue_file
 
     V_r_prev = None
 
