@@ -85,6 +85,8 @@ class ssa_solver:
         self.bmelt = model.bmelt
         self.smb = model.smb
         self.latbc = model.latbc
+        self.melt_depth_therm = model.melt_depth_therm
+        self.melt_max = model.melt_max
 
         self.set_inv_params()
 
@@ -523,10 +525,10 @@ class ssa_solver:
           rhoi = constants.rhoi
           depth = rhoi/rhow * H_np
           meltcond = self.melt_conditional(H_np,H_DG)
-          meltdepthparam = self.melt_depth_conditional()
-          meltmaxparam = self.melt_max_conditional()
-          self.bmelt = meltcond * meltmaxparam / 2.0 * \
-           (1.0 + ufl.tanh((depth-meltdepthparam/2.0)/(meltdepthparam/4.0)))
+          melt_depth_therm = self.melt_depth_therm
+          melt_max = self.melt_max
+          self.bmelt = meltcond * melt_max / 2.0 * \
+           (1.0 + ufl.tanh((depth-melt_depth_therm/2.0)/(melt_depth_therm/4.0)))
           self.melt_field = project(self.bmelt, self.M)
           
         bmelt = self.bmelt
@@ -1115,40 +1117,39 @@ class ssa_solver:
         H_float_DG = -(rhow/rhoi) * self.bed_DG
 
         # Note: cell=triangle just suppresses a UFL warning ("missing cell")
-        melt_mask = ufl.operators.Conditional(ufl.operators.And(H_DG < H_float_DG, 
-                                              ufl.operators.And(self.model.melt_domains > 0, H > 10.0)),
+        melt_mask = ufl.operators.Conditional(ufl.operators.And(H_DG < H_float_DG, H > 10.0),
                                           Constant(1.0, cell=triangle, name="Const Melt"),
                                           Constant(0.0, cell=triangle, name="Const No Melt"))
 
         return melt_mask
 
-    def melt_depth_conditional(self):
-        """Compute a ufl Conditional where melt domain = 1 or 2, and return appropriate param"""
-
-        constants = self.params.melt
-        depth1 = constants.depth_therm_domain_1
-        depth2 = constants.depth_therm_domain_2
-
-        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
-        melt_depth = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),
-                                          Constant(depth1, cell=triangle, name="Depth Domain 1"),
-                                          Constant(depth2, cell=triangle, name="Depth Domain 2"))
-
-        return melt_depth
-
-    def melt_max_conditional(self):
-        """Compute a ufl Conditional where melt domain = 1 or 2, and return appropriate param"""
-
-        constants = self.params.melt
-        max1 = constants.max_melt_domain_1
-        max2 = constants.max_melt_domain_2
-
-        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
-        melt_max = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),
-                                          Constant(max1, cell=triangle, name="MMelt Domain 1"),
-                                          Constant(max2, cell=triangle, name="MMelt Domain 2"))
-
-        return melt_max
+#    def melt_depth_conditional(self):
+#        """Compute a ufl Conditional where melt domain = 1 or 2, and return appropriate param"""
+#
+#        constants = self.params.melt
+#        depth1 = constants.depth_therm_domain_1
+#        depth2 = constants.depth_therm_domain_2
+#
+#        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+#        melt_depth = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),
+#                                          Constant(depth1, cell=triangle, name="Depth Domain 1"),
+#                                          Constant(depth2, cell=triangle, name="Depth Domain 2"))
+#
+#        return melt_depth
+#
+#    def melt_max_conditional(self):
+#        """Compute a ufl Conditional where melt domain = 1 or 2, and return appropriate param"""
+#
+#        constants = self.params.melt
+#        max1 = constants.max_melt_domain_1
+#        max2 = constants.max_melt_domain_2
+#
+#        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+#        melt_max = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),
+#                                          Constant(max1, cell=triangle, name="MMelt Domain 1"),
+#                                          Constant(max2, cell=triangle, name="MMelt Domain 2"))
+#
+#        return melt_max
 
     def comp_J_inv(self, verbose=False):
         """

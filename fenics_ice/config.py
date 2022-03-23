@@ -218,10 +218,8 @@ class MeltParamCfg(ConfigPrinter):
     Configuration related to depth-dependent melt parameterisation
     """
     use_melt_parameterisation: bool = False
-    depth_therm_domain_1: float = 0.0
-    depth_therm_domain_2: float = 0.0
-    max_melt_domain_1: float = 0.0
-    max_melt_domain_2: float = 0.0
+    melt_depth_therm_const: float = -999.0
+    melt_max_const: float = -999.0
 
 @dataclass(frozen=True)
 class InvSigmaCfg(ConfigPrinter):
@@ -383,7 +381,8 @@ class IOCfg(ConfigPrinter):
     bglen_data_file: str = None
     bglenmask_data_file: str = None
     alpha_data_file: str = None
-    melt_domains_data_file: str = None
+    melt_depth_therm_data_file: str = None
+    melt_max_data_file: str = None
 
     thick_field_name: str = "thick"
     bed_field_name: str = "bed"
@@ -393,7 +392,8 @@ class IOCfg(ConfigPrinter):
     bglen_field_name: str = "Bglen"
     bglenmask_field_name: str = "Bglen"
     alpha_field_name: str = "alpha"
-    melt_domains_field_name: str = "melt_domains"
+    melt_depth_therm_field_name: str = "melt_depth"
+    melt_max_field_name: str = "melt_max"
 
     inversion_file: str = None
     qoi_file: str = None  # "Qval_ts.p"
