@@ -616,6 +616,7 @@ class ssa_solver:
          n_save_frequency = n_steps
        
         outdir = self.params.io.output_dir
+        diag_dir = self.params.io.diagnostics_dir
 
         t = 0.0
 
@@ -667,16 +668,24 @@ class ssa_solver:
         # Write out U & H at each timestep.
         if (save_frequency>0):
 
+            phase_name = self.params.time.phase_name
+            phase_suffix = self.params.time.phase_suffix
+            outdirsteps = Path(diag_dir)/phase_name/phase_suffix
+
+            outdir=None, phase_name='', phase_suffix=''
+
             Hname = "H_timestep_" + str(0)
-            inout.write_variable(H_np, self.params, name=Hname)
+            inout.write_variable(H_np, self.params, name=Hname, outdir=diag_dir, \
+               phase_name=phase_name, phase_suffix=phase_suffix)
             Uname = "U_timestep_" + str(0)
-            inout.write_variable(U_np, self.params, name=Uname)
+            inout.write_variable(U_np, self.params, name=Uname, outdir=diag_dir, \
+               phase_name=phase_name, phase_suffix=phase_suffix)
 
             if self.params.melt.use_melt_parameterisation:
 
               Mname = "Melt_timestep_" + str(0)
-              inout.write_variable(self.melt_field, self.params, name=Mname)
-
+              inout.write_variable(self.melt_field, self.params, name=Mname, \
+                 outdir=diag_dir, phase_name=phase_name, phase_suffix=phase_suffix)
 
 
         ########################
@@ -716,14 +725,18 @@ class ssa_solver:
             if ((save_frequency>0) and (n%n_save_frequency==0)):
 
                 Hname = "H_timestep_" + str(n)
-                inout.write_variable(H_np, self.params, name=Hname)
+                inout.write_variable(H_np, self.params, name=Hname, outdir=diag_dir, \
+                  phase_name=phase_name, phase_suffix=phase_suffix)
                 Uname = "U_timestep_" + str(n)
-                inout.write_variable(U_np, self.params, name=Uname)
+                inout.write_variable(U_np, self.params, name=Uname, outdir=diag_dir, \
+                  phase_name=phase_name, phase_suffix=phase_suffix)
 
                 if self.params.melt.use_melt_parameterisation:
                   self.melt_field = project(self.bmelt, self.M)
                   Mname = "Melt_timestep_" + str(n)
-                  inout.write_variable(self.melt_field, self.params, name=Mname)
+                  inout.write_variable(self.melt_field, self.params, name=Mname, \
+                    outdir=diag_dir, phase_name=phase_name, phase_suffix=phase_suffix)
+
         # End of timestepping loop
 
         return Q_is if qoi_func is not None else None
@@ -809,7 +822,11 @@ class ssa_solver:
 
         # Write out the gradients dJ/dAlpha & dJ/dBeta at each L-BFGS iteration
         # for debugging/analysis.
-        inv_grad_writer = inout.XDMFWriter(inout.gen_path(self.params, 'inv_grads', '.xdmf'),
+        phase_suffix = self.params.inversion.phase_suffix
+        inv_grad_writer = inout.XDMFWriter(inout.gen_path(self.params,
+                                                          'inv_grads',
+                                                          '.xdmf',
+                                                          phase_suffix=phase_suffix),
                                            comm=self.mesh.mpi_comm())
 
         ##########################################

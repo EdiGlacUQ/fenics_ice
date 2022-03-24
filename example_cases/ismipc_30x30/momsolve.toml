@@ -6,6 +6,7 @@ run_name = "momsolve_init"
 input_dir = "./input"
 data_file = "ismipc_input.h5"
 output_dir = "./output_momsolve"
+diagnostics_dir = "./diagnostics"
 
 eigenvalue_file = "slepc_eig_all.p"
 
