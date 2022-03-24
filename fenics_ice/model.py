@@ -393,8 +393,6 @@ class model:
         fl_ex = conditional(H <= H_flt, 1.0, 0.0)
 
         self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
-        self.surf._Function_static__ = True
-        self.surf._Function_checkpoint__ = False
         self.surf.rename("surf", "")
 
     def bdrag_to_alpha(self, B2):
