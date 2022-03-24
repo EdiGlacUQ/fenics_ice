@@ -541,7 +541,7 @@ class InputData(object):
         name : the variable to be interpolated (need not necessarily exist!)
         space : function space onto which to interpolate
         default : value to return if field is absent (otherwise raise error)
-        static : if True, set _Function_static__ = True to save always-zero differentials
+        static : if True, declare the result to be static
         method: "nearest" or "linear"
 
         Returns:
