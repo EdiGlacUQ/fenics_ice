@@ -135,8 +135,7 @@ def pytest_configure(config):
             pass
         else:
             subprocess.check_call(
-            ["git", "clone", "https://github.com/EdiGlacUQ/fenics_ice_test_data.git", \
-               tempfile.gettempdir() + '/fenics_ice_test_data'])
+            ["git", "clone", "https://github.com/EdiGlacUQ/fenics_ice_test_data.git",path_to_data])
     else:
         pass
 
