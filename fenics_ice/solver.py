@@ -609,7 +609,7 @@ class ssa_solver:
         dt = config.dt
         run_length = config.run_length
         save_frequency = config.save_frequency
-        n_save_frequency = int(np.round(save_frequency/dt))
+        n_save_frequency = int(min(np.ceil(save_frequency/dt),n_steps))
         if (n_save_frequency < 1): 
          n_save_frequency = 1
         elif(n_save_frequency > n_steps):
