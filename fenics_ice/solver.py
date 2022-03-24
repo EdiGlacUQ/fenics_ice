@@ -670,9 +670,6 @@ class ssa_solver:
 
             phase_name = self.params.time.phase_name
             phase_suffix = self.params.time.phase_suffix
-            outdirsteps = Path(diag_dir)/phase_name/phase_suffix
-
-            outdir=None, phase_name='', phase_suffix=''
 
             Hname = "H_timestep_" + str(0)
             inout.write_variable(H_np, self.params, name=Hname, outdir=diag_dir, \
