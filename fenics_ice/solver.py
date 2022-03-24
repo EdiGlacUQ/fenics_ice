@@ -85,8 +85,9 @@ class ssa_solver:
         self.bmelt = model.bmelt
         self.smb = model.smb
         self.latbc = model.latbc
-        self.melt_depth_therm = model.melt_depth_therm
-        self.melt_max = model.melt_max
+        if self.params.melt.use_melt_parameterisation:
+         self.melt_depth_therm = model.melt_depth_therm
+         self.melt_max = model.melt_max
 
         self.set_inv_params()
 

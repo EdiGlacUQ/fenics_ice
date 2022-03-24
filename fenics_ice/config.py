@@ -85,7 +85,13 @@ class ConfigParser(object):
         self.obs = ObsCfg(**self.config_dict['obs'])
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
-        self.melt = MeltParamCfg(**self.config_dict['melt'])
+
+        # Optional melt section
+        try:
+            melt_dict = self.config_dict['melt']
+        except KeyError:
+            melt_dict = {}
+        self.melt = MeltParamCfg(**melt_dict)
 
         # Optional invsigma section
         try:
