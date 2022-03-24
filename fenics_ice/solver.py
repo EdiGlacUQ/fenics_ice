@@ -211,6 +211,7 @@ class ssa_solver:
             if initial:
                 assert len(f) == 2
                 self._cntrl_assigner.assign(self._alphaXbeta, f)
+                function_update_state(self._alphaXbeta)
             else:
                 assert len(f) == 1
                 self._alphaXbeta = f[0]
@@ -220,7 +221,9 @@ class ssa_solver:
             if initial:
                 assert len(f) == 2
                 self._alpha.assign(f[0])
+                function_update_state(self._alpha)
                 self._beta.assign(f[1])
+                function_update_state(self._beta)
             elif invconfig.dual:
                 assert len(f) == 2
                 self._alpha = f[0]
