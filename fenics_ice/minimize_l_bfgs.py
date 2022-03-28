@@ -538,7 +538,8 @@ class H_approximation:
 
         G_inv_v = [G_solve(v[i]) for i in range(N_eigenpairs)]
 
-        w = [functions_new(F[0]) for i in range(N_eigenpairs)]
+        assert len(F_M_inv) > 0
+        w = [functions_new(F_M_inv[0]) for i in range(N_eigenpairs)]
         for i in range(N_eigenpairs):
             for j in range(2 * m):
                 functions_axpy(w[i], -G_inv_v[i][j], F_M_inv[j])
