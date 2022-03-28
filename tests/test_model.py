@@ -17,7 +17,7 @@
 
 # -*- coding: utf-8 -*-
 
-from fenics_ice.backend import Function, norm
+from fenics_ice.backend import Function, function_update_state, norm
 
 import pytest
 import os
@@ -209,8 +209,10 @@ def test_control_separation(request, setup_deps, temp_model):
 
     slvr.alpha.vector()[:] = 1e3
     slvr.alpha.vector().apply("insert")
+    function_update_state(slvr.alpha)
     slvr.beta.vector()[:] = 1e3
     slvr.beta.vector().apply("insert")
+    function_update_state(slvr.beta)
 
     with pytest.raises(AttributeError):
         slvr.beta = 1.0
