@@ -444,7 +444,7 @@ class IOCfg(ConfigPrinter):
     sigma_prior_file: str = None  # "sigma_prior.p"
 
     log_level: str = "info"
-    output_var_format: str = "pvd"
+    output_var_format: str = "all"
 
     def set_default_filename(self, attr_name, suffix):
         """Sets a default filename (prefixed with run_name) & check suffix"""
@@ -471,6 +471,7 @@ class IOCfg(ConfigPrinter):
 
         assert self.output_var_format in ["pvd",
                                           "xml",
+                                          "h5",
                                           "all"], \
             "Invalid variable output file format"
 
