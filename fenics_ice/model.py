@@ -160,7 +160,9 @@ class model:
         beta = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
 
         self.beta.assign(beta)
+        function_update_state(self.beta)
         self.beta_bgd.assign(beta)
+        function_update_state(self.beta_bgd)
 
     def def_lat_dirichletbc(self):
         """Homogenous dirichlet conditions on lateral boundaries"""
@@ -173,6 +175,7 @@ class model:
     def alpha_from_data(self):
         """Get alpha field from initial input data (run_momsolve only)"""
         self.alpha.assign(self.input_data.interpolate("alpha", self.Qp))
+        function_update_state(self.alpha)
 
     def bglen_from_data(self, mask_only=False):
         """Get bglen field from initial input data"""
@@ -219,6 +222,7 @@ class model:
                       str(outdir/inversion_file),
                       'r') as infile:
             infile.read(self.alpha, 'alpha')
+            function_update_state(self.alpha)
 
     def beta_from_inversion(self):
         """Get beta field from inversion step"""
@@ -236,8 +240,10 @@ class model:
                       str(outdir/inversion_file),
                       'r') as infile:
             infile.read(self.beta, 'beta')
+            function_update_state(self.beta)
 
         self.beta_bgd.assign(self.beta)
+        function_update_state(self.beta_bgd)
 
     def init_beta(self, beta, pert=False):
         """
@@ -249,7 +255,9 @@ class model:
 
         beta_proj = project(beta, self.Qp)
         self.beta.assign(beta_proj)
+        function_update_state(self.beta)
         self.beta_bgd.assign(beta_proj)
+        function_update_state(self.beta_bgd)
 
         # TODO - tidy this up properly (remove pert arg)
         # if pert:
@@ -258,6 +266,7 @@ class model:
         #     pert_vec = 0.001*bv*randn(bv.size)
         #     self.beta.vector().set_local(bv + pert_vec)
         #     self.beta.vector().apply('insert')
+        #     function_update_state(self.beta)
 
 
     def vel_obs_from_data(self):
@@ -411,8 +420,6 @@ class model:
         fl_ex = conditional(H <= H_flt, 1.0, 0.0)
 
         self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
-        self.surf._Function_static__ = True
-        self.surf._Function_checkpoint__ = False
         self.surf.rename("surf", "")
 
     def bdrag_to_alpha(self, B2):
@@ -501,6 +508,7 @@ class model:
             self.alpha.vector().apply('insert')
         else:
             raise NotImplementedError(f"Don't have code for method {method}")
+        function_update_state(self.alpha)
 
         write_diag = self.params.io.write_diagnostics
         if write_diag:

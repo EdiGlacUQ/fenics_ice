@@ -216,6 +216,7 @@ class ssa_solver:
             if initial:
                 assert len(f) == 2
                 self._cntrl_assigner.assign(self._alphaXbeta, f)
+                function_update_state(self._alphaXbeta)
             else:
                 assert len(f) == 1
                 self._alphaXbeta = f[0]
@@ -225,7 +226,9 @@ class ssa_solver:
             if initial:
                 assert len(f) == 2
                 self._alpha.assign(f[0])
+                function_update_state(self._alpha)
                 self._beta.assign(f[1])
+                function_update_state(self._beta)
             elif invconfig.dual:
                 assert len(f) == 2
                 self._alpha = f[0]
@@ -904,7 +907,7 @@ class ssa_solver:
 
             M_inv_action = []
             for i, x in enumerate(X):
-                this_action = function_new(x, name=f"M_inv_action_{i}")
+                this_action = function_new_conjugate_dual(x, name=f"M_inv_action_{i}")
                 M_solver.solve(this_action.vector(), x.vector())
                 M_inv_action.append(this_action)
 
@@ -922,7 +925,7 @@ class ssa_solver:
 
             B_0_action = []
             for i, x in enumerate(X):
-                this_action = function_new(x, name=f"B_0_action_{i}")
+                this_action = function_new_conjugate_dual(x, name=f"B_0_action_{i}")
                 # M_action = M_mat * x.vector()
                 M_action = matrix_multiply(M_mat, x.vector())
                 this_action.vector()[:] = M_action
@@ -1233,24 +1236,24 @@ class ssa_solver:
         fac = 0.5
 
         if not hasattr(self, "_cached_J_mismatch_data"):
-            from tlm_adjoint.fenics.fenics_equations import InterpolationMatrix
+            from tlm_adjoint.fenics.fenics_equations import LocalMatrix
             from scipy.sparse import spdiags
 
             P = interpolation_matrix(
                 uf, np.array(local_obs_pts, dtype=uv_obs_pts.dtype),
                 tolerance=0.0)
 
-            u_PRP = InterpolationMatrix(
+            u_PRP = LocalMatrix(
                 P.T @ spdiags(1.0 / (u_std[obs_local] ** 2),
                               0, P.shape[0], P.shape[0]) @ P)
-            v_PRP = InterpolationMatrix(
+            v_PRP = LocalMatrix(
                 P.T @ spdiags(1.0 / (v_std[obs_local] ** 2),
                               0, P.shape[0], P.shape[0]) @ P)
 
-            l_u_obs = function_new(uf, name="l_u_obs")
+            l_u_obs = function_new_conjugate_dual(uf, name="l_u_obs")
             function_set_values(
                 l_u_obs, P.T @ (u_obs[obs_local] / (u_std[obs_local] ** 2)))
-            l_v_obs = function_new(vf, name="l_v_obs")
+            l_v_obs = function_new_conjugate_dual(vf, name="l_v_obs")
             function_set_values(
                 l_v_obs, P.T @ (v_obs[obs_local] / (v_std[obs_local] ** 2)))
 
