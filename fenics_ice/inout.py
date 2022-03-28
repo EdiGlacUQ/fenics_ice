@@ -303,11 +303,18 @@ def write_variable(var, params, name=None, outdir=None, phase_name='', phase_suf
     if 'xml' in output_var_format:
         xml_fname = str(outfname.with_suffix(".xml"))
         File(xml_fname) << outvar
-    if 'both' in output_var_format:
+    if 'h5' in output_var_format:
+        hdf5out = HDF5File(MPI.comm_world, str(outfname.with_suffix(".h5")), 'w')
+        hdf5out.write(outvar, name)
+        hdf5out.close()
+    if 'all' in output_var_format:
         vtk_fname = str(outfname.with_suffix(".pvd"))
         xml_fname = str(outfname.with_suffix(".xml"))
         File(vtk_fname) << outvar
         File(xml_fname) << outvar
+        hdf5out = HDF5File(MPI.comm_world, str(outfname.with_suffix(".h5")), 'w')
+        hdf5out.write(outvar, name)
+        hdf5out.close()
 
     logging.info("Writing function %s to file %s" % (name, outfname))
 
@@ -488,7 +495,8 @@ class InputData(object):
         self.input_dir = params.io.input_dir
 
         # List of fields to search for
-        field_list = ["thick", "bed", "bmelt", "smb", "Bglen", "Bglenmask", "alpha"]
+        field_list = ["thick", "bed", "bmelt", "smb", "Bglen", "Bglenmask", "alpha", \
+                      "melt_depth_therm", "melt_max"]
 
         # Dictionary of filenames & field names (i.e. field to get from HDF5 file)
         # Possibly equal to None for variables which have sensible defaults

@@ -77,12 +77,17 @@ class ssa_solver:
 
         # Fields
         self.bed = model.bed
+        self.bed_DG = model.bed_DG
         self.H_np = model.H_np
         self.H = model.H
+        self.H_DG = model.H_DG
         self.beta_bgd = model.beta_bgd
         self.bmelt = model.bmelt
         self.smb = model.smb
         self.latbc = model.latbc
+        if self.params.melt.use_melt_parameterisation:
+         self.melt_depth_therm = model.melt_depth_therm
+         self.melt_max = model.melt_max
 
         self.set_inv_params()
 
@@ -507,8 +512,8 @@ class ssa_solver:
         trial_H = self.trial_H
         H_np = self.H_np
         H = self.H
+        H_DG = self.H_DG
         H_init = self.H_init
-        bmelt = self.bmelt
         smb = self.smb
         dt = self.dt
         nm = self.nm
@@ -516,6 +521,21 @@ class ssa_solver:
         dS = self.dS
 
         fl_ex = self.float_conditional(H)
+
+        if (self.params.melt.use_melt_parameterisation):
+
+          constants = self.params.constants
+          rhow = constants.rhow
+          rhoi = constants.rhoi
+          depth = rhoi/rhow * H_np
+          meltcond = self.melt_conditional(H_np,H_DG)
+          melt_depth_therm = self.melt_depth_therm
+          melt_max = self.melt_max
+          self.bmelt = meltcond * melt_max / 2.0 * \
+           (1.0 + ufl.tanh((depth-melt_depth_therm/2.0)/(melt_depth_therm/4.0)))
+          self.melt_field = project(self.bmelt, self.M)
+          
+        bmelt = self.bmelt
 
         # Crank Nicholson
         # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dx
@@ -549,7 +569,7 @@ class ssa_solver:
             * ds
 
             # basal melting
-            + bmelt*Ksi*fl_ex*dx
+            + bmelt*Ksi*dx
 
             # surface mass balance
             - smb*Ksi*dx
@@ -578,6 +598,7 @@ class ssa_solver:
                                  "absolute_tolerance": 1e-10,
                                  "relative_tolerance": 1e-11,
               })  # Not sure these solver params are necessary (linear solve)
+        LocalProjectionSolver(H, self.H_DG).solve() 
 
     def timestep(self, adjoint_flag=1, qoi_func=None ):
         """
@@ -590,8 +611,13 @@ class ssa_solver:
         n_steps = config.total_steps
         dt = config.dt
         run_length = config.run_length
-        save_every_tstep = config.save_every_tstep
-
+        save_frequency = config.save_frequency
+        n_save_frequency = int(min(np.ceil(save_frequency/dt),n_steps))
+        if (n_save_frequency < 1): 
+         n_save_frequency = 1
+        elif(n_save_frequency > n_steps):
+         n_save_frequency = n_steps
+       
         outdir = self.params.io.output_dir
         diag_dir = self.params.io.diagnostics_dir
 
@@ -643,23 +669,24 @@ class ssa_solver:
             new_block()
 
         # Write out U & H at each timestep.
-        if save_every_tstep:
+        if (save_frequency>0):
 
             phase_name = self.params.time.phase_name
             phase_suffix = self.params.time.phase_suffix
 
-            outdirsteps = Path(diag_dir)/phase_name/phase_suffix
+            Hname = "H_timestep_" + str(0)
+            inout.write_variable(H_np, self.params, name=Hname, outdir=diag_dir, \
+               phase_name=phase_name, phase_suffix=phase_suffix)
+            Uname = "U_timestep_" + str(0)
+            inout.write_variable(U_np, self.params, name=Uname, outdir=diag_dir, \
+               phase_name=phase_name, phase_suffix=phase_suffix)
 
-            Hfile = outdirsteps/"_".join((self.params.io.run_name + phase_suffix,
-                                             'H_ts.xdmf'))
-            Ufile = outdirsteps/"_".join((self.params.io.run_name + phase_suffix,
-                                             'U_ts.xdmf'))
+            if self.params.melt.use_melt_parameterisation:
 
-            xdmf_hts = XDMFFile(self.mesh.mpi_comm(), str(Hfile))
-            xdmf_uts = XDMFFile(self.mesh.mpi_comm(), str(Ufile))
+              Mname = "Melt_timestep_" + str(0)
+              inout.write_variable(self.melt_field, self.params, name=Mname, \
+                 outdir=diag_dir, phase_name=phase_name, phase_suffix=phase_suffix)
 
-            xdmf_hts.write(H_np, 0.0)
-            xdmf_uts.write(U_np, 0.0)
 
         ########################
         # Main timestepping loop
@@ -695,14 +722,22 @@ class ssa_solver:
             if n < n_steps and adjoint_flag:
                 new_block()
 
-            if save_every_tstep:
-                xdmf_hts.write(H_np, t)
-                xdmf_uts.write(U_np, t)
-        # End of timestepping loop
+            if ((save_frequency>0) and (n%n_save_frequency==0)):
 
-        if save_every_tstep:
-            xdmf_hts.close()
-            xdmf_uts.close()
+                Hname = "H_timestep_" + str(n)
+                inout.write_variable(H_np, self.params, name=Hname, outdir=diag_dir, \
+                  phase_name=phase_name, phase_suffix=phase_suffix)
+                Uname = "U_timestep_" + str(n)
+                inout.write_variable(U_np, self.params, name=Uname, outdir=diag_dir, \
+                  phase_name=phase_name, phase_suffix=phase_suffix)
+
+                if self.params.melt.use_melt_parameterisation:
+                  self.melt_field = project(self.bmelt, self.M)
+                  Mname = "Melt_timestep_" + str(n)
+                  inout.write_variable(self.melt_field, self.params, name=Mname, \
+                    outdir=diag_dir, phase_name=phase_name, phase_suffix=phase_suffix)
+
+        # End of timestepping loop
 
         return Q_is if qoi_func is not None else None
 
@@ -1068,7 +1103,7 @@ class ssa_solver:
         return fl_ex
 
     def bglen_data_conditional(self, H, glen_mask, H_float=None):
-        """Compute a ufl Conditional where floating=1, grounded=0"""
+        """Compute a ufl Conditional where dat available=1, o.w. 0"""
 
         if not self.params.ice_dynamics.allow_flotation:
             fl_beta_mask = ufl.operators.Conditional(ufl.eq(self.model.bglen_mask,1.0), 
@@ -1090,6 +1125,49 @@ class ssa_solver:
         # Note: cell=triangle just suppresses a UFL warning ("missing cell")
 
         return fl_beta_mask
+
+    def melt_conditional(self, H, H_DG):
+        """Compute a ufl Conditional where melt nonzero=1, no melt=0"""
+
+        constants = self.params.constants
+        rhow = constants.rhow
+        rhoi = constants.rhoi
+        H_float_DG = -(rhow/rhoi) * self.bed_DG
+
+        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+        melt_mask = ufl.operators.Conditional(ufl.operators.And(H_DG < H_float_DG, H > 10.0),
+                                          Constant(1.0, cell=triangle, name="Const Melt"),
+                                          Constant(0.0, cell=triangle, name="Const No Melt"))
+
+        return melt_mask
+
+#    def melt_depth_conditional(self):
+#        """Compute a ufl Conditional where melt domain = 1 or 2, and return appropriate param"""
+#
+#        constants = self.params.melt
+#        depth1 = constants.depth_therm_domain_1
+#        depth2 = constants.depth_therm_domain_2
+#
+#        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+#        melt_depth = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),
+#                                          Constant(depth1, cell=triangle, name="Depth Domain 1"),
+#                                          Constant(depth2, cell=triangle, name="Depth Domain 2"))
+#
+#        return melt_depth
+#
+#    def melt_max_conditional(self):
+#        """Compute a ufl Conditional where melt domain = 1 or 2, and return appropriate param"""
+#
+#        constants = self.params.melt
+#        max1 = constants.max_melt_domain_1
+#        max2 = constants.max_melt_domain_2
+#
+#        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+#        melt_max = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),
+#                                          Constant(max1, cell=triangle, name="MMelt Domain 1"),
+#                                          Constant(max2, cell=triangle, name="MMelt Domain 2"))
+#
+#        return melt_max
 
     def comp_J_inv(self, verbose=False):
         """

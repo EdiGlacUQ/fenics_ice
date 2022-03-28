@@ -54,6 +54,10 @@ class model:
         self.Q = FunctionSpace(self.mesh, 'Lagrange', 1)
 
         self.M = FunctionSpace(self.mesh, 'DG', 0)
+        # below definition is for a dedicated DG(0) 
+        # thickness and bed. We should allow flexibility 
+        # for self.M to be CG
+        self.M2 = FunctionSpace(self.mesh, 'DG', 0)
         self.RT = FunctionSpace(self.mesh, 'RT', 1)
 
         # Based on IsmipC: alpha, beta, and U are periodic.
@@ -81,9 +85,11 @@ class model:
             self.init_fields_from_data()
         else:  # initialize these to avoid complaint on solver creation
             self.bed = None
+            self.bed_DG = None
             self.bmelt = None
             self.smb = None
             self.H = None
+            self.H_DG = None
             self.H_np = None
             self.surf = None
 
@@ -117,8 +123,29 @@ class model:
         self.smb = self.field_from_data("smb", self.M, default=0.0, static=True)
         self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
 
+        if self.params.melt.use_melt_parameterisation:
+       
+         melt_depth_therm_const: float = -999.0
+         melt_max_const: float = -999.0
+
+         if (self.params.melt.melt_depth_therm_const == -999.0 or \
+          self.params.melt.melt_max_const == -999.0):
+          melt_depth = 1.e6
+          melt_max = 0.
+         else:
+          melt_depth = self.params.melt.melt_depth_therm_const
+          melt_max = self.params.melt.melt_max_const
+        
+         self.melt_depth_therm = self.field_from_data("melt_depth_therm", self.M2, default=melt_depth, \
+          method='nearest')
+         self.melt_max = self.field_from_data("melt_max", self.M2, default=melt_max, method='nearest')
+
         self.H = self.H_np.copy(deepcopy=True)
         self.H.rename("thick_H", "")
+        self.H_DG = Function(self.M2, name="H_DG")
+        self.bed_DG = Function(self.M2, name="bed_DG")
+        self.H_DG.assign(project(self.H,self.M2))        
+        self.bed_DG.assign(project(self.bed,self.M2))        
 
         self.gen_surf()  # surf = bed + thick
 

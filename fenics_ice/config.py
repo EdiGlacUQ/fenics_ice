@@ -86,6 +86,13 @@ class ConfigParser(object):
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
 
+        # Optional melt section
+        try:
+            melt_dict = self.config_dict['melt']
+        except KeyError:
+            melt_dict = {}
+        self.melt = MeltParamCfg(**melt_dict)
+
         # Optional invsigma section
         try:
             inv_sigma_dict = self.config_dict['invsigma']
@@ -238,6 +245,15 @@ class ErrorPropCfg(ConfigPrinter):
     qoi: str = 'vaf'
     phase_name: str = 'error_prop'
     phase_suffix: str = ''
+
+@dataclass(frozen=True)
+class MeltParamCfg(ConfigPrinter):
+    """
+    Configuration related to depth-dependent melt parameterisation
+    """
+    use_melt_parameterisation: bool = False
+    melt_depth_therm_const: float = -999.0
+    melt_max_const: float = -999.0
 
 @dataclass(frozen=True)
 class InvSigmaCfg(ConfigPrinter):
@@ -405,6 +421,8 @@ class IOCfg(ConfigPrinter):
     bglen_data_file: str = None
     bglenmask_data_file: str = None
     alpha_data_file: str = None
+    melt_depth_therm_data_file: str = None
+    melt_max_data_file: str = None
 
     thick_field_name: str = "thick"
     bed_field_name: str = "bed"
@@ -414,6 +432,8 @@ class IOCfg(ConfigPrinter):
     bglen_field_name: str = "Bglen"
     bglenmask_field_name: str = "Bglen"
     alpha_field_name: str = "alpha"
+    melt_depth_therm_field_name: str = "melt_depth"
+    melt_max_field_name: str = "melt_max"
 
     inversion_file: str = None
     qoi_file: str = None  # "Qval_ts.p"
@@ -424,7 +444,7 @@ class IOCfg(ConfigPrinter):
     sigma_prior_file: str = None  # "sigma_prior.p"
 
     log_level: str = "info"
-    output_var_format: str = "both"
+    output_var_format: str = "all"
 
     def set_default_filename(self, attr_name, suffix):
         """Sets a default filename (prefixed with run_name) & check suffix"""
@@ -451,7 +471,8 @@ class IOCfg(ConfigPrinter):
 
         assert self.output_var_format in ["pvd",
                                           "xml",
-                                          "both"], \
+                                          "h5",
+                                          "all"], \
             "Invalid variable output file format"
 
         fname_default_suff = {
@@ -478,7 +499,8 @@ class TimeCfg(ConfigPrinter):
     total_steps: int = None
     dt: float = None
     num_sens: int = 1
-    save_every_tstep: bool = False
+    save_frequency: float = 0
+
     phase_name: str = 'forward'
     phase_suffix: str = ''
 
