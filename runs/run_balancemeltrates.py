@@ -37,7 +37,6 @@ import numpy as np
 import time
 import datetime
 import pickle
-from IPython import embed
 
 def main(config_file):
 

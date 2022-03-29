@@ -195,7 +195,8 @@ def run_eigendec(config_file):
     lind = np.arange(0, len(lam))
     plt.semilogy(lind[lpos], lam[lpos], '.')
     plt.semilogy(lind[lneg], np.abs(lam[lneg]), '.')
-    plt.savefig(os.path.join(params.io.output_dir, 'lambda.pdf'))
+    diag_dir = Path(params.io.diagnostics_dir)/params.eigendec.phase_name/params.eigendec.phase_suffix
+    plt.savefig(diag_dir/ 'lambda.pdf')
     plt.close()
 
     # Note - for now this does nothing, but eventually if the whole series

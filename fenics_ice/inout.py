@@ -197,11 +197,11 @@ class XDMFWriter(Writer):
 
         super().write(variable, name, step, finalise)
 
-def gen_path(params, name, suffix):
+def gen_path(params, name, suffix, phase_suffix=''):
     """Convert e.g. 'alpha' into outdir/runname_alpha.pvd"""
 
-    outdir = Path(params.io.output_dir)
-    outfname = Path("_".join((params.io.run_name, name))).with_suffix(suffix)
+    outdir = Path(params.io.output_dir) / params.inversion.phase_name / phase_suffix
+    outfname = Path("_".join((params.io.run_name+phase_suffix, name))).with_suffix(suffix)
     return outdir/outfname
 
 
@@ -211,13 +211,20 @@ def write_qval(Qval, params):
     """
 
     outdir = params.io.output_dir
+    phase_name = params.time.phase_name
     filename = params.io.qoi_file
+    phase_suffix = params.time.phase_suffix
+
+    if len(phase_suffix) > 0:
+        filename = params.io.run_name + phase_suffix + '_Qval_ts.p'
 
     run_length = params.time.run_length
     n_steps = params.time.total_steps
     ts = np.linspace(0, run_length, n_steps+1)
 
-    with open(Path(outdir)/filename, 'wb') as pickle_file:
+    outdir_final = Path(outdir)/phase_name/phase_suffix
+
+    with open(outdir_final/filename, 'wb') as pickle_file:
         pickle.dump([Qval, ts], pickle_file)
 
 def write_dqval(dQ_ts, cntrl_names, params):
@@ -226,11 +233,19 @@ def write_dqval(dQ_ts, cntrl_names, params):
     """
 
     outdir = params.io.output_dir
+    diagdir = params.io.diagnostics_dir
+    phase_name = params.time.phase_name
     h5_filename = params.io.dqoi_h5file
+    phase_suffix = params.time.phase_suffix
 
-    vtkfile = File(str((Path(outdir)/h5_filename).with_suffix(".pvd")))
+    if len(phase_suffix) > 0:
+        h5_filename = params.io.run_name + phase_suffix + '_dQ_ts.h5'
 
-    hdf5out = HDF5File(MPI.comm_world, str(Path(outdir)/h5_filename), 'w')
+    diagdir_f = Path(diagdir)/phase_name/phase_suffix
+    outdir_f = Path(outdir)/phase_name/phase_suffix
+    # TODO add this file to diags once Dan makes his pull request
+    vtkfile = File(str((diagdir_f/h5_filename).with_suffix(".pvd")))
+    hdf5out = HDF5File(MPI.comm_world, str(outdir_f/h5_filename), 'w')
     n = 0.0
 
     # Loop dQ sample times ('num_sens')
@@ -250,7 +265,7 @@ def write_dqval(dQ_ts, cntrl_names, params):
 
     hdf5out.close()
 
-def write_variable(var, params, name=None):
+def write_variable(var, params, name=None, outdir=None, phase_name='', phase_suffix=''):
     """
     Produce xml & vtk output of supplied variable (prefixed with run name)
 
@@ -277,7 +292,8 @@ def write_variable(var, params, name=None):
 
     outvar.rename(name, "")
     # Prefix the run name
-    outfname = Path(params.io.output_dir) / "_".join((params.io.run_name, name))
+    outfname = Path(outdir) / phase_name / phase_suffix / "_".join((params.io.run_name+phase_suffix, name))
+    #embed()
 
     # Write out output according to user specified format in toml
     output_var_format = params.io.output_var_format
@@ -287,17 +303,25 @@ def write_variable(var, params, name=None):
     if 'xml' in output_var_format:
         xml_fname = str(outfname.with_suffix(".xml"))
         File(xml_fname) << outvar
-    if 'both' in output_var_format:
+    if 'h5' in output_var_format:
+        hdf5out = HDF5File(MPI.comm_world, str(outfname.with_suffix(".h5")), 'w')
+        hdf5out.write(outvar, name)
+        hdf5out.close()
+    if 'all' in output_var_format:
         vtk_fname = str(outfname.with_suffix(".pvd"))
         xml_fname = str(outfname.with_suffix(".xml"))
         File(vtk_fname) << outvar
         File(xml_fname) << outvar
+        hdf5out = HDF5File(MPI.comm_world, str(outfname.with_suffix(".h5")), 'w')
+        hdf5out.write(outvar, name)
+        hdf5out.close()
 
     logging.info("Writing function %s to file %s" % (name, outfname))
 
 def dict_to_csv(indict, name, params):
     """Write dictionary to CSV file"""
-    outfname = gen_path(params, name, '.csv')
+    phase_suffix = params.inversion.phase_suffix
+    outfname = gen_path(params, name, '.csv', phase_suffix)
     with open(outfname, 'w') as f:
         writer = csv.DictWriter(f, indict.keys())
         writer.writeheader()
@@ -471,7 +495,8 @@ class InputData(object):
         self.input_dir = params.io.input_dir
 
         # List of fields to search for
-        field_list = ["thick", "bed", "bmelt", "smb", "Bglen", "Bglenmask", "alpha"]
+        field_list = ["thick", "bed", "bmelt", "smb", "Bglen", "Bglenmask", "alpha", \
+                      "melt_depth_therm", "melt_max"]
 
         # Dictionary of filenames & field names (i.e. field to get from HDF5 file)
         # Possibly equal to None for variables which have sensible defaults
@@ -524,7 +549,7 @@ class InputData(object):
         name : the variable to be interpolated (need not necessarily exist!)
         space : function space onto which to interpolate
         default : value to return if field is absent (otherwise raise error)
-        static : if True, set _Function_static__ = True to save always-zero differentials
+        static : if True, declare the result to be static
         method: "nearest" or "linear"
 
         Returns:
@@ -740,8 +765,11 @@ def configure_tlm_checkpointing(params):
     configure_checkpointing(method, config_dict)
 
 def write_inversion_info(params, conv_info, header="J, F_crit, G_crit_alpha, G_crit_beta"):
+
+    phase_name = params.inversion.phase_name
+    phase_suffix = params.inversion.phase_suffix
     """Write out a list of tuples containing convergence info for inversion"""
-    outfname = Path(params.io.output_dir)/"_".join((params.io.run_name,
+    outfname = Path(params.io.output_dir) / phase_name / phase_suffix /"_".join((params.io.run_name+phase_suffix,
                                                     "inversion_progress.csv"))
 
     np.savetxt(outfname, conv_info, delimiter=",", header=header)

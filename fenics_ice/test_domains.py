@@ -18,7 +18,6 @@
 The classes here define test domains for use with fenics_ice.
 """
 import numpy as np
-from IPython import embed
 
 class gldbg2013:
 

@@ -4,6 +4,7 @@
 run_name = "smith_glacier_test"
 input_dir = "./input"
 output_dir = "./output"
+diagnostics_dir = "./diagnostics"
 
 
 # data_file = "ismipc_input.h5"

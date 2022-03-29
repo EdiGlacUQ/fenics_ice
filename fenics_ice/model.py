@@ -20,11 +20,13 @@ from .backend import *
 from . import inout, prior
 from . import mesh as fice_mesh
 
+import os.path
 import ufl
 import numpy as np
 from pathlib import Path
 from numpy.random import randn
 import logging
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -52,6 +54,10 @@ class model:
         self.Q = FunctionSpace(self.mesh, 'Lagrange', 1)
 
         self.M = FunctionSpace(self.mesh, 'DG', 0)
+        # below definition is for a dedicated DG(0) 
+        # thickness and bed. We should allow flexibility 
+        # for self.M to be CG
+        self.M2 = FunctionSpace(self.mesh, 'DG', 0)
         self.RT = FunctionSpace(self.mesh, 'RT', 1)
 
         # Based on IsmipC: alpha, beta, and U are periodic.
@@ -79,9 +85,11 @@ class model:
             self.init_fields_from_data()
         else:  # initialize these to avoid complaint on solver creation
             self.bed = None
+            self.bed_DG = None
             self.bmelt = None
             self.smb = None
             self.H = None
+            self.H_DG = None
             self.H_np = None
             self.surf = None
 
@@ -115,8 +123,29 @@ class model:
         self.smb = self.field_from_data("smb", self.M, default=0.0, static=True)
         self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
 
+        if self.params.melt.use_melt_parameterisation:
+       
+         melt_depth_therm_const: float = -999.0
+         melt_max_const: float = -999.0
+
+         if (self.params.melt.melt_depth_therm_const == -999.0 or \
+          self.params.melt.melt_max_const == -999.0):
+          melt_depth = 1.e6
+          melt_max = 0.
+         else:
+          melt_depth = self.params.melt.melt_depth_therm_const
+          melt_max = self.params.melt.melt_max_const
+        
+         self.melt_depth_therm = self.field_from_data("melt_depth_therm", self.M2, default=melt_depth, \
+          method='nearest')
+         self.melt_max = self.field_from_data("melt_max", self.M2, default=melt_max, method='nearest')
+
         self.H = self.H_np.copy(deepcopy=True)
         self.H.rename("thick_H", "")
+        self.H_DG = Function(self.M2, name="H_DG")
+        self.bed_DG = Function(self.M2, name="bed_DG")
+        self.H_DG.assign(project(self.H,self.M2))        
+        self.bed_DG.assign(project(self.bed,self.M2))        
 
         self.gen_surf()  # surf = bed + thick
 
@@ -131,7 +160,9 @@ class model:
         beta = project(self.bglen_to_beta(A**(-1.0/n)), self.Qp)
 
         self.beta.assign(beta)
+        function_update_state(self.beta)
         self.beta_bgd.assign(beta)
+        function_update_state(self.beta_bgd)
 
     def def_lat_dirichletbc(self):
         """Homogenous dirichlet conditions on lateral boundaries"""
@@ -144,6 +175,7 @@ class model:
     def alpha_from_data(self):
         """Get alpha field from initial input data (run_momsolve only)"""
         self.alpha.assign(self.input_data.interpolate("alpha", self.Qp))
+        function_update_state(self.alpha)
 
     def bglen_from_data(self, mask_only=False):
         """Get bglen field from initial input data"""
@@ -177,24 +209,41 @@ class model:
     def alpha_from_inversion(self):
         """Get alpha field from inversion step"""
         inversion_file = self.params.io.inversion_file
-        outdir = self.params.io.output_dir
+
+        phase_suffix = self.params.inversion.phase_suffix
+        if len(phase_suffix) > 0:
+            inversion_file = self.params.io.run_name + phase_suffix + '_invout.h5'
+
+        outdir = Path(self.params.io.output_dir) / \
+                 self.params.inversion.phase_name / \
+                 self.params.inversion.phase_suffix
 
         with HDF5File(self.mesh.mpi_comm(),
-                      str(Path(outdir)/inversion_file),
+                      str(outdir/inversion_file),
                       'r') as infile:
             infile.read(self.alpha, 'alpha')
+            function_update_state(self.alpha)
 
     def beta_from_inversion(self):
         """Get beta field from inversion step"""
         inversion_file = self.params.io.inversion_file
-        outdir = self.params.io.output_dir
+
+        phase_suffix = self.params.inversion.phase_suffix
+        if len(phase_suffix) > 0:
+            inversion_file = self.params.io.run_name + phase_suffix + '_invout.h5'
+
+        outdir = Path(self.params.io.output_dir) / \
+                 self.params.inversion.phase_name / \
+                 self.params.inversion.phase_suffix
 
         with HDF5File(self.mesh.mpi_comm(),
-                      str(Path(outdir)/inversion_file),
+                      str(outdir/inversion_file),
                       'r') as infile:
             infile.read(self.beta, 'beta')
+            function_update_state(self.beta)
 
         self.beta_bgd.assign(self.beta)
+        function_update_state(self.beta_bgd)
 
     def init_beta(self, beta, pert=False):
         """
@@ -206,7 +255,9 @@ class model:
 
         beta_proj = project(beta, self.Qp)
         self.beta.assign(beta_proj)
+        function_update_state(self.beta)
         self.beta_bgd.assign(beta_proj)
+        function_update_state(self.beta_bgd)
 
         # TODO - tidy this up properly (remove pert arg)
         # if pert:
@@ -215,6 +266,7 @@ class model:
         #     pert_vec = 0.001*bv*randn(bv.size)
         #     self.beta.vector().set_local(bv + pert_vec)
         #     self.beta.vector().apply('insert')
+        #     function_update_state(self.beta)
 
 
     def vel_obs_from_data(self):
@@ -368,8 +420,6 @@ class model:
         fl_ex = conditional(H <= H_flt, 1.0, 0.0)
 
         self.surf = project((1-fl_ex)*(bed+H) + (fl_ex)*H*(1-rhoi/rhow), self.Q)
-        self.surf._Function_static__ = True
-        self.surf._Function_checkpoint__ = False
         self.surf.rename("surf", "")
 
     def bdrag_to_alpha(self, B2):
@@ -458,9 +508,19 @@ class model:
             self.alpha.vector().apply('insert')
         else:
             raise NotImplementedError(f"Don't have code for method {method}")
+        function_update_state(self.alpha)
 
-
-        inout.write_variable(self.alpha, self.params, name="alpha_init_guess")
+        write_diag = self.params.io.write_diagnostics
+        if write_diag:
+            diag_dir = self.params.io.diagnostics_dir
+            phase_suffix = self.params.inversion.phase_suffix
+            phase_name = self.params.inversion.phase_name
+            inout.write_variable(self.alpha,
+                                 self.params,
+                                 name="alpha_init_guess",
+                                 outdir=diag_dir,
+                                 phase_name=phase_name,
+                                 phase_suffix=phase_suffix)
 
     def mark_BCs(self):
         """
