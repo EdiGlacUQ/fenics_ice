@@ -50,25 +50,26 @@ def test_tv_run_forward(config_file):
     cntrl = slvr.get_control()
 
     slvr.reset_ts_zero()
-    J = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)[0]
+    J = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)[2]
     dJ = compute_gradient(J, cntrl)
 
     def forward_ts(cntrl, cntrl_init, name):
         slvr.reset_ts_zero()
         if (name == 'alpha'):
-            slvr._alpha = cntrl
+            slvr.set_control_fns([cntrl, slvr._beta], initial=True)
         elif (name == 'beta'):
-            slvr._beta = cntrl
+            slvr.set_control_fns([slvr._alpha, cntrl], initial=True)
         else:
             raise ValueError(f"Unrecognised cntrl name: {name}")
 
-        result = slvr.timestep(adjoint_flag=1, qoi_func=slvr.get_qoi_func())[0]
+        result = slvr.timestep(adjoint_flag=1, qoi_func=slvr.get_qoi_func())[2]
+        stop_manager()
 
         # Reset after simulation - confirmed necessary
         if (name == 'alpha'):
-            slvr._alpha = cntrl_init
+            slvr.set_control_fns([cntrl_init, slvr.beta], initial=True)
         elif (name == 'beta'):
-            slvr._beta = cntrl_init
+            slvr.set_control_fns([slvr._alpha, cntrl_init], initial=True)
         else:
             raise ValueError(f"Bad control name {name}")
 
