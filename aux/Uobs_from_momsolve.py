@@ -15,9 +15,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from fenics_ice.backend import Function, HDF5File, MPI, Mesh, Point, \
+    RectangleMesh, VectorFunctionSpace, project
+
 import numpy as np
 from pathlib import Path
-from fenics import *
 import h5py
 from fenics_ice import model
 import argparse

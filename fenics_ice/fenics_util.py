@@ -15,15 +15,17 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from .backend import Constant, File, Function, FunctionSpace, Mesh, \
+    VectorFunctionSpace, project
+
+from . import model
+
 import numpy as np
 import sys
 import os
 from pylab import plt
 from matplotlib import colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from fenics import *
-from IPython import embed
-from fenics_ice import model
 import collections.abc
 
 def plot_variable(u, name, direc, cmap='gist_yarg', scale='lin', numLvls=12,

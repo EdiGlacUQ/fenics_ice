@@ -19,6 +19,10 @@
 Module to handle model input & output
 """
 
+from .backend import File, Function, HDF5File, MPI, XDMFFile, \
+    configure_checkpointing
+from tlm_adjoint.fenics.backend import backend_Function
+
 import sys
 import time
 import csv
@@ -32,8 +36,6 @@ import git
 from scipy import interpolate as interp
 from abc import ABC, abstractmethod
 
-from fenics import *
-from tlm_adjoint.fenics import configure_checkpointing
 import numpy as np
 
 # Regex for catching unnamed vars
@@ -195,11 +197,11 @@ class XDMFWriter(Writer):
 
         super().write(variable, name, step, finalise)
 
-def gen_path(params, name, suffix):
+def gen_path(params, name, suffix, phase_suffix=''):
     """Convert e.g. 'alpha' into outdir/runname_alpha.pvd"""
 
-    outdir = Path(params.io.output_dir)
-    outfname = Path("_".join((params.io.run_name, name))).with_suffix(suffix)
+    outdir = Path(params.io.output_dir) / params.inversion.phase_name / phase_suffix
+    outfname = Path("_".join((params.io.run_name+phase_suffix, name))).with_suffix(suffix)
     return outdir/outfname
 
 
@@ -209,13 +211,20 @@ def write_qval(Qval, params):
     """
 
     outdir = params.io.output_dir
+    phase_name = params.time.phase_name
     filename = params.io.qoi_file
+    phase_suffix = params.time.phase_suffix
+
+    if len(phase_suffix) > 0:
+        filename = params.io.run_name + phase_suffix + '_Qval_ts.p'
 
     run_length = params.time.run_length
     n_steps = params.time.total_steps
     ts = np.linspace(0, run_length, n_steps+1)
 
-    with open(Path(outdir)/filename, 'wb') as pickle_file:
+    outdir_final = Path(outdir)/phase_name/phase_suffix
+
+    with open(outdir_final/filename, 'wb') as pickle_file:
         pickle.dump([Qval, ts], pickle_file)
 
 def write_dqval(dQ_ts, cntrl_names, params):
@@ -224,11 +233,19 @@ def write_dqval(dQ_ts, cntrl_names, params):
     """
 
     outdir = params.io.output_dir
+    diagdir = params.io.diagnostics_dir
+    phase_name = params.time.phase_name
     h5_filename = params.io.dqoi_h5file
+    phase_suffix = params.time.phase_suffix
 
-    vtkfile = File(str((Path(outdir)/h5_filename).with_suffix(".pvd")))
+    if len(phase_suffix) > 0:
+        h5_filename = params.io.run_name + phase_suffix + '_dQ_ts.h5'
 
-    hdf5out = HDF5File(MPI.comm_world, str(Path(outdir)/h5_filename), 'w')
+    diagdir_f = Path(diagdir)/phase_name/phase_suffix
+    outdir_f = Path(outdir)/phase_name/phase_suffix
+    # TODO add this file to diags once Dan makes his pull request
+    vtkfile = File(str((diagdir_f/h5_filename).with_suffix(".pvd")))
+    hdf5out = HDF5File(MPI.comm_world, str(outdir_f/h5_filename), 'w')
     n = 0.0
 
     # Loop dQ sample times ('num_sens')
@@ -248,14 +265,14 @@ def write_dqval(dQ_ts, cntrl_names, params):
 
     hdf5out.close()
 
-def write_variable(var, params, name=None):
+def write_variable(var, params, name=None, outdir=None, phase_name='', phase_suffix=''):
     """
     Produce xml & vtk output of supplied variable (prefixed with run name)
 
     Name is taken from variable structure if not provided
     If 'name' is provided, the variable will be renamed accordingly.
     """
-    assert isinstance(var, Function)
+    assert isinstance(var, backend_Function)
 
     var_name = var.name()
     unnamed_var = unnamed_re.match(var_name) is not None
@@ -274,20 +291,37 @@ def write_variable(var, params, name=None):
         name = var_name
 
     outvar.rename(name, "")
-
     # Prefix the run name
-    outfname = Path(params.io.output_dir)/"_".join((params.io.run_name, name))
-    vtk_fname = str(outfname.with_suffix(".pvd"))
-    xml_fname = str(outfname.with_suffix(".xml"))
+    outfname = Path(outdir) / phase_name / phase_suffix / "_".join((params.io.run_name+phase_suffix, name))
+    #embed()
 
-    File(vtk_fname) << outvar
-    File(xml_fname) << outvar
+    # Write out output according to user specified format in toml
+    output_var_format = params.io.output_var_format
+    if 'pvd' in output_var_format:
+        vtk_fname = str(outfname.with_suffix(".pvd"))
+        File(vtk_fname) << outvar
+    if 'xml' in output_var_format:
+        xml_fname = str(outfname.with_suffix(".xml"))
+        File(xml_fname) << outvar
+    if 'h5' in output_var_format:
+        hdf5out = HDF5File(MPI.comm_world, str(outfname.with_suffix(".h5")), 'w')
+        hdf5out.write(outvar, name)
+        hdf5out.close()
+    if 'all' in output_var_format:
+        vtk_fname = str(outfname.with_suffix(".pvd"))
+        xml_fname = str(outfname.with_suffix(".xml"))
+        File(vtk_fname) << outvar
+        File(xml_fname) << outvar
+        hdf5out = HDF5File(MPI.comm_world, str(outfname.with_suffix(".h5")), 'w')
+        hdf5out.write(outvar, name)
+        hdf5out.close()
 
     logging.info("Writing function %s to file %s" % (name, outfname))
 
 def dict_to_csv(indict, name, params):
     """Write dictionary to CSV file"""
-    outfname = gen_path(params, name, '.csv')
+    phase_suffix = params.inversion.phase_suffix
+    outfname = gen_path(params, name, '.csv', phase_suffix)
     with open(outfname, 'w') as f:
         writer = csv.DictWriter(f, indict.keys())
         writer.writeheader()
@@ -355,6 +389,7 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
             v_cloud = v_obs.copy()
             u_cloud_std = u_std.copy()
             v_cloud_std = v_std.copy()
+        infile.close()
 
         uv_cloud_pts = np.vstack((x_cloud, y_cloud)).T
         uv_obs_pts = np.vstack((x, y)).T
@@ -383,10 +418,10 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
             assert sizes_pts[0] == sizes_pts[-1]
             assert np.all(sizes == sizes[0])
 
-        if model is not None:
-            model.vel_obs = out
-        else:
-            return out
+    if model is not None:
+        model.vel_obs = out
+    else:
+        return out
 
 class DataNotFound(Exception):
     """Custom exception for unfound data"""
@@ -460,7 +495,8 @@ class InputData(object):
         self.input_dir = params.io.input_dir
 
         # List of fields to search for
-        field_list = ["thick", "bed", "bmelt", "smb", "Bglen", "alpha"]
+        field_list = ["thick", "bed", "bmelt", "smb", "Bglen", "Bglenmask", "alpha", \
+                      "melt_depth_therm", "melt_max"]
 
         # Dictionary of filenames & field names (i.e. field to get from HDF5 file)
         # Possibly equal to None for variables which have sensible defaults
@@ -513,7 +549,7 @@ class InputData(object):
         name : the variable to be interpolated (need not necessarily exist!)
         space : function space onto which to interpolate
         default : value to return if field is absent (otherwise raise error)
-        static : if True, set _Function_static__ = True to save always-zero differentials
+        static : if True, declare the result to be static
         method: "nearest" or "linear"
 
         Returns:
@@ -619,13 +655,15 @@ def setup_logging(params):
     # TODO - Doesn't work yet - can't redirect output from fenics etc
     # run_name = params.io.run_name
     # logfile = run_name + ".log"
-
     # Get the FFC logger to shut up
     logging.getLogger('UFL').setLevel(logging.WARNING)
     logging.getLogger('FFC').setLevel(logging.WARNING)
-    logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.WARNING)
-
     log_level = params.io.log_level
+
+    if log_level == 'critical':
+        logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.WARNING)
+    else:
+        logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.DEBUG)
 
     numeric_level = getattr(logging, log_level.upper(), None)
     if not isinstance(numeric_level, int):
@@ -727,8 +765,11 @@ def configure_tlm_checkpointing(params):
     configure_checkpointing(method, config_dict)
 
 def write_inversion_info(params, conv_info, header="J, F_crit, G_crit_alpha, G_crit_beta"):
+
+    phase_name = params.inversion.phase_name
+    phase_suffix = params.inversion.phase_suffix
     """Write out a list of tuples containing convergence info for inversion"""
-    outfname = Path(params.io.output_dir)/"_".join((params.io.run_name,
+    outfname = Path(params.io.output_dir) / phase_name / phase_suffix /"_".join((params.io.run_name+phase_suffix,
                                                     "inversion_progress.csv"))
 
     np.savetxt(outfname, conv_info, delimiter=",", header=header)

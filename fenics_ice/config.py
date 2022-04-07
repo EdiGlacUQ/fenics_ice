@@ -23,6 +23,8 @@ lots of boilerplate code. Each of the classes which is prepended with a @datacla
 which inherits from ConfigPrinter defines a seperate section of the configuration.
 """
 
+from .backend import parameters as fenics_params
+
 import os
 import math
 import toml
@@ -30,7 +32,6 @@ from dataclasses import dataclass, field
 import numpy as np
 from pathlib import Path
 import pprint
-from fenics import parameters as fenics_params
 
 class ConfigPrinter(object):
     """
@@ -85,6 +86,13 @@ class ConfigParser(object):
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
 
+        # Optional melt section
+        try:
+            melt_dict = self.config_dict['melt']
+        except KeyError:
+            melt_dict = {}
+        self.melt = MeltParamCfg(**melt_dict)
+
         # Optional invsigma section
         try:
             inv_sigma_dict = self.config_dict['invsigma']
@@ -117,8 +125,32 @@ class ConfigParser(object):
             "Unable to find input directory"
 
         outdir = (self.top_dir / self.io.output_dir)
+        diag_dir = (self.top_dir/ self.io.diagnostics_dir)
+
+        ph_names = [self.inversion.phase_name,
+                    self.time.phase_name,
+                    self.eigendec.phase_name,
+                    self.error_prop.phase_name,
+                    self.inv_sigma.phase_name]
+
+        ph_suffix = [self.inversion.phase_suffix,
+                    self.time.phase_suffix,
+                    self.eigendec.phase_suffix,
+                    self.error_prop.phase_suffix,
+                    self.inv_sigma.phase_suffix]
+
+        for ph, suff in zip(ph_names, ph_suffix):
+            out_dir = (outdir / ph / suff)
+            out_diag_dirs = (diag_dir/ ph / suff)
+            if not out_dir.is_dir():
+                out_dir.mkdir(parents=True, exist_ok=True)
+            if not out_diag_dirs.is_dir():
+                out_diag_dirs.mkdir(parents=True, exist_ok=True)
+
         if not outdir.is_dir():
             outdir.mkdir(parents=True, exist_ok=True)
+        if not diag_dir.is_dir():
+            diag_dir.mkdir(parents=True, exist_ok=True)
 
     def set_tlm_adjoint_params(self):
         """Set some parameters for tlm_adjoint"""
@@ -176,6 +208,8 @@ class InversionCfg(ConfigPrinter):
     use_cloud_point_velocities: bool = False
 
     mass_precon: bool = True
+    phase_name: str = 'inversion'
+    phase_suffix: str = ''
 
     def __post_init__(self):
         """
@@ -209,6 +243,17 @@ class ErrorPropCfg(ConfigPrinter):
     Configuration related to error propagation
     """
     qoi: str = 'vaf'
+    phase_name: str = 'error_prop'
+    phase_suffix: str = ''
+
+@dataclass(frozen=True)
+class MeltParamCfg(ConfigPrinter):
+    """
+    Configuration related to depth-dependent melt parameterisation
+    """
+    use_melt_parameterisation: bool = False
+    melt_depth_therm_const: float = -999.0
+    melt_max_const: float = -999.0
 
 @dataclass(frozen=True)
 class InvSigmaCfg(ConfigPrinter):
@@ -217,6 +262,8 @@ class InvSigmaCfg(ConfigPrinter):
     """
     patch_downscale: float = None
     npatches: int = None
+    phase_name: str = 'inv_sigma'
+    phase_suffix: str = ''
 
     def __post_init__(self):
         """Check & supply sensible defaults"""
@@ -239,6 +286,8 @@ class EigenDecCfg(ConfigPrinter):
     test_ed: bool = False
     tol: float = 1.0e-10
     max_iter: int = 1e6
+    phase_name: str = 'eigendec'
+    phase_suffix: str = ''
 
     def __post_init__(self):
         assert self.precondition_by in ["mass", "prior"], \
@@ -359,6 +408,8 @@ class IOCfg(ConfigPrinter):
     run_name: str
     input_dir: str
     output_dir: str
+    diagnostics_dir: str
+    write_diagnostics: bool = False
 
     data_file: str = None
 
@@ -368,7 +419,10 @@ class IOCfg(ConfigPrinter):
     bmelt_data_file: str = None
     smb_data_file: str = None
     bglen_data_file: str = None
+    bglenmask_data_file: str = None
     alpha_data_file: str = None
+    melt_depth_therm_data_file: str = None
+    melt_max_data_file: str = None
 
     thick_field_name: str = "thick"
     bed_field_name: str = "bed"
@@ -376,7 +430,10 @@ class IOCfg(ConfigPrinter):
     bmelt_field_name: str = "bmelt"
     smb_field_name: str = "smb"
     bglen_field_name: str = "Bglen"
+    bglenmask_field_name: str = "Bglen"
     alpha_field_name: str = "alpha"
+    melt_depth_therm_field_name: str = "melt_depth"
+    melt_max_field_name: str = "melt_max"
 
     inversion_file: str = None
     qoi_file: str = None  # "Qval_ts.p"
@@ -387,6 +444,7 @@ class IOCfg(ConfigPrinter):
     sigma_prior_file: str = None  # "sigma_prior.p"
 
     log_level: str = "info"
+    output_var_format: str = "all"
 
     def set_default_filename(self, attr_name, suffix):
         """Sets a default filename (prefixed with run_name) & check suffix"""
@@ -411,6 +469,12 @@ class IOCfg(ConfigPrinter):
                                           "debug"], \
             "Invalid log level"
 
+        assert self.output_var_format in ["pvd",
+                                          "xml",
+                                          "h5",
+                                          "all"], \
+            "Invalid variable output file format"
+
         fname_default_suff = {
             'inversion_file': 'invout.h5',
             'eigenvecs_file': 'vr.h5',
@@ -423,6 +487,7 @@ class IOCfg(ConfigPrinter):
 
         for fname in fname_default_suff:
             self.set_default_filename(fname, fname_default_suff[fname])
+            #embed()
 
 @dataclass(frozen=True)
 class TimeCfg(ConfigPrinter):
@@ -434,6 +499,10 @@ class TimeCfg(ConfigPrinter):
     total_steps: int = None
     dt: float = None
     num_sens: int = 1
+    save_frequency: float = 0
+
+    phase_name: str = 'forward'
+    phase_suffix: str = ''
 
     def __post_init__(self):
         """

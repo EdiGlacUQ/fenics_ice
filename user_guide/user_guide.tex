@@ -73,10 +73,9 @@ conda activate fenics_ice
 Neither tlm\_adjoint or fenics\_ice are currently available through a conda channel or python repo. As they are both python tools, they are `installed' simply by downloading them and pointing our conda environment to their directories:
 
 \begin{spverbatim}
-#install tlm_adjoint & checkout the relevant branch
-git clone https://github.com/jrmaddison/tlm_adjoint.git
+# Install tlm_adjoint
+git clone https://github.com/EdiGlacUQ/tlm_adjoint.git
 cd $INSTALL_DIR/tlm_adjoint
-git checkout fenics_ice
 
 # Point the conda environment to tlm_adjoint & fenics_ice
 conda develop $INSTALL_DIR/tlm_adjoint
@@ -113,7 +112,6 @@ The core structure and key files are: \\
 .3 decorators.py.
 .3 eigendecomposition.py.
 .3 fenics\_util.py.
-.3 graphviz.py.
 .3 inout.py.
 .3 mesh.py.
 .3 minimize\_l\_bfgs.py.

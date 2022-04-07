@@ -15,13 +15,14 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from fenics_ice.backend import Constant, File, Function, FunctionSpace, \
+    HDF5File, Mesh, VectorFunctionSpace, conditional, project
+
 import sys
 import os
 import getopt
 import argparse
 
-from fenics import *
-from dolfin import *
 import ufl
 
 from fenics_ice import model, solver
@@ -36,7 +37,6 @@ import numpy as np
 import time
 import datetime
 import pickle
-from IPython import embed
 
 def main(config_file):
 

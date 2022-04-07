@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from fenics_ice.backend import compute_gradient, project
+
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -22,8 +24,6 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 import sys
 from pathlib import Path
 import argparse
-from fenics import *
-from tlm_adjoint.fenics import *
 
 from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
@@ -37,7 +37,6 @@ import numpy as np
 import time
 import datetime
 
-stop_annotating()
 
 def run_forward(config_file):
 
@@ -47,6 +46,8 @@ def run_forward(config_file):
     inout.log_preamble("forward", params)
 
     outdir = params.io.output_dir
+    diag_dir = params.io.diagnostics_dir
+    phase_name = params.time.phase_name
 
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
@@ -81,17 +82,20 @@ def run_forward(config_file):
     inout.write_dqval(dQ_ts, [var.name() for var in cntrl], params)
 
     # Output final velocity, surface & thickness (visualisation)
-    inout.write_variable(slvr.U, params, name="U_fwd")
-    inout.write_variable(mdl.surf, params, name="surf_fwd")
+    inout.write_variable(slvr.U, params, name="U_fwd",
+                         outdir=diag_dir, phase_name=phase_name,
+                         phase_suffix=params.time.phase_suffix)
+    inout.write_variable(mdl.surf, params, name="surf_fwd",
+                         outdir=diag_dir, phase_name=phase_name,
+                         phase_suffix=params.time.phase_suffix)
 
     H = project(mdl.H, mdl.Q)
-    inout.write_variable(H, params, name="H_fwd")
-
+    inout.write_variable(H, params, name="H_fwd",
+                         outdir=diag_dir, phase_name=phase_name,
+                         phase_suffix=params.time.phase_suffix)
     return mdl
 
 
 if __name__ == "__main__":
-    stop_annotating()
-
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_forward(sys.argv[1])

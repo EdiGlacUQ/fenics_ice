@@ -16,6 +16,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from fenics_ice.backend import FiniteElement, Function, FunctionSpace, \
+    HDF5File, MPI, TestFunction, assemble, assign, inner, dx
+
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -23,16 +26,14 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 import sys
 import pickle
 import numpy as np
-
-from dolfin import *
-from tlm_adjoint.fenics import *
+from pathlib import Path
 
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 
 import matplotlib as mpl
-# mpl.use("Agg")
+#mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 def patch_fun(mesh_in, params):
@@ -60,7 +61,7 @@ def patch_fun(mesh_in, params):
 
     # Ratio of n_patches to n_cells
     if params.inv_sigma.npatches is not None:
-        ntgt = param.inv_sigma.npatches
+        ntgt = params.inv_sigma.npatches
     else:
         ntgt = int(np.floor(ncells * params.inv_sigma.patch_downscale))
 
@@ -127,14 +128,21 @@ def run_invsigma(config_file):
     inout.log_preamble("inv sigma", params)
 
     outdir = params.io.output_dir
+    diags_dir = params.io.diagnostics_dir
 
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
 
-    eigendir = outdir
+    # Eigen decomposition params
+    phase_suffix_e = params.eigendec.phase_suffix
+    eigendir = Path(outdir)/params.eigendec.phase_name/phase_suffix_e
     lamfile = params.io.eigenvalue_file
     vecfile = params.io.eigenvecs_file
     threshlam = params.eigendec.eigenvalue_thresh
+
+    if len(phase_suffix_e) > 0:
+        lamfile = params.io.run_name + phase_suffix_e + '_eigvals.p'
+        vecfile = params.io.run_name + phase_suffix_e + '_vr.h5'
 
     # Get model mesh
     mesh = fice_mesh.get_mesh(params)
@@ -145,6 +153,7 @@ def run_invsigma(config_file):
     # Load alpha/beta fields
     mdl.alpha_from_inversion()
     mdl.beta_from_inversion()
+    mdl.bglen_from_data(mask_only=True)
 
     # Setup our solver object
     slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual)
@@ -373,8 +382,16 @@ def run_invsigma(config_file):
         sigmas[i].rename("sigma_"+name, "")
         sigma_priors[i].rename("sigma_prior_"+name, "")
 
-        inout.write_variable(sigmas[i], params)
-        inout.write_variable(sigma_priors[i], params)
+        phase_suffix_sigma = params.inv_sigma.phase_suffix
+
+        inout.write_variable(sigmas[i], params,
+                             outdir=outdir,
+                             phase_name=params.inv_sigma.phase_name,
+                             phase_suffix=phase_suffix_sigma)
+        inout.write_variable(sigma_priors[i], params,
+                             outdir=outdir,
+                             phase_name=params.inv_sigma.phase_name,
+                             phase_suffix=phase_suffix_sigma)
 
     mdl.cntrl_sigma = sigmas
     mdl.cntrl_sigma_prior = sigma_priors
@@ -382,7 +399,5 @@ def run_invsigma(config_file):
 
 
 if __name__ == "__main__":
-    stop_annotating()
-
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_invsigma(sys.argv[1])

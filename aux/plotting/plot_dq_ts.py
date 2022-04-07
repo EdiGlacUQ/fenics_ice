@@ -15,13 +15,14 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from fenics_ice.backend import Function, FunctionSpace, HDF5File, Mesh, MPI
+
 import sys
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import os
-from fenics import *
 from fenics_ice import model, config
 from fenics_ice import mesh as fice_mesh
 from pathlib import Path

@@ -6,6 +6,7 @@
 run_name = "ismipc_rc_1e6"
 input_dir = "./input"
 output_dir = "./output"
+diagnostics_dir = "./diagnostics"
 
 data_file = "ismipc_input.h5"
 
@@ -139,13 +140,13 @@ qoi = 'h2' #or 'vaf'
 [testing]
 
 expected_init_alpha = 354.4076349907514
-expected_J_inv = 19868.80404174304
-expected_cntrl_norm = 634.009999138752
-expected_delta_qoi = 9115590866.5
-expected_u_norm = 680064.7749599486
-expected_evals_sum = 463444.9800434392
-expected_evec0_norm = 141066.3640825024
-expected_cntrl_sigma_norm = 11037.222873766408
+expected_J_inv = 10040.781901157943
+expected_cntrl_norm = 633.9527323860134
+expected_delta_qoi = 8518993067.75
+expected_u_norm = 679980.9590512719
+expected_evals_sum = 232273.16880671855
+expected_evec0_norm = 141062.95072938295
+expected_cntrl_sigma_norm = 13105.614400687418
 expected_cntrl_sigma_prior_norm = 171705.35930970073
-expected_Q_sigma = 1045210066.1788563
-expected_Q_sigma_prior = 28109444650.500095
+expected_Q_sigma = 1342959798.431109
+expected_Q_sigma_prior = 28114441699.46046

@@ -20,9 +20,10 @@ Generate a rectangular mesh for (synthetic) fenics_ice sims. Previously, run_inv
 responsible for generating the mesh at run time.
 """
 
+from fenics_ice.backend import File, Point, RectangleMesh
+
 from mpi4py import MPI
 import argparse
-from fenics import RectangleMesh, Point, File
 
 def gen_rect_mesh(nx, ny, xmin, xmax, ymin, ymax, outfile, direction='right'):
 

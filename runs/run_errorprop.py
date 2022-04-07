@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from fenics_ice.backend import Function, HDF5File, MPI
+
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -22,13 +24,12 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 import sys
 import numpy as np
 import pickle
-
-from dolfin import *
-from tlm_adjoint.fenics import *
+from pathlib import Path
 
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
+from IPython import embed
 
 import matplotlib as mpl
 mpl.use("Agg")
@@ -46,10 +47,23 @@ def run_errorprop(config_file):
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
 
+    #Eigen value params
+    phase_eigen = params.eigendec.phase_name
+    phase_suffix_e = params.eigendec.phase_suffix
     lamfile = params.io.eigenvalue_file
     vecfile = params.io.eigenvecs_file
     threshlam = params.eigendec.eigenvalue_thresh
+
+    # Qoi forward params
+    phase_time = params.time.phase_name
+    phase_suffix_qoi = params.time.phase_suffix
     dqoi_h5file = params.io.dqoi_h5file
+
+    if len(phase_suffix_e) > 0:
+        lamfile = params.io.run_name + phase_suffix_e + '_eigvals.p'
+        vecfile = params.io.run_name + phase_suffix_e + '_vr.h5'
+    if len(phase_suffix_qoi) > 0:
+        dqoi_h5file = params.io.run_name + phase_suffix_qoi + '_dQ_ts.h5'
 
     # Get model mesh
     mesh = fice_mesh.get_mesh(params)
@@ -60,6 +74,7 @@ def run_errorprop(config_file):
     # Load alpha/beta fields
     mdl.alpha_from_inversion()
     mdl.beta_from_inversion()
+    mdl.bglen_from_data(mask_only=True)
 
     # Setup our solver object
     slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual)
@@ -74,7 +89,8 @@ def run_errorprop(config_file):
     x, y, z = [Function(space) for i in range(3)]
 
     # Loads eigenvalues from file
-    with open(os.path.join(outdir, lamfile), 'rb') as ff:
+    outdir_e = Path(outdir)/phase_eigen/phase_suffix_e
+    with open(outdir_e/lamfile, 'rb') as ff:
         eigendata = pickle.load(ff)
         lam = eigendata[0].real.astype(np.float64)
         nlam = len(lam)
@@ -88,7 +104,7 @@ def run_errorprop(config_file):
     # and eigenvectors from .h5 file
     eps = params.constants.float_eps
     W = []
-    with HDF5File(MPI.comm_world, os.path.join(outdir, vecfile), 'r') as hdf5data:
+    with HDF5File(MPI.comm_world, str(outdir_e/vecfile), 'r') as hdf5data:
         for i in range(nlam):
             w = Function(space)
             hdf5data.read(w, f'v/vector_{i}')
@@ -109,7 +125,8 @@ def run_errorprop(config_file):
     D = np.diag(lam / (lam + 1))  # D_r Isaac 20
 
     # File containing dQoi_dCntrl (i.e. Jacobian of parameter to observable (Qoi))
-    hdf5data = HDF5File(MPI.comm_world, os.path.join(outdir, dqoi_h5file), 'r')
+    outdir_qoi = Path(outdir)/phase_time/phase_suffix_qoi
+    hdf5data = HDF5File(MPI.comm_world, str(outdir_qoi/dqoi_h5file), 'r')
 
     dQ_cntrl = Function(space)
 
@@ -166,6 +183,11 @@ def run_errorprop(config_file):
         sigma_conv.append(np.sqrt(variance))
         sigma_steps.append(min(i+conv_int, nlam))
 
+    # Save plots in diagnostics
+    phase_err = params.error_prop.phase_name
+    phase_suffix_err = params.error_prop.phase_suffix
+    diag_dir = Path(params.io.diagnostics_dir)/phase_err/phase_suffix_err
+    outdir_err = Path(params.io.output_dir)/phase_err/phase_suffix_err
 
     # if(MPI.comm_world.rank == 0):
     plt.semilogy(sigma_steps, sigma_conv)
@@ -173,12 +195,16 @@ def run_errorprop(config_file):
     plt.ylabel("sigma QoI")
     plt.xlabel("Num eig")
 
-    plt.savefig(os.path.join(params.io.output_dir,
-                             "_".join((params.io.run_name, "sigmaQoI_conv.pdf"))))
+    plt.savefig(os.path.join(str(diag_dir),
+                             "_".join((params.io.run_name,
+                                       phase_suffix_err +
+                                       "sigmaQoI_conv.pdf"))))
     plt.close()
 
-    sigmaqoi_file = os.path.join(params.io.output_dir,
-                                 "_".join((params.io.run_name, "sigma_qoi_convergence.p")))
+    sigmaqoi_file = os.path.join(str(outdir_err),
+                                 "_".join((params.io.run_name,
+                                           phase_suffix_err +
+                                           "sigma_qoi_convergence.p")))
 
     with open(sigmaqoi_file, 'wb') as pfile:
         pickle.dump([sigma_steps, sigma_conv], pfile)
@@ -193,9 +219,14 @@ def run_errorprop(config_file):
     # Output model variables in ParaView+Fenics friendly format
     sigma_file = params.io.sigma_file
     sigma_prior_file = params.io.sigma_prior_file
-    with open( os.path.join(outdir, sigma_file), "wb" ) as sigfile:
+
+    if len(phase_suffix_err) > 0:
+        sigma_file = params.io.run_name + phase_suffix_err + '_sigma.p'
+        sigma_prior_file = params.io.run_name + phase_suffix_err + '_sigma_prior.p'
+
+    with open( os.path.join(outdir_err, sigma_file), "wb" ) as sigfile:
         pickle.dump( [sigma, t_sens], sigfile)
-    with open( os.path.join(outdir, sigma_prior_file), "wb" ) as sigpfile:
+    with open( os.path.join(outdir_err, sigma_prior_file), "wb" ) as sigpfile:
         pickle.dump( [sigma_prior, t_sens], sigpfile)
 
     # This simplifies testing - is it OK? Should we hold all data in the solver object?
@@ -206,7 +237,5 @@ def run_errorprop(config_file):
 
 
 if __name__ == "__main__":
-    stop_annotating()
-
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_errorprop(sys.argv[1])

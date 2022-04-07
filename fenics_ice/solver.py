@@ -15,30 +15,20 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-import time
-from pathlib import Path
-import numpy as np
+from .backend import *
 
-from fenics import *
-from fenics_ice import inout, prior
-from tlm_adjoint.fenics import *
-from tlm_adjoint.hessian_optimization import *
-
-from tlm_adjoint.fenics.backend_code_generator_interface import matrix_multiply
-
+from . import inout
 from .minimize_l_bfgs import minimize_l_bfgs
 from .minimize_l_bfgs import \
-    line_search_rank0_scipy_scalar_search_wolfe1 as line_search_wolfe1
-from .minimize_l_bfgs import \
-    line_search_rank0_scipy_scalar_search_wolfe2 as line_search_wolfe2
+    line_search_rank0_scipy_scalar_search_wolfe1 as line_search_rank0
 
-
-#from dolfin_adjoint import *
-#from dolfin_adjoint_custom import EquationSolver
-import ufl
-import mpi4py.MPI as MPI
 import logging
-from scipy.sparse import spdiags
+import mpi4py.MPI as MPI
+import numpy as np
+from pathlib import Path
+import time
+import ufl
+import weakref
 
 log = logging.getLogger("fenics_ice")
 
@@ -97,7 +87,7 @@ class ssa_solver:
         parameters["form_compiler"]["cpp_optimize_flags"] = "-O2 -ffast-math -march=native"
         parameters["form_compiler"]["precision"] = 16
 
-        self.model = model
+        self.model = weakref.proxy(model)
         self.model.solvers.append(self)
         self.params = model.params
         self.mixed_space = mixed_space
@@ -112,12 +102,17 @@ class ssa_solver:
 
         # Fields
         self.bed = model.bed
+        self.bed_DG = model.bed_DG
         self.H_np = model.H_np
         self.H = model.H
+        self.H_DG = model.H_DG
         self.beta_bgd = model.beta_bgd
         self.bmelt = model.bmelt
         self.smb = model.smb
         self.latbc = model.latbc
+        if self.params.melt.use_melt_parameterisation:
+         self.melt_depth_therm = model.melt_depth_therm
+         self.melt_max = model.melt_max
 
         self.set_inv_params()
 
@@ -246,6 +241,7 @@ class ssa_solver:
             if initial:
                 assert len(f) == 2
                 self._cntrl_assigner.assign(self._alphaXbeta, f)
+                function_update_state(self._alphaXbeta)
             else:
                 assert len(f) == 1
                 self._alphaXbeta = f[0]
@@ -255,7 +251,9 @@ class ssa_solver:
             if initial:
                 assert len(f) == 2
                 self._alpha.assign(f[0])
+                function_update_state(self._alpha)
                 self._beta.assign(f[1])
+                function_update_state(self._beta)
             elif invconfig.dual:
                 assert len(f) == 2
                 self._alpha = f[0]
@@ -539,8 +537,8 @@ class ssa_solver:
         trial_H = self.trial_H
         H_np = self.H_np
         H = self.H
+        H_DG = self.H_DG
         H_init = self.H_init
-        bmelt = self.bmelt
         smb = self.smb
         dt = self.dt
         nm = self.nm
@@ -548,6 +546,21 @@ class ssa_solver:
         dS = self.dS
 
         fl_ex = self.float_conditional(H)
+
+        if (self.params.melt.use_melt_parameterisation):
+
+          constants = self.params.constants
+          rhow = constants.rhow
+          rhoi = constants.rhoi
+          depth = rhoi/rhow * H_np
+          meltcond = self.melt_conditional(H_np,H_DG)
+          melt_depth_therm = self.melt_depth_therm
+          melt_max = self.melt_max
+          self.bmelt = meltcond * melt_max / 2.0 * \
+           (1.0 + ufl.tanh((depth-melt_depth_therm/2.0)/(melt_depth_therm/4.0)))
+          self.melt_field = project(self.bmelt, self.M)
+          
+        bmelt = self.bmelt
 
         # Crank Nicholson
         # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dx
@@ -581,7 +594,7 @@ class ssa_solver:
             * ds
 
             # basal melting
-            + bmelt*Ksi*fl_ex*dx
+            + bmelt*Ksi*dx
 
             # surface mass balance
             - smb*Ksi*dx
@@ -610,8 +623,9 @@ class ssa_solver:
                                  "absolute_tolerance": 1e-10,
                                  "relative_tolerance": 1e-11,
               })  # Not sure these solver params are necessary (linear solve)
+        LocalProjectionSolver(H, self.H_DG).solve() 
 
-    def timestep(self, save=1, adjoint_flag=1, qoi_func=None ):
+    def timestep(self, adjoint_flag=1, qoi_func=None ):
         """
         Time evolving model
         Returns the QoI
@@ -622,8 +636,15 @@ class ssa_solver:
         n_steps = config.total_steps
         dt = config.dt
         run_length = config.run_length
-
+        save_frequency = config.save_frequency
+        n_save_frequency = int(min(np.ceil(save_frequency/dt),n_steps))
+        if (n_save_frequency < 1): 
+         n_save_frequency = 1
+        elif(n_save_frequency > n_steps):
+         n_save_frequency = n_steps
+       
         outdir = self.params.io.output_dir
+        diag_dir = self.params.io.diagnostics_dir
 
         t = 0.0
 
@@ -645,7 +666,8 @@ class ssa_solver:
             n_sens = np.round(t_sens/dt)
 
             reset_manager()
-            start_annotating()
+            clear_caches()
+            start_manager()
 
             inout.configure_tlm_checkpointing(self.params)
 
@@ -672,17 +694,24 @@ class ssa_solver:
             new_block()
 
         # Write out U & H at each timestep.
-        if save:
-            Hfile = Path(outdir) / "_".join((self.params.io.run_name,
-                                             'H_ts.xdmf'))
-            Ufile = Path(outdir) / "_".join((self.params.io.run_name,
-                                             'U_ts.xdmf'))
+        if (save_frequency>0):
 
-            xdmf_hts = XDMFFile(self.mesh.mpi_comm(), str(Hfile))
-            xdmf_uts = XDMFFile(self.mesh.mpi_comm(), str(Ufile))
+            phase_name = self.params.time.phase_name
+            phase_suffix = self.params.time.phase_suffix
 
-            xdmf_hts.write(H_np, 0.0)
-            xdmf_uts.write(U_np, 0.0)
+            Hname = "H_timestep_" + str(0)
+            inout.write_variable(H_np, self.params, name=Hname, outdir=diag_dir, \
+               phase_name=phase_name, phase_suffix=phase_suffix)
+            Uname = "U_timestep_" + str(0)
+            inout.write_variable(U_np, self.params, name=Uname, outdir=diag_dir, \
+               phase_name=phase_name, phase_suffix=phase_suffix)
+
+            if self.params.melt.use_melt_parameterisation:
+
+              Mname = "Melt_timestep_" + str(0)
+              inout.write_variable(self.melt_field, self.params, name=Mname, \
+                 outdir=diag_dir, phase_name=phase_name, phase_suffix=phase_suffix)
+
 
         ########################
         # Main timestepping loop
@@ -718,14 +747,22 @@ class ssa_solver:
             if n < n_steps and adjoint_flag:
                 new_block()
 
-            if save:
-                xdmf_hts.write(H_np, t)
-                xdmf_uts.write(U_np, t)
-        # End of timestepping loop
+            if ((save_frequency>0) and (n%n_save_frequency==0)):
 
-        if save:
-            xdmf_hts.close()
-            xdmf_uts.close()
+                Hname = "H_timestep_" + str(n)
+                inout.write_variable(H_np, self.params, name=Hname, outdir=diag_dir, \
+                  phase_name=phase_name, phase_suffix=phase_suffix)
+                Uname = "U_timestep_" + str(n)
+                inout.write_variable(U_np, self.params, name=Uname, outdir=diag_dir, \
+                  phase_name=phase_name, phase_suffix=phase_suffix)
+
+                if self.params.melt.use_melt_parameterisation:
+                  self.melt_field = project(self.bmelt, self.M)
+                  Mname = "Melt_timestep_" + str(n)
+                  inout.write_variable(self.melt_field, self.params, name=Mname, \
+                    outdir=diag_dir, phase_name=phase_name, phase_suffix=phase_suffix)
+
+        # End of timestepping loop
 
         return Q_is if qoi_func is not None else None
 
@@ -804,24 +841,18 @@ class ssa_solver:
 
         reset_manager()
         clear_caches()
-
-        start_annotating()
-
+        start_manager()
         J = forward(cntrl)
-        stop_annotating()
+        stop_manager()
 
         # Write out the gradients dJ/dAlpha & dJ/dBeta at each L-BFGS iteration
         # for debugging/analysis.
-        inv_grad_writer = inout.XDMFWriter(inout.gen_path(self.params, 'inv_grads', '.xdmf'),
+        phase_suffix = self.params.inversion.phase_suffix
+        inv_grad_writer = inout.XDMFWriter(inout.gen_path(self.params,
+                                                          'inv_grads',
+                                                          '.xdmf',
+                                                          phase_suffix=phase_suffix),
                                            comm=self.mesh.mpi_comm())
-
-        ##########################################
-        # Uncomment for dependency graph output:
-        ##########################################
-        # from fenics_ice import graphviz
-        # manager_graph = graphviz.dot()
-        # with open("/home/joe/sources/fenics_ice/debug_mixed.dot", "w") as outfile:
-        #     outfile.write(manager_graph)
 
         ##########################################
         # Uncomment for Taylor Verification:
@@ -901,7 +932,7 @@ class ssa_solver:
 
             M_inv_action = []
             for i, x in enumerate(X):
-                this_action = function_new(x, name=f"M_inv_action_{i}")
+                this_action = function_new_conjugate_dual(x, name=f"M_inv_action_{i}")
                 M_solver.solve(this_action.vector(), x.vector())
                 M_inv_action.append(this_action)
 
@@ -913,9 +944,13 @@ class ssa_solver:
 
             M
             """
+
+            from tlm_adjoint.fenics.backend_code_generator_interface import \
+                matrix_multiply
+
             B_0_action = []
             for i, x in enumerate(X):
-                this_action = function_new(x, name=f"B_0_action_{i}")
+                this_action = function_new_conjugate_dual(x, name=f"B_0_action_{i}")
                 # M_action = M_mat * x.vector()
                 M_action = matrix_multiply(M_mat, x.vector())
                 this_action.vector()[:] = M_action
@@ -1012,7 +1047,7 @@ class ssa_solver:
             g_atol=config.g_atol,
             c1=config.c1, c2=config.c2,
             converged=l_bfgs_converged,
-            line_search_rank0=line_search_wolfe1,
+            line_search_rank0=line_search_rank0,
             theta_scale=config.theta_scale,
             delta=config.delta_lbfgs,
             line_search_rank0_kwargs={"xtol": config.wolfe_xtol,
@@ -1037,9 +1072,9 @@ class ssa_solver:
         # Re-compute velocities with inversion results
         reset_manager()
         clear_caches()
-        start_annotating()
+        start_manager()
         self.solve_mom_eq()
-        stop_annotating()
+        stop_manager()
 
         # Print out inversion results/parameter values
         self.J_inv = self.comp_J_inv(verbose=True)
@@ -1092,6 +1127,73 @@ class ssa_solver:
 
         return fl_ex
 
+    def bglen_data_conditional(self, H, glen_mask, H_float=None):
+        """Compute a ufl Conditional where dat available=1, o.w. 0"""
+
+        if not self.params.ice_dynamics.allow_flotation:
+            fl_beta_mask = ufl.operators.Conditional(ufl.eq(self.model.bglen_mask,1.0), 
+                                          Constant(1.0, cell=triangle, name="Const data"),
+                                          Constant(0.0, cell=triangle, name="Const no data"))
+        else:
+
+            if H_float is None:
+             constants = self.params.constants
+             rhow = constants.rhow
+             rhoi = constants.rhoi
+             H_float = -(rhow/rhoi) * self.bed
+
+
+            fl_beta_mask = ufl.operators.Conditional(ufl.operators.And(H > H_float, ufl.eq(self.model.bglen_mask,1.0)),
+                                          Constant(1.0, cell=triangle, name="Const data"),
+                                          Constant(0.0, cell=triangle, name="Const no data"))
+
+        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+
+        return fl_beta_mask
+
+    def melt_conditional(self, H, H_DG):
+        """Compute a ufl Conditional where melt nonzero=1, no melt=0"""
+
+        constants = self.params.constants
+        rhow = constants.rhow
+        rhoi = constants.rhoi
+        H_float_DG = -(rhow/rhoi) * self.bed_DG
+
+        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+        melt_mask = ufl.operators.Conditional(ufl.operators.And(H_DG < H_float_DG, H > 10.0),
+                                          Constant(1.0, cell=triangle, name="Const Melt"),
+                                          Constant(0.0, cell=triangle, name="Const No Melt"))
+
+        return melt_mask
+
+#    def melt_depth_conditional(self):
+#        """Compute a ufl Conditional where melt domain = 1 or 2, and return appropriate param"""
+#
+#        constants = self.params.melt
+#        depth1 = constants.depth_therm_domain_1
+#        depth2 = constants.depth_therm_domain_2
+#
+#        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+#        melt_depth = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),
+#                                          Constant(depth1, cell=triangle, name="Depth Domain 1"),
+#                                          Constant(depth2, cell=triangle, name="Depth Domain 2"))
+#
+#        return melt_depth
+#
+#    def melt_max_conditional(self):
+#        """Compute a ufl Conditional where melt domain = 1 or 2, and return appropriate param"""
+#
+#        constants = self.params.melt
+#        max1 = constants.max_melt_domain_1
+#        max2 = constants.max_melt_domain_2
+#
+#        # Note: cell=triangle just suppresses a UFL warning ("missing cell")
+#        melt_max = ufl.operators.Conditional(ufl.eq(self.model.melt_domains,1.0),
+#                                          Constant(max1, cell=triangle, name="MMelt Domain 1"),
+#                                          Constant(max2, cell=triangle, name="MMelt Domain 2"))
+#
+#        return melt_max
+
     def comp_J_inv(self, verbose=False):
         """
         Compute the value of the cost function
@@ -1122,40 +1224,55 @@ class ssa_solver:
         J = Functional(name="J")
 
         # The following evaluates
-        #   (P u - u_obs)^T R_u_obs^{-1} (P u - u_obs)
-        #   + (P v - v_obs)^T R_v_obs^{-1} (P v - v_obs)
+        #   0.5 * (P u - u_obs)^T R_u_obs^{-1} (P u - u_obs)
+        #   + 0.5 * (P v - v_obs)^T R_v_obs^{-1} (P v - v_obs)
         # for the case where R_u_obs and R_v_obs are diagonal, with diagonals
         # u_std ** 2 and v_std ** 2 respectively.
         #
         # Note that this *does not* annotate equations necessary for computing
         # derivatives with respect to u_obs, v_obs, u_std, or v_std.
 
-        if not hasattr(self, "_cached_J_mismatch_data"):
-            from tlm_adjoint.fenics.fenics_equations import InterpolationMatrix
+        fac = 0.5
 
+        if hasattr(self, "_cached_J_mismatch_data"):
+            interp_space = self._cached_J_mismatch_data[0]
+        else:
             interp_space = FunctionSpace(self.mesh, "DG", 1)
+
+        uf = space_new(interp_space, name="uf")
+        LocalProjectionSolver(
+            u, uf,
+            cache_jacobian=False, cache_rhs_assembly=False).solve()
+        vf = space_new(interp_space, name="vf")
+        LocalProjectionSolver(
+            v, vf,
+            cache_jacobian=False, cache_rhs_assembly=False).solve()
+
+        if not hasattr(self, "_cached_J_mismatch_data"):
+            from tlm_adjoint.fenics.fenics_equations import LocalMatrix
+            from scipy.sparse import spdiags
 
             obs_local, P = interpolation_matrix(
                 uv_obs_pts, interp_space, tolerance=1.0)
 
-            u_PRP = InterpolationMatrix(
+            u_PRP = LocalMatrix(
                 P.T @ spdiags(1.0 / (u_std[obs_local] ** 2),
                               0, P.shape[0], P.shape[0]) @ P)
-            v_PRP = InterpolationMatrix(
+            v_PRP = LocalMatrix(
                 P.T @ spdiags(1.0 / (v_std[obs_local] ** 2),
                               0, P.shape[0], P.shape[0]) @ P)
 
-            l_u_obs = space_new(interp_space, name="l_u_obs")
+            l_u_obs = function_new_conjugate_dual(uf, name="l_u_obs")
             function_set_values(
                 l_u_obs, P.T @ (u_obs[obs_local] / (u_std[obs_local] ** 2)))
-            l_v_obs = space_new(interp_space, name="l_v_obs")
+            l_v_obs = function_new_conjugate_dual(vf, name="l_v_obs")
             function_set_values(
                 l_v_obs, P.T @ (v_obs[obs_local] / (v_std[obs_local] ** 2)))
 
             J_u_obs_local = np.dot(u_obs[obs_local],
                                    u_obs[obs_local] / (u_std[obs_local] ** 2))
             J_u_obs = np.full(1, np.NAN, dtype=J_u_obs_local.dtype)
-            space_comm(interp_space).Allreduce(
+            function_comm(uf).Allreduce(
                 np.array([J_u_obs_local], dtype=J_u_obs_local.dtype),
                 J_u_obs, op=MPI.SUM)
             J_u_obs, = J_u_obs
@@ -1163,7 +1280,7 @@ class ssa_solver:
             J_v_obs_local = np.dot(v_obs[obs_local],
                                    v_obs[obs_local] / (v_std[obs_local] ** 2))
             J_v_obs = np.full(1, np.NAN, dtype=J_v_obs_local.dtype)
-            space_comm(interp_space).Allreduce(
+            function_comm(vf).Allreduce(
                 np.array([J_v_obs_local], dtype=J_v_obs_local.dtype),
                 J_v_obs, op=MPI.SUM)
             J_v_obs, = J_v_obs
@@ -1175,46 +1292,37 @@ class ssa_solver:
          u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs) = \
             self._cached_J_mismatch_data
 
-        uf = space_new(interp_space, name="uf")
-        LocalProjectionSolver(
-            u, uf,
-            cache_jacobian=False, cache_rhs_assembly=False).solve()
-        vf = space_new(interp_space, name="vf")
-        LocalProjectionSolver(
-            v, vf,
-            cache_jacobian=False, cache_rhs_assembly=False).solve()
-
         J_ls_term_u = Functional(name="J_term_u", space=J.space())
         J_ls_term_v = Functional(name="J_term_v", space=J.space())
 
-        # u^T P^T R_u_obs^{-1} P u
+        # .5 * u^T P^T R_u_obs^{-1} P u
         J_term = space_new(J.space())
-        InnerProductSolver(uf, uf, J_term, M=u_PRP).solve()
+        InnerProductSolver(uf, uf, J_term, M=u_PRP, alpha = fac).solve()
         J_ls_term_u.addto(J_term)
 
-        # v^T P^T R_v_obs^{-1} P v
+        # .5 * v^T P^T R_v_obs^{-1} P v
         J_term = space_new(J.space())
-        InnerProductSolver(vf, vf, J_term, M=v_PRP).solve()
+        InnerProductSolver(vf, vf, J_term, M=v_PRP, alpha = fac).solve()
         J_ls_term_v.addto(J_term)
 
-        # -2 u_obs^T R_u_obs^{-1} P u
+        # -.5 * 2 * u_obs^T R_u_obs^{-1} P u
         J_term = space_new(J.space())
-        InnerProductSolver(uf, l_u_obs, J_term, alpha=-2.0).solve()
+        InnerProductSolver(uf, l_u_obs, J_term, alpha=-2.0 * fac).solve()
         J_ls_term_u.addto(J_term)
 
-        # -2 v_obs^T R_v_obs^{-1} P v
+        # -.5 * 2 * v_obs^T R_v_obs^{-1} P v
         J_term = space_new(J.space())
-        InnerProductSolver(vf, l_v_obs, J_term, alpha=-2.0).solve()
+        InnerProductSolver(vf, l_v_obs, J_term, alpha=-2.0 * fac).solve()
         J_ls_term_v.addto(J_term)
 
-        # u_obs R_u_obs^{-1} u_obs
+        # .5 * u_obs R_u_obs^{-1} u_obs
         J_term = space_new(J.space())
-        function_assign(J_term, J_u_obs)
+        function_assign(J_term, fac * J_u_obs)
         J_ls_term_u.addto(J_term)
 
-        # v_obs R_v_obs^{-1} v_obs
+        # .5 * v_obs R_v_obs^{-1} v_obs
         J_term = space_new(J.space())
-        function_assign(J_term, J_v_obs)
+        function_assign(J_term, fac * J_v_obs)
         J_ls_term_v.addto(J_term)
 
         J_ls_term_u = J_ls_term_u.fn()
@@ -1251,8 +1359,8 @@ class ssa_solver:
         if verbose:
             J_ls_u = new_scalar_function(name="J_ls_term_x")
             J_ls_v = new_scalar_function(name="J_ls_term_y")
-            ExprEvaluationSolver(J_ls_term_u, J_ls_u).solve()
-            ExprEvaluationSolver(J_ls_term_v, J_ls_v).solve()
+            AssignmentSolver(J_ls_term_u, J_ls_u).solve()
+            AssignmentSolver(J_ls_term_v, J_ls_v).solve()
 
             # Print out results
             J1 = J.value()

@@ -15,8 +15,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with fenics_ice.  If not, see <https://www.gnu.org/licenses/>.
 
-from dolfin import *
-from tlm_adjoint.fenics import *
+from .backend import Constant, Function, KrylovSolver, TestFunctions, \
+    TrialFunctions, Vector, assemble, dx, grad, inner, solve
+
 import ufl
 from .decorators import count_calls, timer, flag_errors
 from abc import ABC, abstractmethod
@@ -300,7 +301,7 @@ class Laplacian_flt(Laplacian):
 
     def __init__(self, slvr, space):
         """Get flotation condition & delta_beta_gnd"""
-        self.fl_ex = slvr.float_conditional(slvr.H)
+        self.fl_ex = slvr.bglen_data_conditional(slvr.H,slvr.model.bglen_mask)
         self.delta_beta_gnd = slvr.delta_beta_gnd
 
         super().__init__(slvr, space)
@@ -330,10 +331,10 @@ class Laplacian_flt(Laplacian):
         if self.beta_active:
 
             self.terms['delta_beta'] = \
-                self.delta_beta * fl_ex * inner(beta_diff, self.test[self.beta_idx]) * dx
+                self.delta_beta * (1.0-fl_ex) * inner(beta_diff, self.test[self.beta_idx]) * dx
 
             self.terms['delta_beta_gnd'] = \
-                (self.delta_beta_gnd * (1.0 - fl_ex) *
+                (self.delta_beta_gnd * fl_ex *
                  inner(beta_diff, self.test[self.beta_idx])) * dx
 
             self.terms['gamma_beta'] = \

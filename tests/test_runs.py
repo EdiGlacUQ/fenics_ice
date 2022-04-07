@@ -15,11 +15,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
+from fenics_ice.backend import clear_caches, compute_gradient, norm, \
+    reset_manager, stop_manager, taylor_test, taylor_test_tlm, \
+    taylor_test_tlm_adjoint
+
 import pytest
 import numpy as np
 from runs import run_inv, run_forward, run_eigendec, run_errorprop, run_invsigma
-from tlm_adjoint.fenics import *
-from fenics import norm
 from fenics_ice import config
 from pathlib import Path
 from mpi4py import MPI
@@ -32,8 +34,8 @@ def EQReset():
     clear_caches()
     stop_manager()
 
+@pytest.mark.order(1)
 @pytest.mark.dependency()
-@pytest.mark.runs
 def test_run_inversion(persistent_temp_model, monkeypatch):
 
     work_dir = persistent_temp_model["work_dir"]
@@ -131,11 +133,9 @@ def test_tv_run_inversion(persistent_temp_model, monkeypatch):
                                             seed=1.0e-5)
         assert(min_order > 1.95)
 
-@pytest.mark.dependency()
-@pytest.mark.runs
-def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
-
-    setup_deps.set_case_dependency(request, ["test_run_inversion"])
+@pytest.mark.order(2)
+@pytest.mark.dependency(["test_run_inversion"])
+def test_run_forward(existing_temp_model, monkeypatch, setup_deps):
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
@@ -152,11 +152,6 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
 
     mdl_out = run_forward.run_forward(toml_file)
 
-    # from fenics_ice import graphviz
-    # manager_graph = graphviz.dot()
-    # with open("forward_manager.dot", "w") as outfile:
-    #     outfile.write(manager_graph)
-
     slvr = mdl_out.solvers[0]
 
     delta_qoi = slvr.Qval_ts[-1] - slvr.Qval_ts[0]
@@ -171,7 +166,7 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
                               work_dir, 'expected_u_norm', tol=1.0e-5)
 
 @pytest.mark.tv
-def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
+def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps):
     """
     Taylor verification of the forward timestepping model
     """
@@ -184,11 +179,6 @@ def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
     EQReset()
 
     mdl_out = run_forward.run_forward(toml_file)
-
-    # from fenics_ice import graphviz
-    # manager_graph = graphviz.dot()
-    # with open("forward_manager.dot", "w") as outfile:
-    #     outfile.write(manager_graph)
 
     slvr = mdl_out.solvers[0]
 
@@ -240,11 +230,9 @@ def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps, request):
         assert(min_order > 1.95)
 
 
-@pytest.mark.dependency()
-@pytest.mark.runs
-def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps, request):
-
-    setup_deps.set_case_dependency(request, ["test_run_inversion"])
+@pytest.mark.order(3)
+@pytest.mark.dependency(['test_run_forward'], ['test_run_inversion'])
+def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps):
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
@@ -275,11 +263,9 @@ def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps, request):
                               expected_evec0_norm,
                               work_dir, 'expected_evec0_norm', tol=tol)
 
-@pytest.mark.dependency()
-@pytest.mark.runs
-def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
-
-    setup_deps.set_case_dependency(request, ["test_run_eigendec", "test_run_forward"])
+@pytest.mark.order(4)
+@pytest.mark.dependency(["test_run_eigendec", "test_run_forward"])
+def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps):
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
@@ -314,11 +300,9 @@ def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps, request):
                               work_dir,
                               'expected_Q_sigma_prior', tol=tol)
 
-@pytest.mark.dependency()
-@pytest.mark.runs
-def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
-
-    setup_deps.set_case_dependency(request, ["test_run_eigendec"])
+@pytest.mark.skipif(pytest.parallel, reason='broken in parallel')
+@pytest.mark.dependency(["test_run_eigendec"],["test_run_errorprop"])
+def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps):
 
     work_dir = existing_temp_model["work_dir"]
     toml_file = existing_temp_model["toml_filename"]
@@ -332,7 +316,6 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
     expected_cntrl_sigma_prior_norm = params.testing.expected_cntrl_sigma_prior_norm
 
     EQReset()
-
     mdl_out = run_invsigma.run_invsigma(toml_file)
 
     cntrl_sigma_norm = sum([norm(sig) for sig in mdl_out.cntrl_sigma])
@@ -352,3 +335,29 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps, request):
                               expected_cntrl_sigma_prior_norm,
                               work_dir,
                               "expected_cntrl_sigma_prior_norm", tol=tol)
+
+@pytest.mark.key('smith')
+def test_run_smith_inversion(temp_model, monkeypatch):
+
+    work_dir = temp_model["work_dir"]
+    toml_file = temp_model["toml_filename"]
+
+    # Switch to the working directory
+    monkeypatch.chdir(work_dir)
+
+    # Get expected values from the toml file
+    params = config.ConfigParser(toml_file, top_dir=work_dir)
+    #expected_cntrl_norm = params.testing.expected_cntrl_norm
+    expected_J_inv = params.testing.expected_J_inv
+
+    EQReset()
+
+    # Run the thing
+    mdl_out = run_inv.run_inv(toml_file)
+
+    # Test inversion value
+    J_inv = mdl_out.solvers[0].J_inv.value()
+
+    pytest.check_float_result(J_inv,
+                              expected_J_inv,
+                              work_dir, 'expected_J_inv')

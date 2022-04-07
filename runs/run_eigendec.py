@@ -16,6 +16,9 @@
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
 #!/usr/bin/env python
+
+from fenics_ice.backend import Function, Vector, function_get_values
+
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -23,8 +26,6 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 import sys
 import resource
 
-from fenics import *
-from tlm_adjoint.fenics import *
 from pathlib import Path
 import datetime
 
@@ -38,9 +39,6 @@ from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 from fenics_ice.decorators import count_calls, timer, flagged_error
-
-import slepc4py.SLEPc as SLEPc
-import petsc4py.PETSc as PETSc
 
 import numpy as np
 import matplotlib as mpl
@@ -72,6 +70,7 @@ def run_eigendec(config_file):
     # Load alpha/beta fields
     mdl.alpha_from_inversion()
     mdl.beta_from_inversion()
+    mdl.bglen_from_data(mask_only=True)
 
     # Setup our solver object
     slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual)
@@ -131,6 +130,7 @@ def run_eigendec(config_file):
 
         results = {}  # Create this empty dict & pass it to slepc_monitor_callback to fill
         # Eigendecomposition
+        import slepc4py.SLEPc as SLEPc
         esolver = eigendecompose(space,
                                  ghep_action,
                                  tolerance=params.eigendec.tol,
@@ -195,7 +195,8 @@ def run_eigendec(config_file):
     lind = np.arange(0, len(lam))
     plt.semilogy(lind[lpos], lam[lpos], '.')
     plt.semilogy(lind[lneg], np.abs(lam[lneg]), '.')
-    plt.savefig(os.path.join(params.io.output_dir, 'lambda.pdf'))
+    diag_dir = Path(params.io.diagnostics_dir)/params.eigendec.phase_name/params.eigendec.phase_suffix
+    plt.savefig(diag_dir/ 'lambda.pdf')
     plt.close()
 
     # Note - for now this does nothing, but eventually if the whole series
@@ -207,8 +208,6 @@ def run_eigendec(config_file):
     return mdl
 
 if __name__ == "__main__":
-    stop_annotating()
-
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_eigendec(sys.argv[1])
 
