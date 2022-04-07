@@ -15,7 +15,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with fenics_ice.  If not, see <https://www.gnu.org/licenses/>.
 
-#!/usr/bin/env python
+# Contains code derived from eigendecomposition code from tlm_adjoint. The
+# original tlm_adjoint 'eigendecompose' function loosely follows the slepc4py
+# 3.6.0 demo demo/ex3.py. slepc4py 3.6.0 license information follows.
+#
 # =========================
 # LICENSE: SLEPc for Python
 # =========================
@@ -56,13 +59,13 @@ from .backend import HDF5File, XDMFFile, function_get_values, \
 
 from . import prior
 
-import pickle
-import numpy as np
-import petsc4py.PETSc as PETSc
-from pathlib import Path
-import os
+import functools
 import logging
-from IPython import embed
+import numpy as np
+from pathlib import Path
+import pickle
+
+import petsc4py.PETSc as PETSc
 
 log = logging.getLogger("fenics_ice")
 
@@ -81,10 +84,11 @@ _flagged_error = [False]
 
 
 def flag_errors(fn):
+    @functools.wraps(fn)
     def wrapped_fn(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
-        except:  # noqa: E722
+        except Exception:
             _flagged_error[0] = True
             raise
     return wrapped_fn
@@ -112,7 +116,7 @@ class PythonMatrix:
 
 def eigendecompose(space, A_action, B_matrix=None, N_eigenvalues=None,
                    solver_type=None, problem_type=None, which=None,
-                   tolerance=1.0e-12, max_it=1e6, configure=None, monitor=None):
+                   tolerance=1.0e-12, max_it=1000000, configure=None, monitor=None):
     # First written 2018-03-01
     """
     Matrix-free interface with SLEPc via slepc4py, loosely following
@@ -121,11 +125,10 @@ def eigendecompose(space, A_action, B_matrix=None, N_eigenvalues=None,
 
     Arguments:
 
-    space          Eigenspace.
-    A_action       Function handle accepting a function and returning a
-                   function or NumPy array, defining the action of the
-                   left-hand-side matrix, e.g. as returned by
-                   Hessian.action_fn.
+    space          Eigenvector space.
+    A_action       Callable accepting a function and returning a function or
+                   NumPy array, defining the action of the left-hand-side
+                   matrix, e.g. as returned by Hessian.action_fn.
     B_matrix       (Optional) Right-hand-side matrix in a generalized
                    eigendecomposition.
     N_eigenvalues  (Optional) Number of eigenvalues to attempt to find.
@@ -145,9 +148,7 @@ def eigendecompose(space, A_action, B_matrix=None, N_eigenvalues=None,
 
     Returns:
 
-    A tuple (lam, V_r) for Hermitian problems, or (lam, (V_r, V_i)) otherwise,
-    where lam is an array of eigenvalues, and V_r / V_i are tuples of functions
-    containing the real and imaginary parts of the corresponding eigenvectors.
+    A SLEPc.EPS.
     """
 
     import slepc4py.SLEPc as SLEPc
@@ -204,13 +205,9 @@ def eigendecompose(space, A_action, B_matrix=None, N_eigenvalues=None,
 
     return esolver
 
+
 def test_eigendecomposition(esolver, results, space, params):
     """Check the consistency of the eigendecomposition"""
-
-    # How many EVs?
-    num_eig = params.eigendec.num_eig
-    N = function_global_size(space_new(space))
-    N_ev = N if num_eig is None else num_eig
 
     A_matrix, _ = esolver.getOperators()
 
@@ -229,6 +226,7 @@ def test_eigendecomposition(esolver, results, space, params):
     lam_diff = (lam - np.roll(lam, -1))[:-1]
     if not np.all(lam_diff > (esolver_tol**2.0)):
         log.warning("Eigenvalues are not unique!")
+
 
 def slepc_config_callback(reg_op, prior_action, space):
     """Closure to define the slepc config callback"""
@@ -265,6 +263,7 @@ def slepc_config_callback(reg_op, prior_action, space):
 
     return inner_fn
 
+
 def slepc_monitor_callback(params, space, result_list):
     """
     Closure which defines the slepc monitor callback
@@ -295,7 +294,7 @@ def slepc_monitor_callback(params, space, result_list):
     ev_filepath = outdir / eigenvecs_file
     # Delete files to avoid append
     ev_filepath.unlink(missing_ok=True)
-    p = diagdir/ eigenvecs_file
+    p = diagdir / eigenvecs_file
     ev_xdmf_filepath = Path(p).parent / Path(p.stem + "_vis").with_suffix(".xdmf")
 
     ev_xdmf_file = XDMFFile(space.mesh().mpi_comm(), str(ev_xdmf_filepath))
@@ -376,6 +375,7 @@ def slepc_monitor_callback(params, space, result_list):
         log.info("Done with monitor")
 
     return inner_fn
+
 
 def ev_resid(esolver, V_r, lam):
     """Given a function V_r, what is the residual norm, i.e. norm(A V_r - lambda B V_r)"""
