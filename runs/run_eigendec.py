@@ -125,9 +125,6 @@ def run_eigendec(config_file):
     # Hessian eigendecomposition using SLEPSc
     eig_algo = params.eigendec.eig_algo
     if eig_algo == "slepc":
-
-        assert not ED._flagged_error[0]
-
         results = {}  # Create this empty dict & pass it to slepc_monitor_callback to fill
         # Eigendecomposition
         import slepc4py.SLEPc as SLEPc
@@ -144,9 +141,6 @@ def run_eigendec(config_file):
         log.info("Finished eigendecomposition")
         vr = results['vr']
         lam = results['lam']
-
-        if ED._flagged_error[0]:
-            raise Exception("Python errors in eigendecomposition preconditioner.")
 
         # Check the eigenvectors & eigenvalues
         if(params.eigendec.test_ed):
