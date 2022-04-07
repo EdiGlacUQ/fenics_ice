@@ -33,19 +33,20 @@ import weakref
 log = logging.getLogger("fenics_ice")
 
 
-def interior(x_coords, y_space, tolerance):
+def interior(x_coords, y_space):
     bbox = y_space.mesh().bounding_box_tree()
+    y_cells = y_space.mesh().num_cells()
 
-    interior_local = np.full(x_coords.shape[0], -1, dtype=np.int64)
+    interior_local = np.full(x_coords.shape[0], -1, dtype=np.uint8)
     for i in range(x_coords.shape[0]):
         point = Point(*x_coords[i, :])
-        cell, distance = bbox.compute_closest_entity(point)
-        if distance > tolerance:
-            interior_local[i] = 0
-        else:
+        cell = bbox.compute_first_entity_collision(point)
+        if cell < y_cells:
             interior_local[i] = 1
+        else:
+            interior_local[i] = 0
 
-    interior_global = np.full(x_coords.shape[0], -1, dtype=np.int64)
+    interior_global = np.full(x_coords.shape[0], -1, dtype=np.uint8)
     space_comm(y_space).Allreduce(interior_local, interior_global,
                                   op=MPI.MAX)
 
@@ -53,14 +54,14 @@ def interior(x_coords, y_space, tolerance):
     return np.array(interior_global == 1, dtype=bool)
 
 
-def interpolation_matrix(x_coords, y_space, tolerance):
+def interpolation_matrix(x_coords, y_space):
     from tlm_adjoint.fenics.fenics_equations import greedy_coloring, \
         interpolation_matrix, point_owners
 
     y_cells = point_owners(x_coords, y_space, tolerance=np.inf)
     x_local = np.array(y_cells >= 0, dtype=bool)
 
-    x_global = interior(x_coords, y_space, tolerance)
+    x_global = interior(x_coords, y_space)
     for i in range(x_coords.shape[0]):
         if x_local[i] and not x_global[i]:
             log.info("Observation point %i discarded, coordinate (%s)"
@@ -1252,8 +1253,7 @@ class ssa_solver:
             from tlm_adjoint.fenics.fenics_equations import LocalMatrix
             from scipy.sparse import spdiags
 
-            obs_local, P = interpolation_matrix(
-                uv_obs_pts, interp_space, tolerance=1.0)
+            obs_local, P = interpolation_matrix(uv_obs_pts, interp_space)
 
             u_PRP = LocalMatrix(
                 P.T @ spdiags(1.0 / (u_std[obs_local] ** 2),
