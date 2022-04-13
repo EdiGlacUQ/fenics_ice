@@ -259,6 +259,18 @@ class model:
         self.beta_bgd.assign(beta_proj)
         function_update_state(self.beta_bgd)
 
+        write_diag = self.params.io.write_diagnostics
+        if write_diag:
+            diag_dir = self.params.io.diagnostics_dir
+            phase_suffix = self.params.inversion.phase_suffix
+            phase_name = self.params.inversion.phase_name
+            inout.write_variable(self.beta,
+                                 self.params,
+                                 name="beta_init_guess",
+                                 outdir=diag_dir,
+                                 phase_name=phase_name,
+                                 phase_suffix=phase_suffix)
+
         # TODO - tidy this up properly (remove pert arg)
         # if pert:
         #     # Perturbed field for nonzero gradient at first step of inversion
