@@ -62,16 +62,3 @@ def timer(func):
         return value
 
     return wrapper_timer
-
-
-# Note - copied from tlm_adjoint eigendecompose.py
-flagged_error = [False]
-def flag_errors(fn):
-    """Catch errors in python routines which PETSc otherwise ignores"""
-    def wrapped_fn(*args, **kwargs):
-        try:
-            return fn(*args, **kwargs)
-        except:  # noqa: E722
-            flagged_error[0] = True
-            raise
-    return wrapped_fn
