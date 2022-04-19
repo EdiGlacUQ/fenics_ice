@@ -129,18 +129,23 @@ def run_inv(config_file):
         inout.write_variable(mdl.mask_vel_M, params, name="mask_vel",
                              outdir=diag_dir, phase_name=phase_name, phase_suffix=phase_suffix)
 
-        inout.write_variable(mdl.u_obs_Q, params, outdir=diag_dir,
+        inout.write_variable(mdl.u_cloud_Q, params, outdir=diag_dir,
                              phase_name=phase_name, phase_suffix=phase_suffix)
-        inout.write_variable(mdl.v_obs_Q, params, outdir=diag_dir,
+        inout.write_variable(mdl.v_cloud_Q, params, outdir=diag_dir,
                              phase_name=phase_name, phase_suffix=phase_suffix)
-        inout.write_variable(mdl.u_std_Q, params, outdir=diag_dir,
+        inout.write_variable(mdl.u_std_cloud_Q, params, outdir=diag_dir,
                              phase_name=phase_name, phase_suffix=phase_suffix)
-        inout.write_variable(mdl.v_std_Q, params, outdir=diag_dir,
+        inout.write_variable(mdl.v_std_cloud_Q, params, outdir=diag_dir,
                              phase_name=phase_name, phase_suffix=phase_suffix)
 
-        U_obs = project((mdl.v_obs_Q**2 + mdl.u_obs_Q**2)**(1.0/2.0), mdl.M)
-        U_obs.rename("uv_obs", "")
-        inout.write_variable(U_obs, params, name="uv_obs", outdir=diag_dir,
+        U_obs = project((mdl.v_cloud_Q**2 + mdl.u_cloud_Q**2)**(1.0/2.0), mdl.M)
+        U_obs.rename("uv_cloud", "")
+        inout.write_variable(U_obs, params, name="uv_cloud", outdir=diag_dir,
+                             phase_name=phase_name, phase_suffix=phase_suffix)
+
+        U_obs_std = project((mdl.v_std_cloud_Q ** 2 + mdl.u_std_cloud_Q ** 2) ** (1.0 / 2.0), mdl.M)
+        U_obs_std.rename("uv_cloud_std", "")
+        inout.write_variable(U_obs, params, name="uv_cloud_std", outdir=diag_dir,
                              phase_name=phase_name, phase_suffix=phase_suffix)
 
         inout.write_variable(mdl.alpha, params, outdir=diag_dir,
