@@ -57,8 +57,6 @@ from .backend import HDF5File, XDMFFile, function_get_values, \
     function_global_size, function_local_size, function_set_values, \
     is_function, norm, project, space_comm, space_new
 
-from . import prior
-
 import functools
 import logging
 import numpy as np
@@ -228,7 +226,7 @@ def test_eigendecomposition(esolver, results, space, params):
         log.warning("Eigenvalues are not unique!")
 
 
-def slepc_config_callback(reg_op, prior_action, space):
+def slepc_config_callback(prior_action, space, prior_pc):
     """Closure to define the slepc config callback"""
     def inner_fn(config):
         log.info("Got to the callback")
@@ -241,7 +239,7 @@ def slepc_config_callback(reg_op, prior_action, space):
 
         pc = ksp.getPC()
         pc.setType(PETSc.PC.Type.PYTHON)
-        pc.setPythonContext(prior.LaplacianPC(reg_op))
+        pc.setPythonContext(prior_pc)
 
         # A_matrix already defined so just grab it
         A_matrix, _ = config.getOperators()
