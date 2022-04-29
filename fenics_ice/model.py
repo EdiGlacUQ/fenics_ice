@@ -378,17 +378,12 @@ class model:
         # so we can write out a nicer output in the mesh coordinates
         vtx_Q_c, wts_Q_c = interp_weights(self.vel_obs['uv_obs_pts'],
                                       Q_coords)
-        vtx_M_c, wts_M_c = interp_weights(self.vel_obs['uv_obs_pts'],
-                                      M_coords)
 
         # Define new functions to hold results
-        self.u_cloud_Q = Function(self.Q, name="u_obs_cloud", static=True)
-        self.v_cloud_Q = Function(self.Q, name="v_obs_cloud", static=True)
-        self.u_std_cloud_Q = Function(self.Q, name="u_std_cloud", static=True)
-        self.v_std_cloud_Q = Function(self.Q, name="v_std_cloud", static=True)
-        # There is no mask for this data!
-        self.u_cloud_M = Function(self.M, name="u_obs_cloud", static=True)
-        self.v_cloud_M = Function(self.M, name="v_obs_cloud", static=True)
+        self.u_cloud_Q = Function(self.Q, name="u_obs_cloud")
+        self.v_cloud_Q = Function(self.Q, name="v_obs_cloud")
+        self.u_std_cloud_Q = Function(self.Q, name="u_std_cloud")
+        self.v_std_cloud_Q = Function(self.Q, name="v_std_cloud")
 
         # Fill via interpolation
         self.u_cloud_Q.vector()[:] = interpolate(self.vel_obs['u_obs'], vtx_Q_c, wts_Q_c)
@@ -396,8 +391,6 @@ class model:
         self.u_std_cloud_Q.vector()[:] = interpolate(self.vel_obs['u_std'], vtx_Q_c, wts_Q_c)
         self.v_std_cloud_Q.vector()[:] = interpolate(self.vel_obs['v_std'], vtx_Q_c, wts_Q_c)
 
-        self.u_cloud_M.vector()[:] = interpolate(self.vel_obs['u_obs'], vtx_M_c, wts_M_c)
-        self.v_cloud_M.vector()[:] = interpolate(self.vel_obs['v_obs'], vtx_M_c, wts_M_c)
 
     def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
                          vstd=Constant(1.0), ls=False):

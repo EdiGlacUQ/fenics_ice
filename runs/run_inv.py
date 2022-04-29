@@ -143,11 +143,6 @@ def run_inv(config_file):
         inout.write_variable(U_obs, params, name="uv_cloud", outdir=diag_dir,
                              phase_name=phase_name, phase_suffix=phase_suffix)
 
-        U_obs_std = project((mdl.v_std_cloud_Q ** 2 + mdl.u_std_cloud_Q ** 2) ** (1.0 / 2.0), mdl.M)
-        U_obs_std.rename("uv_cloud_std", "")
-        inout.write_variable(U_obs, params, name="uv_cloud_std", outdir=diag_dir,
-                             phase_name=phase_name, phase_suffix=phase_suffix)
-
         inout.write_variable(mdl.alpha, params, outdir=diag_dir,
                              phase_name=phase_name, phase_suffix=phase_suffix)
 
