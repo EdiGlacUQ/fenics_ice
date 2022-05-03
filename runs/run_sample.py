@@ -166,10 +166,10 @@ def run_sample(config_file):
       a.vector().set_local(z.vector().get_local() + P1)
       a.vector().apply("insert")
 
-      zm.vector().set_local(zm.vector().get_local() + z.vector().get_local()/ssize)
-      am.vector().set_local(am.vector().get_local() + a.vector().get_local()/ssize)
-      zstd.vector().set_local(zstd.vector().get_local() + z.vector().get_local()**2/ssize)
-      astd.vector().set_local(astd.vector().get_local() + a.vector().get_local()**2/ssize)
+      zm.vector().set_local(zm.vector().get_local() + z.vector().get_local()/float(ssize))
+      am.vector().set_local(am.vector().get_local() + a.vector().get_local()/float(ssize))
+      zstd.vector().set_local(zstd.vector().get_local() + z.vector().get_local()**2/float(ssize))
+      astd.vector().set_local(astd.vector().get_local() + a.vector().get_local()**2/float(ssize))
 
    zstd.vector().set_local(zstd.vector().get_local() - zm.vector().get_local()**2)   
    astd.vector().set_local(astd.vector().get_local() - am.vector().get_local()**2)
@@ -199,7 +199,7 @@ def run_sample(config_file):
       beta_post_sample_mean = am
       beta_post_sample_std = astd
 
-   if (alpha_active or params.inversion.dual):
+   if ((alpha_active or params.inversion.dual) and params.sample.sample_alpha):
       inout.write_variable(alpha_prior_sample_mean, params, name="alpha_prior_sample_mean_"+str(ssize), 
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 
@@ -217,7 +217,7 @@ def run_sample(config_file):
                            phase_name=phase_name_sample, 
                            phase_suffix=phase_suffix_sample)
 
-   if (beta_active or params.inversion.dual):
+   if ((beta_active or params.inversion.dual) and params.sample.sample_alpha):
       inout.write_variable(beta_prior_sample_mean, params, name="beta_prior_sample_mean_"+str(ssize), 
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 

@@ -85,6 +85,7 @@ class ConfigParser(object):
         self.obs = ObsCfg(**self.config_dict['obs'])
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
+        self.sample = SampleCfg(**self.config_dict['sample'])
 
         # Optional melt section
         try:
@@ -244,6 +245,17 @@ class ErrorPropCfg(ConfigPrinter):
     """
     qoi: str = 'vaf'
     phase_name: str = 'error_prop'
+    phase_suffix: str = ''
+
+@dataclass(frozen=True)
+class SampleCfg(ConfigPrinter):
+    """
+    Configuration related to error propagation
+    """
+    sample_size: int = 1
+    sample_alpha: bool = False
+    sample_beta: bool = False
+    phase_name: str = 'sample'
     phase_suffix: str = ''
 
 @dataclass(frozen=True)
