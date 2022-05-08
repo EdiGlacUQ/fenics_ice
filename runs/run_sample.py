@@ -1,4 +1,4 @@
-cs_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
+# For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
 # root directory
 
 # This file is part of fenics_ice.
@@ -48,7 +48,7 @@ def run_sample(config_file):
     log = inout.setup_logging(params)
     inout.log_preamble("errorprop", params)
 
-    phase_name_sample = params.sample.[hase_name
+    phase_name_sample = params.sample.phase_name
     phase_suffix_sample = params.sample.phase_suffix
 
     outdir = params.io.output_dir
@@ -137,7 +137,7 @@ def run_sample(config_file):
 
     
 
-    x, y, z, a zm, zstd, am, astd= [Function(space) for i in range(8)]
+    x, y, z, a, zm, zstd, am, astd= [Function(space) for i in range(8)]
     shp = np.shape(z.vector().get_local())
 
     zm.vector().set_local(np.zeros(shp))
@@ -171,10 +171,10 @@ def run_sample(config_file):
       zstd.vector().set_local(zstd.vector().get_local() + z.vector().get_local()**2/float(ssize))
       astd.vector().set_local(astd.vector().get_local() + a.vector().get_local()**2/float(ssize))
 
-   zstd.vector().set_local(zstd.vector().get_local() - zm.vector().get_local()**2)   
-   astd.vector().set_local(astd.vector().get_local() - am.vector().get_local()**2)
+    zstd.vector().set_local(zstd.vector().get_local() - zm.vector().get_local()**2)   
+    astd.vector().set_local(astd.vector().get_local() - am.vector().get_local()**2)
 
-   if params.inversion.dual:
+    if params.inversion.dual:
       alpha_prior_sample_mean = project(zm[0], self.Qp)
       beta_prior_sample_mean = project(zm[1], self.Qp)
       alpha_prior_sample_std = project(zstd[0], self.Qp)
@@ -185,21 +185,21 @@ def run_sample(config_file):
       alpha_post_sample_std = project(astd[0], self.Qp)
       beta_post_sample_std = project(astd[1], self.Qp)
 
-   else if alpha_active:
+    elif alpha_active:
       alpha_prior_sample_mean = zm
       alpha_prior_sample_std = zstd
 
       alpha_post_sample_mean = am
       alpha_post_sample_std = astd
 
-   else if beta_active:
+    elif beta_active:
       beta_prior_sample_mean = zm
       beta_prior_sample_std = zstd
 
       beta_post_sample_mean = am
       beta_post_sample_std = astd
 
-   if ((alpha_active or params.inversion.dual) and params.sample.sample_alpha):
+    if ((alpha_active or params.inversion.dual) and params.sample.sample_alpha):
       inout.write_variable(alpha_prior_sample_mean, params, name="alpha_prior_sample_mean_"+str(ssize), 
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 
@@ -217,7 +217,7 @@ def run_sample(config_file):
                            phase_name=phase_name_sample, 
                            phase_suffix=phase_suffix_sample)
 
-   if ((beta_active or params.inversion.dual) and params.sample.sample_alpha):
+    if ((beta_active or params.inversion.dual) and params.sample.sample_alpha):
       inout.write_variable(beta_prior_sample_mean, params, name="beta_prior_sample_mean_"+str(ssize), 
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 
