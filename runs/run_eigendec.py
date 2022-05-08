@@ -31,14 +31,14 @@ import datetime
 
 # assure we're not using tlm_adjoint version
 from fenics_ice.eigendecomposition import eigendecompose
-from fenics_ice.eigendecomposition import PythonMatrix, slepc_monitor_callback, slepc_config_callback
+from fenics_ice.eigendecomposition import slepc_monitor_callback, slepc_config_callback
 import fenics_ice.eigendecomposition as ED
 
 from fenics_ice import model, solver, prior, inout
 
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
-from fenics_ice.decorators import count_calls, timer, flagged_error
+from fenics_ice.decorators import count_calls, timer
 
 import numpy as np
 import matplotlib as mpl
@@ -125,9 +125,6 @@ def run_eigendec(config_file):
     # Hessian eigendecomposition using SLEPSc
     eig_algo = params.eigendec.eig_algo
     if eig_algo == "slepc":
-
-        assert not flagged_error[0]
-
         results = {}  # Create this empty dict & pass it to slepc_monitor_callback to fill
         # Eigendecomposition
         import slepc4py.SLEPc as SLEPc
@@ -138,18 +135,13 @@ def run_eigendec(config_file):
                                  N_eigenvalues=num_eig,
                                  problem_type=SLEPc.EPS.ProblemType.GHEP,
                                  solver_type=SLEPc.EPS.Type.KRYLOVSCHUR,
-                                 configure=slepc_config_callback(reg_op, prior_action, space),
+                                 configure=slepc_config_callback(prior_action, space,
+                                                                 prior_pc=prior.LaplacianPC(reg_op)),
                                  monitor=slepc_monitor_callback(params, space, results))
 
         log.info("Finished eigendecomposition")
         vr = results['vr']
         lam = results['lam']
-
-        if flagged_error[0]:
-            # Note: I have been unable to confirm that this does anything in my setup
-            # Python errors within LaplacianPC seem to be raised even without the
-            # @flag_errors decorator.
-            raise Exception("Python errors in eigendecomposition preconditioner.")
 
         # Check the eigenvectors & eigenvalues
         if(params.eigendec.test_ed):

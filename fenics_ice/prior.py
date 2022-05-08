@@ -18,9 +18,11 @@
 from .backend import Constant, Function, KrylovSolver, TestFunctions, \
     TrialFunctions, Vector, assemble, dx, grad, inner, solve
 
-import ufl
-from .decorators import count_calls, timer, flag_errors
+from .decorators import count_calls, timer
+from .eigendecomposition import flag_errors
+
 from abc import ABC, abstractmethod
+import ufl
 
 class Prior(ABC):
     """Abstraction for prior used by both comp_J_inv and run_eigendec.py"""
@@ -372,7 +374,6 @@ class LaplacianPC:
     i.e. B^-1  =  L^-1 M L^-1
     """
 
-    @flag_errors
     def __init__(self, lap):
         self.laplacian = lap
         self.action = self.laplacian.inv_action
