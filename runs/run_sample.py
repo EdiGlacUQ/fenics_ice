@@ -57,8 +57,8 @@ def run_sample(config_file):
     input_data = inout.InputData(params)
 
     #Eigen value params
-    phase_name = params.eigendec.phase_name
-    phase_suffix = params.eigendec.phase_suffix
+    phase_name_e = params.eigendec.phase_name
+    phase_suffix_e = params.eigendec.phase_suffix
     lamfile = params.io.eigenvalue_file
     vecfile = params.io.eigenvecs_file
     threshlam = params.eigendec.eigenvalue_thresh
@@ -71,8 +71,8 @@ def run_sample(config_file):
     if len(phase_suffix_e) > 0:
         lamfile = params.io.run_name + phase_suffix_e + '_eigvals.p'
         vecfile = params.io.run_name + phase_suffix_e + '_vr.h5'
-    if len(phase_suffix_qoi) > 0:
-        dqoi_h5file = params.io.run_name + phase_suffix_qoi + '_dQ_ts.h5'
+#    if len(phase_suffix_qoi) > 0:
+#        dqoi_h5file = params.io.run_name + phase_suffix_qoi + '_dQ_ts.h5'
 
     # Get model mesh
     mesh = fice_mesh.get_mesh(params)
@@ -98,7 +98,7 @@ def run_sample(config_file):
     x, y, z = [Function(space) for i in range(3)]
 
     # Loads eigenvalues from file
-    outdir_e = Path(outdir)/phase_eigen/phase_suffix_e
+    outdir_e = Path(outdir)/phase_name_e/phase_suffix_e
     with open(outdir_e/lamfile, 'rb') as ff:
         eigendata = pickle.load(ff)
         lam = eigendata[0].real.astype(np.float64)
