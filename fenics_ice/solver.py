@@ -33,21 +33,47 @@ import weakref
 log = logging.getLogger("fenics_ice")
 
 
-def interpolation_matrix(y, x_coords, tolerance=0.0):
+def interior(x_coords, y_space):
+    bbox = y_space.mesh().bounding_box_tree()
+    y_cells = y_space.mesh().num_cells()
+
+    interior_local = np.full(x_coords.shape[0], -1, dtype=np.uint8)
+    for i in range(x_coords.shape[0]):
+        point = Point(*x_coords[i, :])
+        cell = bbox.compute_first_entity_collision(point)
+        if cell < y_cells:
+            interior_local[i] = 1
+        else:
+            interior_local[i] = 0
+
+    interior_global = np.full(x_coords.shape[0], -1, dtype=np.uint8)
+    space_comm(y_space).Allreduce(interior_local, interior_global,
+                                  op=MPI.MAX)
+
+    assert (interior_global >= 0).all() and (interior_global <= 1).all()
+    return np.array(interior_global == 1, dtype=bool)
+
+
+def interpolation_matrix(x_coords, y_space):
     from tlm_adjoint.fenics.fenics_equations import greedy_coloring, \
-        interpolation_matrix, point_cells
+        interpolation_matrix, point_owners
 
-    space = function_space(y)
+    y_cells = point_owners(x_coords, y_space, tolerance=np.inf)
+    x_local = np.array(y_cells >= 0, dtype=bool)
 
-    y_cells, y_distances = point_cells(x_coords, space.mesh())
-    if (y_distances > tolerance).any():
-        raise RuntimeError("Unable to locate one or more cells")
+    x_global = interior(x_coords, y_space)
+    for i in range(x_coords.shape[0]):
+        if x_local[i] and not x_global[i]:
+            log.info("Observation point %i discarded, coordinate (%s)"
+                     % (i, ", ".join(map(lambda c: f"{c}",
+                                         x_coords[i, :]))))
+            x_local[i] = False
 
-    y_colors = greedy_coloring(space)
+    y_colors = greedy_coloring(y_space)
+    P = interpolation_matrix(x_coords[x_local, :], space_new(y_space),
+                             y_cells[x_local], y_colors)
 
-    P = interpolation_matrix(x_coords, y, y_cells, y_colors)
-
-    return P
+    return x_local, P
 
 
 class ssa_solver:
@@ -1196,32 +1222,6 @@ class ssa_solver:
         beta_bgd = self.beta_bgd
         betadiff = beta-beta_bgd
 
-        # Determine observations within our mesh partition
-        # Note that although cell_max counts ghost_cells,
-        # compute_first_entity_collision seems to ignore
-        # ghost elements, and so arrives at the right answer
-        cell_max = self.mesh.cells().shape[0]
-        obs_local = np.zeros_like(u_obs, dtype=bool)
-
-        bbox = self.mesh.bounding_box_tree()
-        for i in range(uv_obs_pts.shape[0]):
-            p = Point(uv_obs_pts[i, 0], uv_obs_pts[i, 1])
-            obs_local[i] = bbox.compute_first_entity_collision(p) <= cell_max
-
-        if np.sum(obs_local) == 0:
-            raise NotImplementedError("At least one partition has no velocity observations. "
-                                      "Need to implement a dummy point w/ semi-inner-product "
-                                      "to handle this case.")
-
-        local_obs_pts = [(u, v) for u, v in uv_obs_pts[obs_local]]
-
-        # Project modelled velocity to DG1 to simplify graph coloring
-        interp_space = FunctionSpace(self.mesh, 'DG', 1)
-        uf = space_new(interp_space, name="uf")
-        LocalProjectionSolver(u, uf).solve()
-        vf = space_new(interp_space, name="vf")
-        LocalProjectionSolver(v, vf).solve()
-
         J = Functional(name="J")
 
         # The following evaluates
@@ -1235,13 +1235,25 @@ class ssa_solver:
 
         fac = 0.5
 
+        if hasattr(self, "_cached_J_mismatch_data"):
+            interp_space = self._cached_J_mismatch_data[0]
+        else:
+            interp_space = FunctionSpace(self.mesh, "DG", 1)
+
+        uf = space_new(interp_space, name="uf")
+        LocalProjectionSolver(
+            u, uf,
+            cache_jacobian=False, cache_rhs_assembly=False).solve()
+        vf = space_new(interp_space, name="vf")
+        LocalProjectionSolver(
+            v, vf,
+            cache_jacobian=False, cache_rhs_assembly=False).solve()
+
         if not hasattr(self, "_cached_J_mismatch_data"):
             from tlm_adjoint.fenics.fenics_equations import LocalMatrix
             from scipy.sparse import spdiags
 
-            P = interpolation_matrix(
-                uf, np.array(local_obs_pts, dtype=uv_obs_pts.dtype),
-                tolerance=0.0)
+            obs_local, P = interpolation_matrix(uv_obs_pts, interp_space)
 
             u_PRP = LocalMatrix(
                 P.T @ spdiags(1.0 / (u_std[obs_local] ** 2),
@@ -1261,7 +1273,7 @@ class ssa_solver:
                                    u_obs[obs_local] / (u_std[obs_local] ** 2))
             J_u_obs = np.full(1, np.NAN, dtype=J_u_obs_local.dtype)
             function_comm(uf).Allreduce(
-                np.array(J_u_obs_local, dtype=J_u_obs_local.dtype),
+                np.array([J_u_obs_local], dtype=J_u_obs_local.dtype),
                 J_u_obs, op=MPI.SUM)
             J_u_obs, = J_u_obs
 
@@ -1269,13 +1281,15 @@ class ssa_solver:
                                    v_obs[obs_local] / (v_std[obs_local] ** 2))
             J_v_obs = np.full(1, np.NAN, dtype=J_v_obs_local.dtype)
             function_comm(vf).Allreduce(
-                np.array(J_v_obs_local, dtype=J_v_obs_local.dtype),
+                np.array([J_v_obs_local], dtype=J_v_obs_local.dtype),
                 J_v_obs, op=MPI.SUM)
             J_v_obs, = J_v_obs
 
             self._cached_J_mismatch_data \
-                = (u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs)
-        u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs = \
+                = (interp_space,
+                   u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs)
+        (interp_space,
+         u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs) = \
             self._cached_J_mismatch_data
 
         J_ls_term_u = Functional(name="J_term_u", space=J.space())
