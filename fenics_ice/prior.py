@@ -20,6 +20,8 @@ from .backend import Constant, Function, KrylovSolver, TestFunctions, \
 
 from .decorators import count_calls, timer
 from .eigendecomposition import flag_errors
+from fenics_ice.sqrt_matrix_action import A_root_action
+
 
 from abc import ABC, abstractmethod
 import ufl

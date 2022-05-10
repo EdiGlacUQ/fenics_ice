@@ -29,6 +29,7 @@ from pathlib import Path
 from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
+from numpy import random
 from IPython import embed
 
 import matplotlib as mpl
@@ -104,17 +105,21 @@ def run_sample(config_file):
         lam = eigendata[0].real.astype(np.float64)
         nlam = len(lam)
 
+
     # Check if eigendecomposition successfully produced num_eig
     # or if some are NaN
     if np.any(np.isnan(lam)):
         nlam = np.argwhere(np.isnan(lam))[0][0]
         lam = lam[:nlam]
 
+    lam = lam[:10]
+
     # and eigenvectors from .h5 file
     eps = params.constants.float_eps
     W = []
     with HDF5File(MPI.comm_world, str(outdir_e/vecfile), 'r') as hdf5data:
-        for i in range(nlam):
+        for i in range(len(lam)):
+            print(i)
             w = Function(space)
             hdf5data.read(w, f'v/vector_{i}')
 
@@ -124,6 +129,7 @@ def run_sample(config_file):
             assert (abs(norm_in_prior - 1.0) < eps)
 
             W.append(w)
+
 
     # take only the largest eigenvalues
     pind = np.flatnonzero(lam > threshlam)
