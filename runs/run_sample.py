@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics_ice.backend import Function, HDF5File, MPI
+from fenics_ice.backend import Function, HDF5File, MPI, project
 
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -30,7 +30,6 @@ from fenics_ice import model, solver, prior, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 from numpy import random
-from IPython import embed
 
 import matplotlib as mpl
 mpl.use("Agg")
@@ -53,6 +52,7 @@ def run_sample(config_file):
     phase_suffix_sample = params.sample.phase_suffix
 
     outdir = params.io.output_dir
+    diag_dir = params.io.diagnostics_dir
 
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
@@ -112,14 +112,11 @@ def run_sample(config_file):
         nlam = np.argwhere(np.isnan(lam))[0][0]
         lam = lam[:nlam]
 
-    lam = lam[:10]
-
     # and eigenvectors from .h5 file
     eps = params.constants.float_eps
     W = []
     with HDF5File(MPI.comm_world, str(outdir_e/vecfile), 'r') as hdf5data:
         for i in range(len(lam)):
-            print(i)
             w = Function(space)
             hdf5data.read(w, f'v/vector_{i}')
 
@@ -164,9 +161,12 @@ def run_sample(config_file):
 
       tmp1 = np.asarray([w.vector().inner(y.vector()) for w in W])
       tmp2 = np.dot(D,tmp1)
-      P1 = np.dot(W,tmp2)
 
-      a.vector().set_local(z.vector().get_local() + P1)
+      P1 = Function(space)
+      for ind in range(len(tmp2)):
+        P1.vector().axpy(tmp2[ind],W[ind].vector())
+
+      a.vector().set_local(z.vector().get_local() + P1.vector())
       a.vector().apply("insert")
 
       zm.vector().set_local(zm.vector().get_local() + z.vector().get_local()/float(ssize))
@@ -178,15 +178,15 @@ def run_sample(config_file):
     astd.vector().set_local(astd.vector().get_local() - am.vector().get_local()**2)
 
     if params.inversion.dual:
-      alpha_prior_sample_mean = project(zm[0], self.Qp)
-      beta_prior_sample_mean = project(zm[1], self.Qp)
-      alpha_prior_sample_std = project(zstd[0], self.Qp)
-      beta_prior_sample_std = project(zstd[1], self.Qp)
+      alpha_prior_sample_mean = project(zm[0], slvr.Qp)
+      beta_prior_sample_mean = project(zm[1], slvr.Qp)
+      alpha_prior_sample_std = project(zstd[0], slvr.Qp)
+      beta_prior_sample_std = project(zstd[1], slvr.Qp)
 
-      alpha_post_sample_mean = project(am[0], self.Qp)
-      beta_post_sample_mean = project(am[1], self.Qp)
-      alpha_post_sample_std = project(astd[0], self.Qp)
-      beta_post_sample_std = project(astd[1], self.Qp)
+      alpha_post_sample_mean = project(am[0], slvr.Qp)
+      beta_post_sample_mean = project(am[1], slvr.Qp)
+      alpha_post_sample_std = project(astd[0], slvr.Qp)
+      beta_post_sample_std = project(astd[1], slvr.Qp)
 
     elif alpha_active:
       alpha_prior_sample_mean = zm

@@ -301,7 +301,6 @@ class Laplacian(Prior):
                                 #                  L M-1 L L-1 M1/2
                                 #                  L M-1 M1/2
         M_norm = self.M.norm("linf")
-        print(M_norm)
         self.tmp1, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm, max_terms=100000)
         self.M_solver.solve(self.tmp2, self.tmp1) 
         self.A.mult(self.tmp2,self.tmp3)
@@ -311,7 +310,6 @@ class Laplacian(Prior):
     def sqrt_inv_action(self,x,y):  # sqrt of inv cov: Gamma 1/2
                                     #                  L-1 M1/2
         M_norm = self.M.norm("linf")        
-        print(M_norm)
         self.tmp1, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm, max_terms=100000)
         self.A_solver.solve(self.tmp2, self.tmp1)
         y.set_local(self.tmp2.get_local())
