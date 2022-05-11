@@ -137,15 +137,12 @@ def run_sample(config_file):
     nlam = len(lam)
     W = [W[i] for i in pind]
 
-    D = np.diag(lam / (lam + 1))  # D_r Isaac 20
-
 ### ABOVE THIS POINT CODE IS BORROWED FROM RUN_ERRORPROP.PY
 
-    
+    D = np.diag(1 / np.sqrt(lam + 1) - 1)  
 
     x, y, z, a, zm, zstd, am, astd= [Function(space) for i in range(8)]
     shp = np.shape(z.vector().get_local())
-
     zm.vector().set_local(np.zeros(shp))
     zm.vector().apply("insert")
     zstd.vector().set_local(np.zeros(shp))
@@ -161,11 +158,11 @@ def run_sample(config_file):
       x.vector().set_local(random.normal(np.zeros(shp),  # N
                          np.ones(shp),shp))
       x.vector().apply("insert")
- 
+	  
       reg_op.sqrt_action(x.vector(),y.vector())  # Gamma -1/2 N
       reg_op.sqrt_inv_action(x.vector(),z.vector())  # Gamma 1/2 N
 
-      tmp1 = np.dot(W.T,y.vector().get_local())
+      tmp1 = np.asarray([w.vector().inner(y.vector()) for w in W])
       tmp2 = np.dot(D,tmp1)
       P1 = np.dot(W,tmp2)
 
