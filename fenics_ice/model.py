@@ -259,6 +259,18 @@ class model:
         self.beta_bgd.assign(beta_proj)
         function_update_state(self.beta_bgd)
 
+        write_diag = self.params.io.write_diagnostics
+        if write_diag:
+            diag_dir = self.params.io.diagnostics_dir
+            phase_suffix = self.params.inversion.phase_suffix
+            phase_name = self.params.inversion.phase_name
+            inout.write_variable(self.beta,
+                                 self.params,
+                                 name="beta_init_guess",
+                                 outdir=diag_dir,
+                                 phase_name=phase_name,
+                                 phase_suffix=phase_suffix)
+
         # TODO - tidy this up properly (remove pert arg)
         # if pert:
         #     # Perturbed field for nonzero gradient at first step of inversion
@@ -361,6 +373,24 @@ class model:
         # IMPORTANT! this mask is not the vel mask of cloud point observations
         # it is the mask from the composite velocities
         self.mask_vel_M.vector()[:] = interpolate(self.vel_obs['mask_vel'], vtx_M, wts_M)
+
+        # We need to do the same as above but for cloud point data
+        # so we can write out a nicer output in the mesh coordinates
+        vtx_Q_c, wts_Q_c = interp_weights(self.vel_obs['uv_obs_pts'],
+                                      Q_coords)
+
+        # Define new functions to hold results
+        self.u_cloud_Q = Function(self.Q, name="u_obs_cloud")
+        self.v_cloud_Q = Function(self.Q, name="v_obs_cloud")
+        self.u_std_cloud_Q = Function(self.Q, name="u_std_cloud")
+        self.v_std_cloud_Q = Function(self.Q, name="v_std_cloud")
+
+        # Fill via interpolation
+        self.u_cloud_Q.vector()[:] = interpolate(self.vel_obs['u_obs'], vtx_Q_c, wts_Q_c)
+        self.v_cloud_Q.vector()[:] = interpolate(self.vel_obs['v_obs'], vtx_Q_c, wts_Q_c)
+        self.u_std_cloud_Q.vector()[:] = interpolate(self.vel_obs['u_std'], vtx_Q_c, wts_Q_c)
+        self.v_std_cloud_Q.vector()[:] = interpolate(self.vel_obs['v_std'], vtx_Q_c, wts_Q_c)
+
 
     def init_vel_obs_old(self, u, v, mv, ustd=Constant(1.0),
                          vstd=Constant(1.0), ls=False):
