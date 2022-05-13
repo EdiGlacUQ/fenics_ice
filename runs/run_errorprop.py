@@ -199,13 +199,6 @@ def run_errorprop(config_file):
     with open(sigmaqoi_file, 'wb') as pfile:
         pickle.dump([sigma_steps, sigma_conv], pfile)
 
-    # Test that eigenvectors are prior inverse orthogonal
-    # y.vector().set_local(W[:,398])
-    # y.vector().apply('insert')
-    # reg_op.action(y.vector(), x.vector())
-    # #mass.mult(x.vector(),z.vector())
-    # q = np.dot(y.vector().get_local(),x.vector().get_local())
-
     # Output model variables in ParaView+Fenics friendly format
     sigma_file = params.io.sigma_file
     sigma_prior_file = params.io.sigma_prior_file
