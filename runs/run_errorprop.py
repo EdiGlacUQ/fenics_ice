@@ -139,8 +139,6 @@ def run_errorprop(config_file):
     for j in range(num_sens):
         hdf5data.read(dQ_cntrl, f'dQd{cntrl.name()}/vector_{j}')
 
-        # TODO - is a mass matrix operation required here?
-        # qd_cntrl - should be gradients
         tmp1 = np.asarray([w.vector().inner(dQ_cntrl.vector()) for w in W])
         tmp2 = np.dot(D, tmp1)
 
