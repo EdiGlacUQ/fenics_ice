@@ -26,20 +26,20 @@ import numpy as np
 import pickle
 from pathlib import Path
 
-from fenics_ice import model, solver, prior, inout
+from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
-from IPython import embed
 
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
 
+
 def run_errorprop(config_file):
 
     # Read run config file
     params = ConfigParser(config_file)
-    log = inout.setup_logging(params)
+    inout.setup_logging(params)
     inout.log_preamble("errorprop", params)
 
     outdir = params.io.output_dir
@@ -47,7 +47,7 @@ def run_errorprop(config_file):
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
 
-    #Eigen value params
+    # Eigen value params
     phase_eigen = params.eigendec.phase_name
     phase_suffix_e = params.eigendec.phase_suffix
     lamfile = params.io.eigenvalue_file
