@@ -85,8 +85,6 @@ def run_errorprop(config_file):
     Prior = mdl.get_prior()
     reg_op = Prior(slvr, space)
 
-    x, y, z = [Function(space) for i in range(3)]
-
     # Loads eigenvalues from file
     outdir_e = Path(outdir)/phase_eigen/phase_suffix_e
     with open(outdir_e/lamfile, 'rb') as ff:
@@ -108,9 +106,11 @@ def run_errorprop(config_file):
             hdf5data.read(w, f'v/vector_{i}')
 
             # Test norm in prior == 1.0
-            reg_op.action(w.vector(), y.vector())
-            norm_in_prior = w.vector().inner(y.vector())
+            B_inv_w = Function(space)
+            reg_op.action(w.vector(), B_inv_w.vector())
+            norm_in_prior = w.vector().inner(B_inv_w.vector())
             assert (abs(norm_in_prior - 1.0) < eps)
+            del B_inv_w
 
             W.append(w)
 
@@ -138,8 +138,8 @@ def run_errorprop(config_file):
         for tmp, w in zip(tmp2, W):
             P1.vector().axpy(tmp, w.vector())
 
-        reg_op.inv_action(dQ_cntrl.vector(), x.vector())
-        P2 = x  # .vector().get_local()
+        P2 = Function(space)
+        reg_op.inv_action(dQ_cntrl.vector(), P2.vector())
 
         P_vec = P2.vector() - P1.vector()
 
