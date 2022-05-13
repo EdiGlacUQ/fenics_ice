@@ -255,6 +255,10 @@ class SampleCfg(ConfigPrinter):
     sample_size: int = 1
     sample_alpha: bool = False
     sample_beta: bool = False
+    sample_posterior: bool = False
+    # this is to do nothing right now -- but it might be more efficient to create interactive plots
+    # interactive_plot: bool = False
+    num_eigenvals: int = 0
     phase_name: str = 'sample'
     phase_suffix: str = ''
 

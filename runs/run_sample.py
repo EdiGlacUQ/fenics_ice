@@ -43,6 +43,7 @@ def run_sample(config_file):
     inout.log_preamble("errorprop", params)
 
     ssize = params.sample.sample_size
+    sample_posterior = params.sample.sample_posterior
     alpha_active = params.inversion.alpha_active
     beta_active = params.inversion.beta_active
     log = inout.setup_logging(params)
@@ -96,58 +97,78 @@ def run_sample(config_file):
     Prior = mdl.get_prior()
     reg_op = Prior(slvr, space)
 
-    x, y, z = [Function(space) for i in range(3)]
+#    x, y, z = [Function(space) for i in range(3)]
+    y = Function(space)
 
-    # Loads eigenvalues from file
-    outdir_e = Path(outdir)/phase_name_e/phase_suffix_e
-    with open(outdir_e/lamfile, 'rb') as ff:
-        eigendata = pickle.load(ff)
-        lam = eigendata[0].real.astype(np.float64)
-        nlam = len(lam)
+    if (sample_posterior):
 
-
-    # Check if eigendecomposition successfully produced num_eig
-    # or if some are NaN
-    if np.any(np.isnan(lam)):
-        nlam = np.argwhere(np.isnan(lam))[0][0]
-        lam = lam[:nlam]
-
-    # and eigenvectors from .h5 file
-    eps = params.constants.float_eps
-    W = []
-    with HDF5File(MPI.comm_world, str(outdir_e/vecfile), 'r') as hdf5data:
-        for i in range(len(lam)):
-            w = Function(space)
-            hdf5data.read(w, f'v/vector_{i}')
-
-            # Test norm in prior == 1.0
-            reg_op.action(w.vector(), y.vector())
-            norm_in_prior = w.vector().inner(y.vector())
-            assert (abs(norm_in_prior - 1.0) < eps)
-
-            W.append(w)
+      # Loads eigenvalues from file
+      outdir_e = Path(outdir)/phase_name_e/phase_suffix_e
+      with open(outdir_e/lamfile, 'rb') as ff:
+          eigendata = pickle.load(ff)
+          lam = eigendata[0].real.astype(np.float64)
+          nlam = len(lam)
 
 
-    # take only the largest eigenvalues
-    pind = np.flatnonzero(lam > threshlam)
-    lam = lam[pind]
-    nlam = len(lam)
-    W = [W[i] for i in pind]
+      # Check if eigendecomposition successfully produced num_eig
+      # or if some are NaN
+      if np.any(np.isnan(lam)):
+          nlam = np.argwhere(np.isnan(lam))[0][0]
+          lam = lam[:nlam]
+
+      # and eigenvectors from .h5 file
+      eps = params.constants.float_eps
+      W = []
+
+      max_lam = params.sample.num_eigenvals
+      if (max_lam > 0):
+          lam = lam[:max_lam] 
+
+      with HDF5File(MPI.comm_world, str(outdir_e/vecfile), 'r') as hdf5data:
+          for i in range(len(lam)):
+              w = Function(space)
+              hdf5data.read(w, f'v/vector_{i}')
+
+              # Test norm in prior == 1.0
+              reg_op.action(w.vector(), y.vector())
+              norm_in_prior = w.vector().inner(y.vector())
+              assert (abs(norm_in_prior - 1.0) < eps)
+
+              W.append(w)
+
+
+      # take only the largest eigenvalues
+      pind = np.flatnonzero(lam > threshlam)
+      lam = lam[pind]
+      nlam = len(lam)
+      W = [W[i] for i in pind]
 
 ### ABOVE THIS POINT CODE IS BORROWED FROM RUN_ERRORPROP.PY
 
-    D = np.diag(1 / np.sqrt(lam + 1) - 1)  
+      D = np.diag(1 / np.sqrt(lam + 1) - 1)  
 
-    x, y, z, a, zm, zstd, am, astd= [Function(space) for i in range(8)]
+    x, z, zm = [Function(space) for i in range(3)]
+    if (ssize>1):
+     zstd = Function(space)
+    if (sample_posterior):
+     a, y, am = [Function(space) for i in range(3)]
+     if (ssize>1):
+      astd = Function(space)
+
     shp = np.shape(z.vector().get_local())
+
     zm.vector().set_local(np.zeros(shp))
     zm.vector().apply("insert")
-    zstd.vector().set_local(np.zeros(shp))
-    zstd.vector().apply("insert")
-    am.vector().set_local(np.zeros(shp))
-    am.vector().apply("insert")
-    astd.vector().set_local(np.zeros(shp))
-    astd.vector().apply("insert")
+    if (ssize>1):
+     zstd.vector().set_local(np.zeros(shp))
+     zstd.vector().apply("insert")
+    
+    if (sample_posterior):
+     am.vector().set_local(np.zeros(shp))
+     am.vector().apply("insert")
+     if (ssize>1):
+      astd.vector().set_local(np.zeros(shp))
+      astd.vector().apply("insert")
 
     for i in range(params.sample.sample_size):
 
@@ -156,66 +177,87 @@ def run_sample(config_file):
                          np.ones(shp),shp))
       x.vector().apply("insert")
 	  
-      reg_op.sqrt_action(x.vector(),y.vector())  # Gamma -1/2 N
       reg_op.sqrt_inv_action(x.vector(),z.vector())  # Gamma 1/2 N
 
-      tmp1 = np.asarray([w.vector().inner(y.vector()) for w in W])
-      tmp2 = np.dot(D,tmp1)
-
-      P1 = Function(space)
-      for ind in range(len(tmp2)):
-        P1.vector().axpy(tmp2[ind],W[ind].vector())
-
-      a.vector().set_local(z.vector().get_local() + P1.vector())
-      a.vector().apply("insert")
-
       zm.vector().set_local(zm.vector().get_local() + z.vector().get_local()/float(ssize))
-      am.vector().set_local(am.vector().get_local() + a.vector().get_local()/float(ssize))
-      zstd.vector().set_local(zstd.vector().get_local() + z.vector().get_local()**2/float(ssize))
-      astd.vector().set_local(astd.vector().get_local() + a.vector().get_local()**2/float(ssize))
+      if (ssize>1):
+       zstd.vector().set_local(zstd.vector().get_local() + z.vector().get_local()**2/float(ssize))
 
-    zstd.vector().set_local(zstd.vector().get_local() - zm.vector().get_local()**2)   
-    astd.vector().set_local(astd.vector().get_local() - am.vector().get_local()**2)
+      if (sample_posterior):
+       reg_op.sqrt_action(x.vector(),y.vector())  # Gamma -1/2 N
+
+       tmp1 = np.asarray([w.vector().inner(y.vector()) for w in W])
+       tmp2 = np.dot(D,tmp1)
+
+       P1 = Function(space)
+       for ind in range(len(tmp2)):
+         P1.vector().axpy(tmp2[ind],W[ind].vector())
+
+       a.vector().set_local(z.vector().get_local() + P1.vector())
+       a.vector().apply("insert")
+
+       am.vector().set_local(am.vector().get_local() + a.vector().get_local()/float(ssize))
+       if (ssize>1):
+        astd.vector().set_local(astd.vector().get_local() + a.vector().get_local()**2/float(ssize))
+
+    if (ssize>1):
+     zstd.vector().set_local(np.sqrt(zstd.vector().get_local() - zm.vector().get_local()**2))   
+     
+    if (sample_posterior):
+     if (ssize>1):
+      astd.vector().set_local(np.sqrt(astd.vector().get_local() - am.vector().get_local()**2))
 
     if params.inversion.dual:
       alpha_prior_sample_mean = project(zm[0], slvr.Qp)
       beta_prior_sample_mean = project(zm[1], slvr.Qp)
-      alpha_prior_sample_std = project(zstd[0], slvr.Qp)
-      beta_prior_sample_std = project(zstd[1], slvr.Qp)
-
-      alpha_post_sample_mean = project(am[0], slvr.Qp)
-      beta_post_sample_mean = project(am[1], slvr.Qp)
-      alpha_post_sample_std = project(astd[0], slvr.Qp)
-      beta_post_sample_std = project(astd[1], slvr.Qp)
+      if (ssize>1):
+       alpha_prior_sample_std = project(zstd[0], slvr.Qp)
+       beta_prior_sample_std = project(zstd[1], slvr.Qp)
+    
+      if (sample_posterior):
+       alpha_post_sample_mean = project(am[0], slvr.Qp)
+       beta_post_sample_mean = project(am[1], slvr.Qp)
+       if (ssize>1):
+        alpha_post_sample_std = project(astd[0], slvr.Qp)
+        beta_post_sample_std = project(astd[1], slvr.Qp)
 
     elif alpha_active:
       alpha_prior_sample_mean = zm
-      alpha_prior_sample_std = zstd
+      if (ssize>1):
+       alpha_prior_sample_std = zstd
 
-      alpha_post_sample_mean = am
-      alpha_post_sample_std = astd
+      if (sample_posterior):
+       alpha_post_sample_mean = am
+       if (ssize>1):
+        alpha_post_sample_std = astd
 
     elif beta_active:
       beta_prior_sample_mean = zm
-      beta_prior_sample_std = zstd
+      if (ssize>1):
+       beta_prior_sample_std = zstd
 
-      beta_post_sample_mean = am
-      beta_post_sample_std = astd
+      if (sample_posterior):
+       beta_post_sample_mean = am
+       if (ssize>1):
+        beta_post_sample_std = astd
 
     if ((alpha_active or params.inversion.dual) and params.sample.sample_alpha):
       inout.write_variable(alpha_prior_sample_mean, params, name="alpha_prior_sample_mean_"+str(ssize), 
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 
                            phase_suffix=phase_suffix_sample)
-      inout.write_variable(alpha_prior_sample_std, params, name="alpha_prior_sample_stdev_"+str(ssize), 
+      if (ssize>1):
+       inout.write_variable(alpha_prior_sample_std, params, name="alpha_prior_sample_stdev_"+str(ssize), 
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 
                            phase_suffix=phase_suffix_sample)
-      inout.write_variable(alpha_post_sample_mean, params, name="alpha_posterior_sample_mean_"+str(ssize), 
+      if (sample_posterior):
+       inout.write_variable(alpha_post_sample_mean, params, name="alpha_posterior_sample_mean_"+str(ssize), 
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 
                            phase_suffix=phase_suffix_sample)
-      inout.write_variable(alpha_post_sample_std, params, name="alpha_posterior_sample_stdev_"+str(ssize), 
+       if (ssize>1):
+        inout.write_variable(alpha_post_sample_std, params, name="alpha_posterior_sample_stdev_"+str(ssize), 
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 
                            phase_suffix=phase_suffix_sample)
@@ -225,15 +267,18 @@ def run_sample(config_file):
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 
                            phase_suffix=phase_suffix_sample)
-      inout.write_variable(beta_prior_sample_std, params, name="beta_prior_sample_stdev_"+str(ssize), 
+      if (ssize>1):
+       inout.write_variable(beta_prior_sample_std, params, name="beta_prior_sample_stdev_"+str(ssize), 
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 
                            phase_suffix=phase_suffix_sample)
-      inout.write_variable(beta_post_sample_mean, params, name="beta_posterior_sample_mean_"+str(ssize), 
+      if (sample_posterior):
+       inout.write_variable(beta_post_sample_mean, params, name="beta_posterior_sample_mean_"+str(ssize), 
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 
                            phase_suffix=phase_suffix_sample)
-      inout.write_variable(beta_post_sample_std, params, name="beta_posterior_sample_stdev_"+str(ssize), 
+       if (ssize>1):
+        inout.write_variable(beta_post_sample_std, params, name="beta_posterior_sample_stdev_"+str(ssize), 
                            outdir=diag_dir,
                            phase_name=phase_name_sample, 
                            phase_suffix=phase_suffix_sample)
