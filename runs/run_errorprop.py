@@ -52,7 +52,6 @@ def run_errorprop(config_file):
     phase_suffix_e = params.eigendec.phase_suffix
     lamfile = params.io.eigenvalue_file
     vecfile = params.io.eigenvecs_file
-    threshlam = params.eigendec.eigenvalue_thresh
 
     # Qoi forward params
     phase_time = params.time.phase_name
@@ -114,12 +113,6 @@ def run_errorprop(config_file):
             assert (abs(norm_in_prior - 1.0) < eps)
 
             W.append(w)
-
-    # take only the largest eigenvalues
-    pind = np.flatnonzero(lam > threshlam)
-    lam = lam[pind]
-    nlam = len(lam)
-    W = [W[i] for i in pind]
 
     D = np.diag(lam / (lam + 1))  # D_r Isaac 20
 
