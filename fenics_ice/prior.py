@@ -86,7 +86,7 @@ class Prior(ABC):
         self.A.init_vector(self.tmp1, 0)
         self.A.init_vector(self.tmp2, 1)
 
-        lumpedPCMassSolver = LumpedPCSqrtMassAction(space=self.space, tol=1.0e-16)
+        self.lumpedPCMassSolver = LumpedPCSqrtMassAction(space=self.space, tol=1.0e-16)
 
     def placeholder_fn(self, name, idx):
         """
@@ -304,7 +304,7 @@ class Laplacian(Prior):
                                 #                  L M-1 M1/2
         M_norm = self.M.norm("linf")
 #        self.tmp1, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm, max_terms=100000)
-        tmp1, terms = lumpedPCMassSolver.action(x)
+        tmp1, terms = self.lumpedPCMassSolver.action(x)
         self.M_solver.solve(self.tmp2, self.tmp1) 
         self.A.mult(self.tmp2,self.tmp3)
         y.set_local(self.tmp3.get_local())
@@ -314,7 +314,7 @@ class Laplacian(Prior):
                                     #                  L-1 M1/2
         M_norm = self.M.norm("linf")        
 #        self.tmp1, terms = A_root_action(self.M, x, tol=1.0e-16, beta=M_norm, max_terms=100000)
-        tmp1, terms = lumpedPCMassSolver.action(x)
+        tmp1, terms = self.lumpedPCMassSolver.action(x)
         self.A_solver.solve(self.tmp2, self.tmp1)
         y.set_local(self.tmp2.get_local())
         y.apply("insert")

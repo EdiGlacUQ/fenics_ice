@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from fenics import TestFunction, TrialFunction, assemble, dx, inner
-
+from fenics import TestFunction, TrialFunction, assemble, dx, inner, split
+import ufl
 import numpy as np
 
 __all__ = \
@@ -89,7 +89,8 @@ class LumpedPCSqrtMassAction:
         """
 
         test = TestFunction(space)
-        M_L = assemble(test * dx)
+        M_L = assemble(sum(split(test), ufl.zero()) * dx) 
+        #M_L = assemble(test * dx)
 
         if M is None:
             trial = TrialFunction(space)
