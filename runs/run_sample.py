@@ -180,8 +180,10 @@ def run_sample(config_file):
       reg_op.sqrt_inv_action(x.vector(),z.vector())  # Gamma 1/2 N
 
       zm.vector().set_local(zm.vector().get_local() + z.vector().get_local()/float(ssize))
+      zm.vector().apply("insert")
       if (ssize>1):
        zstd.vector().set_local(zstd.vector().get_local() + z.vector().get_local()**2/float(ssize))
+       zstd.vector().apply("insert")
 
       if (sample_posterior):
        reg_op.sqrt_action(x.vector(),y.vector())  # Gamma -1/2 N
@@ -197,15 +199,19 @@ def run_sample(config_file):
        a.vector().apply("insert")
 
        am.vector().set_local(am.vector().get_local() + a.vector().get_local()/float(ssize))
+       am.vector().apply("insert")
        if (ssize>1):
         astd.vector().set_local(astd.vector().get_local() + a.vector().get_local()**2/float(ssize))
+        astd.vector().apply("insert")
 
     if (ssize>1):
      zstd.vector().set_local(np.sqrt(zstd.vector().get_local() - zm.vector().get_local()**2))   
+     zstd.vector().apply("insert")
      
     if (sample_posterior):
      if (ssize>1):
       astd.vector().set_local(np.sqrt(astd.vector().get_local() - am.vector().get_local()**2))
+      astd.vector().apply("insert")
 
     if params.inversion.dual:
       alpha_prior_sample_mean = project(zm[0], slvr.Qp)
