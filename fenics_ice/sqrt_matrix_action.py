@@ -90,7 +90,6 @@ class LumpedPCSqrtMassAction:
 
         test = TestFunction(space)
         M_L = assemble(sum(split(test), ufl.zero()) * dx) 
-        #M_L = assemble(test * dx)
 
         if M is None:
             trial = TrialFunction(space)
