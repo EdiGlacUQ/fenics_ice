@@ -85,7 +85,6 @@ class ConfigParser(object):
         self.obs = ObsCfg(**self.config_dict['obs'])
         self.error_prop = ErrorPropCfg(**self.config_dict['errorprop'])
         self.eigendec = EigenDecCfg(**self.config_dict['eigendec'])
-        self.sample = SampleCfg(**self.config_dict['sample'])
 
         # Optional melt section
         try:
@@ -106,6 +105,13 @@ class ConfigParser(object):
         except KeyError:
             cpoint_dict = {}
         self.checkpointing = CheckpointCfg(**cpoint_dict)
+
+        # Optional section for sampling prior and posterior
+        try:
+            sample_dict = SampleCfg(**self.config_dict['sample'])
+        except KeyError:
+            sample_dict = {}
+        self.sample = SampleCfg(**sample_dict)
 
         try:  # Optional BC list
             self.bcs = [BCCfg(**bc) for bc in self.config_dict['BC']]
