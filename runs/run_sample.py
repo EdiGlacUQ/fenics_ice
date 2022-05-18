@@ -260,8 +260,8 @@ def run_sample(config_file):
                           outdir=diag_dir,
                           phase_name=phase_name_sample, 
                           phase_suffix=phase_suffix_sample)
-        if (ssize>1):
-            inout.write_variable(alpha_post_sample_std, params, name="alpha_posterior_sample_stdev_"+str(ssize), 
+            if (ssize>1):
+                inout.write_variable(alpha_post_sample_std, params, name="alpha_posterior_sample_stdev_"+str(ssize), 
                           outdir=diag_dir,
                           phase_name=phase_name_sample, 
                           phase_suffix=phase_suffix_sample)
@@ -281,8 +281,8 @@ def run_sample(config_file):
                           outdir=diag_dir,
                           phase_name=phase_name_sample, 
                           phase_suffix=phase_suffix_sample)
-        if (ssize>1):
-            inout.write_variable(beta_post_sample_std, params, name="beta_posterior_sample_stdev_"+str(ssize), 
+            if (ssize>1):
+                inout.write_variable(beta_post_sample_std, params, name="beta_posterior_sample_stdev_"+str(ssize), 
                           outdir=diag_dir,
                           phase_name=phase_name_sample, 
                           phase_suffix=phase_suffix_sample)

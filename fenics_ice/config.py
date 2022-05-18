@@ -108,7 +108,7 @@ class ConfigParser(object):
 
         # Optional section for sampling prior and posterior
         try:
-            sample_dict = SampleCfg(**self.config_dict['sample'])
+            sample_dict = self.config_dict['sample']
         except KeyError:
             sample_dict = {}
         self.sample = SampleCfg(**sample_dict)
