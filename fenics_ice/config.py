@@ -106,6 +106,13 @@ class ConfigParser(object):
             cpoint_dict = {}
         self.checkpointing = CheckpointCfg(**cpoint_dict)
 
+        # Optional section for sampling prior and posterior
+        try:
+            sample_dict = self.config_dict['sample']
+        except KeyError:
+            sample_dict = {}
+        self.sample = SampleCfg(**sample_dict)
+
         try:  # Optional BC list
             self.bcs = [BCCfg(**bc) for bc in self.config_dict['BC']]
         except KeyError:
@@ -244,6 +251,21 @@ class ErrorPropCfg(ConfigPrinter):
     """
     qoi: str = 'vaf'
     phase_name: str = 'error_prop'
+    phase_suffix: str = ''
+
+@dataclass(frozen=True)
+class SampleCfg(ConfigPrinter):
+    """
+    Configuration related to error propagation
+    """
+    sample_size: int = 1
+    sample_alpha: bool = False
+    sample_beta: bool = False
+    sample_posterior: bool = False
+    # this is to do nothing right now -- but it might be more efficient to create interactive plots
+    # interactive_plot: bool = False
+    num_eigenvals: int = 0
+    phase_name: str = 'sample'
     phase_suffix: str = ''
 
 @dataclass(frozen=True)
