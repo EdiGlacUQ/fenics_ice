@@ -266,7 +266,7 @@ def run_sample(config_file):
                           phase_name=phase_name_sample, 
                           phase_suffix=phase_suffix_sample)
 
-    if ((beta_active or params.inversion.dual) and params.sample.sample_alpha):
+    if ((beta_active or params.inversion.dual) and params.sample.sample_beta):
         inout.write_variable(beta_prior_sample_mean, params, name="beta_prior_sample_mean_"+str(ssize), 
                           outdir=diag_dir,
                           phase_name=phase_name_sample, 
