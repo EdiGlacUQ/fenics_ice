@@ -28,13 +28,10 @@ import pickle
 import numpy as np
 from pathlib import Path
 
-from fenics_ice import model, solver, prior, inout
+from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 
-import matplotlib as mpl
-#mpl.use("Agg")
-import matplotlib.pyplot as plt
 
 def patch_fun(mesh_in, params):
     """
@@ -114,11 +111,11 @@ def patch_fun(mesh_in, params):
 
     return dg_fun, ntgt
 
+
 def run_invsigma(config_file):
     """Compute control sigma values from eigendecomposition"""
 
     comm = MPI.comm_world
-    rank = comm.rank
 
     # Read run config file
     params = ConfigParser(config_file)
@@ -128,7 +125,6 @@ def run_invsigma(config_file):
     inout.log_preamble("inv sigma", params)
 
     outdir = params.io.output_dir
-    diags_dir = params.io.diagnostics_dir
 
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
@@ -158,7 +154,6 @@ def run_invsigma(config_file):
     # Setup our solver object
     slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual)
 
-    cntrl = slvr.get_control()[0]
     space = slvr.get_control_space()
 
     # sigma_old, sigma_prior_old = [Function(space) for i in range(3)]
@@ -181,7 +176,6 @@ def run_invsigma(config_file):
 
     # Read in the eigenvectors and check they are normalised
     # w.r.t. the prior (i.e. the B matrix in our GHEP)
-    eps = params.constants.float_eps
     W = []
     with HDF5File(comm,
                   os.path.join(eigendir, vecfile), 'r') as hdf5data:
@@ -297,7 +291,6 @@ def run_invsigma(config_file):
 
             sigma_priors[j].vector()[:] += indic_1.vector()[:] * np.sqrt(cov_prior)
             sigma_priors[j].vector().apply("insert")
-
 
     if neg_flag:
         log.warning('Negative value(s) of sigma encountered.'
