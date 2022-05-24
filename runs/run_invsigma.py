@@ -179,11 +179,11 @@ def run_invsigma(config_file):
             w = Function(space)
             hdf5data.read(w, f'v/vector_{i}')
 
-            # Test norm in prior == 1.0
+            # Test squared norm in prior == 1.0
             B_inv_w = Function(space)
             reg_op.action(w.vector(), B_inv_w.vector())
-            norm_in_prior = w.vector().inner(B_inv_w.vector())
-            assert (abs(norm_in_prior - 1.0) < eps)
+            norm_sq_in_prior = w.vector().inner(B_inv_w.vector())
+            assert (abs(norm_sq_in_prior - 1.0) < eps)
             del B_inv_w
 
             W.append(w)
