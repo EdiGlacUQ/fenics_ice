@@ -21,10 +21,10 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-import sys
-import numpy as np
-import pickle
 from pathlib import Path
+import pickle
+import numpy as np
+import sys
 
 from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
@@ -39,6 +39,8 @@ def run_errorprop(config_file):
 
     # Read run config file
     params = ConfigParser(config_file)
+
+    # Setup logging
     inout.setup_logging(params)
     inout.log_preamble("errorprop", params)
 
@@ -47,7 +49,7 @@ def run_errorprop(config_file):
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
 
-    # Eigen value params
+    # Eigen decomposition params
     phase_eigen = params.eigendec.phase_name
     phase_suffix_e = params.eigendec.phase_suffix
     lamfile = params.io.eigenvalue_file

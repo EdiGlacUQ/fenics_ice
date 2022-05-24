@@ -1,4 +1,3 @@
-
 # For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
 # root directory
 
@@ -23,10 +22,10 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-import sys
+from pathlib import Path
 import pickle
 import numpy as np
-from pathlib import Path
+import sys
 
 from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
@@ -134,7 +133,6 @@ def run_invsigma(config_file):
     eigendir = Path(outdir)/params.eigendec.phase_name/phase_suffix_e
     lamfile = params.io.eigenvalue_file
     vecfile = params.io.eigenvecs_file
-    threshlam = params.eigendec.eigenvalue_thresh
 
     if len(phase_suffix_e) > 0:
         lamfile = params.io.run_name + phase_suffix_e + '_eigvals.p'
@@ -156,13 +154,12 @@ def run_invsigma(config_file):
 
     space = slvr.get_control_space()
 
-    # sigma_old, sigma_prior_old = [Function(space) for i in range(3)]
     x, y, z = [Function(space) for i in range(3)]
     # Regularization operator using inversion delta/gamma values
     Prior = mdl.get_prior()
     reg_op = Prior(slvr, space)
 
-    # Load the eigenvalues
+    # Loads eigenvalues from file
     with open(os.path.join(eigendir, lamfile), 'rb') as ff:
         eigendata = pickle.load(ff)
         lam = eigendata[0].real.astype(np.float64)
@@ -171,11 +168,10 @@ def run_invsigma(config_file):
     # Check if eigendecomposition successfully produced num_eig
     # or if some are NaN
     if np.any(np.isnan(lam)):
-        nlam = np.argwhere(np.isnan(lam))[0][0]
-        lam = lam[:nlam]
+        raise RuntimeError("NaN eigenvalue(s)")
 
-    # Read in the eigenvectors and check they are normalised
-    # w.r.t. the prior (i.e. the B matrix in our GHEP)
+    # and eigenvectors from .h5 file
+    eps = params.constants.float_eps
     W = []
     with HDF5File(comm,
                   os.path.join(eigendir, vecfile), 'r') as hdf5data:
@@ -183,22 +179,16 @@ def run_invsigma(config_file):
             w = Function(space)
             hdf5data.read(w, f'v/vector_{i}')
 
-            print(f"Getting eigenvector {i} of {nlam}")
-            # # Test norm in prior == 1.0
-            # reg_op.action(w.vector(), y.vector())
-            # norm_in_prior = w.vector().inner(y.vector())
-            # assert (abs(norm_in_prior - 1.0) < eps)
+            # Test norm in prior == 1.0
+            B_inv_w = Function(space)
+            reg_op.action(w.vector(), B_inv_w.vector())
+            norm_in_prior = w.vector().inner(B_inv_w.vector())
+            assert (abs(norm_in_prior - 1.0) < eps)
+            del B_inv_w
 
             W.append(w)
 
-    # Which eigenvalues are larger than our threshold?
-    pind = np.flatnonzero(lam > threshlam)
-    lam = lam[pind]
-    W = [W[i] for i in pind]
-
-    # this is a diagonal matrix but we only ever address it element-wise
-    # bit of a waste of space.
-    D = np.diag(lam / (lam + 1))
+    D = np.diag(lam / (lam + 1))  # D_r Isaac 20
 
     # TODO make this a model method
     cntrl_names = []
