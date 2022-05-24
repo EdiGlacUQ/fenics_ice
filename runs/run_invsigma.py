@@ -283,9 +283,7 @@ def run_invsigma(config_file):
             sigma_priors[j].vector().apply("insert")
 
     if neg_flag:
-        log.warning('Negative value(s) of sigma encountered.'
-                    'Examine the range of eigenvalues and check if '
-                    'the threshlam paramater is set appropriately.')
+        log.warning('Negative value(s) of sigma encountered')
 
     for i, name in enumerate(cntrl_names):
         sigmas[i].rename("sigma_"+name, "")
