@@ -69,13 +69,8 @@ log = logging.getLogger("fenics_ice")
 
 __all__ = \
     [
-        "EigendecompositionException",
         "eigendecompose"
     ]
-
-
-class EigendecompositionException(Exception):
-    pass
 
 
 _flagged_error = [False]
@@ -106,9 +101,9 @@ class PythonMatrix:
         if is_function(y_a):
             y_a = function_get_values(y_a)
         if not np.can_cast(y_a, PETSc.ScalarType):
-            raise EigendecompositionException("Invalid dtype")
+            raise ValueError("Invalid dtype")
         if y_a.shape != (y.getLocalSize(),):
-            raise EigendecompositionException("Invalid shape")
+            raise ValueError("Invalid shape")
         y.setArray(y_a)
 
 
@@ -195,11 +190,9 @@ def eigendecompose(space, A_action, B_matrix=None, N_eigenvalues=None,
 
     esolver.solve()
     if _flagged_error[0]:
-        raise EigendecompositionException("Error encountered in "
-                                          "SLEPc.EPS.solve")
+        raise RuntimeError("Error encountered in SLEPc.EPS.solve")
     if esolver.getConverged() < N_ev:
-        raise EigendecompositionException("Not all requested eigenpairs "
-                                          "converged")
+        raise RuntimeError("Not all requested eigenpairs converged")
 
     return esolver
 
