@@ -2,19 +2,15 @@
 # -*- coding: utf-8 -*-
 
 from fenics import TestFunction, TrialFunction, assemble, dx, inner, split
-import ufl
+
 import numpy as np
+import ufl
 
 __all__ = \
     [
         "A_root_action",
-        "LumpedPCSqrtMassAction",
-        "RootActionException"
+        "LumpedPCSqrtMassAction"
     ]
-
-
-class RootActionException(Exception):
-    pass
 
 
 def A_root_action(A, x, tol, beta=1.0, max_terms=1000):
@@ -55,7 +51,7 @@ def A_root_action(A, x, tol, beta=1.0, max_terms=1000):
         change = y.copy()
         y.axpy(-alpha[0] / alpha[1], z)
         if np.isnan(y.sum()):
-            raise RootActionException("NaN encountered")
+            raise RuntimeError("NaN encountered")
         change.axpy(-1.0, y)
         change_norm = change.norm("linf") * np.sqrt(beta)
         # print(f"terms {j + 1:d}, norm = {change_norm:.6e}")
@@ -63,7 +59,7 @@ def A_root_action(A, x, tol, beta=1.0, max_terms=1000):
             break
         j += 1
         if j >= max_terms:
-            raise RootActionException("Maximum terms exceeded")
+            raise RuntimeError("Maximum terms exceeded")
         alpha[0] *= 2 * j - 3
         alpha[1] *= 2 * j
 
@@ -89,7 +85,7 @@ class LumpedPCSqrtMassAction:
         """
 
         test = TestFunction(space)
-        M_L = assemble(sum(split(test), ufl.zero()) * dx) 
+        M_L = assemble(sum(split(test), ufl.zero()) * dx)
 
         if M is None:
             trial = TrialFunction(space)
