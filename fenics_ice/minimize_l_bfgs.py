@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from tlm_adjoint import OptimizationException, clear_caches, \
-    function_assign, function_axpy, function_comm, function_copy, \
-    function_get_values, function_inner, function_is_cached, \
-    function_is_checkpointed, function_is_static, function_linf_norm, \
-    function_new, function_set_values, is_function, restore_manager, \
-    set_manager
+from tlm_adjoint import clear_caches, function_assign, function_axpy, \
+    function_comm, function_copy, function_get_values, function_inner, \
+    function_is_cached, function_is_checkpointed, function_is_static, \
+    function_linf_norm, function_new, function_set_values, is_function, \
+    restore_manager, set_manager
 from tlm_adjoint import manager as _manager
 
 from collections import deque
@@ -64,7 +63,7 @@ def wrapped_action(M):
         if is_function(M_X):
             M_X = (M_X,)
         if len(M_X) != len(X):
-            raise OptimizationException("Incompatible shape")
+            raise ValueError("Incompatible shape")
         return M_X
 
     return M
@@ -89,12 +88,11 @@ class H_approximation:
     def __init__(self, m,
                  skip_atol=0.0, skip_rtol=1.0e-12, M=None, M_inv=None):
         if skip_atol < 0.0:
-            raise OptimizationException("skip_atol must be non-negative")
+            raise ValueError("skip_atol must be non-negative")
         if skip_rtol < 0.0:
-            raise OptimizationException("skip_rtol must be non-negative")
+            raise ValueError("skip_rtol must be non-negative")
         if (M is None and M_inv is not None) or (M is not None and M_inv is None):  # noqa: E501
-            raise OptimizationException("Cannot supply only one of M and "
-                                        "M_inv")
+            raise TypeError("Cannot supply only one of M and M_inv")
 
         if M is None:
             def M(*X):
@@ -151,7 +149,7 @@ class H_approximation:
         if is_function(Y):
             Y = (Y,)
         if len(S) != len(Y):
-            raise OptimizationException("Incompatible shape")
+            raise ValueError("Incompatible shape")
 
         if self._skip_rtol == 0.0:
             skip_tol = self._skip_atol
@@ -437,16 +435,16 @@ class H_approximation:
         from scipy.linalg import eig
 
         if atol < 0.0:
-            raise OptimizationException("atol must be non-negative")
+            raise ValueError("atol must be non-negative")
         if rtol < 0.0:
-            raise OptimizationException("rtol must be non-negative")
+            raise ValueError("rtol must be non-negative")
 
         if (B_0 is None and M is None) and M_inv is not None:
-            raise OptimizationException("If M_inv is supplied, then B_0 or M "
-                                        "must be supplied")
+            raise TypeError("If M_inv is supplied, then B_0 or M must be "
+                            "supplied")
         if (B_0 is not None or M is not None) and M_inv is None:
-            raise OptimizationException("If B_0 or M are supplied, then M_inv "
-                                        "must be supplied")
+            raise TypeError("If B_0 or M are supplied, then M_inv must be "
+                            "supplied")
         if B_0 is None:
             def B_0(*X):
                 return X  # copy not required
@@ -632,7 +630,7 @@ def line_search(F, Fp, X, minus_P, c1=1.0e-4, c2=0.9,
     if is_function(minus_P):
         minus_P = (minus_P,)
     if len(minus_P) != len(X_rank1):
-        raise OptimizationException("Incompatible shape")
+        raise ValueError("Incompatible shape")
 
     if comm is None:
         comm = function_comm(X_rank1[0])
@@ -670,7 +668,7 @@ def line_search(F, Fp, X, minus_P, c1=1.0e-4, c2=0.9,
         if is_function(old_Fp_val):
             old_Fp_val = (old_Fp_val,)
         if len(old_Fp_val) != len(X_rank1):
-            raise OptimizationException("Incompatible shape")
+            raise ValueError("Incompatible shape")
         old_Fp_val_rank0 = -functions_inner(minus_P, old_Fp_val)
     del old_Fp_val
 
@@ -701,7 +699,7 @@ def line_search(F, Fp, X, minus_P, c1=1.0e-4, c2=0.9,
                 alpha, new_F_val = data
                 break
             else:
-                raise OptimizationException(f"Unexpected action '{action:s}'")
+                raise ValueError(f"Unexpected action '{action:s}'")
 
     comm.Free()
 
@@ -871,7 +869,7 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
         if is_function(Fp_val):
             Fp_val = (Fp_val,)
         if len(Fp_val) != len(X):
-            raise OptimizationException("Incompatible shape")
+            raise ValueError("Incompatible shape")
         return Fp_val
 
     if is_function(X0):
@@ -891,11 +889,10 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
                                  Y[0] if len(Y) == 1 else Y)
 
     if (H_0 is None and M_inv is None) and M is not None:
-        raise OptimizationException("If M is supplied, then H_0 or M_inv must "
-                                    "be supplied")
+        raise TypeError("If M is supplied, then H_0 or M_inv must be supplied")
     if (H_0 is not None or M_inv is not None) and M is None:
-        raise OptimizationException("If H_0 or M_inv are supplied, then M "
-                                    "must be supplied")
+        raise TypeError("If H_0 or M_inv are supplied, then M must be "
+                        "supplied")
 
     if H_0 is None:
         def H_0(*X):
@@ -968,8 +965,8 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
             new_Fp_val = (new_Fp_val,)
         if alpha is None:
             if it == 0:
-                raise OptimizationException("L-BFGS: Line search failure -- "
-                                            "consider changing l-bfgs 'delta_lbfgs' value")
+                raise RuntimeError("L-BFGS: Line search failure -- "
+                                   "consider changing l-bfgs 'delta_lbfgs' value")
             logger.warning("L-BFGS: Line search failure -- resetting "
                            "Hessian inverse approximation")
             H_approx.reset()
@@ -1000,14 +997,12 @@ def l_bfgs(F, Fp, X0, m, s_atol, g_atol, converged=None, max_its=1000,
             if is_function(new_Fp_val):
                 new_Fp_val = (new_Fp_val,)
             if alpha is None:
-                raise OptimizationException("L-BFGS: Line search failure")
+                raise RuntimeError("L-BFGS: Line search failure")
 
         if new_F_val > old_F_val + c1 * alpha * old_Fp_val_rank0:
-            raise OptimizationException("L-BFGS: Armijo condition not "
-                                        "satisfied")
+            raise RuntimeError("L-BFGS: Armijo condition not satisfied")
         if new_Fp_val_rank0 < c2 * old_Fp_val_rank0:
-            raise OptimizationException("L-BFGS: Curvature condition not "
-                                        "satisfied")
+            raise RuntimeError("L-BFGS: Curvature condition not satisfied")
         if abs(new_Fp_val_rank0) > c2 * abs(old_Fp_val_rank0):
             logger.warning("L-BFGS: Strong curvature condition not satisfied")
 
