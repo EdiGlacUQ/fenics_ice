@@ -23,7 +23,7 @@ import pytest
 import numpy as np
 from runs import run_inv, run_forward, run_eigendec, run_errorprop, run_invsigma
 from fenics_ice import config
-from pathlib import Path
+import shutil
 from mpi4py import MPI
 
 def EQReset():
@@ -361,3 +361,27 @@ def test_run_smith_inversion(temp_model, monkeypatch):
     pytest.check_float_result(J_inv,
                               expected_J_inv,
                               work_dir, 'expected_J_inv')
+
+@pytest.mark.key('smith')
+def test_run_smith_error_prop(temp_model, monkeypatch):
+
+    work_dir = temp_model["work_dir"]
+    toml_file = temp_model["toml_filename"]
+
+    # Switch to the working directory
+    monkeypatch.chdir(work_dir)
+
+    # Defined again the data directory from which we will
+    # copy the previous stages data (inversion, forward, and eigendec)
+    data_dir = pytest.data_dir/'smith_glacier/smith_test_output'
+    src = data_dir / 'output'
+
+    params = config.ConfigParser(toml_file, top_dir=work_dir)
+    dest = params.io.output_dir
+
+    # copy the data
+    shutil.copytree(src, dest, dirs_exist_ok=True)
+
+    EQReset()
+
+    mdl_out = run_errorprop.run_errorprop(toml_file)

@@ -113,15 +113,15 @@ nonzero_initial_guess = false
 
 [time]
 
-run_length = 40.0
+run_length = 4
 #steps_per_year = 30
-total_steps = 960
-#dt = 0.033333333
-num_sens = 15 #TODO rename
+total_steps = 100
+#dt = 0.0333333I33
+num_sens = 2 #TODO rename
 
 [eigendec]
 
-num_eig = 15000
+num_eig = 10
 eig_algo = "slepc"
 misfit_only = true
 
