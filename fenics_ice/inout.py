@@ -661,9 +661,9 @@ def setup_logging(params):
     log_level = params.io.log_level
 
     if log_level == 'critical':
-        logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.WARNING)
+        logging.getLogger("tlm_adjoint.checkpointing").setLevel(logging.WARNING)
     else:
-        logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.DEBUG)
+        logging.getLogger("tlm_adjoint.checkpointing").setLevel(logging.DEBUG)
 
     numeric_level = getattr(logging, log_level.upper(), None)
     if not isinstance(numeric_level, int):

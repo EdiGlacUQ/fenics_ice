@@ -32,7 +32,7 @@ def EQReset():
     """Take care of tlm_adjoint EquationManager"""
     # This prevents checkpointing errors when these run phases
     # are tested after the stuff in test_model.py
-    reset_manager("memory")
+    reset_manager("memory", {})
     clear_caches()
     stop_manager()
 
