@@ -113,15 +113,16 @@ nonzero_initial_guess = false
 
 [time]
 
-run_length = 4
+run_length = 10
 #steps_per_year = 30
-total_steps = 100
+total_steps = 240
 #dt = 0.0333333I33
-num_sens = 2 #TODO rename
+num_sens = 5 #TODO rename
+
 
 [eigendec]
 
-num_eig = 10
+num_eig = 50
 eig_algo = "slepc"
 misfit_only = true
 
@@ -131,7 +132,7 @@ eigenvalue_thresh = 1.0e-1
 
 [errorprop]
 
-qoi = 'h2' #or 'vaf'
+qoi = 'vaf'
 
 [invsigma]
 
