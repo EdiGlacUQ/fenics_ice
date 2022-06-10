@@ -336,7 +336,7 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps):
                               work_dir,
                               "expected_cntrl_sigma_prior_norm", tol=tol)
 
-@pytest.mark.key('smith')
+#@pytest.mark.key('smith')
 def test_run_smith_inversion(temp_model, monkeypatch):
 
     work_dir = temp_model["work_dir"]
@@ -371,17 +371,29 @@ def test_run_smith_error_prop(temp_model, monkeypatch):
     # Switch to the working directory
     monkeypatch.chdir(work_dir)
 
-    # Defined again the data directory from which we will
-    # copy the previous stages data (inversion, forward, and eigendec)
+    # Define again the data input dir from /tmp/fenics_ice_test_data
+    # where we stored the previous stages of the workflow
+    # (inversion, forward, and eigendec)
     data_dir = pytest.data_dir/'smith_glacier/smith_test_output'
     src = data_dir / 'output'
 
     params = config.ConfigParser(toml_file, top_dir=work_dir)
-    dest = params.io.output_dir
 
+    # Getting expected QoI sigma value at the 50th eigenvalue
+    Q_sigma_expected_at_50_eival = params.testing.expected_Q_sigma
+
+    # Destination folder where we need to copy the previous stages
+    # output data to run error prop.
+    dest = params.io.output_dir
     # copy the data
     shutil.copytree(src, dest, dirs_exist_ok=True)
 
     EQReset()
 
+    # Run error prop
     mdl_out = run_errorprop.run_errorprop(toml_file)
+    Q_sigma = mdl_out.Q_sigma[-1]
+
+    pytest.check_float_result(Q_sigma,
+                              Q_sigma_expected_at_50_eival,
+                              work_dir, 'expected_Q_sigma')
