@@ -336,7 +336,7 @@ def test_run_invsigma(existing_temp_model, monkeypatch, setup_deps):
                               work_dir,
                               "expected_cntrl_sigma_prior_norm", tol=tol)
 
-#@pytest.mark.key('smith')
+@pytest.mark.key('smith')
 def test_run_smith_inversion(temp_model, monkeypatch):
 
     work_dir = temp_model["work_dir"]
