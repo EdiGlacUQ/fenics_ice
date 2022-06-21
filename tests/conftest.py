@@ -259,6 +259,7 @@ def create_temp_model(request, mpi_tmpdir, case_gen, persist=False):
     from mpi4py import MPI
 
     tv = request.node.get_closest_marker("tv") is not None
+    key = request.node.get_closest_marker("key")
 
     tmpdir = mpi_tmpdir
     data_dir = pytest.data_dir
@@ -288,7 +289,8 @@ def create_temp_model(request, mpi_tmpdir, case_gen, persist=False):
         config['inversion']['verbose'] = False
 
         # If doing Taylor verification, only take 1 sample:
-        config['time']['num_sens'] = 1
+        if not key:
+            config['time']['num_sens'] = 1
 
         # and write out the toml to tmpdir
         with open(tmpdir/toml_file.name, 'w') as toml_out:

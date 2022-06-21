@@ -20,6 +20,8 @@ from .backend import Constant, Function, KrylovSolver, TestFunctions, \
 
 from .decorators import count_calls, timer
 from .eigendecomposition import flag_errors
+from fenics_ice.sqrt_matrix_action import A_root_action, LumpedPCSqrtMassAction
+
 
 from abc import ABC, abstractmethod
 import ufl
@@ -80,6 +82,13 @@ class Prior(ABC):
         self.construct_mass_operator()
         self.construct_prior_operator()
 
+        self.tmp1, self.tmp2 = Vector(), Vector()
+        self.A.init_vector(self.tmp1, 0)
+        self.A.init_vector(self.tmp2, 1)
+
+        # preconditioned solver object to find square root of mass matrix (not used)
+        self.lumpedPCMassSolver = LumpedPCSqrtMassAction(space=self.space, tol=1.0e-16, beta=2.0/3.0)
+
     def placeholder_fn(self, name, idx):
         """
         Generate placeholder functions
@@ -135,7 +144,6 @@ class Prior(ABC):
                                          "relative_tolerance": 1.0e-14})
         self.A_solver.set_operator(self.A)
 
-        # self.tmp1, self.tmp2 = Function(self.space), Function(self.space)
         self.tmp1, self.tmp2 = Vector(), Vector()
         self.A.init_vector(self.tmp1, 0)
         self.A.init_vector(self.tmp2, 1)
@@ -291,6 +299,17 @@ class Laplacian(Prior):
         y.set_local(self.tmp1.get_local())
         y.apply("insert")
 
+    def sqrt_action(self,x,y):  # sqrt of inv cov: Gamma -1 Gamma 1/2
+                                #                  L M-1 L L-1 M1/2
+                                #                  L M-1 M1/2
+        self.tmp1, terms = self.lumpedPCMassSolver.action(x)
+        self.M_solver.solve(self.tmp2, self.tmp1) 
+        self.A.mult(self.tmp2,y)
+
+    def sqrt_inv_action(self,x,y):  # sqrt of inv cov: Gamma 1/2
+                                    #                  L-1 M1/2
+        self.tmp1, terms = self.lumpedPCMassSolver.action(x)
+        self.A_solver.solve(y, self.tmp1)
 
 class Laplacian_flt(Laplacian):
     """

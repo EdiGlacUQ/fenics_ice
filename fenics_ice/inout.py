@@ -423,7 +423,7 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
     else:
         return out
 
-class DataNotFound(Exception):
+class DataNotFoundError(Exception):
     """Custom exception for unfound data"""
 
     pass
@@ -437,7 +437,8 @@ class InputDataField(object):
         self.field_name = field_name
 
         if None in (infile, field_name):
-            raise DataNotFound
+            raise DataNotFoundError("At least one of infile or field_name is "
+                                    "None")
 
         filetype = infile.suffix
         assert filetype in [".h5", ".nc"], "Only NetCDF and HDF5 input supported"
@@ -460,8 +461,8 @@ class InputDataField(object):
             self.xx = indata['x'][:]
             self.yy = indata['y'][:]
             self.field = indata[self.field_name][:]
-        except:
-            raise DataNotFound
+        except KeyError:
+            raise DataNotFoundError
 
         # Convert from [y,x] (numpy standard [sort of]) to [x,y]
         self.field = self.field.T
@@ -510,7 +511,7 @@ class InputData(object):
             self.field_file_dict[f] = self.get_field_file(f)
             try:
                 self.fields[f] = InputDataField(*self.field_file_dict[f])
-            except DataNotFound:
+            except DataNotFoundError:
                 logging.warning(f"No data found for {f}, "
                                 f"field will be filled with default value if appropriate")
 
@@ -661,9 +662,9 @@ def setup_logging(params):
     log_level = params.io.log_level
 
     if log_level == 'critical':
-        logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.WARNING)
+        logging.getLogger("tlm_adjoint.checkpointing").setLevel(logging.WARNING)
     else:
-        logging.getLogger("tlm_adjoint.multistage_checkpointing").setLevel(logging.DEBUG)
+        logging.getLogger("tlm_adjoint.checkpointing").setLevel(logging.DEBUG)
 
     numeric_level = getattr(logging, log_level.upper(), None)
     if not isinstance(numeric_level, int):

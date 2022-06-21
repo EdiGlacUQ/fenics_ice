@@ -113,15 +113,16 @@ nonzero_initial_guess = false
 
 [time]
 
-run_length = 40.0
+run_length = 10
 #steps_per_year = 30
-total_steps = 960
-#dt = 0.033333333
-num_sens = 15 #TODO rename
+total_steps = 240
+#dt = 0.0333333I33
+num_sens = 5 #TODO rename
+
 
 [eigendec]
 
-num_eig = 15000
+num_eig = 50
 eig_algo = "slepc"
 misfit_only = true
 
@@ -130,7 +131,7 @@ precondition_by = "prior" #prior by default
 
 [errorprop]
 
-qoi = 'h2' #or 'vaf'
+qoi = 'vaf'
 
 [invsigma]
 
@@ -142,3 +143,4 @@ patch_downscale = 0.1
 # expected_J_inv = 625620918.9914922 
 #expected_J_inv = 566220228.1028463
 expected_J_inv = 283225902.94674975
+expected_Q_sigma = 5.85873469e+10

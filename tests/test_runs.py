@@ -23,14 +23,14 @@ import pytest
 import numpy as np
 from runs import run_inv, run_forward, run_eigendec, run_errorprop, run_invsigma
 from fenics_ice import config
-from pathlib import Path
+import shutil
 from mpi4py import MPI
 
 def EQReset():
     """Take care of tlm_adjoint EquationManager"""
     # This prevents checkpointing errors when these run phases
     # are tested after the stuff in test_model.py
-    reset_manager("memory")
+    reset_manager("memory", {})
     clear_caches()
     stop_manager()
 
@@ -361,3 +361,39 @@ def test_run_smith_inversion(temp_model, monkeypatch):
     pytest.check_float_result(J_inv,
                               expected_J_inv,
                               work_dir, 'expected_J_inv')
+
+@pytest.mark.key('smith')
+def test_run_smith_error_prop(temp_model, monkeypatch):
+
+    work_dir = temp_model["work_dir"]
+    toml_file = temp_model["toml_filename"]
+
+    # Switch to the working directory
+    monkeypatch.chdir(work_dir)
+
+    # Define again the data input dir from /tmp/fenics_ice_test_data
+    # where we stored the previous stages of the workflow
+    # (inversion, forward, and eigendec)
+    data_dir = pytest.data_dir/'smith_glacier/smith_test_output'
+    src = data_dir / 'output'
+
+    params = config.ConfigParser(toml_file, top_dir=work_dir)
+
+    # Getting expected QoI sigma value at the 50th eigenvalue
+    Q_sigma_expected_at_50_eival = params.testing.expected_Q_sigma
+
+    # Destination folder where we need to copy the previous stages
+    # output data to run error prop.
+    dest = params.io.output_dir
+    # copy the data
+    shutil.copytree(src, dest, dirs_exist_ok=True)
+
+    EQReset()
+
+    # Run error prop
+    mdl_out = run_errorprop.run_errorprop(toml_file)
+    Q_sigma = mdl_out.Q_sigma[-1]
+
+    pytest.check_float_result(Q_sigma,
+                              Q_sigma_expected_at_50_eival,
+                              work_dir, 'expected_Q_sigma')
