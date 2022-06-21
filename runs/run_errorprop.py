@@ -108,7 +108,7 @@ def run_errorprop(config_file):
             hdf5data.read(w, f'v/vector_{i}')
 
             # Test squared norm in prior == 1.0
-            B_inv_w = Function(space)
+            B_inv_w = Function(space, space_type="conjugate_dual")
             reg_op.action(w.vector(), B_inv_w.vector())
             norm_sq_in_prior = w.vector().inner(B_inv_w.vector())
             assert (abs(norm_sq_in_prior - 1.0) < eps)
@@ -122,7 +122,7 @@ def run_errorprop(config_file):
     outdir_qoi = Path(outdir)/phase_time/phase_suffix_qoi
     hdf5data = HDF5File(MPI.comm_world, str(outdir_qoi/dqoi_h5file), 'r')
 
-    dQ_cntrl = Function(space)
+    dQ_cntrl = Function(space, space_type="conjugate_dual")
 
     run_length = params.time.run_length
     num_sens = params.time.num_sens
