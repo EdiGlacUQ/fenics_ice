@@ -180,7 +180,7 @@ def run_invsigma(config_file):
             hdf5data.read(w, f'v/vector_{i}')
 
             # Test squared norm in prior == 1.0
-            B_inv_w = Function(space)
+            B_inv_w = Function(space, space_type="conjugate_dual")
             reg_op.action(w.vector(), B_inv_w.vector())
             norm_sq_in_prior = w.vector().inner(B_inv_w.vector())
             assert (abs(norm_sq_in_prior - 1.0) < eps)
