@@ -304,7 +304,6 @@ class EigenDecCfg(ConfigPrinter):
     power_iter: int = 1   #Number of power iterations for random algorithm
     misfit_only: bool = False
     precondition_by: str = "prior"
-    eigenvalue_thresh: float = 1e-1
     test_ed: bool = False
     tol: float = 1.0e-10
     max_iter: int = 1e6

@@ -21,25 +21,27 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-import sys
-import numpy as np
-import pickle
 from pathlib import Path
+import pickle
+import numpy as np
+import sys
 
-from fenics_ice import model, solver, prior, inout
+from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
-from IPython import embed
 
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
 
+
 def run_errorprop(config_file):
 
     # Read run config file
     params = ConfigParser(config_file)
-    log = inout.setup_logging(params)
+
+    # Setup logging
+    inout.setup_logging(params)
     inout.log_preamble("errorprop", params)
 
     outdir = params.io.output_dir
@@ -47,12 +49,11 @@ def run_errorprop(config_file):
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
 
-    #Eigen value params
+    # Eigen decomposition params
     phase_eigen = params.eigendec.phase_name
     phase_suffix_e = params.eigendec.phase_suffix
     lamfile = params.io.eigenvalue_file
     vecfile = params.io.eigenvecs_file
-    threshlam = params.eigendec.eigenvalue_thresh
 
     # Qoi forward params
     phase_time = params.time.phase_name
@@ -86,8 +87,6 @@ def run_errorprop(config_file):
     Prior = mdl.get_prior()
     reg_op = Prior(slvr, space)
 
-    x, y, z = [Function(space) for i in range(3)]
-
     # Loads eigenvalues from file
     outdir_e = Path(outdir)/phase_eigen/phase_suffix_e
     with open(outdir_e/lamfile, 'rb') as ff:
@@ -98,8 +97,7 @@ def run_errorprop(config_file):
     # Check if eigendecomposition successfully produced num_eig
     # or if some are NaN
     if np.any(np.isnan(lam)):
-        nlam = np.argwhere(np.isnan(lam))[0][0]
-        lam = lam[:nlam]
+        raise RuntimeError("NaN eigenvalue(s)")
 
     # and eigenvectors from .h5 file
     eps = params.constants.float_eps
@@ -109,18 +107,14 @@ def run_errorprop(config_file):
             w = Function(space)
             hdf5data.read(w, f'v/vector_{i}')
 
-            # Test norm in prior == 1.0
-            reg_op.action(w.vector(), y.vector())
-            norm_in_prior = w.vector().inner(y.vector())
-            assert (abs(norm_in_prior - 1.0) < eps)
+            # Test squared norm in prior == 1.0
+            B_inv_w = Function(space, space_type="conjugate_dual")
+            reg_op.action(w.vector(), B_inv_w.vector())
+            norm_sq_in_prior = w.vector().inner(B_inv_w.vector())
+            assert (abs(norm_sq_in_prior - 1.0) < eps)
+            del B_inv_w
 
             W.append(w)
-
-    # take only the largest eigenvalues
-    pind = np.flatnonzero(lam > threshlam)
-    lam = lam[pind]
-    nlam = len(lam)
-    W = [W[i] for i in pind]
 
     D = np.diag(lam / (lam + 1))  # D_r Isaac 20
 
@@ -128,7 +122,7 @@ def run_errorprop(config_file):
     outdir_qoi = Path(outdir)/phase_time/phase_suffix_qoi
     hdf5data = HDF5File(MPI.comm_world, str(outdir_qoi/dqoi_h5file), 'r')
 
-    dQ_cntrl = Function(space)
+    dQ_cntrl = Function(space, space_type="conjugate_dual")
 
     run_length = params.time.run_length
     num_sens = params.time.num_sens
@@ -139,8 +133,6 @@ def run_errorprop(config_file):
     for j in range(num_sens):
         hdf5data.read(dQ_cntrl, f'dQd{cntrl.name()}/vector_{j}')
 
-        # TODO - is a mass matrix operation required here?
-        # qd_cntrl - should be gradients
         tmp1 = np.asarray([w.vector().inner(dQ_cntrl.vector()) for w in W])
         tmp2 = np.dot(D, tmp1)
 
@@ -148,8 +140,8 @@ def run_errorprop(config_file):
         for tmp, w in zip(tmp2, W):
             P1.vector().axpy(tmp, w.vector())
 
-        reg_op.inv_action(dQ_cntrl.vector(), x.vector())
-        P2 = x  # .vector().get_local()
+        P2 = Function(space)
+        reg_op.inv_action(dQ_cntrl.vector(), P2.vector())
 
         P_vec = P2.vector() - P1.vector()
 
@@ -208,13 +200,6 @@ def run_errorprop(config_file):
 
     with open(sigmaqoi_file, 'wb') as pfile:
         pickle.dump([sigma_steps, sigma_conv], pfile)
-
-    # Test that eigenvectors are prior inverse orthogonal
-    # y.vector().set_local(W[:,398])
-    # y.vector().apply('insert')
-    # reg_op.action(y.vector(), x.vector())
-    # #mass.mult(x.vector(),z.vector())
-    # q = np.dot(y.vector().get_local(),x.vector().get_local())
 
     # Output model variables in ParaView+Fenics friendly format
     sigma_file = params.io.sigma_file

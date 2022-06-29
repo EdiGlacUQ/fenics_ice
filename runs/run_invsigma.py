@@ -1,4 +1,3 @@
-
 # For fenics_ice copyright information see ACKNOWLEDGEMENTS in the fenics_ice
 # root directory
 
@@ -23,18 +22,15 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-import sys
+from pathlib import Path
 import pickle
 import numpy as np
-from pathlib import Path
+import sys
 
-from fenics_ice import model, solver, prior, inout
+from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 
-import matplotlib as mpl
-#mpl.use("Agg")
-import matplotlib.pyplot as plt
 
 def patch_fun(mesh_in, params):
     """
@@ -114,11 +110,11 @@ def patch_fun(mesh_in, params):
 
     return dg_fun, ntgt
 
+
 def run_invsigma(config_file):
     """Compute control sigma values from eigendecomposition"""
 
     comm = MPI.comm_world
-    rank = comm.rank
 
     # Read run config file
     params = ConfigParser(config_file)
@@ -128,7 +124,6 @@ def run_invsigma(config_file):
     inout.log_preamble("inv sigma", params)
 
     outdir = params.io.output_dir
-    diags_dir = params.io.diagnostics_dir
 
     # Load the static model data (geometry, smb, etc)
     input_data = inout.InputData(params)
@@ -138,7 +133,6 @@ def run_invsigma(config_file):
     eigendir = Path(outdir)/params.eigendec.phase_name/phase_suffix_e
     lamfile = params.io.eigenvalue_file
     vecfile = params.io.eigenvecs_file
-    threshlam = params.eigendec.eigenvalue_thresh
 
     if len(phase_suffix_e) > 0:
         lamfile = params.io.run_name + phase_suffix_e + '_eigvals.p'
@@ -158,16 +152,14 @@ def run_invsigma(config_file):
     # Setup our solver object
     slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual)
 
-    cntrl = slvr.get_control()[0]
     space = slvr.get_control_space()
 
-    # sigma_old, sigma_prior_old = [Function(space) for i in range(3)]
     x, y, z = [Function(space) for i in range(3)]
     # Regularization operator using inversion delta/gamma values
     Prior = mdl.get_prior()
     reg_op = Prior(slvr, space)
 
-    # Load the eigenvalues
+    # Loads eigenvalues from file
     with open(os.path.join(eigendir, lamfile), 'rb') as ff:
         eigendata = pickle.load(ff)
         lam = eigendata[0].real.astype(np.float64)
@@ -176,11 +168,9 @@ def run_invsigma(config_file):
     # Check if eigendecomposition successfully produced num_eig
     # or if some are NaN
     if np.any(np.isnan(lam)):
-        nlam = np.argwhere(np.isnan(lam))[0][0]
-        lam = lam[:nlam]
+        raise RuntimeError("NaN eigenvalue(s)")
 
-    # Read in the eigenvectors and check they are normalised
-    # w.r.t. the prior (i.e. the B matrix in our GHEP)
+    # and eigenvectors from .h5 file
     eps = params.constants.float_eps
     W = []
     with HDF5File(comm,
@@ -189,22 +179,16 @@ def run_invsigma(config_file):
             w = Function(space)
             hdf5data.read(w, f'v/vector_{i}')
 
-            print(f"Getting eigenvector {i} of {nlam}")
-            # # Test norm in prior == 1.0
-            # reg_op.action(w.vector(), y.vector())
-            # norm_in_prior = w.vector().inner(y.vector())
-            # assert (abs(norm_in_prior - 1.0) < eps)
+            # Test squared norm in prior == 1.0
+            B_inv_w = Function(space, space_type="conjugate_dual")
+            reg_op.action(w.vector(), B_inv_w.vector())
+            norm_sq_in_prior = w.vector().inner(B_inv_w.vector())
+            assert (abs(norm_sq_in_prior - 1.0) < eps)
+            del B_inv_w
 
             W.append(w)
 
-    # Which eigenvalues are larger than our threshold?
-    pind = np.flatnonzero(lam > threshlam)
-    lam = lam[pind]
-    W = [W[i] for i in pind]
-
-    # this is a diagonal matrix but we only ever address it element-wise
-    # bit of a waste of space.
-    D = np.diag(lam / (lam + 1))
+    D = np.diag(lam / (lam + 1))  # D_r Isaac 20
 
     # TODO make this a model method
     cntrl_names = []
@@ -298,85 +282,8 @@ def run_invsigma(config_file):
             sigma_priors[j].vector()[:] += indic_1.vector()[:] * np.sqrt(cov_prior)
             sigma_priors[j].vector().apply("insert")
 
-
     if neg_flag:
-        log.warning('Negative value(s) of sigma encountered.'
-                    'Examine the range of eigenvalues and check if '
-                    'the threshlam paramater is set appropriately.')
-
-    # # Previous approach for comparison
-    # #####################################
-
-    # # Isaac Eq. 20
-    # # P2 = prior
-    # # P1 = WDW
-    # # Note - don't think we're considering the cross terms
-    # # in the posterior covariance.
-    # # TODO - this isn't particularly well parallelised - can it be improved?
-    # neg_flag = 0
-    # for j in range(space.dim()):
-
-    #     # Who owns this DOF?
-    #     own_idx = y.vector().owns_index(j)
-    #     ownership = np.where(comm.allgather(own_idx))[0]
-    #     assert len(ownership) == 1
-    #     idx_root  = ownership[0]
-
-    #     # Prior (P2)
-    #     y.vector().zero()
-    #     y.vector().vec().setValue(j, 1.0)
-    #     y.vector().apply('insert')
-    #     reg_op.inv_action(y.vector(), x.vector())
-    #     P2 = x
-
-    #     # WDW (P1) ~ lam * V_r**2
-    #     tmp2 = np.asarray([D[i, i] * w.vector().vec().getValue(j) for i, w in enumerate(W)])
-    #     tmp2 = comm.bcast(tmp2, root=idx_root)
-
-    #     P1 = Function(space)
-    #     for tmp, w in zip(tmp2, W):
-    #         P1.vector().axpy(tmp, w.vector())
-
-    #     P_vec = P2.vector() - P1.vector()
-
-    #     # Extract jth component & save
-    #     # TODO why does this need to be communicated here? surely owning proc
-    #     # just inserts?
-    #     dprod = comm.bcast(P_vec.vec().getValue(j), root=idx_root)
-    #     dprod_prior = comm.bcast(P2.vector().vec().getValue(j), root=idx_root)
-
-    #     if dprod < 0:
-    #         log.warning(f'WARNING: Negative Sigma: {dprod}')
-    #         log.warning('Setting as Zero and Continuing.')
-    #         neg_flag = 1
-    #         continue
-
-    #     sigma_old.vector().vec().setValue(j, np.sqrt(dprod))
-    #     sigma_prior_old.vector().vec().setValue(j, np.sqrt(dprod_prior))
-
-    # sigma_old.vector().apply("insert")
-    # sigma_prior_old.vector().apply("insert")
-
-    # For testing - whole thing at once:
-    # wdw = (np.matrix(W) * np.matrix(D) * np.matrix(W).T)
-    # wdw[:,0] == P1 for j = 0
-
-    # if neg_flag:
-    #     log.warning('Negative value(s) of sigma encountered.'
-    #                 'Examine the range of eigenvalues and check if '
-    #                 'the threshlam paramater is set appropriately.')
-
-    # Write sigma & sigma_prior to files
-    # sigma_var_name = "_".join((cntrl.name(), "sigma"))
-    # sigma_prior_var_name = "_".join((cntrl.name(), "sigma_prior"))
-
-    # sigma_old.rename(sigma_var_name, "")
-    # sigma_prior_old.rename(sigma_prior_var_name, "")
-
-    # inout.write_variable(sigma_old, params,
-    #                      name=sigma_var_name+"_old")
-    # inout.write_variable(sigma_prior_old, params,
-    #                      name=sigma_prior_var_name+"_old")
+        log.warning('Negative value(s) of sigma encountered')
 
     for i, name in enumerate(cntrl_names):
         sigmas[i].rename("sigma_"+name, "")
