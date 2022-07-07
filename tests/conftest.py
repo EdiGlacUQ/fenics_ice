@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-# -*- coding: utf-8 -*-
+import gc
 import os.path
 import tempfile
 
@@ -31,6 +31,8 @@ import subprocess
 import fenics_ice as fice
 import fenics_ice.fenics_util as fu
 from aux import gen_rect_mesh
+
+import mpi4py.MPI as MPI  # noqa: N817
 
 # Global variables
 pytest.repo_dir = Path(fice.__file__).parents[1]
@@ -121,8 +123,6 @@ def pytest_addoption(parser):
     parser.addoption("--key", action="store", help="Run only test with a key marker")
 
 def pytest_configure(config):
-
-    from mpi4py import MPI
     pytest.parallel = MPI.COMM_WORLD.size > 1
 
     comm = MPI.COMM_WORLD
@@ -256,7 +256,6 @@ def create_temp_model(request, mpi_tmpdir, case_gen, persist=False):
 
     Returns the path of the toml file
     """
-    from mpi4py import MPI
 
     tv = request.node.get_closest_marker("tv") is not None
     key = request.node.get_closest_marker("key")
@@ -405,10 +404,19 @@ def update_expected_values():
         new_toml_output.close()
         new_toml_file.replace(toml_file)
 
+
+def pytest_sessionstart(session):
+    if MPI.COMM_WORLD.size > 1:
+        gc.disable()
+
+
 def pytest_sessionfinish(session, exitstatus):
     """Write out expected values if requested"""
 
-    from mpi4py import MPI
+    if MPI.COMM_WORLD.size > 1:
+        gc.enable()
+        gc.collect()
+
     root = (MPI.COMM_WORLD.rank == 0)
 
     if pytest.remake_cases and root:
