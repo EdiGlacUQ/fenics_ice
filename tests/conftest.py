@@ -73,14 +73,15 @@ pytest.case_list.append({"case_dir": "ice_stream",
                          "tv_settings": {"obs": { "vel_file": "ice_stream_U_obs_tv.h5"},
                                          "constants": {"glen_n": 2.0},
                                          "ice_dynamics": {"allow_flotation": False}
-                         }
-})
+                                         }
+                         })
 
 pytest.case_list.append({"case_dir": "smith_glacier",
                          "toml_file": "smith.toml",
                          "serial": False,
                          "data_dir": pytest.data_dir / "smith_glacier"
-})
+                         })
+
 
 def check_float_result(value, expected, work_dir, value_name, tol=None):
     """
@@ -115,12 +116,14 @@ def check_float_result(value, expected, work_dir, value_name, tol=None):
 
 pytest.check_float_result = check_float_result
 
+
 def pytest_addoption(parser):
     """Option to run all (currently 3) test cases - or just 1 (default)"""
     parser.addoption("--all", action="store_true", help="run all combinations")
     parser.addoption("--remake", action="store_true",
                      help="Store new 'expected values' to file instead of testing")
     parser.addoption("--key", action="store", help="Run only test with a key marker")
+
 
 def pytest_configure(config):
     pytest.parallel = MPI.COMM_WORLD.size > 1
@@ -135,7 +138,9 @@ def pytest_configure(config):
             pass
         else:
             subprocess.check_call(
-            ["git", "clone", "https://github.com/EdiGlacUQ/fenics_ice_test_data.git",path_to_data])
+                ["git", "clone",
+                 "https://github.com/EdiGlacUQ/fenics_ice_test_data.git",
+                 path_to_data])
     else:
         pass
 
@@ -176,10 +181,12 @@ class DependencyGetter:
         deps = [(f+"[%d]") % test_id for f in func_list]
         depends(request, deps)
 
+
 @pytest.fixture
 def setup_deps():
     """Fixture to return the above function globally"""
     return DependencyGetter
+
 
 def pytest_collection_modifyitems(config, items):
     """
@@ -221,6 +228,7 @@ def case_gen(request):
     """
     return pytest.case_list[request.param]
 
+
 def pytest_generate_tests(metafunc):
     """This iterates the 'request' argument to case_gen above"""
 
@@ -245,10 +253,12 @@ def temp_model(request, mpi_tmpdir, case_gen):
     """Return a temporary copy of one of the test cases"""
     return create_temp_model(request, mpi_tmpdir, case_gen)
 
+
 @pytest.fixture
 def persistent_temp_model(request, mpi_tmpdir, case_gen):
     """Return a reusable copy of a test case for testing multiple run phases"""
     return create_temp_model(request, mpi_tmpdir, case_gen, persist=True)
+
 
 def create_temp_model(request, mpi_tmpdir, case_gen, persist=False):
     """
@@ -321,7 +331,7 @@ def create_temp_model(request, mpi_tmpdir, case_gen, persist=False):
 
         try:
             mesh_ff_filename = config["mesh"]["bc_filename"]
-            mesh_ff_file = (data_dir / case_gen['data_dir']  / "input" / mesh_ff_filename)
+            mesh_ff_file = (data_dir / case_gen['data_dir'] / "input" / mesh_ff_filename)
         except KeyError:
             mesh_ff_file = None
 
@@ -355,12 +365,14 @@ def create_temp_model(request, mpi_tmpdir, case_gen, persist=False):
     comm.barrier()
     return case_gen
 
+
 @pytest.fixture
 def existing_temp_model(case_gen):
     ncases = len(pytest.active_cases)
     for i in range(ncases):
         if pytest.active_cases[i]['case_dir'] == case_gen['case_dir']:
             return pytest.active_cases[i]
+
 
 def update_expected_values():
     """
@@ -400,7 +412,7 @@ def update_expected_values():
 
                 new_toml_output.write(line)
 
-        #Replace the old toml file
+        # Replace the old toml file
         new_toml_output.close()
         new_toml_file.replace(toml_file)
 
