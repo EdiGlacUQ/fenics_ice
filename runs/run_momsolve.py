@@ -70,7 +70,7 @@ def run_momsolve(config_file):
     h5file.write(mesh, 'mesh')
     h5file.attributes('mesh')['periodic'] = params.mesh.periodic_bc
 
-    inout.write_variable(slvr.U, params)
+    inout.write_variable(slvr.U, params, outdir=outdir)
 
 
 
