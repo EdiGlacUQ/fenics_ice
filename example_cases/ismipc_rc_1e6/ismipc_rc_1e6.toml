@@ -114,7 +114,6 @@ misfit_only = true
 
 #power_iter = 1 <- not used yet, saving in case
 precondition_by = "prior" #prior by default
-eigenvalue_thresh = 1.0e-1
 
 [errorprop]
 
@@ -146,7 +145,7 @@ expected_delta_qoi = 8518993067.75
 expected_u_norm = 679980.9590512719
 expected_evals_sum = 232273.16880671855
 expected_evec0_norm = 141062.95072938295
-expected_cntrl_sigma_norm = 13105.614400687418
+expected_cntrl_sigma_norm = 13076.152800736696
 expected_cntrl_sigma_prior_norm = 171705.35930970073
-expected_Q_sigma = 1342959798.431109
+expected_Q_sigma = 1342321108.5998075
 expected_Q_sigma_prior = 28114441699.46046

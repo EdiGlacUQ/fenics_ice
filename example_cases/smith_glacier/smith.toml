@@ -128,7 +128,6 @@ misfit_only = true
 
 #power_iter = 1 <- not used yet, saving in case
 precondition_by = "prior" #prior by default
-eigenvalue_thresh = 1.0e-1
 
 [errorprop]
 
