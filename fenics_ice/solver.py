@@ -776,7 +776,7 @@ class ssa_solver:
     #     Q_vaf.assign(self.Q_vaf)
     #     return Q_vaf
 
-    def forward(self, f):
+    def forward(self, f, *, verbose=False):
         """
         Run the forward model w/ controls 'f' and returns cost function 'J'
 
@@ -800,7 +800,7 @@ class ssa_solver:
 
         self.def_mom_eq()
         self.solve_mom_eq()
-        J = self.comp_J_inv()
+        J = self.comp_J_inv(verbose=verbose)
         return J
 
     def get_control(self):
