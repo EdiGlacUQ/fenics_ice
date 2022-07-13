@@ -19,44 +19,43 @@ jobs:
           repository: 'EdiGlacUQ/tlm_adjoint'
           path: 'tlm_adjoint'
 
-      # Get miniconda & prerequisites
-      # TODO cache! https://github.com/marketplace/actions/setup-miniconda
-      - name: Cache conda
-        id: cache-conda
-        uses: actions/cache@v1
+      # Get micromamba & prerequisites
+      - name: Setup Mambaforge
+        uses: conda-incubator/setup-miniconda@v2
         env:
           # Increase this value to reset cache if environment.yml has not changed
           CACHE_NUMBER: 0
         with:
-          path: ~/conda_pkgs_dir
-          key:
-            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
-            hashFiles('fenics_ice/environment.yml') }}
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
+          activate-environment: anaconda-client-env
+          use-mamba: true
 
-      - name: Install Miniconda
+      - name: Install mamba environment from fenics_ice/environment.yml
         # if: steps.cache-conda.outputs.cache-hit != 'true'
-        uses: conda-incubator/setup-miniconda@v2
+        uses: mamba-org/provision-with-micromamba@main
         with:
-          activate-environment: fenics_ice
+          environment-name: fenics_ice
           environment-file: fenics_ice/environment.yml
           channel-priority: strict
-          auto-update-conda: true
-          use-only-tar-bz2: true # necessary for caching
+          #auto-update-conda: true
+          #use-only-tar-bz2: true # necessary for caching
 
       # Get conda info
-      - name: Conda info
+      - name: mamba info
         shell: bash -l {0}
         run: |
-          conda info -a
-          conda list
-          conda config --show-sources
-          conda config --show
+          micromamba info
+          micromamba list
 
-      - name: Conda develop
-        shell: bash -l {0}
+      # We install fenics_ice and tlm_adjoint as developing modules
+      - name: Install repositories as dev modules
         run: |
-          conda develop $GITHUB_WORKSPACE/tlm_adjoint
-          conda develop $GITHUB_WORKSPACE/fenics_ice
+          ls $GITHUB_WORKSPACE
+          cd $GITHUB_WORKSPACE/fenics_ice
+          pip install -e .
+          cd $GITHUB_WORKSPACE/tlm_adjoint
+          pip install -e .
 
       # Test fenics ice!
       - name: Test fice
