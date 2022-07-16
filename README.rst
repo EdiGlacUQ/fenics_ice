@@ -1,4 +1,5 @@
-# FEniCS_ice
+FEniCS_ice
+----------
 
 **FEniCS_ice is a finite element model framework, 
 that quantifies the initialization uncertainty 
