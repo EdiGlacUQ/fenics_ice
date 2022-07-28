@@ -15,12 +15,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics_ice.backend import Function, HDF5File, MPI
+from fenics_ice.backend import Function, HDF5File
 
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
+import mpi4py.MPI as MPI  # noqa: N817
 from pathlib import Path
 import pickle
 import numpy as np
@@ -102,7 +103,7 @@ def run_errorprop(config_file):
     # and eigenvectors from .h5 file
     eps = params.constants.float_eps
     W = []
-    with HDF5File(MPI.comm_world, str(outdir_e/vecfile), 'r') as hdf5data:
+    with HDF5File(MPI.COMM_WORLD, str(outdir_e/vecfile), 'r') as hdf5data:
         for i in range(nlam):
             w = Function(space)
             hdf5data.read(w, f'v/vector_{i}')
@@ -120,7 +121,7 @@ def run_errorprop(config_file):
 
     # File containing dQoi_dCntrl (i.e. Jacobian of parameter to observable (Qoi))
     outdir_qoi = Path(outdir)/phase_time/phase_suffix_qoi
-    hdf5data = HDF5File(MPI.comm_world, str(outdir_qoi/dqoi_h5file), 'r')
+    hdf5data = HDF5File(MPI.COMM_WORLD, str(outdir_qoi/dqoi_h5file), 'r')
 
     dQ_cntrl = Function(space, space_type="conjugate_dual")
 
@@ -181,7 +182,7 @@ def run_errorprop(config_file):
     diag_dir = Path(params.io.diagnostics_dir)/phase_err/phase_suffix_err
     outdir_err = Path(params.io.output_dir)/phase_err/phase_suffix_err
 
-    # if(MPI.comm_world.rank == 0):
+    # if(MPI.COMM_WORLD.rank == 0):
     plt.semilogy(sigma_steps, sigma_conv)
     plt.title("Convergence of sigmaQoI")
     plt.ylabel("sigma QoI")

@@ -15,8 +15,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics_ice.backend import Function, FunctionSpace, HDF5File, Mesh, MPI
+from fenics_ice.backend import Function, FunctionSpace, HDF5File, Mesh
 
+import mpi4py.MPI as MPI  # noqa: N817
 import sys
 import pickle
 import numpy as np
@@ -93,7 +94,7 @@ for i, rf in enumerate(run_folders):
     t    = mesh.cells()
 
     hdffile = str(next(outdir.glob("*dQ_ts.h5")))
-    hdf5data = HDF5File(MPI.comm_world, hdffile, 'r')
+    hdf5data = HDF5File(MPI.COMM_WORLD, hdffile, 'r')
     hdf5data.read(dQ, f'dQ/vector_{n_sens}')
 
 

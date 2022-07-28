@@ -16,12 +16,13 @@
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
 from fenics_ice.backend import FiniteElement, Function, FunctionSpace, \
-    HDF5File, MPI, TestFunction, assemble, assign, inner, dx
+    HDF5File, TestFunction, assemble, assign, inner, dx
 
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
+import mpi4py.MPI as MPI  # noqa: N817
 from pathlib import Path
 import pickle
 import numpy as np
@@ -43,8 +44,8 @@ def patch_fun(mesh_in, params):
     import random
     from scipy.spatial import KDTree
 
-    comm = MPI.comm_world
-    rank = MPI.rank(comm)
+    comm = MPI.COMM_WORLD
+    rank = comm.rank
     root = rank == 0
 
     # Test DG function
@@ -114,7 +115,7 @@ def patch_fun(mesh_in, params):
 def run_invsigma(config_file):
     """Compute control sigma values from eigendecomposition"""
 
-    comm = MPI.comm_world
+    comm = MPI.COMM_WORLD
 
     # Read run config file
     params = ConfigParser(config_file)

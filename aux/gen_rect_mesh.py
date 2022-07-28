@@ -22,7 +22,7 @@ responsible for generating the mesh at run time.
 
 from fenics_ice.backend import File, Point, RectangleMesh
 
-from mpi4py import MPI
+import mpi4py.MPI as MPI  # noqa: N817
 import argparse
 
 def gen_rect_mesh(nx, ny, xmin, xmax, ymin, ymax, outfile, direction='right'):

@@ -15,9 +15,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics_ice.backend import Function, HDF5File, MPI, Mesh, Point, \
+from fenics_ice.backend import Function, HDF5File, Mesh, Point, \
     RectangleMesh, VectorFunctionSpace, project
 
+import mpi4py.MPI as MPI  # noqa: N817
 import numpy as np
 from pathlib import Path
 import h5py
@@ -51,7 +52,7 @@ def main(dd, infile, outfile, noise_sdev, L, seed=0, ls=None):
     assert Path(outfile).suffix == ".h5"
     assert noise_sdev > 0.0
 
-    infile = HDF5File(MPI.comm_world, str(Path(dd)/infile), 'r')
+    infile = HDF5File(MPI.COMM_WORLD, str(Path(dd)/infile), 'r')
 
     # Get mesh from file
     mesh = Mesh()

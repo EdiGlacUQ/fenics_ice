@@ -17,7 +17,6 @@
 
 import fenics_ice.backend as fe
 
-from mpi4py import MPI
 import pytest
 import numpy as np
 import fenics_ice as fice

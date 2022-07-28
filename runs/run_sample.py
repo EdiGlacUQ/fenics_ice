@@ -15,12 +15,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics_ice.backend import Function, HDF5File, MPI, project
+from fenics_ice.backend import Function, HDF5File, project
 
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
+import mpi4py.MPI as MPI  # noqa: N817
 import sys
 import numpy as np
 import pickle
@@ -120,7 +121,7 @@ def run_sample(config_file):
             lam = lam[:max_lam] 
 
         y = Function(space)
-        with HDF5File(MPI.comm_world, str(outdir_e/vecfile), 'r') as hdf5data:
+        with HDF5File(MPI.COMM_WORLD, str(outdir_e/vecfile), 'r') as hdf5data:
             for i in range(len(lam)):
                 w = Function(space)
                 hdf5data.read(w, f'v/vector_{i}')
