@@ -32,7 +32,6 @@ from fenics_ice.config import ConfigParser
 # mpl.use("Agg")
 # import matplotlib.pyplot as plt
 # import numpy as np
-# import time
 # import pickle
 import datetime
 
