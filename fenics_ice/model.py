@@ -46,7 +46,7 @@ class model:
         self.params = param_in
         self.input_data = input_data
         self.solvers = []
-        self.parallel = MPI.size(mesh_in.mpi_comm()) > 1
+        self.parallel = mesh_in.mpi_comm().size > 1
 
         # Generate Domain and Function Spaces
         self.mesh = mesh_in

@@ -129,7 +129,7 @@ def pytest_configure(config):
     pytest.parallel = MPI.COMM_WORLD.size > 1
 
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
+    rank = comm.rank
 
     # Clone the input data once even when test are run in parallel
     if rank == 0:

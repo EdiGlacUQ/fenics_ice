@@ -19,11 +19,12 @@
 Module to handle all things mesh to avoid code repetition in run scripts.
 """
 
-from .backend import FunctionSpace, MPI, Mesh, MeshFunction, \
-    MeshValueCollection, VectorFunctionSpace, XDMFFile, parameters
+from .backend import FunctionSpace, Mesh, MeshFunction, MeshValueCollection, \
+    VectorFunctionSpace, XDMFFile, parameters
 
 from . import model
 
+import mpi4py.MPI as MPI  # noqa: N817
 import os
 import numpy as np
 from pathlib import Path
@@ -50,7 +51,7 @@ def get_mesh(params):
 
     elif filetype == '.xdmf':
         mesh_in = Mesh()
-        mesh_xdmf = XDMFFile(MPI.comm_world, str(meshfile))
+        mesh_xdmf = XDMFFile(MPI.COMM_WORLD, str(meshfile))
         mesh_xdmf.read(mesh_in)
 
     else:
@@ -68,10 +69,10 @@ def get_mesh_length(mesh):
 
     comm = mesh.mpi_comm()
 
-    xmin = MPI.min(comm, xmin)
-    xmax = MPI.max(comm, xmax)
-    ymin = MPI.min(comm, ymin)
-    ymax = MPI.max(comm, ymax)
+    xmin = comm.allreduce(xmin, op=MPI.MIN)
+    xmax = comm.allreduce(xmax, op=MPI.MAX)
+    ymin = comm.allreduce(ymin, op=MPI.MIN)
+    ymax = comm.allreduce(ymax, op=MPI.MAX)
 
     L1 = xmax - xmin
     L2 = ymax - ymin
@@ -128,7 +129,7 @@ def get_ff_from_file(params, model, fill_val=0):
 
     # Read the MeshValueCollection (sparse)
     ff_mvc = MeshValueCollection("size_t", model.mesh, dim=dim-1)
-    ff_xdmf = XDMFFile(MPI.comm_world, str(ff_file))
+    ff_xdmf = XDMFFile(MPI.COMM_WORLD, str(ff_file))
     ff_xdmf.read(ff_mvc)
 
     # Create FacetFunction filled w/ default

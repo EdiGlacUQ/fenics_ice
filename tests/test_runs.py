@@ -24,7 +24,7 @@ import numpy as np
 from runs import run_inv, run_forward, run_eigendec, run_errorprop, run_invsigma
 from fenics_ice import config
 import shutil
-from mpi4py import MPI
+
 
 def EQReset():
     """Take care of tlm_adjoint EquationManager"""

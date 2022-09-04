@@ -23,7 +23,7 @@ from .minimize_l_bfgs import \
     line_search_rank0_scipy_scalar_search_wolfe1 as line_search_rank0
 
 import logging
-import mpi4py.MPI as MPI
+import mpi4py.MPI as MPI  # noqa: N817
 import numpy as np
 from pathlib import Path
 import time
