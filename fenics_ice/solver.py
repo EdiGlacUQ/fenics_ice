@@ -505,7 +505,7 @@ class ssa_solver:
     def solve_mom_eq(self, annotate_flag=None):
         """Solve the momentum equation defined in def_mom_eq"""
 
-        t0 = time.time()
+        t0 = time.perf_counter()
 
         newton_params = self.params.momsolve.newton_params
         picard_params = self.params.momsolve.picard_params
@@ -520,7 +520,7 @@ class ssa_solver:
 
         momsolver.solve(annotate=annotate_flag)
 
-        t1 = time.time()
+        t1 = time.perf_counter()
         info("Time for solve: {0}".format(t1-t0))
 
     def def_thickadv_eq(self):
