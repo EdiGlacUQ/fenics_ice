@@ -476,7 +476,7 @@ class model:
             U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
             alpha = (1-fl_ex)*sqrt(B2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
 
-        elif sl == 'corn'
+        elif sl == 'corn':
 
             # the relationship between alpha and B2 is too nontrivial to "invert", and an exact
             # solution is not sought. Rather, since the sliding law is expected to deviate from 
