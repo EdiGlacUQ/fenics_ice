@@ -492,14 +492,27 @@ class ssa_solver:
         if sl == 'linear':
             B2 = C
 
-        elif sl == 'budd':
+        elif ((sl == 'budd') or (sl == 'corn')):
             N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
             U_mag = sqrt(U[0]**2 + U[1]**2 + vel_rp**2)
-            # Need to catch N <= 0.0 here, as it's raised to
-            # 1/3 (forward) and -2/3 (adjoint)
-            N_term = ufl.conditional(N > 0.0, N ** (1.0/3.0), 0)
-            B2 = (1-fl_ex)*(C * N_term * U_mag**(-2.0/3.0))
 
+            if sl == 'budd':
+                # Need to catch N <= 0.0 here, as it's raised to
+                # 1/3 (forward) and -2/3 (adjoint)
+                N_term = ufl.conditional(N > 0.0, N ** (1.0/3.0), 0)
+                B2 = (1-fl_ex)*(C * N_term * U_mag**(-2.0/3.0))
+
+            elif sl == 'corn':
+                # see eq 11 of Asay Davis et al, Experimental design for 
+                # three interrelated marine ice sheet and ocean model intercomparison projects ... 
+                # Geosci. Model Dev., 9, 2471–2497
+
+                # Need to catch N <= 0.0 here, as it's raised to
+                # 1/3 (forward) and -2/3 (adjoint)
+                N_term = ufl.conditional(N > 0.0, N, 0)
+                denom_term = (C**3 * U_mag + (0.5 * N_term)**3)**(1.0/3.0)
+                B2 = (1-fl_ex)*(C * 0.5 * N_term * U_mag**(-2.0/3.0) / denom_term)
+            
         return B2
 
     def solve_mom_eq(self, annotate_flag=None):
