@@ -516,7 +516,8 @@ class ssa_solver:
                 N_DG = (1-fl_ex)*(self.H_DG*rhoi*g + ufl.Min(self.bed_DG, 0.0)*rhow*g)
                 N_term = ufl.conditional(N > 0.0, N, 0)
                 N_DG_term = ufl.conditional(N_DG > 0.0, N_DG, 0)
-                denom_term = (C**3 * self.Umag_DG + (0.5 * N_DG_term)**3)**(1.0/3.0)
+#                denom_term = (C**3 * self.Umag_DG + (0.5 * N_DG_term)**3)**(1.0/3.0)
+                denom_term = (C**3 * U_mag + (0.5 * N_term)**3)**(1.0/3.0)
                 B2 = (1-fl_ex)*(C * 0.5 * N_term * U_mag**(-2.0/3.0) / denom_term)
             
         return B2
