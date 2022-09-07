@@ -107,6 +107,8 @@ class ssa_solver:
         self.H_np = model.H_np
         self.H = model.H
         self.H_DG = model.H_DG
+        if (self.params.ice_dynamics.sliding_law == 'corn'):
+            self.Umag_DG = model.Umag_DG
         self.beta_bgd = model.beta_bgd
         self.bmelt = model.bmelt
         self.smb = model.smb
@@ -493,8 +495,8 @@ class ssa_solver:
             B2 = C
 
         elif ((sl == 'budd') or (sl == 'corn')):
-            N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
             U_mag = sqrt(U[0]**2 + U[1]**2 + vel_rp**2)
+            N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
 
             if sl == 'budd':
                 # Need to catch N <= 0.0 here, as it's raised to
@@ -509,8 +511,12 @@ class ssa_solver:
 
                 # Need to catch N <= 0.0 here, as it's raised to
                 # 1/3 (forward) and -2/3 (adjoint)
+                LocalProjectionSolver(H, self.H_DG).solve() 
+                LocalProjectionSolver(U_mag, self.Umag_DG).solve()
+                N_DG = (1-fl_ex)*(self.H_DG*rhoi*g + ufl.Min(self.bed_DG, 0.0)*rhow*g)
                 N_term = ufl.conditional(N > 0.0, N, 0)
-                denom_term = (C**3 * U_mag + (0.5 * N_term)**3)**(1.0/3.0)
+                N_DG_term = ufl.conditional(N_DG > 0.0, N_DG, 0)
+                denom_term = (C**3 * self.Umag_DG + (0.5 * N_DG_term)**3)**(1.0/3.0)
                 B2 = (1-fl_ex)*(C * 0.5 * N_term * U_mag**(-2.0/3.0) / denom_term)
             
         return B2
