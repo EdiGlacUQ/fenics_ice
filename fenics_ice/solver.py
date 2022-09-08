@@ -29,6 +29,7 @@ from pathlib import Path
 import time
 import ufl
 import weakref
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -107,6 +108,7 @@ class ssa_solver:
         self.H_np = model.H_np
         self.H = model.H
         self.H_DG = model.H_DG
+        # to come out if not used
         if (self.params.ice_dynamics.sliding_law == 'corn'):
             self.Umag_DG = model.Umag_DG
         self.beta_bgd = model.beta_bgd
@@ -513,8 +515,10 @@ class ssa_solver:
                 # 1/3 (forward) and -2/3 (adjoint)
                 LocalProjectionSolver(H, self.H_DG).solve() 
                 LocalProjectionSolver(U_mag, self.Umag_DG).solve()
+                # to come out if not used
                 N_DG = (1-fl_ex)*(self.H_DG*rhoi*g + ufl.Min(self.bed_DG, 0.0)*rhow*g)
                 N_term = ufl.conditional(N > 0.0, N, 0)
+                # to come out if not used
                 N_DG_term = ufl.conditional(N_DG > 0.0, N_DG, 0)
 #                denom_term = (C**3 * self.Umag_DG + (0.5 * N_DG_term)**3)**(1.0/3.0)
                 denom_term = (C**3 * U_mag + (0.5 * N_term)**3)**(1.0/3.0)
@@ -529,14 +533,17 @@ class ssa_solver:
 
         newton_params = self.params.momsolve.newton_params
         picard_params = self.params.momsolve.picard_params
+        quad_degree = self.params.momsolve.quadrature_degree
         J_p = self.mom_Jac_p
+
 
         momsolver = MomentumSolver(self.mom_F == 0,
                                    self.U,
                                    bcs=self.flow_bcs,
                                    J_p=J_p,
                                    picard_params=picard_params,
-                                   solver_parameters=newton_params)
+                                   solver_parameters=newton_params,
+                                   form_compiler_parameters={"quadrature_degree": quad_degree})
 
         momsolver.solve(annotate=annotate_flag)
 

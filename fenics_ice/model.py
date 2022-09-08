@@ -147,6 +147,7 @@ class model:
         self.bed_DG = Function(self.M2, name="bed_DG")
         self.H_DG.assign(project(self.H,self.M2))        
         self.bed_DG.assign(project(self.bed,self.M2))
+        # to come out if not used
         if (self.params.ice_dynamics.sliding_law == 'corn'):
             self.Umag_DG = Function(self.M2, name="Umag_DG")
 

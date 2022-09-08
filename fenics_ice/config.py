@@ -400,6 +400,7 @@ class MomsolveCfg(ConfigPrinter):
     Configuration of MomentumSolver with sensible defaults for picard & newton params
     """
 
+    quadrature_degree: int = 13
     picard_params: dict = field(default_factory=lambda: {
         'nonlinear_solver': 'newton',
         'newton_solver': {'linear_solver': 'cg',
