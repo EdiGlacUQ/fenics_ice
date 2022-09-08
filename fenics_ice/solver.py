@@ -536,14 +536,24 @@ class ssa_solver:
         quad_degree = self.params.momsolve.quadrature_degree
         J_p = self.mom_Jac_p
 
+        dic_form = {"quadrature_degree": quad_degree}
 
-        momsolver = MomentumSolver(self.mom_F == 0,
+        if (quad_degree == -1):
+            momsolver = MomentumSolver(self.mom_F == 0,
+                                   self.U,
+                                   bcs=self.flow_bcs,
+                                   J_p=J_p,
+                                   picard_params=picard_params,
+                                   solver_parameters=newton_params)
+        else:
+            momsolver = MomentumSolver(self.mom_F == 0,
                                    self.U,
                                    bcs=self.flow_bcs,
                                    J_p=J_p,
                                    picard_params=picard_params,
                                    solver_parameters=newton_params,
                                    form_compiler_parameters={"quadrature_degree": quad_degree})
+
 
         momsolver.solve(annotate=annotate_flag)
 
