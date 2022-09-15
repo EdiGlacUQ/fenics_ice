@@ -147,9 +147,6 @@ class model:
         self.bed_DG = Function(self.M2, name="bed_DG")
         self.H_DG.assign(project(self.H,self.M2))        
         self.bed_DG.assign(project(self.bed,self.M2))
-        # to come out if not used
-        if (self.params.ice_dynamics.sliding_law == 'corn'):
-            self.Umag_DG = Function(self.M2, name="Umag_DG")
 
         self.gen_surf()  # surf = bed + thick
 
@@ -464,7 +461,7 @@ class model:
         if sl == 'linear':
             alpha = sqrt(B2)
 
-        elif (sl == 'budd' or sl == 'corn'):
+        elif sl  in ['budd','corn']:
             bed = self.bed
             H = self.H
             g = self.params.constants.g
@@ -490,6 +487,9 @@ class model:
                 # the weertman law (B2 = alpha^2 U^(-2/3)) only within a few km of the grounding line,
                 # we initialise based on the weertman sliding law
                 alpha = (1-fl_ex)*sqrt(B2 * U_mag**(2.0/3.0))
+
+        else:
+            raise RuntimeError(f"Invalid sliding law: '{sl:s}'")
 
         return alpha
 
