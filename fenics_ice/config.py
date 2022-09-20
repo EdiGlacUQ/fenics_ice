@@ -389,7 +389,7 @@ class IceDynamicsCfg(ConfigPrinter):
 
     def __post_init__(self):
         """Check options valid"""
-        assert self.sliding_law in ['linear', 'budd']
+        assert self.sliding_law in ['linear', 'budd', 'corn']
         if self.min_thickness is not None:
             assert self.min_thickness >= 0.0
 
@@ -400,6 +400,7 @@ class MomsolveCfg(ConfigPrinter):
     Configuration of MomentumSolver with sensible defaults for picard & newton params
     """
 
+    quadrature_degree: int = -1
     picard_params: dict = field(default_factory=lambda: {
         'nonlinear_solver': 'newton',
         'newton_solver': {'linear_solver': 'cg',

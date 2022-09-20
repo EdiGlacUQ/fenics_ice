@@ -92,6 +92,7 @@ class model:
             self.H_DG = None
             self.H_np = None
             self.surf = None
+            self.Umag_DG = None
 
         if init_vel_obs:
             # Load the velocity observations
@@ -145,7 +146,7 @@ class model:
         self.H_DG = Function(self.M2, name="H_DG")
         self.bed_DG = Function(self.M2, name="bed_DG")
         self.H_DG.assign(project(self.H,self.M2))        
-        self.bed_DG.assign(project(self.bed,self.M2))        
+        self.bed_DG.assign(project(self.bed,self.M2))
 
         self.gen_surf()  # surf = bed + thick
 
@@ -455,26 +456,40 @@ class model:
     def bdrag_to_alpha(self, B2):
         """Convert basal drag to alpha"""
         sl = self.params.ice_dynamics.sliding_law
+
+
         if sl == 'linear':
             alpha = sqrt(B2)
 
-        elif sl == 'budd':
+        elif sl  in ['budd','corn']:
             bed = self.bed
             H = self.H
             g = self.params.constants.g
             rhoi = self.params.constants.rhoi
             rhow = self.params.constants.rhow
+            H_flt = -rhow/rhoi * bed
             u_obs = self.u_obs_M
             v_obs = self.v_obs_M
             vel_rp = self.params.constants.vel_rp
 
             # Flotation Criterion
-            H_flt = -rhow/rhoi * bed
             fl_ex = conditional(H <= H_flt, 1.0, 0.0)
-
             N = (1-fl_ex)*(H*rhoi*g + ufl.Min(bed, 0.0)*rhow*g)
             U_mag = sqrt(u_obs**2 + v_obs**2 + vel_rp**2)
-            alpha = (1-fl_ex)*sqrt(B2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
+            
+            if sl == 'budd':
+                alpha = (1-fl_ex)*sqrt(B2 * ufl.Max(N, 0.01)**(-1.0/3.0) * U_mag**(2.0/3.0))
+
+            elif sl == 'corn':
+
+                # the relationship between alpha and B2 is too nontrivial to "invert", and an exact
+                # solution is not sought. Rather, since the sliding law is expected to deviate from 
+                # the weertman law (B2 = alpha^2 U^(-2/3)) only within a few km of the grounding line,
+                # we initialise based on the weertman sliding law
+                alpha = (1-fl_ex)*sqrt(B2 * U_mag**(2.0/3.0))
+
+        else:
+            raise RuntimeError(f"Invalid sliding law: '{sl:s}'")
 
         return alpha
 
