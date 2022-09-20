@@ -516,8 +516,10 @@ class ssa_solver:
             
             else:
                 raise RuntimeError(f"Invalid sliding law: '{sl:s}'")
+        else:
+            raise RuntimeError(f"Invalid sliding law: '{sl:s}'")
 
-            return B2
+        return B2
 
     def solve_mom_eq(self, annotate_flag=None):
         """Solve the momentum equation defined in def_mom_eq"""
