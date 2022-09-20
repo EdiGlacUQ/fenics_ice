@@ -516,6 +516,8 @@ class ssa_solver:
             
             else:
                 raise RuntimeError(f"Invalid sliding law: '{sl:s}'")
+        else:
+            raise RuntimeError(f"Invalid sliding law: '{sl:s}'")
 
         return B2
 
