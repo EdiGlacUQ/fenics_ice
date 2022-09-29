@@ -152,6 +152,7 @@ def test_writers(request, setup_deps, temp_model):
     toml_file = temp_model["toml_filename"]
 
     mdl = init_model(work_dir, toml_file)
+    comm = mdl.mesh.mpi_comm()
 
     # Create test function for writing
     space = mdl.Q
@@ -161,8 +162,8 @@ def test_writers(request, setup_deps, temp_model):
     vtkpath = inout.gen_path(mdl.params, "test", ".pvd")
     xdmfpath = vtkpath.with_suffix(".xdmf")
 
-    xdmfWriter = inout.XDMFWriter(xdmfpath, comm=mdl.mesh.mpi_comm())
-    vtkWriter = inout.VTKWriter(vtkpath, comm=mdl.mesh.mpi_comm())
+    xdmfWriter = inout.XDMFWriter(xdmfpath, comm=comm)
+    vtkWriter = inout.VTKWriter(vtkpath, comm=comm)
 
     # Check can write to file without error
     vtkWriter.write(test_fun, step=1)
@@ -181,8 +182,8 @@ def test_writers(request, setup_deps, temp_model):
 
     # New writers for unstepped output
 
-    xdmfWriter = inout.XDMFWriter(xdmfpath)
-    vtkWriter = inout.VTKWriter(vtkpath)
+    xdmfWriter = inout.XDMFWriter(xdmfpath, comm=comm)
+    vtkWriter = inout.VTKWriter(vtkpath, comm=comm)
 
     # Can't write unstepped to XDMF
     xdmfWriter.write(test_fun)
