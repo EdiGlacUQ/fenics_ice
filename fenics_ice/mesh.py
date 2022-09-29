@@ -25,10 +25,9 @@ from .backend import FunctionSpace, Mesh, MeshFunction, MeshValueCollection, \
 from . import model
 
 import mpi4py.MPI as MPI  # noqa: N817
-import os
 import numpy as np
 from pathlib import Path
-import logging
+
 
 def get_mesh(params):
     """
@@ -40,7 +39,7 @@ def get_mesh(params):
     meshfile = Path(dd) / mesh_filename
     filetype = meshfile.suffix
 
-    #Ghost elements for DG in parallel
+    # Ghost elements for DG in parallel
     parameters['ghost_mode'] = 'shared_facet'
 
     assert mesh_filename
@@ -58,6 +57,7 @@ def get_mesh(params):
         raise ValueError("Don't understand the mesh filetype: %s" % meshfile.name)
 
     return mesh_in
+
 
 def get_mesh_length(mesh):
     """
@@ -79,6 +79,7 @@ def get_mesh_length(mesh):
     assert L1 == L2, 'Periodic Boundary Conditions require a square domain'
 
     return L1
+
 
 def get_periodic_space(params, mesh, deg=1, dim=1):
     """
@@ -108,6 +109,7 @@ def get_periodic_space(params, mesh, deg=1, dim=1):
         )
 
     return periodic_space
+
 
 def get_ff_from_file(params, model, fill_val=0):
     """
