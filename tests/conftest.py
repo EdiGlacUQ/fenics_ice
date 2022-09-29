@@ -134,15 +134,12 @@ def pytest_configure(config):
     # Clone the input data once even when test are run in parallel
     if rank == 0:
         path_to_data = tempfile.gettempdir() + '/fenics_ice_test_data'
-        if os.path.exists(path_to_data):
-            pass
-        else:
+        if not os.path.exists(path_to_data):
             subprocess.check_call(
                 ["git", "clone",
                  "https://github.com/EdiGlacUQ/fenics_ice_test_data.git",
                  path_to_data])
-    else:
-        pass
+    comm.barrier()
 
     config.addinivalue_line(
         "markers", "short: tests which run quickly"
@@ -282,7 +279,6 @@ def create_temp_model(request, mpi_tmpdir, case_gen, persist=False):
     rank = comm.rank
 
     if rank == 0:
-
         # Test case expects to find data in 'input'
         destdir = tmpdir/"input"
         destdir.mkdir()
@@ -429,9 +425,7 @@ def pytest_sessionfinish(session, exitstatus):
         gc.enable()
         gc.collect()
 
-    root = (MPI.COMM_WORLD.rank == 0)
-
-    if pytest.remake_cases and root:
+    if pytest.remake_cases and MPI.COMM_WORLD.rank == 0:
         with open("new_expected_solution_values.p", 'wb') as pickle_out:
             pickle.dump(pytest.active_cases, pickle_out)
 
