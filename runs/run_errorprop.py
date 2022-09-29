@@ -21,7 +21,6 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-import mpi4py.MPI as MPI  # noqa: N817
 from pathlib import Path
 import pickle
 import numpy as np
@@ -69,6 +68,7 @@ def run_errorprop(config_file):
 
     # Get model mesh
     mesh = fice_mesh.get_mesh(params)
+    comm = mesh.mpi_comm()
 
     # Define the model
     mdl = model.model(mesh, input_data, params)
@@ -103,7 +103,7 @@ def run_errorprop(config_file):
     # and eigenvectors from .h5 file
     eps = params.constants.float_eps
     W = []
-    with HDF5File(MPI.COMM_WORLD, str(outdir_e/vecfile), 'r') as hdf5data:
+    with HDF5File(comm, str(outdir_e/vecfile), 'r') as hdf5data:
         for i in range(nlam):
             w = Function(space)
             hdf5data.read(w, f'v/vector_{i}')
@@ -121,7 +121,7 @@ def run_errorprop(config_file):
 
     # File containing dQoi_dCntrl (i.e. Jacobian of parameter to observable (Qoi))
     outdir_qoi = Path(outdir)/phase_time/phase_suffix_qoi
-    hdf5data = HDF5File(MPI.COMM_WORLD, str(outdir_qoi/dqoi_h5file), 'r')
+    hdf5data = HDF5File(comm, str(outdir_qoi/dqoi_h5file), 'r')
 
     dQ_cntrl = Function(space, space_type="conjugate_dual")
 
@@ -182,7 +182,6 @@ def run_errorprop(config_file):
     diag_dir = Path(params.io.diagnostics_dir)/phase_err/phase_suffix_err
     outdir_err = Path(params.io.output_dir)/phase_err/phase_suffix_err
 
-    # if(MPI.COMM_WORLD.rank == 0):
     plt.semilogy(sigma_steps, sigma_conv)
     plt.title("Convergence of sigmaQoI")
     plt.ylabel("sigma QoI")

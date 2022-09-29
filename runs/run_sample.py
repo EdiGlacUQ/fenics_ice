@@ -21,7 +21,6 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-import mpi4py.MPI as MPI  # noqa: N817
 import sys
 import numpy as np
 import pickle
@@ -77,6 +76,7 @@ def run_sample(config_file):
 
     # Get model mesh
     mesh = fice_mesh.get_mesh(params)
+    comm = mesh.mpi_comm()
 
     # Define the model
     mdl = model.model(mesh, input_data, params)
@@ -121,7 +121,7 @@ def run_sample(config_file):
             lam = lam[:max_lam] 
 
         y = Function(space)
-        with HDF5File(MPI.COMM_WORLD, str(outdir_e/vecfile), 'r') as hdf5data:
+        with HDF5File(comm, str(outdir_e/vecfile), 'r') as hdf5data:
             for i in range(len(lam)):
                 w = Function(space)
                 hdf5data.read(w, f'v/vector_{i}')

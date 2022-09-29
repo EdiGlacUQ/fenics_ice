@@ -22,7 +22,6 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-import mpi4py.MPI as MPI  # noqa: N817
 from pathlib import Path
 import pickle
 import numpy as np
@@ -44,7 +43,7 @@ def patch_fun(mesh_in, params):
     import random
     from scipy.spatial import KDTree
 
-    comm = MPI.COMM_WORLD
+    comm = mesh_in.mpi_comm()
     rank = comm.rank
     root = rank == 0
 
@@ -114,9 +113,6 @@ def patch_fun(mesh_in, params):
 
 def run_invsigma(config_file):
     """Compute control sigma values from eigendecomposition"""
-
-    comm = MPI.COMM_WORLD
-
     # Read run config file
     params = ConfigParser(config_file)
 
@@ -141,6 +137,7 @@ def run_invsigma(config_file):
 
     # Get model mesh
     mesh = fice_mesh.get_mesh(params)
+    comm = mesh.mpi_comm()
 
     # Define the model (only need alpha & beta though)
     mdl = model.model(mesh, input_data, params, init_fields=True)
