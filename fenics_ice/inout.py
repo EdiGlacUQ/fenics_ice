@@ -20,7 +20,7 @@ Module to handle model input & output
 """
 
 from .backend import File, Function, HDF5File, XDMFFile, \
-    configure_checkpointing
+    configure_checkpointing, function_comm
 from tlm_adjoint.fenics.backend import backend_Function
 
 import mpi4py.MPI as MPI  # noqa: N817
@@ -50,8 +50,10 @@ class Writer(ABC):
     unnamed_re = re.compile("f_[0-9]+")
     suffix = None       # the subclass specific file extension
 
-    def __init__(self, fpath, comm=MPI.COMM_WORLD):
-        assert comm is not None, "Need an MPI communicator"
+    def __init__(self, fpath, *, comm=None):
+        if comm is None:
+            comm = MPI.COMM_WORLD
+
         self._fpath = Path(fpath)
         self.comm = comm
         assert self._fpath.suffix == self.suffix
@@ -230,6 +232,9 @@ def write_dqval(dQ_ts, cntrl_names, params):
     Produces .pvd & .h5 files with dQoi_dCntrl
     """
 
+    dQ_ts = tuple(map(tuple, step) for step in dQ_ts)
+    comm = function_comm(dQ_ts[0][0])
+
     outdir = params.io.output_dir
     phase_name = params.time.phase_name
     h5_filename = params.io.dqoi_h5file
@@ -239,7 +244,7 @@ def write_dqval(dQ_ts, cntrl_names, params):
         h5_filename = params.io.run_name + phase_suffix + '_dQ_ts.h5'
 
     outdir_f = Path(outdir)/phase_name/phase_suffix
-    hdf5out = HDF5File(MPI.COMM_WORLD, str(outdir_f/h5_filename), 'w')
+    hdf5out = HDF5File(comm, str(outdir_f/h5_filename), 'w')
     n = 0.0
 
     # Loop dQ sample times ('num_sens')
@@ -266,7 +271,9 @@ def write_variable(var, params, name=None, outdir=None, phase_name='', phase_suf
     Name is taken from variable structure if not provided
     If 'name' is provided, the variable will be renamed accordingly.
     """
+
     assert isinstance(var, backend_Function)
+    comm = function_comm(var)
 
     var_name = var.name()
     unnamed_var = unnamed_re.match(var_name) is not None
@@ -299,7 +306,7 @@ def write_variable(var, params, name=None, outdir=None, phase_name='', phase_suf
         xml_fname = str(outfname.with_suffix(".xml"))
         File(xml_fname) << outvar
     if 'h5' in output_var_format:
-        hdf5out = HDF5File(MPI.COMM_WORLD, str(outfname.with_suffix(".h5")), 'w')
+        hdf5out = HDF5File(comm, str(outfname.with_suffix(".h5")), 'w')
         hdf5out.write(outvar, name)
         hdf5out.close()
     if 'all' in output_var_format:
@@ -307,7 +314,7 @@ def write_variable(var, params, name=None, outdir=None, phase_name='', phase_suf
         xml_fname = str(outfname.with_suffix(".xml"))
         File(vtk_fname) << outvar
         File(xml_fname) << outvar
-        hdf5out = HDF5File(MPI.COMM_WORLD, str(outfname.with_suffix(".h5")), 'w')
+        hdf5out = HDF5File(comm, str(outfname.with_suffix(".h5")), 'w')
         hdf5out.write(outvar, name)
         hdf5out.close()
 
