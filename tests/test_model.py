@@ -15,8 +15,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-# -*- coding: utf-8 -*-
-
 from fenics_ice.backend import Function, function_update_state, norm
 
 import pytest
@@ -24,6 +22,7 @@ import os
 import numpy as np
 import fenics_ice as fice
 from fenics_ice import model, config, inout, solver
+
 
 def init_model(model_dir, toml_file):
 
@@ -33,8 +32,6 @@ def init_model(model_dir, toml_file):
 
     # Get the relevant filenames from test case
     params = config.ConfigParser(toml_file, model_dir)
-    dd = params.io.input_dir
-    data_file = params.io.data_file
 
     # Read the input data & mesh
     indata = inout.InputData(params)
@@ -43,6 +40,7 @@ def init_model(model_dir, toml_file):
     # Create the model object
     return model.model(inmesh, indata, params,
                        init_fields=False, init_vel_obs=False)
+
 
 def initialize_fields(mdl):
     """Initialize data fields in model object"""
@@ -53,12 +51,15 @@ def initialize_fields(mdl):
     mdl.init_beta(mdl.bglen_to_beta(mdl.bglen),
                   mdl.params.inversion.beta_active)
 
+
 def initialize_vel_obs(mdl):
     """Initialize velocity observations"""
     mdl.vel_obs_from_data()
     mdl.init_lat_dirichletbc()
 
-### Tests below this point ###
+
+# Tests below this point
+
 
 @pytest.mark.dependency()
 def test_init_model(temp_model):
@@ -78,6 +79,7 @@ def test_init_model(temp_model):
 
     return mdl
 
+
 @pytest.mark.dependency()
 def test_initialize_fields(request, setup_deps, temp_model):
     """Attempt to initialize fields from HDF5 data file"""
@@ -93,7 +95,6 @@ def test_initialize_fields(request, setup_deps, temp_model):
 
     # Size of vectors in Q function space
     Q_size = mdl.Q.tabulate_dof_coordinates().shape[0]
-    M_size = mdl.M.tabulate_dof_coordinates().shape[0]
 
     assert mdl.bed.vector()[:].size == Q_size
     assert mdl.surf.vector()[:].size == Q_size
@@ -140,6 +141,7 @@ def test_gen_init_alpha(request, setup_deps, temp_model):
     pytest.check_float_result(alpha_norm,
                               expected_init_alpha,
                               work_dir, 'expected_init_alpha')
+
 
 @pytest.mark.dependency()
 def test_writers(request, setup_deps, temp_model):
@@ -193,6 +195,7 @@ def test_writers(request, setup_deps, temp_model):
     with pytest.raises(ValueError):
         xdmfWriter.write(test_fun, step=1)
 
+
 @pytest.mark.dependency()
 def test_control_separation(request, setup_deps, temp_model):
     """Check that mdl.alpha and slvr.alpha are distinct functions"""
@@ -226,13 +229,3 @@ def test_control_separation(request, setup_deps, temp_model):
 
     assert norm_as != norm_am
     assert norm_bs != norm_bm
-
-# Unused!
-def override_param(param_section, name, value):
-    """Override frozen ConfigParser params for testing"""
-    try:
-        param_section.__getattribute__(name)
-    except AttributeError:
-        raise
-
-    object.__setattr__(param_section, name, value)
