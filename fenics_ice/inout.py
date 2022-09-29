@@ -42,6 +42,7 @@ import numpy as np
 # Regex for catching unnamed vars
 unnamed_re = re.compile("f_[0-9]+")
 
+
 class Writer(ABC):
     """Abstract base class for variable writers"""
 
@@ -138,6 +139,7 @@ class Writer(ABC):
 
         self.comm.barrier()
 
+
 class VTKWriter(Writer):
     """Variable writer for .vtk"""
 
@@ -163,11 +165,11 @@ class VTKWriter(Writer):
         else:
             self.file_handle << (variable, step)
 
+
 class XDMFWriter(Writer):
     """Variable writer for .xdmf"""
 
     suffix = '.xdmf'
-    # stepped = True  # XDMF file components always have a timestep associated
 
     def _write(self, variable, step):
         if step is None:
@@ -187,16 +189,10 @@ class XDMFWriter(Writer):
     def write(self, variable, name=None, step=None, finalise=False):
         """
         Write variable to XDMF file
-
-        This overrides Writer's method because need to
-        handle the 'mpi_comm' requirement (get it from variable)
         """
-        # TODO - this overloaded write function no longer serves a purpose
-        # if the communicator doesn't need to be set
-        # if self.comm is None:
-        #     self.comm = variable.function_space().mesh().mpi_comm()
 
         super().write(variable, name, step, finalise)
+
 
 def gen_path(params, name, suffix, phase_suffix=''):
     """Convert e.g. 'alpha' into outdir/runname_alpha.pvd"""
@@ -228,13 +224,13 @@ def write_qval(Qval, params):
     with open(outdir_final/filename, 'wb') as pickle_file:
         pickle.dump([Qval, ts], pickle_file)
 
+
 def write_dqval(dQ_ts, cntrl_names, params):
     """
     Produces .pvd & .h5 files with dQoi_dCntrl
     """
 
     outdir = params.io.output_dir
-    diagdir = params.io.diagnostics_dir
     phase_name = params.time.phase_name
     h5_filename = params.io.dqoi_h5file
     phase_suffix = params.time.phase_suffix
@@ -242,10 +238,7 @@ def write_dqval(dQ_ts, cntrl_names, params):
     if len(phase_suffix) > 0:
         h5_filename = params.io.run_name + phase_suffix + '_dQ_ts.h5'
 
-    diagdir_f = Path(diagdir)/phase_name/phase_suffix
     outdir_f = Path(outdir)/phase_name/phase_suffix
-    # TODO add this file to diags once Dan makes his pull request
-    vtkfile = File(str((diagdir_f/h5_filename).with_suffix(".pvd")))
     hdf5out = HDF5File(MPI.COMM_WORLD, str(outdir_f/h5_filename), 'w')
     n = 0.0
 
@@ -259,12 +252,12 @@ def write_dqval(dQ_ts, cntrl_names, params):
             output = var
             name = "dQd"+cntrl_name
             output.rename(name, name)
-            # vtkfile << output
             hdf5out.write(output, name, n)
 
         n += 1.0
 
     hdf5out.close()
+
 
 def write_variable(var, params, name=None, outdir=None, phase_name='', phase_suffix=''):
     """
@@ -293,8 +286,9 @@ def write_variable(var, params, name=None, outdir=None, phase_name='', phase_suf
 
     outvar.rename(name, "")
     # Prefix the run name
-    outfname = Path(outdir) / phase_name / phase_suffix / "_".join((params.io.run_name+phase_suffix, name))
-    #embed()
+    outfname = (Path(outdir) / phase_name / phase_suffix /
+                "_".join((params.io.run_name+phase_suffix, name)))
+    # embed()
 
     # Write out output according to user specified format in toml
     output_var_format = params.io.output_var_format
@@ -319,6 +313,7 @@ def write_variable(var, params, name=None, outdir=None, phase_name='', phase_suf
 
     logging.info("Writing function %s to file %s" % (name, outfname))
 
+
 def dict_to_csv(indict, name, params):
     """Write dictionary to CSV file"""
     phase_suffix = params.inversion.phase_suffix
@@ -338,6 +333,7 @@ def field_from_vel_file(infile, field_name):
         f"Invalid dimension of field {field_name} from file {infile}"
 
     return np.ravel(field[:])
+
 
 def read_vel_obs(infile, model=None, use_cloud_point=False):
     """
@@ -407,7 +403,7 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
                'v_comp_std': v_std,
                'mask_vel': mask_vel}
 
-        #Test that when we read a cloud point data file we have less data
+        # Test that when we read a cloud point data file we have less data
         # than the composite
         sizes_pts = np.array([out[key].size for key in filter(lambda key: "_pts" in key, out)])
         sizes = np.array([out[key].size for key in filter(lambda key: "_pts" not in key, out)])
@@ -424,10 +420,12 @@ def read_vel_obs(infile, model=None, use_cloud_point=False):
     else:
         return out
 
+
 class DataNotFoundError(Exception):
     """Custom exception for unfound data"""
 
     pass
+
 
 class InputDataField(object):
     """Holds a single datafield as part of the InputData object"""
@@ -488,6 +486,7 @@ class InputDataField(object):
         assert np.unique(np.diff(self.yy)).size == 1,\
             f"{self.infile} not specified on regular grid"
 
+
 class InputData(object):
     """Loads gridded data & defines interpolators"""
 
@@ -497,7 +496,7 @@ class InputData(object):
         self.input_dir = params.io.input_dir
 
         # List of fields to search for
-        field_list = ["thick", "bed", "bmelt", "smb", "Bglen", "Bglenmask", "alpha", \
+        field_list = ["thick", "bed", "bmelt", "smb", "Bglen", "Bglenmask", "alpha",
                       "melt_depth_therm", "melt_max"]
 
         # Dictionary of filenames & field names (i.e. field to get from HDF5 file)
@@ -597,14 +596,14 @@ class InputData(object):
 
         return function
 
-# Custom formatter
+
 class LogFormatter(logging.Formatter):
     """A custom formatter for fenics_ice logs"""
 
     critical_fmt = "CRITICAL ERROR: %(msg)s"
-    err_fmt  = "ERROR: %(msg)s"
-    warning_fmt  = "WARNING: %(msg)s"
-    dbg_fmt  = "DBG: %(module)s: Line %(lineno)d: %(msg)s"
+    err_fmt = "ERROR: %(msg)s"
+    warning_fmt = "WARNING: %(msg)s"
+    dbg_fmt = "DBG: %(module)s: Line %(lineno)d: %(msg)s"
     info_fmt = "%(msg)s"
 
     def __init__(self):
@@ -642,22 +641,9 @@ class LogFormatter(logging.Formatter):
         return result
 
 
-# TODO - as yet unused - can't get stdout redirection to work
-class LoggerWriter:
-    def __init__(self, logger, level):
-        self.logger = logger
-        self.level = level
-
-    def write(self, message):
-        if message != '\n':
-            self.logger.log(self.level, message)
-
 def setup_logging(params):
     """Set up logging to file specified in params"""
-    # TODO - Doesn't work yet - can't redirect output from fenics etc
-    # run_name = params.io.run_name
-    # logfile = run_name + ".log"
-    # Get the FFC logger to shut up
+
     logging.getLogger('UFL').setLevel(logging.WARNING)
     logging.getLogger('FFC').setLevel(logging.WARNING)
     log_level = params.io.log_level
@@ -685,21 +671,9 @@ def setup_logging(params):
     so.setFormatter(fmt)
     so.setLevel(numeric_level)
 
-    # fo = logging.FileHandler(logfile)
-    # fo.setFormatter(fmt)
-    # fo.setLevel(numeric_level)
-
-    # logger.addHandler(fo)
     logger.addHandler(so)
 
-    # sys.stdout = LoggerWriter(logger, numeric_level)
-    # sys.stderr = LoggerWriter(logger, numeric_level)
-
     return logger
-
-#    Consider adding %(process)d- when we move to parallel sims (at least for debug messages?)
-#    logging.basicConfig(level=numeric_level, format='%(levelname)s:%(message)s')
-#    logging.basicConfig(level=numeric_level, format=)
 
 
 def print_config(params):
@@ -712,6 +686,7 @@ def print_config(params):
     log.info("\n\n==================================")
     log.info("======= End of Configuration =====")
     log.info("==================================\n\n")
+
 
 def log_git_info():
     """Get the current branch & commit hash for logging"""
@@ -727,6 +702,7 @@ def log_git_info():
     log.info("==   git branch  : %s" % branch)
     log.info("==   commit hash : %s" % sha)
     log.info("==========================================")
+
 
 def log_preamble(phase, params):
     """Print out git info, model phase and config"""
@@ -766,12 +742,14 @@ def configure_tlm_checkpointing(params):
 
     configure_checkpointing(method, config_dict)
 
+
 def write_inversion_info(params, conv_info, header="J, F_crit, G_crit_alpha, G_crit_beta"):
 
     phase_name = params.inversion.phase_name
     phase_suffix = params.inversion.phase_suffix
     """Write out a list of tuples containing convergence info for inversion"""
-    outfname = Path(params.io.output_dir) / phase_name / phase_suffix /"_".join((params.io.run_name+phase_suffix,
-                                                    "inversion_progress.csv"))
+    outfname = (Path(params.io.output_dir) / phase_name / phase_suffix /
+                "_".join((params.io.run_name+phase_suffix,
+                          "inversion_progress.csv")))
 
     np.savetxt(outfname, conv_info, delimiter=",", header=header)
