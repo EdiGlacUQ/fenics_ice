@@ -24,37 +24,40 @@ from .backend import FunctionSpace, Mesh, MeshFunction, MeshValueCollection, \
 
 from . import model
 
+import logging
 import mpi4py.MPI as MPI  # noqa: N817
 import numpy as np
 from pathlib import Path
 
 
-def get_mesh(params):
+def get_mesh(params, *, comm=None):
     """
-    Gets mesh from file
+    Load a mesh from a file as specified in the given parameters.
     """
 
-    dd = params.io.input_dir
+    if comm is None:
+        comm = MPI.COMM_WORLD
+    logger = logging.getLogger("fenics_ice")
+
     mesh_filename = params.mesh.mesh_filename
-    meshfile = Path(dd) / mesh_filename
-    filetype = meshfile.suffix
-
-    # Ghost elements for DG in parallel
-    parameters['ghost_mode'] = 'shared_facet'
-
     assert mesh_filename
-    assert meshfile.exists(), "Mesh file '%s' not found" % meshfile
+    meshfile = Path(params.io.input_dir) / mesh_filename
+    if not meshfile.exists():
+        raise RuntimeError(f"Mesh file '{meshfile}' not found")
 
-    if filetype == '.xml':
-        mesh_in = Mesh(str(meshfile))
+    # Ghost nodes for DG in parallel
+    if parameters["ghost_mode"] != "shared_facet":
+        logger.warning('Setting parameters["ghost_mode"] = "shared_facet"')
+        parameters["ghost_mode"] = "shared_facet"
 
-    elif filetype == '.xdmf':
-        mesh_in = Mesh()
-        mesh_xdmf = XDMFFile(MPI.COMM_WORLD, str(meshfile))
+    if meshfile.suffix == ".xml":
+        mesh_in = Mesh(comm, str(meshfile))
+    elif meshfile.suffix == ".xdmf":
+        mesh_in = Mesh(comm)
+        mesh_xdmf = XDMFFile(comm, str(meshfile))
         mesh_xdmf.read(mesh_in)
-
     else:
-        raise ValueError("Don't understand the mesh filetype: %s" % meshfile.name)
+        raise ValueError("Invalid filetype")
 
     return mesh_in
 
@@ -111,13 +114,13 @@ def get_periodic_space(params, mesh, deg=1, dim=1):
     return periodic_space
 
 
-def get_ff_from_file(params, model, fill_val=0):
+def get_ff_from_file(params, model, *, fill_val=0):
     """
     Return a FacetFunction defining the boundary conditions of the mesh.
 
     Expects to find an XDMF file containing a MeshValueCollection (sparse).
-    Builds a 1D MeshFunction (i.e. FacetFunction) from this, filling missing
-    values with fill_val.
+    Builds a codimension 1 MeshFunction (i.e. FacetFunction) from this, filling
+    missing values with fill_val.
     """
 
     dim = model.mesh.geometric_dimension()
@@ -127,11 +130,12 @@ def get_ff_from_file(params, model, fill_val=0):
     ff_file = dd/ff_filename
 
     assert ff_file.suffix == ".xdmf"
-    assert ff_file.exists(), f"MeshValueCollection file {ff_file} not found"
+    if not ff_file.exists():
+        raise RuntimeError(f"MeshValueCollection file {ff_file} not found")
 
     # Read the MeshValueCollection (sparse)
     ff_mvc = MeshValueCollection("size_t", model.mesh, dim=dim-1)
-    ff_xdmf = XDMFFile(MPI.COMM_WORLD, str(ff_file))
+    ff_xdmf = XDMFFile(model.mesh.mpi_comm(), str(ff_file))
     ff_xdmf.read(ff_mvc)
 
     # Create FacetFunction filled w/ default
