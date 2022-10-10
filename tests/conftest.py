@@ -134,15 +134,12 @@ def pytest_configure(config):
     # Clone the input data once even when test are run in parallel
     if rank == 0:
         path_to_data = tempfile.gettempdir() + '/fenics_ice_test_data'
-        if os.path.exists(path_to_data):
-            pass
-        else:
+        if not os.path.exists(path_to_data):
             subprocess.check_call(
                 ["git", "clone",
                  "https://github.com/EdiGlacUQ/fenics_ice_test_data.git",
                  path_to_data])
-    else:
-        pass
+    comm.barrier()
 
     config.addinivalue_line(
         "markers", "short: tests which run quickly"
