@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from tlm_adjoint import clear_caches, function_assign, function_axpy, \
-    function_comm, function_copy, function_get_values, function_inner, \
-    function_is_cached, function_is_checkpointed, function_is_static, \
-    function_linf_norm, function_new, function_set_values, is_function, \
-    restore_manager, set_manager
+from tlm_adjoint import clear_caches, comm_dup, function_assign, \
+    function_axpy, function_comm, function_copy, function_get_values, \
+    function_inner, function_is_cached, function_is_checkpointed, \
+    function_is_static, function_linf_norm, function_new, \
+    function_set_values, is_function, restore_manager, set_manager
 from tlm_adjoint import manager as _manager
 
 from collections import deque
@@ -510,9 +510,8 @@ class H_approximation:
         # eigenvalues
         if comm is None:
             comm = function_comm(F[0][0])
-        comm = comm.Dup()
+        comm = comm_dup(comm)
         lam_0 = comm.bcast(lam, root=0)
-        comm.Free()
         del comm
         assert abs(lam - lam_0).max() == 0.0
 
@@ -634,7 +633,7 @@ def line_search(F, Fp, X, minus_P, c1=1.0e-4, c2=0.9,
 
     if comm is None:
         comm = function_comm(X_rank1[0])
-    comm = comm.Dup()
+    comm = comm_dup(comm)
 
     last_F = [None, None]
 
@@ -700,8 +699,6 @@ def line_search(F, Fp, X, minus_P, c1=1.0e-4, c2=0.9,
                 break
             else:
                 raise ValueError(f"Unexpected action '{action:s}'")
-
-    comm.Free()
 
     if alpha is None:
         return None, old_Fp_val_rank0, None, None, None

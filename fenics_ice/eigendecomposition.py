@@ -53,7 +53,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from .backend import HDF5File, XDMFFile, function_get_values, \
+from .backend import HDF5File, XDMFFile, comm_parent, function_get_values, \
     function_global_size, function_local_size, function_set_values, \
     is_function, norm, project, space_comm, space_new
 
@@ -159,7 +159,7 @@ def eigendecompose(space, A_action, B_matrix=None, N_eigenvalues=None,
     del X
     N_ev = N if N_eigenvalues is None else N_eigenvalues
 
-    comm = space_comm(space)  # .Dup()
+    comm = comm_parent(space_comm(space))
 
     A_matrix = PETSc.Mat().createPython(((n, N), (n, N)),
                                         PythonMatrix(A_action, space),
