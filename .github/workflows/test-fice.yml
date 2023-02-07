@@ -51,23 +51,26 @@ jobs:
           ls $GITHUB_WORKSPACE
           cd $GITHUB_WORKSPACE/fenics_ice
           pip install -e .
+          cd $GITHUB_WORKSPACE/tlm_adjoint
+          pip install -e .
           micromamba info
 
       # We install fenics_ice and tlm_adjoint as developing modules
-      - name: Install repositories as dev modules
-        run: |
-          micromamba info
-          ls $GITHUB_WORKSPACE
-          cd $GITHUB_WORKSPACE/fenics_ice
-          pip install -e .
-          cd $GITHUB_WORKSPACE/tlm_adjoint
-          pip install -e .
+#      - name: Install repositories as dev modules
+#        run: |
+#          micromamba info
+#          ls $GITHUB_WORKSPACE
+#          cd $GITHUB_WORKSPACE/fenics_ice
+#          pip install -e .
+#          cd $GITHUB_WORKSPACE/tlm_adjoint
+#          pip install -e .
 
       # Test fenics ice!
       - name: Test fice
         shell: bash -l {0}
         run: |
           cd $GITHUB_WORKSPACE/fenics_ice/
+          which python
           pytest -v --order-scope=module --color=yes
           mpirun -n 2 pytest -v --order-scope=module --color=yes
           mpirun -n 2 pytest -m key --key=smith --color=yes
