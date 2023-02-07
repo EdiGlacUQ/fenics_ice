@@ -51,13 +51,13 @@ jobs:
       # We install fenics_ice and tlm_adjoint as developing modules
       - name: Install repositories as dev modules
         run: |
+          micromamba info
           ls $GITHUB_WORKSPACE
           cd $GITHUB_WORKSPACE/fenics_ice
           pwd
           pip install -e .
           cd $GITHUB_WORKSPACE/tlm_adjoint
           pip install -e .
-          micromamba info
           which python
 
       # Test fenics ice!
