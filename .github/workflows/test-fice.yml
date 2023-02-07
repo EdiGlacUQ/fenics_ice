@@ -48,6 +48,8 @@ jobs:
           micromamba info
           micromamba list
           which python
+          pip uninstall scipy
+          pip install scipy==1.9.3
           ls $GITHUB_WORKSPACE
           cd $GITHUB_WORKSPACE/fenics_ice
           pip install -e .
