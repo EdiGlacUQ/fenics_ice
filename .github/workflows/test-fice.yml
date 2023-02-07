@@ -49,12 +49,6 @@ jobs:
           micromamba list
           which python
           python -m pip install scipy==1.9.3
-#          ls $GITHUB_WORKSPACE
-#          cd $GITHUB_WORKSPACE/fenics_ice
-#          pip install -e .
-#          cd $GITHUB_WORKSPACE/tlm_adjoint
-#          pip install -e .
-#          micromamba info
 
       # We install fenics_ice and tlm_adjoint as developing modules
       - name: Install repositories as dev modules
