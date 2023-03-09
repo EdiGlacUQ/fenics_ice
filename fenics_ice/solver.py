@@ -645,7 +645,7 @@ class ssa_solver:
                                  "absolute_tolerance": 1e-10,
                                  "relative_tolerance": 1e-11,
               })  # Not sure these solver params are necessary (linear solve)
-        LocalProjectionSolver(H, self.H_DG).solve() 
+        LocalProjection(self.H_DG, H).solve() 
 
     def timestep(self, adjoint_flag=1, qoi_func=None ):
         """
@@ -1262,12 +1262,12 @@ class ssa_solver:
             interp_space = FunctionSpace(self.mesh, "DG", 1)
 
         uf = space_new(interp_space, name="uf")
-        LocalProjectionSolver(
-            u, uf,
+        LocalProjection(
+            uf, u,
             cache_jacobian=False, cache_rhs_assembly=False).solve()
         vf = space_new(interp_space, name="vf")
-        LocalProjectionSolver(
-            v, vf,
+        LocalProjection(
+            vf, v,
             cache_jacobian=False, cache_rhs_assembly=False).solve()
 
         if not hasattr(self, "_cached_J_mismatch_data"):
@@ -1318,22 +1318,22 @@ class ssa_solver:
 
         # .5 * u^T P^T R_u_obs^{-1} P u
         J_term = space_new(J.space())
-        InnerProductSolver(uf, uf, J_term, M=u_PRP, alpha = fac).solve()
+        InnerProduct(J_term, uf, uf, M=u_PRP, alpha = fac).solve()
         J_ls_term_u.addto(J_term)
 
         # .5 * v^T P^T R_v_obs^{-1} P v
         J_term = space_new(J.space())
-        InnerProductSolver(vf, vf, J_term, M=v_PRP, alpha = fac).solve()
+        InnerProduct(J_term, vf, vf, M=v_PRP, alpha = fac).solve()
         J_ls_term_v.addto(J_term)
 
         # -.5 * 2 * u_obs^T R_u_obs^{-1} P u
         J_term = space_new(J.space())
-        InnerProductSolver(uf, l_u_obs, J_term, alpha=-2.0 * fac).solve()
+        InnerProduct(J_term, uf, l_u_obs, alpha=-2.0 * fac).solve()
         J_ls_term_u.addto(J_term)
 
         # -.5 * 2 * v_obs^T R_v_obs^{-1} P v
         J_term = space_new(J.space())
-        InnerProductSolver(vf, l_v_obs, J_term, alpha=-2.0 * fac).solve()
+        InnerProduct(J_term, vf, l_v_obs, alpha=-2.0 * fac).solve()
         J_ls_term_v.addto(J_term)
 
         # .5 * u_obs R_u_obs^{-1} u_obs
@@ -1380,8 +1380,8 @@ class ssa_solver:
         if verbose:
             J_ls_u = new_scalar_function(name="J_ls_term_x")
             J_ls_v = new_scalar_function(name="J_ls_term_y")
-            AssignmentSolver(J_ls_term_u, J_ls_u).solve()
-            AssignmentSolver(J_ls_term_v, J_ls_v).solve()
+            Assignment(J_ls_u, J_ls_term_u).solve()
+            Assignment(J_ls_v, J_ls_term_v).solve()
 
             # Print out results
             J1 = J.value()
