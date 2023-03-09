@@ -711,7 +711,7 @@ class ssa_solver:
                 Q_i = Functional(name="Q_i")
                 Q_i.assign(qoi)
                 Q_is.append(Q_i)
-                Q.addto(Q_i.fn())
+                Q.addto(Q_i.function())
 
             new_block()
 
@@ -764,7 +764,7 @@ class ssa_solver:
                         Q_i = Functional(name="Q_i")
                         Q_i.assign(qoi)
                         Q_is.append(Q_i)
-                        Q.addto(Q_i.fn())
+                        Q.addto(Q_i.function())
 
             if n < n_steps and adjoint_flag:
                 new_block()
@@ -1346,8 +1346,8 @@ class ssa_solver:
         function_assign(J_term, fac * J_v_obs)
         J_ls_term_v.addto(J_term)
 
-        J_ls_term_u = J_ls_term_u.fn()
-        J_ls_term_v = J_ls_term_v.fn()
+        J_ls_term_u = J_ls_term_u.function()
+        J_ls_term_v = J_ls_term_v.function()
 
         J.addto(J_ls_term_u)
         J.addto(J_ls_term_v)
