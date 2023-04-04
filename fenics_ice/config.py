@@ -165,7 +165,7 @@ class ConfigParser(object):
         # These ensure Jacobian is assembled with the same quadrature rule as
         # the residual, and are required for Newton's method to be second order.
         try:
-            fenics_params["tlm_adjoint"]["AssembleSolver"]["match_quadrature"] = True
+            fenics_params["tlm_adjoint"]["Assembly"]["match_quadrature"] = True
             fenics_params["tlm_adjoint"]["EquationSolver"]["match_quadrature"] = True
             # For debugging cache issues:
             # fenics_params["tlm_adjoint"]["EquationSolver"]["cache_jacobian"] = True
