@@ -1322,8 +1322,8 @@ class ssa_solver:
                 = (interp_space,
                    u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs)
             if (self.obs_sensitivity): 
-                self._cached_Amat_vars = \ 
-                (P, u_std_local, v_std_local, interp_space)
+                self._cached_Amat_vars = \
+                    (P, u_std_local, v_std_local, interp_space)
 
         (interp_space,
          u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs) = \
