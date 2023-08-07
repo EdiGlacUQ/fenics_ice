@@ -77,6 +77,17 @@ def interpolation_matrix(x_coords, y_space):
     return x_local, P
 
 
+def Amat_obs_action(P, Rvec, vec_cg, dg_space):
+    # to be called for each component of velocity
+
+    test, trial = TestFunction(dg_space), TrialFunction(dg_space)
+    vec_dg = Function(dg_space)
+    solve(inner(trial, test) * dx == inner(vec_cg, vec_dg) * dx,
+          vec_dg, solver_parameters={"linear_solver": "lu"})
+    
+    return Rvec * (P @ vec_dg.vector().get_local())
+    
+
 class ssa_solver:
     """
     The ssa_solver object is currently the only kind of fenics_ice 'solver' available.
@@ -1306,6 +1317,8 @@ class ssa_solver:
             self._cached_J_mismatch_data \
                 = (interp_space,
                    u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs)
+            self._cached_P_matrix = P   
+
         (interp_space,
          u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs) = \
             self._cached_J_mismatch_data
