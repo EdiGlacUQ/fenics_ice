@@ -16,6 +16,21 @@
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
 from fenics_ice.backend import Function, HDF5File
+from tlm_adjoint import reset_manager, set_manager, stop_manager, \
+        configure_tlm, function_tlm, restore_manager,\
+        EquationManager, start_manager
+
+@restore_manager
+def compute_tau(forward, u, m, dm):
+    # this block of code will do the "forward" (calculation of velocity and cost function) once
+    # and then find the jacobian of u in the direction needed
+    set_manager(EquationManager(cp_method="none", cp_parameters={}))
+    stop_manager()
+
+    start_manager(tlm=True)
+    configure_tlm((m, dm))
+    forward(m)
+    return function_tlm(u, (m, dm))        
 
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -30,20 +45,24 @@ import sys
 from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
+from ufl import split
+from fenics_ice.solver import Amat_obs_action
 
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
+from IPython import embed
+from scipy.sparse import spdiags
 
 
-def run_errorprop(config_file):
+def run_obs_sens_prop(config_file):
 
     # Read run config file
     params = ConfigParser(config_file)
 
     # Setup logging
     inout.setup_logging(params)
-    inout.log_preamble("errorprop", params)
+    inout.log_preamble("obssensprop", params)
 
     outdir = params.io.output_dir
 
@@ -86,6 +105,7 @@ def run_errorprop(config_file):
 
     cntrl = slvr.get_control()
     space = slvr.get_control_space()
+    slvr.forward(cntrl)
 
     # Regularization operator using inversion delta/gamma values
     Prior = mdl.get_prior()
@@ -132,22 +152,20 @@ def run_errorprop(config_file):
     num_sens = params.time.num_sens
     t_sens = np.flip(np.linspace(run_length, 0, num_sens))
 
-    if hasattr(slvr,'_cached_Amat_vars'):
-        (P, u_std_local, v_std_local, interp_space) = \
-                self._cached_Amat_vars
-    else:
-        logging.error("Attempt to retrieve Amat from solver type without first caching")
-        raise Exception
+    assert hasattr(slvr,'_cached_Amat_vars'),\
+        "Attempt to retrieve Amat from solver type without first caching"
+    (P, u_std_local, v_std_local, interp_space) = \
+                slvr._cached_Amat_vars
 
-    Ru = spdiags(1.0 / (u_std[obs_local] ** 2),
+    Ru = spdiags(1.0 / (u_std_local ** 2),
                               0, P.shape[0], P.shape[0])
-    Rv = spdiags(1.0 / (v_std[obs_local] ** 2),
+    Rv = spdiags(1.0 / (v_std_local ** 2),
                               0, P.shape[0], P.shape[0])
 
     dObs = []
 
     for j in range(num_sens):
-        hdf5data.read(dQ_cntrl, f'dQd{cntrl.name()}/vector_{j}')
+        hdf5data.read(dQ_cntrl, f'dQd{cntrl[0].name()}/vector_{j}')
 
         tmp1 = np.asarray([w.vector().inner(dQ_cntrl.vector()) for w in W])
         tmp2 = np.dot(D, tmp1)
@@ -160,34 +178,36 @@ def run_errorprop(config_file):
         reg_op.inv_action(dQ_cntrl.vector(), P2.vector())
 
         P3 = Function(space)
-        P3.vector() = P2.vector() - P1.vector()
+        P3.vector()[:] = P2.vector()[:] - P1.vector()[:]
+        
 
-    # this block of code will do the "forward" (calculation of velocity and cost function) once
-    # and then find the jacobian of u in the direction needed
-    # im not sure which of these commands need be repeated and which can only be done once
-        reset_manager()
-        stop_manager(tlm=False)
-        configure_tml((cntrl, P3))
-        slvr.forward(cntrl)
-        tau = function_tml(solver.U, (cntrl, P3))
+    # retaining the following code causes a tlm_adjoint runtime error in the 2nd execution of the loop 
+    # so the code is packaged within a decorated function
+       # reset_manager()
+       # stop_manager(tlm=False)
+       # configure_tlm((cntrl, P3))
+       # slvr.forward(cntrl)
+       # tau = function_tlm(slvr.U, (cntrl, P3))
+
+        tau = compute_tau(slvr.forward, slvr.U, cntrl, P3)
 
     # tau is in the space of U (right?)
         tauu, tauv = split(tau)
 
     # this block of code then implements -A.tau
 
-        dobs = slvr.Amat_obs_action(P, Ru, tauu, interp_space) + \
-               slvr.Amat_obs_action(P, Rv, tauv, interp_space)
+        dobs = Amat_obs_action(P, Ru, tauu, interp_space) + \
+               Amat_obs_action(P, Rv, tauv, interp_space)
         dObs.append(dobs)
                
     # Look at the last sampled time and check how sigma QoI converges
     # with addition of more eigenvectors
 
     # Save plots in diagnostics
-    phase_err = params.error_prop.phase_name
-    phase_suffix_err = params.error_prop.phase_suffix
-    diag_dir = Path(params.io.diagnostics_dir)/phase_err/phase_suffix_err
-    outdir_err = Path(params.io.output_dir)/phase_err/phase_suffix_err
+    # phase_err = params.error_prop.phase_name
+    # phase_suffix_err = params.error_prop.phase_suffix
+    # diag_dir = Path(params.io.diagnostics_dir)/phase_err/phase_suffix_err
+    # outdir_err = Path(params.io.output_dir)/phase_err/phase_suffix_err
 
 
     #with open( os.path.join(outdir_err, sigma_file), "wb" ) as sigfile:
@@ -199,4 +219,4 @@ def run_errorprop(config_file):
 
 if __name__ == "__main__":
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
-    run_errorprop(sys.argv[1])
+    run_obs_sens_prop(sys.argv[1])

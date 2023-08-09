@@ -82,7 +82,7 @@ def Amat_obs_action(P, Rvec, vec_cg, dg_space):
 
     test, trial = TestFunction(dg_space), TrialFunction(dg_space)
     vec_dg = Function(dg_space)
-    solve(inner(trial, test) * dx == inner(vec_cg, vec_dg) * dx,
+    solve(inner(trial, test) * dx == inner(vec_cg, test) * dx,
           vec_dg, solver_parameters={"linear_solver": "lu"})
     
     return Rvec * (P @ vec_dg.vector().get_local())
