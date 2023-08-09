@@ -20,18 +20,6 @@ from tlm_adjoint import reset_manager, set_manager, stop_manager, \
         configure_tlm, function_tlm, restore_manager,\
         EquationManager, start_manager
 
-@restore_manager
-def compute_tau(forward, u, m, dm):
-    # this block of code will do the "forward" (calculation of velocity and cost function) once
-    # and then find the jacobian of u in the direction needed
-    set_manager(EquationManager(cp_method="none", cp_parameters={}))
-    stop_manager()
-
-    start_manager(tlm=True)
-    configure_tlm((m, dm))
-    forward(m)
-    return function_tlm(u, (m, dm))        
-
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -53,6 +41,18 @@ mpl.use("Agg")
 import matplotlib.pyplot as plt
 from IPython import embed
 from scipy.sparse import spdiags
+
+@restore_manager
+def compute_tau(forward, u, m, dm):
+    # this block of code will do the "forward" (calculation of velocity and cost function) once
+    # and then find the jacobian of u in the direction needed
+    set_manager(EquationManager(cp_method="none", cp_parameters={}))
+    stop_manager()
+
+    start_manager(tlm=True)
+    configure_tlm((m, dm))
+    forward(m)
+    return function_tlm(u, (m, dm))        
 
 
 def run_obs_sens_prop(config_file):
