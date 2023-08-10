@@ -31,6 +31,7 @@ import numpy as np
 import sys
 
 from fenics_ice import model, solver, inout
+from fenics_ice.model import interp_weights, interpolate
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 from ufl import split
@@ -162,7 +163,15 @@ def run_obs_sens_prop(config_file):
     Rv = spdiags(1.0 / (v_std_local ** 2),
                               0, P.shape[0], P.shape[0])
 
-    dObs = []
+    dObsU = []
+    dObsV = []
+    dObsU_M = []
+    dObsV_M = []
+
+    M_coords = mdl.M.tabulate_dof_coordinates()
+
+    vtx_M, wts_M = interp_weights(mdl.vel_obs['uv_obs_pts'],
+                                  M_coords, params.mesh.periodic_bc)
 
     for j in range(num_sens):
         hdf5data.read(dQ_cntrl, f'dQd{cntrl[0].name()}/vector_{j}')
@@ -196,9 +205,18 @@ def run_obs_sens_prop(config_file):
 
     # this block of code then implements -A.tau
 
-        dobs = Amat_obs_action(P, Ru, tauu, interp_space) + \
-               Amat_obs_action(P, Rv, tauv, interp_space)
-        dObs.append(dobs)
+        dobsu = Amat_obs_action(P, Ru, tauu, interp_space)
+        dobsv = Amat_obs_action(P, Rv, tauv, interp_space)
+        dObsU.append(dobsu)
+        dObsV.append(dobsv)
+
+        dObsU_M.append(Function(mdl.M, static=True))
+        dObsV_M.append(Function(mdl.M, static=True))
+        dObsU_M[j].vector()[:] = interpolate(dobsu, vtx_M, wts_M)
+        dObsV_M[j].vector()[:] = interpolate(dobsv, vtx_M, wts_M)
+
+
+
                
     # Look at the last sampled time and check how sigma QoI converges
     # with addition of more eigenvectors
