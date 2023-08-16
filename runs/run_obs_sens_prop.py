@@ -38,7 +38,7 @@ from ufl import split
 from fenics_ice.solver import Amat_obs_action
 
 import matplotlib as mpl
-mpl.use("Agg")
+#mpl.use("Agg")
 import matplotlib.pyplot as plt
 from IPython import embed
 from scipy.sparse import spdiags
@@ -216,7 +216,64 @@ def run_obs_sens_prop(config_file):
         dObsV_M[j].vector()[:] = interpolate(dobsv, vtx_M, wts_M)
 
 
+    x    = mesh.coordinates()[:,0]
+    y    = mesh.coordinates()[:,1]
+    t    = mesh.cells()
+    cmap_div='RdBu'
 
+    fig = plt.figure(figsize=(10,10))
+    
+    V = mdl.u_obs_M
+    ax  = fig.add_subplot(221)
+    ax.set_aspect('equal')
+    v   = V.compute_vertex_values(mesh)
+    ticks = np.linspace(10,30,3)
+    c = ax.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
+    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
+
+    V = mdl.v_obs_M
+    ax  = fig.add_subplot(222)
+    ax.set_aspect('equal')
+    v   = V.compute_vertex_values(mesh)
+    ticks = np.linspace(10,30,3)
+    c = ax.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
+    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
+
+    numlev = 20
+    tick_options = {'axis':'both','which':'both','bottom':False,
+        'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
+
+    V = dObsU_M[-1]
+    ax  = fig.add_subplot(223)
+    ax.set_aspect('equal')
+    v   = V.compute_vertex_values(mesh)
+    minv = np.min(v)
+    maxv = np.max(v)
+    levels = np.linspace(minv,maxv,numlev)
+    ticks = np.linspace(minv,maxv,3)
+    ax.tick_params(**tick_options)
+    ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
+    fontsize=13, fontweight='bold', va='top')
+    c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
+    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
+
+    V = dObsV_M[-1]
+    ax  = fig.add_subplot(224)
+    ax.set_aspect('equal')
+    v   = V.compute_vertex_values(mesh)
+    minv = np.min(v)
+    maxv = np.max(v)
+    levels = np.linspace(minv,maxv,numlev)
+    ticks = np.linspace(minv,maxv,3)
+    ax.tick_params(**tick_options)
+    ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
+    fontsize=13, fontweight='bold', va='top')
+    c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
+    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
+
+
+    plt.show()
+#    cbar.ax.set_xlabel(r'$U_{obs}$ (m $yr^{-1}$)')
                
     # Look at the last sampled time and check how sigma QoI converges
     # with addition of more eigenvectors

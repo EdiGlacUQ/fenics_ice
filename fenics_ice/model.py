@@ -34,6 +34,11 @@ log = logging.getLogger("fenics_ice")
         # TODO - this will not handle extrapolation/missing data
         # nicely - unfound simplex are returned '-1' which takes the last
         # tri.simplices...
+
+        # at the moment i have moved these from vel_obs_from_data, so they 
+        # can be called directly from a run script.
+        # the ismipc test, which calls this function, still seems to perform fine
+        # but this refactoring may make things less efficient.
 def interp_weights(xy, uv, periodic_bc, d=2):
             """Compute the nearest vertices & weights (for reuse)"""
             from scipy.spatial import Delaunay
