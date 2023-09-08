@@ -1375,14 +1375,10 @@ class ssa_solver:
         #             print(f"tlm parameters: {tlm_solver_parameters}")
 
         if verbose:
-            J_ls_u = new_scalar_function(name="J_ls_term_x")
-            J_ls_v = new_scalar_function(name="J_ls_term_y")
-            Assignment(J_ls_u, J_ls_term_u).solve()
-            Assignment(J_ls_v, J_ls_term_v).solve()
-
             # Print out results
             J1 = J.value()
-            J2 = J_ls_u.values()[0] + J_ls_v.values()[0]
+            J2 = (function_scalar_value(J_ls_term_u)
+                  + function_scalar_value(J_ls_term_v))
 
             # Assemble & write out terms of regularisation term
             J3 = 0.0
