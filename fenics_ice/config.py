@@ -411,7 +411,7 @@ class MomsolveCfg(ConfigPrinter):
                           'convergence_criterion': 'incremental',
                           'error_on_nonconvergence': False,
                           'krylov_solver': {'absolute_tolerance': 1.0e-50,
-                                            'relative_tolerance': 1.0e-5}}})
+                                            'relative_tolerance': 1.0e-8}}})
 
     newton_params: dict = field(default_factory=lambda: {
         'nonlinear_solver': 'newton',
@@ -423,7 +423,7 @@ class MomsolveCfg(ConfigPrinter):
                           'convergence_criterion': 'incremental',
                           'error_on_nonconvergence': True,
                           'krylov_solver': {'absolute_tolerance': 1.0e-50,
-                                            'relative_tolerance': 1.0e-5}}})
+                                            'relative_tolerance': 1.0e-8}}})
 
 
 @dataclass(frozen=True)
