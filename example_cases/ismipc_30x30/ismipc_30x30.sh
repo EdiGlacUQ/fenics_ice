@@ -17,4 +17,4 @@ python $RUN_DIR/run_inv.py ismipc_30x30.toml
 python $RUN_DIR/run_forward.py ismipc_30x30.toml
 python $RUN_DIR/run_eigendec.py ismipc_30x30.toml
 python $RUN_DIR/run_errorprop.py ismipc_30x30.toml
-python $RUN_DIR/run_invsigma.py ismipc_30x30.toml
+python $RUN_DIR/run_obs_sens_prop.py ismipc_30x30.toml
