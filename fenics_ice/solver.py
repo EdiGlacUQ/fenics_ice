@@ -211,14 +211,14 @@ class ssa_solver:
         if self.mixed_space:
             assert self.params.inversion.dual  # only need mixed space for 2 controls
             self.QQ = self.get_mixed_space()
-            self._alphaXbeta = Function(self.QQ, name="alphaXbeta", static=True)
+            self._alphaXbeta = Function(self.QQ, name="alphaXbeta")
             self._cntrl_assigner = FunctionAssigner(self.QQ, [self.Qp]*2)
 
             self._alpha = None
             self._beta = None
         else:
-            self._alpha = Function(self.Qp, name='alpha', static=True)
-            self._beta = Function(self.Qp, name='beta', static=True)
+            self._alpha = Function(self.Qp, name='alpha')
+            self._beta = Function(self.Qp, name='beta')
 
             self.QQ = None
             self._alphaXbeta = None
