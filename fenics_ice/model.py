@@ -105,8 +105,8 @@ class model:
         # Define control functions
         # Note - these are potentially distinct from solver.alpha, .beta
         # because solver may use either two CG spaces or a mixed CGxCG space
-        self.alpha = Function(self.Qp, name='alpha', static=True)
-        self.beta = Function(self.Qp, name='beta', static=True)
+        self.alpha = Function(self.Qp, name='alpha')
+        self.beta = Function(self.Qp, name='beta')
         self.beta_bgd = Function(self.Qp, name='beta_bgd')
 
         # Default velocity mask and Beta fields
@@ -153,9 +153,9 @@ class model:
 
         min_thick = self.params.ice_dynamics.min_thickness
 
-        self.bed = self.field_from_data("bed", self.Q, static=True)
-        self.bmelt = self.field_from_data("bmelt", self.M, default=0.0, static=True)
-        self.smb = self.field_from_data("smb", self.M, default=0.0, static=True)
+        self.bed = self.field_from_data("bed", self.Q)
+        self.bmelt = self.field_from_data("bmelt", self.M, default=0.0)
+        self.smb = self.field_from_data("smb", self.M, default=0.0)
         self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
 
         if self.params.melt.use_melt_parameterisation:
@@ -354,17 +354,17 @@ class model:
                                       M_coords, self.params.mesh.periodic_bc)
 
         # Define new functions to hold results
-        self.u_obs_Q = Function(self.Q, name="u_obs", static=True)
-        self.v_obs_Q = Function(self.Q, name="v_obs", static=True)
-        self.u_std_Q = Function(self.Q, name="u_std", static=True)
-        self.v_std_Q = Function(self.Q, name="v_std", static=True)
+        self.u_obs_Q = Function(self.Q, name="u_obs")
+        self.v_obs_Q = Function(self.Q, name="v_obs")
+        self.u_std_Q = Function(self.Q, name="u_std")
+        self.v_std_Q = Function(self.Q, name="v_std")
         # self.mask_vel_Q = Function(self.Q)
 
-        self.u_obs_M = Function(self.M, name="u_obs", static=True)
-        self.v_obs_M = Function(self.M, name="v_obs", static=True)
+        self.u_obs_M = Function(self.M, name="u_obs")
+        self.v_obs_M = Function(self.M, name="v_obs")
         # self.u_std_M = Function(self.M)
         # self.v_std_M = Function(self.M)
-        self.mask_vel_M = Function(self.M, name="mask_vel", static=True)
+        self.mask_vel_M = Function(self.M, name="mask_vel")
 
         # Fill via interpolation
         self.u_obs_Q.vector()[:] = interpolate(self.vel_obs['u_comp'], vtx_Q, wts_Q)
