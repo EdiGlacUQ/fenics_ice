@@ -409,7 +409,9 @@ class MomsolveCfg(ConfigPrinter):
                           'absolute_tolerance': 1.0,
                           'relative_tolerance': 0.001,
                           'convergence_criterion': 'incremental',
-                          'error_on_nonconvergence': False}})
+                          'error_on_nonconvergence': False,
+                          'krylov_solver': {'absolute_tolerance': 1.0e-50,
+                                            'relative_tolerance': 1.0e-8}}})
 
     newton_params: dict = field(default_factory=lambda: {
         'nonlinear_solver': 'newton',
@@ -419,7 +421,9 @@ class MomsolveCfg(ConfigPrinter):
                           'absolute_tolerance': 1e-07,
                           'relative_tolerance': 1e-08,
                           'convergence_criterion': 'incremental',
-                          'error_on_nonconvergence': True}})
+                          'error_on_nonconvergence': True,
+                          'krylov_solver': {'absolute_tolerance': 1.0e-50,
+                                            'relative_tolerance': 1.0e-8}}})
 
 
 @dataclass(frozen=True)
@@ -589,43 +593,3 @@ class TestCfg(ConfigPrinter):
     expected_cntrl_sigma_prior_norm: float = None
     expected_Q_sigma: float = None
     expected_Q_sigma_prior: float = None
-
-#TODO - these are currently unused
-newton_defaults_linear = {'nonlinear_solver': 'newton',
-                          'newton_solver': {'linear_solver': 'umfpack',
-                                            'maximum_iterations': 25,
-                                            'absolute_tolerance': 1e-07,
-                                            'relative_tolerance': 1e-08,
-                                            'convergence_criterion': 'incremental',
-                                            'error_on_nonconvergence': True}}
-
-picard_defaults_linear = {'nonlinear_solver': 'newton',
-                          'newton_solver': {'linear_solver': 'umfpack',
-                                            'maximum_iterations': 200,
-                                            'absolute_tolerance': 1.0,
-                                            'relative_tolerance': 0.001,
-                                            'convergence_criterion': 'incremental',
-                                            'error_on_nonconvergence': False}}
-
-
-newton_defaults_budd =   {"nonlinear_solver":"newton",
-                              "newton_solver":{"linear_solver":"umfpack",
-                                               "maximum_iterations":25,
-                                               "absolute_tolerance":1.0e-4,
-                                               "relative_tolerance":1.0e-5,
-                                               "convergence_criterion":"incremental",
-                                               "error_on_nonconvergence":True,
-                                               "lu_solver":{"same_nonzero_pattern":False,
-                                                            "symmetric":False,
-                                                            "reuse_factorization":False}}}
-
-picard_defaults_budd = {"nonlinear_solver":"newton",
-                            "newton_solver":{"linear_solver":"umfpack",
-                                             "maximum_iterations":200,
-                                             "absolute_tolerance":1.0e-4,
-                                             "relative_tolerance":1.0e-10,
-                                             "convergence_criterion":"incremental",
-                                             "error_on_nonconvergence":False,
-                                             "lu_solver":{"same_nonzero_pattern":False,
-                                                          "symmetric":False,
-                                                          "reuse_factorization":False}}}

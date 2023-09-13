@@ -222,14 +222,14 @@ class ssa_solver:
         if self.mixed_space:
             assert self.params.inversion.dual  # only need mixed space for 2 controls
             self.QQ = self.get_mixed_space()
-            self._alphaXbeta = Function(self.QQ, name="alphaXbeta", static=True)
+            self._alphaXbeta = Function(self.QQ, name="alphaXbeta")
             self._cntrl_assigner = FunctionAssigner(self.QQ, [self.Qp]*2)
 
             self._alpha = None
             self._beta = None
         else:
-            self._alpha = Function(self.Qp, name='alpha', static=True)
-            self._beta = Function(self.Qp, name='beta', static=True)
+            self._alpha = Function(self.Qp, name='alpha')
+            self._beta = Function(self.Qp, name='beta')
 
             self.QQ = None
             self._alphaXbeta = None
@@ -1388,14 +1388,10 @@ class ssa_solver:
         #             print(f"tlm parameters: {tlm_solver_parameters}")
 
         if verbose:
-            J_ls_u = new_scalar_function(name="J_ls_term_x")
-            J_ls_v = new_scalar_function(name="J_ls_term_y")
-            Assignment(J_ls_u, J_ls_term_u).solve()
-            Assignment(J_ls_v, J_ls_term_v).solve()
-
             # Print out results
             J1 = J.value()
-            J2 = J_ls_u.values()[0] + J_ls_v.values()[0]
+            J2 = (function_scalar_value(J_ls_term_u)
+                  + function_scalar_value(J_ls_term_v))
 
             # Assemble & write out terms of regularisation term
             J3 = 0.0
@@ -1514,7 +1510,6 @@ class ddJ_wrapper(object):
 
 
 class MomentumSolver(EquationSolver):
-
     def __init__(self, *args, **kwargs):
         self.picard_params = kwargs.pop("picard_params", None)
         self.J_p = kwargs.pop("J_p", None)
@@ -1527,31 +1522,25 @@ class MomentumSolver(EquationSolver):
     def forward_solve(self, x, deps=None):
         if deps is None:
             deps = self.dependencies()
-            def replace_deps(form): return form  # noqa: E704
-        else:
-            from collections import OrderedDict
-            replace_map = OrderedDict(zip(self.dependencies(), deps))
-            replace_map[self.x()] = x
-            def replace_deps(form): return ufl.replace(form, replace_map)  # noqa: E704
-            # for i, (dep_x, dep) in enumerate(zip(self.dependencies(), deps)):
-            # info("%i %s %.16e" % (i, dep_x.name(), dep.vector().norm("l2")))
-        if self._initial_guess_index is not None:
-            function_assign(x, deps[self._initial_guess_index])
 
-        for i, bc in enumerate(self._bcs):
-            keys = bc.get_boundary_values().keys()
-            values = bc.get_boundary_values().items()
-            keys = list(keys)
-            import numpy
-            values = numpy.array(list(values))
-            info("BC %i %i %.16e" % (i, len(keys), (values * values).sum()))
+            def replace_deps(form):
+                return form
+        else:
+            replace_map = dict(zip(self.dependencies(), deps))
+            replace_map[self.x()] = x
+
+            def replace_deps(form):
+                return ufl.replace(form, replace_map)
 
         lhs = replace_deps(self._lhs)
-        rhs = 0 if self._rhs == 0 else replace_deps(self._rhs)
+        if isinstance(self._rhs, ufl.classes.Form):
+            rhs = replace_deps(self._rhs)
+        else:
+            rhs = self._rhs
+            assert isinstance(rhs, int) and rhs == 0
         J_p = replace_deps(self.J_p)
         J = replace_deps(self._J)
         # First order approx - inconsistent jacobian
-        # 'replace_deps' is only used by forward replay - tlm_adjoint stuff
         solve(lhs == rhs, x, self._bcs, J=J_p,
               form_compiler_parameters=self._form_compiler_parameters,
               solver_parameters=self.picard_params)
