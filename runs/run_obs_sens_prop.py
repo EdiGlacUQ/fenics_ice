@@ -43,6 +43,7 @@ import matplotlib.pyplot as plt
 from IPython import embed
 from scipy.sparse import spdiags
 
+# the function below is not in run_errorprop.py, but needed for obs sens
 @restore_manager
 def compute_tau(forward, u, m, dm):
     # this block of code will do the "forward" (calculation of velocity and cost function) once
@@ -98,7 +99,7 @@ def run_obs_sens_prop(config_file):
     mdl.beta_from_inversion()
     mdl.bglen_from_data(mask_only=True)
 
-    # Setup our solver object
+    # Setup our solver object -- obs_sensitivity flag set to ensure caching
     slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual, obs_sensitivity=True)
 
     # from errorprop -- this variable is not used in that fn
@@ -106,6 +107,8 @@ def run_obs_sens_prop(config_file):
 
     cntrl = slvr.get_control()
     space = slvr.get_control_space()
+        
+    # call to slvr.forward() needed to cache variables
     slvr.forward(cntrl)
 
     # Regularization operator using inversion delta/gamma values
@@ -153,11 +156,18 @@ def run_obs_sens_prop(config_file):
     num_sens = params.time.num_sens
     t_sens = np.flip(np.linspace(run_length, 0, num_sens))
 
+    # above this point there is very little difference with run_errorprop.py
+    # -- exceptions are the defined function compute_tau() and 
+    # -- the call to solver.forward() to generate interpolation matrix
+
+    # this simply loads cached variables from solver.py which are cached in 
+    #  the above forward() call
     assert hasattr(slvr,'_cached_Amat_vars'),\
         "Attempt to retrieve Amat from solver type without first caching"
     (P, u_std_local, v_std_local, interp_space) = \
                 slvr._cached_Amat_vars
 
+    # This is the matrix R in the definition of matrix A (separate for each u and v)
     Ru = spdiags(1.0 / (u_std_local ** 2),
                               0, P.shape[0], P.shape[0])
     Rv = spdiags(1.0 / (v_std_local ** 2),
@@ -168,14 +178,25 @@ def run_obs_sens_prop(config_file):
     dObsU_M = []
     dObsV_M = []
 
+    # the following definitions are purely for visualisation
     M_coords = mdl.M.tabulate_dof_coordinates()
-
     vtx_M, wts_M = interp_weights(mdl.vel_obs['uv_obs_pts'],
                                   M_coords, params.mesh.periodic_bc)
 
     for j in range(num_sens):
+
+        # for each time level T, we have a Q_T, hence the loop
+            
         hdf5data.read(dQ_cntrl, f'dQd{cntrl[0].name()}/vector_{j}')
 
+        # the rest of this loop implements the same operations as 
+        # lines 137-147 of run_errorprop.py, ie
+        #
+        #   (Gamma_{prior} - W D W^T) acting on (dQ/dm)
+        #
+        # P3 needed to be defined as it is because
+        # P_vec = P2.vector() - P1.vector() led to errors later on (cannot recall specifics)
+            
         tmp1 = np.asarray([w.vector().inner(dQ_cntrl.vector()) for w in W])
         tmp2 = np.dot(D, tmp1)
 
@@ -190,26 +211,32 @@ def run_obs_sens_prop(config_file):
         P3.vector()[:] = P2.vector()[:] - P1.vector()[:]
         
 
-    # retaining the following code causes a tlm_adjoint runtime error in the 2nd execution of the loop 
-    # so the code is packaged within a decorated function
-       # reset_manager()
-       # stop_manager(tlm=False)
-       # configure_tlm((cntrl, P3))
-       # slvr.forward(cntrl)
-       # tau = function_tlm(slvr.U, (cntrl, P3))
+        # retaining the following code causes a tlm_adjoint runtime error in the 2nd execution of the loop 
+        #  so the code is packaged within a decorated function
+        # reset_manager()
+        # stop_manager(tlm=False)
+        # configure_tlm((cntrl, P3))
+        # slvr.forward(cntrl)
+        # tau = function_tlm(slvr.U, (cntrl, P3))
 
+        # tau is  d(U,V)/dm * (Gamma_{prior} - W D W^T) * (dQ/dm), or
+        #         d(U,V)/dm * P3
         tau = compute_tau(slvr.forward, slvr.U, cntrl, P3)
 
-    # tau is in the space of U (right?)
+        # tau is in the space of U (right?)
         tauu, tauv = split(tau)
 
-    # this block of code then implements -A.tau
+        # this block of code then implements A.tau
+        # but it needs to be made negative..
 
         dobsu = Amat_obs_action(P, Ru, tauu, interp_space)
         dobsv = Amat_obs_action(P, Rv, tauv, interp_space)
         dObsU.append(dobsu)
         dObsV.append(dobsv)
 
+        # this is simply interpolation for later visualisation
+        # this could be a point of error.. but I don't know
+        # how to test this by visualising dObsU, dObsV!
         dObsU_M.append(Function(mdl.M, static=True))
         dObsV_M.append(Function(mdl.M, static=True))
         dObsU_M[j].vector()[:] = interpolate(dobsu, vtx_M, wts_M)
