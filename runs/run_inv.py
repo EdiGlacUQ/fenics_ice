@@ -34,7 +34,6 @@ from fenics_ice.config import ConfigParser
 # import numpy as np
 # import pickle
 import datetime
-from IPython import embed
 
 def run_inv(config_file):
     """Run the inversion part of the simulation"""

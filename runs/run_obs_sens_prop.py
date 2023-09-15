@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics_ice.backend import Function, HDF5File
+from fenics_ice.backend import Function, HDF5File, project
 from tlm_adjoint import reset_manager, set_manager, stop_manager, \
         configure_tlm, function_tlm, restore_manager,\
         EquationManager, start_manager
@@ -38,9 +38,8 @@ from ufl import split
 from fenics_ice.solver import Amat_obs_action
 
 import matplotlib as mpl
-#mpl.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
-from IPython import embed
 from scipy.sparse import spdiags
 
 # the function below is not in run_errorprop.py, but needed for obs sens
@@ -98,6 +97,7 @@ def run_obs_sens_prop(config_file):
     mdl.alpha_from_inversion()
     mdl.beta_from_inversion()
     mdl.bglen_from_data(mask_only=True)
+
 
     # Setup our solver object -- obs_sensitivity flag set to ensure caching
     slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual, obs_sensitivity=True)
@@ -175,13 +175,13 @@ def run_obs_sens_prop(config_file):
 
     dObsU = []
     dObsV = []
-    dObsU_M = []
-    dObsV_M = []
-
+    
     # the following definitions are purely for visualisation
-    M_coords = mdl.M.tabulate_dof_coordinates()
-    vtx_M, wts_M = interp_weights(mdl.vel_obs['uv_obs_pts'],
-                                  M_coords, params.mesh.periodic_bc)
+    #M_coords = mdl.M.tabulate_dof_coordinates()
+    #vtx_M, wts_M = interp_weights(mdl.vel_obs['uv_obs_pts'],
+    #                              M_coords, params.mesh.periodic_bc)
+    #dObsU_M = []
+    #dObsV_M = []
 
     for j in range(num_sens):
 
@@ -226,6 +226,22 @@ def run_obs_sens_prop(config_file):
         # tau is in the space of U (right?)
         tauu, tauv = split(tau)
 
+        #tauuQ = project(tauu,mdl.Q)
+        #tauvQ = project(tauv,mdl.Q)
+
+        #if ( j==(num_sens-1) ):
+        # x    = mesh.coordinates()[:,0]
+        # y    = mesh.coordinates()[:,1]
+        # t    = mesh.cells()
+        # cmap_div='RdBu'
+        # V = tauvQ
+        # v   = V.compute_vertex_values(mesh)
+        # plt.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
+        # plt.show()
+
+
+
+
         # this block of code then implements A.tau
         # but it needs to be made negative..
 
@@ -234,85 +250,78 @@ def run_obs_sens_prop(config_file):
         dObsU.append(dobsu)
         dObsV.append(dobsv)
 
-        # this is simply interpolation for later visualisation
+        # this iqs simply interpolation for later visualisation
         # this could be a point of error.. but I don't know
         # how to test this by visualising dObsU, dObsV!
-        dObsU_M.append(Function(mdl.M, static=True))
-        dObsV_M.append(Function(mdl.M, static=True))
-        dObsU_M[j].vector()[:] = interpolate(dobsu, vtx_M, wts_M)
-        dObsV_M[j].vector()[:] = interpolate(dobsv, vtx_M, wts_M)
+        #dObsU_M.append(Function(mdl.M, static=True))
+        #dObsV_M.append(Function(mdl.M, static=True))
+        #dObsU_M[j].vector()[:] = interpolate(dobsu, vtx_M, wts_M)
+        #dObsV_M[j].vector()[:] = interpolate(dobsv, vtx_M, wts_M)
 
 
-    x    = mesh.coordinates()[:,0]
-    y    = mesh.coordinates()[:,1]
-    t    = mesh.cells()
-    cmap_div='RdBu'
 
-    fig = plt.figure(figsize=(10,10))
+
+# below is some plotting commands, will not be used her but in another script
     
-    V = mdl.u_obs_M
-    ax  = fig.add_subplot(221)
-    ax.set_aspect('equal')
-    v   = V.compute_vertex_values(mesh)
-    ticks = np.linspace(10,30,3)
-    c = ax.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
-    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
+#    V = mdl.u_obs_M
+#    ax  = fig.add_subplot(221)
+#    ax.set_aspect('equal')
+#    v   = V.compute_vertex_values(mesh)
+#    ticks = np.linspace(10,30,3)
+#    c = ax.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
+#    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
+#
+#    V = mdl.v_obs_M
+#    ax  = fig.add_subplot(222)
+#    ax.set_aspect('equal')
+#    v   = V.compute_vertex_values(mesh)
+#    ticks = np.linspace(10,30,3)
+#    c = ax.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
+#    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
+#
+#    numlev = 20
+#    tick_options = {'axis':'both','which':'both','bottom':False,
+#        'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
+#
+#    V = dObsU_M[-1]
+#    ax  = fig.add_subplot(223)
+#    ax.set_aspect('equal')
+#    v   = V.compute_vertex_values(mesh)
+#    minv = np.min(v)
+#    maxv = np.max(v)
+#    levels = np.linspace(minv,maxv,numlev)
+#    ticks = np.linspace(minv,maxv,3)
+#    ax.tick_params(**tick_options)
+#    ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
+#    fontsize=13, fontweight='bold', va='top')
+#    c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
+#    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
 
-    V = mdl.v_obs_M
-    ax  = fig.add_subplot(222)
-    ax.set_aspect('equal')
-    v   = V.compute_vertex_values(mesh)
-    ticks = np.linspace(10,30,3)
-    c = ax.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
-    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
-
-    numlev = 20
-    tick_options = {'axis':'both','which':'both','bottom':False,
-        'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
-
-    V = dObsU_M[-1]
-    ax  = fig.add_subplot(223)
-    ax.set_aspect('equal')
-    v   = V.compute_vertex_values(mesh)
-    minv = np.min(v)
-    maxv = np.max(v)
-    levels = np.linspace(minv,maxv,numlev)
-    ticks = np.linspace(minv,maxv,3)
-    ax.tick_params(**tick_options)
-    ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
-    fontsize=13, fontweight='bold', va='top')
-    c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
-    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
-
-    V = dObsV_M[-1]
-    ax  = fig.add_subplot(224)
-    ax.set_aspect('equal')
-    v   = V.compute_vertex_values(mesh)
-    minv = np.min(v)
-    maxv = np.max(v)
-    levels = np.linspace(minv,maxv,numlev)
-    ticks = np.linspace(minv,maxv,3)
-    ax.tick_params(**tick_options)
-    ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
-    fontsize=13, fontweight='bold', va='top')
-    c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
-    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
+#    V = dObsV_M[-1]
+#    ax  = fig.add_subplot(224)
+#    ax.set_aspect('equal')
+#    v   = V.compute_vertex_values(mesh)
+#    minv = np.min(v)
+#    maxv = np.max(v)
+#    levels = np.linspace(minv,maxv,numlev)
+#    ticks = np.linspace(minv,maxv,3)
+#    ax.tick_params(**tick_options)
+#    ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
+#    fontsize=13, fontweight='bold', va='top')
+#    c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
+#    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
 
 
-    plt.show()
-#    cbar.ax.set_xlabel(r'$U_{obs}$ (m $yr^{-1}$)')
                
-    # Look at the last sampled time and check how sigma QoI converges
-    # with addition of more eigenvectors
 
     # Save plots in diagnostics
-    # phase_err = params.error_prop.phase_name
-    # phase_suffix_err = params.error_prop.phase_suffix
-    # diag_dir = Path(params.io.diagnostics_dir)/phase_err/phase_suffix_err
-    # outdir_err = Path(params.io.output_dir)/phase_err/phase_suffix_err
+    phase_sens = params.obs_sens.phase_name
+    phase_suffix_sens = params.obs_sens.phase_suffix
+    diag_dir = Path(params.io.diagnostics_dir)/phase_sens/phase_suffix_sens
 
-
-    #with open( os.path.join(outdir_err, sigma_file), "wb" ) as sigfile:
+    with open( os.path.join(diag_dir, 'vel_sens.npy'), "wb" ) as sensfile:
+        np.save(sensfile, [dObsU, dObsV])
+        sensfile.close()
     #    pickle.dump( [sigma, t_sens], sigfile)
     #with open( os.path.join(outdir_err, sigma_prior_file), "wb" ) as sigpfile:
     #    pickle.dump( [sigma_prior, t_sens], sigpfile)

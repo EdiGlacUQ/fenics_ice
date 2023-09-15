@@ -26,7 +26,6 @@ import numpy as np
 from pathlib import Path
 from numpy.random import randn
 import logging
-from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -156,7 +155,10 @@ class model:
         self.bed = self.field_from_data("bed", self.Q)
         self.bmelt = self.field_from_data("bmelt", self.M, default=0.0)
         self.smb = self.field_from_data("smb", self.M, default=0.0)
-        self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
+        if (self.params.mass_solve.use_cg_thickness and self.params.mesh.periodic_bc):
+         self.H_np = self.field_from_data("thick", self.Qp, min_val=min_thick)
+        else:
+         self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
 
         if self.params.melt.use_melt_parameterisation:
        
