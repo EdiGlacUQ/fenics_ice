@@ -29,6 +29,7 @@ from pathlib import Path
 import time
 import ufl
 import weakref
+from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -159,7 +160,7 @@ class ssa_solver:
         self.Phi = TestFunction(self.V)
         self.pTau = TestFunction(self.Qp)
 
-        if (self.params.mass_solve.use_cg_thickness and self.params.mesh.periodic_bc):
+        if not (self.params.mass_solve.use_cg_thickness and self.params.mesh.periodic_bc):
          self.trial_H = TrialFunction(self.M)
          self.Ksi = TestFunction(self.M)
         else:
@@ -631,14 +632,14 @@ class ssa_solver:
         )
 
 
-        if not (self.params.mass_solve.cg_thickness and self.params.mesh.periodic_bc):
+        if not (self.params.mass_solve.use_cg_thickness and self.params.mesh.periodic_bc):
             self.thickadv = self.thickadv + (
 
             # Outflow at boundaries
                 + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * trial_H, nm))
                 * ds
 
-            # Inflow at boundaries
+           # Inflow at boundaries
                 + conditional(dot(U_np, nm) < 0, 1.0, 0.0)*inner(Ksi, dot(U_np * H_init, nm))
                 * ds
             )
