@@ -31,7 +31,7 @@ from fenics_ice.config import ConfigParser
 import fenics_ice.fenics_util as fu
 
 import matplotlib as mpl
-#mpl.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import datetime
@@ -73,21 +73,8 @@ def run_forward(config_file):
     # Run the forward model
     Q = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)
 
-    x    = mesh.coordinates()[:,0]
-    y    = mesh.coordinates()[:,1]
-    t    = mesh.cells()
-    cmap_div='RdBu'
-    V = slvr.H
-    v   = V.compute_vertex_values(mesh)
-    plt.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
-    plt.show()
-
     # Run the adjoint model, computing gradient of Qoi w.r.t cntrl
     dQ_ts = compute_gradient(Q, cntrl)  # Isaac 27
-    V = dQ_ts[-1][0]
-    v   = V.compute_vertex_values(mesh)
-    plt.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
-    plt.show()
 
     # Output model variables in ParaView+Fenics friendly format
     # Output QOI & DQOI (needed for next steps)
