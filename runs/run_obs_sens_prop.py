@@ -21,6 +21,7 @@ from tlm_adjoint import reset_manager, set_manager, stop_manager, \
         EquationManager, start_manager
 
 import os
+from mpi4py import MPI
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
@@ -164,7 +165,7 @@ def run_obs_sens_prop(config_file):
     #  the above forward() call
     assert hasattr(slvr,'_cached_Amat_vars'),\
         "Attempt to retrieve Amat from solver type without first caching"
-    (P, u_std_local, v_std_local, interp_space) = \
+    (P, u_std_local, v_std_local, obs_local, interp_space) = \
                 slvr._cached_Amat_vars
 
     # This is the matrix R in the definition of matrix A (separate for each u and v)
@@ -182,6 +183,10 @@ def run_obs_sens_prop(config_file):
     #                              M_coords, params.mesh.periodic_bc)
     #dObsU_M = []
     #dObsV_M = []
+
+    comm = MPI.COMM_WORLD
+    size = comm.Get_size()
+    rank = comm.Get_rank()
 
     for j in range(num_sens):
 
@@ -247,8 +252,24 @@ def run_obs_sens_prop(config_file):
 
         dobsu = Amat_obs_action(P, Ru, tauu, interp_space)
         dobsv = Amat_obs_action(P, Rv, tauv, interp_space)
-        dObsU.append(dobsu)
-        dObsV.append(dobsv)
+
+        sendbuf = np.zeros(len(mdl.vel_obs['u_obs']),dtype='float')
+        rcvbuf = None
+        if rank == 0:
+            rcvbuf = np.empty(len(mdl.vel_obs['u_obs']),dtype='float')
+        sendbuf[obs_local] = dobsu
+        comm.Reduce(sendbuf, rcvbuf, root=0, op=MPI.SUM)
+        dobsU = rcvbuf
+
+        sendbuf[:]=0.
+        if rank == 0:
+            rcvbuf = np.empty(len(mdl.vel_obs['u_obs']),dtype='float')
+        sendbuf[obs_local] = dobsv
+        comm.Reduce(sendbuf, rcvbuf, root=0, op=MPI.SUM)
+        dobsV = rcvbuf
+
+        dObsU.append(dobsU)
+        dObsV.append(dobsV)
 
         # this iqs simply interpolation for later visualisation
         # this could be a point of error.. but I don't know
