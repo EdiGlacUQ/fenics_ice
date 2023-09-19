@@ -253,6 +253,11 @@ def run_obs_sens_prop(config_file):
         dobsu = Amat_obs_action(P, Ru, tauu, interp_space)
         dobsv = Amat_obs_action(P, Rv, tauv, interp_space)
 
+        # this end result (above) corresponds only to the velocity obs
+        # that live on this processor's subdomain. An MPI reduce
+        # is used to generate the global vectors, which are then 
+        # saved with numpy.save()
+            
         sendbuf = np.zeros(len(mdl.vel_obs['u_obs']),dtype='float')
         rcvbuf = None
         if rank == 0:
