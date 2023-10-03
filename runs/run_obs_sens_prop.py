@@ -15,15 +15,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tlm_adjoint.  If not, see <https://www.gnu.org/licenses/>.
 
-from fenics_ice.backend import Function, HDF5File, project
-from tlm_adjoint import reset_manager, set_manager, stop_manager, \
-        configure_tlm, function_tlm, restore_manager,\
+from fenics_ice.backend import Function, HDF5File
+from tlm_adjoint import set_manager, stop_manager, \
+        configure_tlm, function_tlm, restore_manager, \
         EquationManager, start_manager
 
 import os
-from mpi4py import MPI
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 import mpi4py.MPI as MPI  # noqa: N817
 from pathlib import Path
@@ -32,7 +29,6 @@ import numpy as np
 import sys
 
 from fenics_ice import model, solver, inout
-from fenics_ice.model import interp_weights, interpolate
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 from ufl import split
@@ -40,8 +36,11 @@ from fenics_ice.solver import Amat_obs_action
 
 import matplotlib as mpl
 mpl.use("Agg")
-import matplotlib.pyplot as plt
 from scipy.sparse import spdiags
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+
 
 # the function below is not in run_errorprop.py, but needed for obs sens
 @restore_manager
@@ -99,12 +98,8 @@ def run_obs_sens_prop(config_file):
     mdl.beta_from_inversion()
     mdl.bglen_from_data(mask_only=True)
 
-
     # Setup our solver object -- obs_sensitivity flag set to ensure caching
     slvr = solver.ssa_solver(mdl, mixed_space=params.inversion.dual, obs_sensitivity=True)
-
-    # from errorprop -- this variable is not used in that fn
-    #cntrl = slvr.get_control()[0]
 
     cntrl = slvr.get_control()
     space = slvr.get_control_space()
