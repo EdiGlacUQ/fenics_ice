@@ -16,3 +16,5 @@ from tlm_adjoint.fenics.backend import cpp_PETScVector  # noqa: E402
 _Vector__inner_orig = cpp_PETScVector.inner
 cpp_PETScVector.inner = _Vector_inner
 del _Vector_inner, cpp_PETScVector
+
+from fenics import Vector
