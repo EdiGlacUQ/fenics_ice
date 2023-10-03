@@ -29,7 +29,6 @@ from pathlib import Path
 import time
 import ufl
 import weakref
-from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 

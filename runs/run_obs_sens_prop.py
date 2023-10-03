@@ -177,13 +177,6 @@ def run_obs_sens_prop(config_file):
     dObsU = []
     dObsV = []
     
-    # the following definitions are purely for visualisation
-    #M_coords = mdl.M.tabulate_dof_coordinates()
-    #vtx_M, wts_M = interp_weights(mdl.vel_obs['uv_obs_pts'],
-    #                              M_coords, params.mesh.periodic_bc)
-    #dObsU_M = []
-    #dObsV_M = []
-
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
@@ -216,35 +209,12 @@ def run_obs_sens_prop(config_file):
         P3.vector()[:] = P2.vector()[:] - P1.vector()[:]
         
 
-        # retaining the following code causes a tlm_adjoint runtime error in the 2nd execution of the loop 
-        #  so the code is packaged within a decorated function
-        # reset_manager()
-        # stop_manager(tlm=False)
-        # configure_tlm((cntrl, P3))
-        # slvr.forward(cntrl)
-        # tau = function_tlm(slvr.U, (cntrl, P3))
-
         # tau is  d(U,V)/dm * (Gamma_{prior} - W D W^T) * (dQ/dm), or
         #         d(U,V)/dm * P3
         tau = compute_tau(slvr.forward, slvr.U, cntrl, P3)
 
         # tau is in the space of U (right?)
         tauu, tauv = split(tau)
-
-        #tauuQ = project(tauu,mdl.Q)
-        #tauvQ = project(tauv,mdl.Q)
-
-        #if ( j==(num_sens-1) ):
-        # x    = mesh.coordinates()[:,0]
-        # y    = mesh.coordinates()[:,1]
-        # t    = mesh.cells()
-        # cmap_div='RdBu'
-        # V = tauvQ
-        # v   = V.compute_vertex_values(mesh)
-        # plt.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
-        # plt.show()
-
-
 
 
         # this block of code then implements A.tau
@@ -276,69 +246,6 @@ def run_obs_sens_prop(config_file):
         dObsU.append(dobsU)
         dObsV.append(dobsV)
 
-        # this iqs simply interpolation for later visualisation
-        # this could be a point of error.. but I don't know
-        # how to test this by visualising dObsU, dObsV!
-        #dObsU_M.append(Function(mdl.M, static=True))
-        #dObsV_M.append(Function(mdl.M, static=True))
-        #dObsU_M[j].vector()[:] = interpolate(dobsu, vtx_M, wts_M)
-        #dObsV_M[j].vector()[:] = interpolate(dobsv, vtx_M, wts_M)
-
-
-
-
-# below is some plotting commands, will not be used her but in another script
-    
-#    V = mdl.u_obs_M
-#    ax  = fig.add_subplot(221)
-#    ax.set_aspect('equal')
-#    v   = V.compute_vertex_values(mesh)
-#    ticks = np.linspace(10,30,3)
-#    c = ax.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
-#    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
-#
-#    V = mdl.v_obs_M
-#    ax  = fig.add_subplot(222)
-#    ax.set_aspect('equal')
-#    v   = V.compute_vertex_values(mesh)
-#    ticks = np.linspace(10,30,3)
-#    c = ax.tricontourf(x, y, t, v, cmap=plt.get_cmap(cmap_div))
-#    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
-#
-#    numlev = 20
-#    tick_options = {'axis':'both','which':'both','bottom':False,
-#        'top':False,'left':False,'right':False,'labelleft':False, 'labelbottom':False}
-#
-#    V = dObsU_M[-1]
-#    ax  = fig.add_subplot(223)
-#    ax.set_aspect('equal')
-#    v   = V.compute_vertex_values(mesh)
-#    minv = np.min(v)
-#    maxv = np.max(v)
-#    levels = np.linspace(minv,maxv,numlev)
-#    ticks = np.linspace(minv,maxv,3)
-#    ax.tick_params(**tick_options)
-#    ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
-#    fontsize=13, fontweight='bold', va='top')
-#    c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
-#    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
-
-#    V = dObsV_M[-1]
-#    ax  = fig.add_subplot(224)
-#    ax.set_aspect('equal')
-#    v   = V.compute_vertex_values(mesh)
-#    minv = np.min(v)
-#    maxv = np.max(v)
-#    levels = np.linspace(minv,maxv,numlev)
-#    ticks = np.linspace(minv,maxv,3)
-#    ax.tick_params(**tick_options)
-#    ax.text(0.05, 0.95, 'a', transform=ax.transAxes,
-#    fontsize=13, fontweight='bold', va='top')
-#    c = ax.tricontourf(x, y, t, v, levels = levels, cmap=plt.get_cmap(cmap_div))
-#    cbar = plt.colorbar(c, ticks=ticks, pad=0.05)
-
-
-               
 
     # Save plots in diagnostics
     phase_sens = params.obs_sens.phase_name
@@ -348,11 +255,6 @@ def run_obs_sens_prop(config_file):
     with open( os.path.join(diag_dir, 'vel_sens.npy'), "wb" ) as sensfile:
         np.save(sensfile, [dObsU, dObsV])
         sensfile.close()
-    #    pickle.dump( [sigma, t_sens], sigfile)
-    #with open( os.path.join(outdir_err, sigma_prior_file), "wb" ) as sigpfile:
-    #    pickle.dump( [sigma_prior, t_sens], sigpfile)
-
-
 
 if __name__ == "__main__":
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
