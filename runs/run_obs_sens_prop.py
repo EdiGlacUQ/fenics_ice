@@ -60,6 +60,7 @@ def run_obs_sens_prop(config_file):
 
     # Read run config file
     params = ConfigParser(config_file)
+    num_sens = params.time.num_sens
 
     # Setup logging
     inout.setup_logging(params)
@@ -215,8 +216,9 @@ def run_obs_sens_prop(config_file):
         # this block of code then implements A.tau
         # but it needs to be made negative..
 
-        dobsu = Amat_obs_action(P, Ru, tauu, interp_space)
-        dobsv = Amat_obs_action(P, Rv, tauv, interp_space)
+        # note -- added mult by -1 because im not sure i had before, can be taken out
+        dobsu = -1.0*Amat_obs_action(P, Ru, tauu, interp_space)
+        dobsv = -1.0*Amat_obs_action(P, Rv, tauv, interp_space)
 
         # this end result (above) corresponds only to the velocity obs
         # that live on this processor's subdomain. An MPI reduce
@@ -242,15 +244,22 @@ def run_obs_sens_prop(config_file):
         dObsV.append(dobsV)
 
 
-    # Save plots in diagnostics
+    # Save data in diagnostics
     phase_sens = params.obs_sens.phase_name
     phase_suffix_sens = params.obs_sens.phase_suffix
     diag_dir = Path(params.io.diagnostics_dir)/phase_sens/phase_suffix_sens
 
-    with open( os.path.join(diag_dir, 'vel_sens.npy'), "wb" ) as sensfile:
-        np.save(sensfile, [dObsU, dObsV])
-        sensfile.close()
+    if rank == 0:
+        obs_pts = mdl.vel_obs['uv_obs_pts']
+        uobs = mdl.vel_obs['u_obs']
+        vobs = mdl.vel_obs['v_obs']
 
+        obs_sens_arrays = {'num_sens': num_sens, 'uv_obs_pts': obs_pts, \
+          'dObsU': dObsU, 'dObsV': dObsV, 'u_obs': uobs, 'v_obs': vobs}
+
+        with open(os.path.join(diag_dir, 'vel_sens.pkl'), 'wb') as f:
+          pickle.dump(obs_sens_arrays, f)
+ 
 if __name__ == "__main__":
     assert len(sys.argv) == 2, "Expected a configuration file (*.toml)"
     run_obs_sens_prop(sys.argv[1])
