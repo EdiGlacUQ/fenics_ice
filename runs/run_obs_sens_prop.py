@@ -29,6 +29,7 @@ import numpy as np
 import sys
 
 from fenics_ice import model, solver, inout
+from fenics_ice.model import interp_weights, interpolate
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 from ufl import split
@@ -172,7 +173,12 @@ def run_obs_sens_prop(config_file):
 
     dObsU = []
     dObsV = []
-    
+    dObsU_M = []
+    dObsV_M = []
+
+    M_coords = mdl.M.tabulate_dof_coordinates()
+    vtx_M, wts_M = interp_weights(mdl.vel_obs['uv_obs_pts'],M_coords, params.mesh.periodic_bc)
+
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
@@ -223,7 +229,10 @@ def run_obs_sens_prop(config_file):
         # this end result (above) corresponds only to the velocity obs
         # that live on this processor's subdomain. An MPI reduce
         # is used to generate the global vectors, which are then 
-        # saved with numpy.save()
+        # saved via pickle
+
+        # the broadcast below is necessary to interpolate to a DG function
+        # but would not be needed o/w since the pickle dump is only on p0
             
         sendbuf = np.zeros(len(mdl.vel_obs['u_obs']),dtype='float')
         rcvbuf = None
@@ -231,17 +240,25 @@ def run_obs_sens_prop(config_file):
             rcvbuf = np.empty(len(mdl.vel_obs['u_obs']),dtype='float')
         sendbuf[obs_local] = dobsu
         comm.Reduce(sendbuf, rcvbuf, root=0, op=MPI.SUM)
-        dobsU = rcvbuf
+        dobsU_0 = rcvbuf
+        dobsU = comm.bcast(dobsU_0, root=0)
 
         sendbuf[:]=0.
         if rank == 0:
             rcvbuf = np.empty(len(mdl.vel_obs['u_obs']),dtype='float')
         sendbuf[obs_local] = dobsv
         comm.Reduce(sendbuf, rcvbuf, root=0, op=MPI.SUM)
-        dobsV = rcvbuf
+        dobsV_0 = rcvbuf
+        dobsV = comm.bcast(dobsV_0, root=0)
 
         dObsU.append(dobsU)
         dObsV.append(dobsV)
+
+        # this is simply interpolation for later visualisation
+        dObsU_M.append(Function(mdl.M))
+        dObsV_M.append(Function(mdl.M))
+        dObsU_M[j].vector()[:] = interpolate(dobsU, vtx_M, wts_M)
+        dObsV_M[j].vector()[:] = interpolate(dobsV, vtx_M, wts_M)
 
 
     # Save data in diagnostics
