@@ -223,8 +223,8 @@ def run_obs_sens_prop(config_file):
         # but it needs to be made negative..
 
         # note -- added mult by -1 because im not sure i had before, can be taken out
-        dobsu = -1.0*Amat_obs_action(P, Ru, tauu, interp_space)
-        dobsv = -1.0*Amat_obs_action(P, Rv, tauv, interp_space)
+        dobsu = Amat_obs_action(P, Ru, tauu, interp_space)
+        dobsv = Amat_obs_action(P, Rv, tauv, interp_space)
 
         # this end result (above) corresponds only to the velocity obs
         # that live on this processor's subdomain. An MPI reduce
