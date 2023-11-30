@@ -29,7 +29,6 @@ import numpy as np
 import sys
 
 from fenics_ice import model, solver, inout
-from fenics_ice.model import interp_weights, interpolate
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
 from ufl import split
@@ -181,11 +180,6 @@ def run_obs_sens_prop(config_file):
 
     dObsU = []
     dObsV = []
-    dObsU_M = []
-    dObsV_M = []
-
-    M_coords = mdl.M.tabulate_dof_coordinates()
-    vtx_M, wts_M = interp_weights(mdl.vel_obs['uv_obs_pts'],M_coords, params.mesh.periodic_bc)
 
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
@@ -261,12 +255,6 @@ def run_obs_sens_prop(config_file):
 
         dObsU.append(dobsU)
         dObsV.append(dobsV)
-
-        # this is simply interpolation for later visualisation
-        dObsU_M.append(Function(mdl.M))
-        dObsV_M.append(Function(mdl.M))
-        dObsU_M[j].vector()[:] = interpolate(dobsU, vtx_M, wts_M)
-        dObsV_M[j].vector()[:] = interpolate(dobsV, vtx_M, wts_M)
 
 
     # Save data in diagnostics
