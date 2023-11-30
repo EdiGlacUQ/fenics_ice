@@ -77,7 +77,11 @@ def interpolation_matrix(x_coords, y_space):
 
 
 def Amat_obs_action(P, Rvec, vec_cg, dg_space):
+    # This function implements the Rvec*P*D action on a P1 function
+    #  where D is a projection into DG space
+    # 
     # to be called for each component of velocity
+    #
 
     test, trial = TestFunction(dg_space), TrialFunction(dg_space)
     vec_dg = Function(dg_space)
