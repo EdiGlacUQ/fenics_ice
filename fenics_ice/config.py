@@ -124,6 +124,19 @@ class ConfigParser(object):
         except KeyError:
             pass
 
+        try:
+            obs_sens_dict = self.config_dict['obs_sens']
+        except KeyError:
+            obs_sens_dict = {}
+        self.obs_sens = ObsSensCfg(**obs_sens_dict)
+
+        try:
+            mass_solve_dict = self.config_dict['mass_solve']
+        except KeyError:
+            mass_solve_dict = {}
+        self.mass_solve = MassSolveCfg(**mass_solve_dict)
+
+
     def check_dirs(self):
         """
         Check input directory exists & create output dir if necessary.
@@ -138,13 +151,15 @@ class ConfigParser(object):
                     self.time.phase_name,
                     self.eigendec.phase_name,
                     self.error_prop.phase_name,
-                    self.inv_sigma.phase_name]
+                    self.inv_sigma.phase_name,
+                    self.obs_sens.phase_name]
 
         ph_suffix = [self.inversion.phase_suffix,
                     self.time.phase_suffix,
                     self.eigendec.phase_suffix,
                     self.error_prop.phase_suffix,
-                    self.inv_sigma.phase_suffix]
+                    self.inv_sigma.phase_suffix,
+                    self.obs_sens.phase_suffix]
 
         for ph, suff in zip(ph_names, ph_suffix):
             out_dir = (outdir / ph / suff)
@@ -252,6 +267,17 @@ class ErrorPropCfg(ConfigPrinter):
     qoi: str = 'vaf'
     phase_name: str = 'error_prop'
     phase_suffix: str = ''
+
+
+@dataclass(frozen=True)
+class ObsSensCfg(ConfigPrinter):
+    """
+    Configuration related to observation sensitivities
+    """
+    qoi: str = 'vaf'
+    phase_name: str = 'obs_sens'
+    phase_suffix: str = ''
+    
 
 @dataclass(frozen=True)
 class SampleCfg(ConfigPrinter):
@@ -395,6 +421,18 @@ class IceDynamicsCfg(ConfigPrinter):
 
 
 @dataclass(frozen=True)
+class MassSolveCfg(ConfigPrinter):
+    """
+    Options for mass balance solver
+    """
+
+    use_cg_thickness: bool = False
+
+    def __post_init__(self):
+     """  """
+
+
+@dataclass(frozen=True)
 class MomsolveCfg(ConfigPrinter):
     """
     Configuration of MomentumSolver with sensible defaults for picard & newton params
@@ -513,7 +551,6 @@ class IOCfg(ConfigPrinter):
 
         for fname in fname_default_suff:
             self.set_default_filename(fname, fname_default_suff[fname])
-            #embed()
 
 @dataclass(frozen=True)
 class TimeCfg(ConfigPrinter):

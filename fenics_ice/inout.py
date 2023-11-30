@@ -294,7 +294,6 @@ def write_variable(var, params, name=None, outdir=None, phase_name='', phase_suf
     outvar.rename(name, "")
     # Prefix the run name
     outfname = Path(outdir) / phase_name / phase_suffix / "_".join((params.io.run_name+phase_suffix, name))
-    #embed()
 
     # Write out output according to user specified format in toml
     output_var_format = params.io.output_var_format

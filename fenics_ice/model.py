@@ -26,9 +26,42 @@ import numpy as np
 from pathlib import Path
 from numpy.random import randn
 import logging
-from IPython import embed
 
 log = logging.getLogger("fenics_ice")
+
+        # Functions for repeated ungridded interpolation
+        # TODO - this will not handle extrapolation/missing data
+        # nicely - unfound simplex are returned '-1' which takes the last
+        # tri.simplices...
+
+        # at the moment i have moved these from vel_obs_from_data, so they 
+        # can be called directly from a run script.
+        # the ismipc test, which calls this function, still seems to perform fine
+        # but this refactoring may make things less efficient.
+def interp_weights(xy, uv, periodic_bc, d=2):
+            """Compute the nearest vertices & weights (for reuse)"""
+            from scipy.spatial import Delaunay
+            tri = Delaunay(xy)
+            simplex = tri.find_simplex(uv)
+
+            if not np.all(simplex >= 0):
+                if not periodic_bc:
+                    log.warning("Some points missing in interpolation "
+                              "of velocity obs to function space.")
+                else:
+                    log.warning("Some points missing in interpolation "
+                                "of velocity obs to function space.")
+
+            vertices = np.take(tri.simplices, simplex, axis=0)
+            temp = np.take(tri.transform, simplex, axis=0)
+            delta = uv - temp[:, d]
+            bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
+            return vertices, np.hstack((bary, 1 - bary.sum(axis=1,
+                                                           keepdims=True)))
+
+def interpolate(values, vtx, wts):
+            """Bilinear interpolation, given vertices & weights above"""
+            return np.einsum('nj,nj->n', np.take(values, vtx), wts)
 
 class model:
     """
@@ -122,7 +155,10 @@ class model:
         self.bed = self.field_from_data("bed", self.Q)
         self.bmelt = self.field_from_data("bmelt", self.M, default=0.0)
         self.smb = self.field_from_data("smb", self.M, default=0.0)
-        self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
+        if (self.params.mass_solve.use_cg_thickness and self.params.mesh.periodic_bc):
+         self.H_np = self.field_from_data("thick", self.Qp, min_val=min_thick)
+        else:
+         self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
 
         if self.params.melt.use_melt_parameterisation:
        
@@ -308,34 +344,6 @@ class model:
                                use_cloud_point=self.params.inversion.use_cloud_point_velocities)
         else:
             inout.read_vel_obs(infile, model=self)
-        # Functions for repeated ungridded interpolation
-        # TODO - this will not handle extrapolation/missing data
-        # nicely - unfound simplex are returned '-1' which takes the last
-        # tri.simplices...
-        def interp_weights(xy, uv, d=2):
-            """Compute the nearest vertices & weights (for reuse)"""
-            from scipy.spatial import Delaunay
-            tri = Delaunay(xy)
-            simplex = tri.find_simplex(uv)
-
-            if not np.all(simplex >= 0):
-                if not self.params.mesh.periodic_bc:
-                    log.warning("Some points missing in interpolation "
-                              "of velocity obs to function space.")
-                else:
-                    log.warning("Some points missing in interpolation "
-                                "of velocity obs to function space.")
-
-            vertices = np.take(tri.simplices, simplex, axis=0)
-            temp = np.take(tri.transform, simplex, axis=0)
-            delta = uv - temp[:, d]
-            bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
-            return vertices, np.hstack((bary, 1 - bary.sum(axis=1,
-                                                           keepdims=True)))
-
-        def interpolate(values, vtx, wts):
-            """Bilinear interpolation, given vertices & weights above"""
-            return np.einsum('nj,nj->n', np.take(values, vtx), wts)
 
         # Grab coordinates of both Lagrangian & DG function spaces
         # and compute (once) the interpolating arrays
@@ -343,9 +351,9 @@ class model:
         M_coords = self.M.tabulate_dof_coordinates()
 
         vtx_Q, wts_Q = interp_weights(self.vel_obs['uv_comp_pts'],
-                                      Q_coords)
+                                      Q_coords, self.params.mesh.periodic_bc)
         vtx_M, wts_M = interp_weights(self.vel_obs['uv_comp_pts'],
-                                      M_coords)
+                                      M_coords, self.params.mesh.periodic_bc)
 
         # Define new functions to hold results
         self.u_obs_Q = Function(self.Q, name="u_obs")
@@ -378,7 +386,7 @@ class model:
         # We need to do the same as above but for cloud point data
         # so we can write out a nicer output in the mesh coordinates
         vtx_Q_c, wts_Q_c = interp_weights(self.vel_obs['uv_obs_pts'],
-                                      Q_coords)
+                                      Q_coords, self.params.mesh.periodic_bc)
 
         # Define new functions to hold results
         self.u_cloud_Q = Function(self.Q, name="u_obs_cloud")

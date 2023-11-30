@@ -29,7 +29,6 @@ from pathlib import Path
 import time
 import ufl
 import weakref
-from IPython import embed
 
 log = logging.getLogger("fenics_ice")
 
@@ -77,11 +76,26 @@ def interpolation_matrix(x_coords, y_space):
     return x_local, P
 
 
+def Amat_obs_action(P, Rvec, vec_cg, dg_space):
+    # This function implements the Rvec*P*D action on a P1 function
+    #  where D is a projection into DG space
+    # 
+    # to be called for each component of velocity
+    #
+
+    test, trial = TestFunction(dg_space), TrialFunction(dg_space)
+    vec_dg = Function(dg_space)
+    solve(inner(trial, test) * dx == inner(vec_cg, test) * dx,
+          vec_dg, solver_parameters={"linear_solver": "lu"})
+
+    return Rvec * (P @ vec_dg.vector().get_local())
+    
+
 class ssa_solver:
     """
     The ssa_solver object is currently the only kind of fenics_ice 'solver' available.
     """
-    def __init__(self, model, mixed_space=False):
+    def __init__(self, model, mixed_space=False, obs_sensitivity=False):
 
         # Enable aggressive compiler options
         parameters["form_compiler"]["optimize"] = False
@@ -93,6 +107,7 @@ class ssa_solver:
         self.model.solvers.append(self)
         self.params = model.params
         self.mixed_space = mixed_space
+        self.obs_sensitivity = obs_sensitivity
 
         # Mesh/Function Spaces
         self.mesh = model.mesh
@@ -146,10 +161,15 @@ class ssa_solver:
         self.U = Function(self.V, name="U")
         self.U_np = Function(self.V, name="U_np")
         self.Phi = TestFunction(self.V)
-        self.Ksi = TestFunction(self.M)
         self.pTau = TestFunction(self.Qp)
 
-        self.trial_H = TrialFunction(self.M)
+        if not (self.params.mass_solve.use_cg_thickness and self.params.mesh.periodic_bc):
+         self.trial_H = TrialFunction(self.M)
+         self.Ksi = TestFunction(self.M)
+        else:
+         self.trial_H = TrialFunction(self.Qp)
+         self.Ksi = TestFunction(self.Qp)
+
 
         # Facets
         self.ff = model.ff
@@ -607,20 +627,25 @@ class ssa_solver:
             + inner(jump(Ksi), jump(0.5 * (dot(U_np, nm) + abs(dot(U_np, nm))) * trial_H))
             * dS
 
-            # Outflow at boundaries
-            + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * trial_H, nm))
-            * ds
-
-            # Inflow at boundaries
-            + conditional(dot(U_np, nm) < 0, 1.0, 0.0)*inner(Ksi, dot(U_np * H_init, nm))
-            * ds
-
             # basal melting
             + bmelt*Ksi*dx
 
             # surface mass balance
             - smb*Ksi*dx
         )
+
+
+        if not (self.params.mass_solve.use_cg_thickness and self.params.mesh.periodic_bc):
+            self.thickadv = self.thickadv + (
+
+            # Outflow at boundaries
+                + conditional(dot(U_np, nm) > 0, 1.0, 0.0)*inner(Ksi, dot(U_np * trial_H, nm))
+                * ds
+
+           # Inflow at boundaries
+                + conditional(dot(U_np, nm) < 0, 1.0, 0.0)*inner(Ksi, dot(U_np * H_init, nm))
+                * ds
+            )
 
         # # Forward euler
         # self.thickadv = (inner(Ksi, ((trial_H - H_np) / dt)) * dx
@@ -1303,9 +1328,16 @@ class ssa_solver:
                 J_v_obs, op=MPI.SUM)
             J_v_obs, = J_v_obs
 
+            u_std_local = u_std[obs_local]
+            v_std_local = v_std[obs_local]
+
             self._cached_J_mismatch_data \
                 = (interp_space,
                    u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs)
+            if (self.obs_sensitivity):
+                self._cached_Amat_vars = \
+                    (P, u_std_local, v_std_local, obs_local, interp_space)
+
         (interp_space,
          u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs) = \
             self._cached_J_mismatch_data
