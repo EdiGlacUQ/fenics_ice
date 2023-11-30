@@ -224,7 +224,7 @@ def run_obs_sens_prop(config_file):
         # this block of code then implements A.tau
         # but it needs to be made negative..
 
-        # note -- added mult by -1 because im not sure i had before, can be taken out
+        # note -- added mult by -1 before, but this was found to be incorrect
         dobsu = Amat_obs_action(P, Ru, tauu, interp_space)
         dobsv = Amat_obs_action(P, Rv, tauv, interp_space)
 
