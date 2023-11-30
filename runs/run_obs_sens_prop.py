@@ -158,6 +158,14 @@ def run_obs_sens_prop(config_file):
     # -- exceptions are the defined function compute_tau() and 
     # -- the call to solver.forward() to generate interpolation matrix
 
+    # below this point the result
+    #
+    # dQ/d\hat{p} = A (dp/dm) H^{-1} dQ_T/dm
+    #  
+    # is calculated, where p and \hat{p} are components of velocity (modelled and observed, respectively)
+    # Q_T is the QoI at a certain time, and A is a product of several operators involving interpolation, 
+    # projection, and observational covariance.
+
     # this simply loads cached variables from solver.py which are cached in 
     #  the above forward() call
     assert hasattr(slvr,'_cached_Amat_vars'),\
