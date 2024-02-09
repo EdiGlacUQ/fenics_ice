@@ -56,8 +56,12 @@ def interior(x_coords, y_space):
 
 
 def interpolation_matrix(x_coords, y_space):
-    from tlm_adjoint.fenics.fenics_equations import greedy_coloring, \
-        interpolation_matrix, point_owners
+    try:
+        from tlm_adjoint.fenics.interpolation import (
+            greedy_coloring, interpolation_matrix, point_owners)
+    except ImportError:
+        from tlm_adjoint.fenics.fenics_equations import (
+            greedy_coloring, interpolation_matrix, point_owners)
 
     y_cells = point_owners(x_coords, y_space, tolerance=np.inf)
     x_local = np.array(y_cells >= 0, dtype=bool)
@@ -964,8 +968,12 @@ class ssa_solver:
             M
             """
 
-            from tlm_adjoint.fenics.backend_code_generator_interface import \
-                matrix_multiply
+            try:
+                from tlm_adjoint.fenics.backend_interface import \
+                    matrix_multiply
+            except ImportError:
+                from tlm_adjoint.fenics.backend_code_generator_interface import \
+                    matrix_multiply
 
             B_0_action = []
             for i, x in enumerate(X):
@@ -1268,7 +1276,10 @@ class ssa_solver:
             cache_jacobian=False, cache_rhs_assembly=False).solve()
 
         if not hasattr(self, "_cached_J_mismatch_data"):
-            from tlm_adjoint.fenics.fenics_equations import LocalMatrix
+            try:
+                from tlm_adjoint.fenics.interpolation import LocalMatrix
+            except ImportError:
+                from tlm_adjoint.fenics.fenics_equations import LocalMatrix
             from scipy.sparse import spdiags
 
             obs_local, P = interpolation_matrix(uv_obs_pts, interp_space)
