@@ -84,7 +84,7 @@ def test_tv_run_forward(config_file):
                                                              cntrl_curr_init,
                                                              cntrl_curr.name()),
                                 cntrl_curr,
-                                J_val=J.value(),
+                                J_val=J.value,
                                 dJ=dJ_curr,
                                 seed=seeds[cntrl_curr.name()],
                                 M0=cntrl_curr_init,
