@@ -72,6 +72,7 @@ def run_forward(config_file):
 
     # Run the forward model
     Q = slvr.timestep(adjoint_flag=1, qoi_func=qoi_func)
+
     # Run the adjoint model, computing gradient of Qoi w.r.t cntrl
     dQ_ts = compute_gradient(Q, cntrl)  # Isaac 27
 
