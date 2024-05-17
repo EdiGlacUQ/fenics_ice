@@ -177,7 +177,7 @@ class model:
           method='nearest')
          self.melt_max = self.field_from_data("melt_max", self.M2, default=melt_max, method='nearest')
 
-        if self.params.errorprop.qoi_apply_vaf_mask:
+        if self.params.error_prop.qoi_apply_vaf_mask:
          self.vaf_mask = self.field_from_data("vaf_mask", self.M2, default=1.0, method='nearest')
 
         self.H = self.H_np.copy(deepcopy=True)

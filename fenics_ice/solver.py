@@ -130,7 +130,7 @@ class ssa_solver:
         if self.params.melt.use_melt_parameterisation:
          self.melt_depth_therm = model.melt_depth_therm
          self.melt_max = model.melt_max
-        if self.params.errorprop.qoi_apply_vaf_mask:
+        if self.params.error_prop.qoi_apply_vaf_mask:
          self.vaf_mask = model.vaf_mask
 
         self.set_inv_params()
@@ -1457,7 +1457,7 @@ class ssa_solver:
         b_ex = conditional(bed < 0.0, 1.0, 0.0)
         HAF = ufl.Max(b_ex * (H + (rhow/rhoi)*bed) + (1-b_ex)*(H), 0.0)
    
-        if self.params.errorprop.qoi_apply_vaf_mask:
+        if self.params.error_prop.qoi_apply_vaf_mask:
          msk_ex = conditional(self.vaf_mask > 0.0, 1.0, 0.0)
          Q_vaf = msk_ex * HAF * dx
         else:
