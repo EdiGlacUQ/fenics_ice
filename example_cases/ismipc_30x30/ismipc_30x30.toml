@@ -32,7 +32,7 @@ random_seed = 0
 [mesh]
 
 mesh_filename = "ismip_mesh.xml"
-periodic_bc = false
+periodic_bc = true
 
 [obs]
 
@@ -67,8 +67,7 @@ sliding_law = 'linear' #budd, linear
 [momsolve.picard_params]
 nonlinear_solver = "newton"
 [momsolve.picard_params.newton_solver]
-linear_solver = "cg"
-preconditioner = "hypre_amg"
+linear_solver = "umfpack"
 maximum_iterations = 200
 absolute_tolerance = 1.0e-0
 relative_tolerance = 1.0e-3
@@ -78,9 +77,7 @@ error_on_nonconvergence =  false
 [momsolve.newton_params]
 nonlinear_solver = "newton"
 [momsolve.newton_params.newton_solver]
-#linear_solver = "umfpack"
-linear_solver = "cg"
-preconditioner = "hypre_amg"
+linear_solver = "umfpack"
 maximum_iterations = 25
 absolute_tolerance = 1.0e-7
 relative_tolerance = 1.0e-8
@@ -130,10 +127,6 @@ qoi = 'h2' #or 'vaf'
 [[boundaries]]
     name = "Bottom Edge"
     id = 4
-
-[mass_solve]
-
-use_cg_thickness = true
 
 [testing]
 
