@@ -265,6 +265,8 @@ class ErrorPropCfg(ConfigPrinter):
     Configuration related to error propagation
     """
     qoi: str = 'vaf'
+    qoi_apply_vaf_mask: bool = False
+    qoi_mask: str = ''
     phase_name: str = 'error_prop'
     phase_suffix: str = ''
 
@@ -487,6 +489,7 @@ class IOCfg(ConfigPrinter):
     alpha_data_file: str = None
     melt_depth_therm_data_file: str = None
     melt_max_data_file: str = None
+    vaf_mask_data_file: str = None
 
     thick_field_name: str = "thick"
     bed_field_name: str = "bed"
@@ -498,6 +501,7 @@ class IOCfg(ConfigPrinter):
     alpha_field_name: str = "alpha"
     melt_depth_therm_field_name: str = "melt_depth"
     melt_max_field_name: str = "melt_max"
+    vaf_mask_field_name: str = "vaf_mask"
 
     inversion_file: str = None
     qoi_file: str = None  # "Qval_ts.p"

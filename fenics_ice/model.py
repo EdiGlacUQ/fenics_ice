@@ -162,8 +162,8 @@ class model:
 
         if self.params.melt.use_melt_parameterisation:
        
-         melt_depth_therm_const: float = -999.0
-         melt_max_const: float = -999.0
+         #melt_depth_therm_const: float = -999.0
+         #melt_max_const: float = -999.0
 
          if (self.params.melt.melt_depth_therm_const == -999.0 or \
           self.params.melt.melt_max_const == -999.0):
@@ -176,6 +176,9 @@ class model:
          self.melt_depth_therm = self.field_from_data("melt_depth_therm", self.M2, default=melt_depth, \
           method='nearest')
          self.melt_max = self.field_from_data("melt_max", self.M2, default=melt_max, method='nearest')
+
+        if self.params.errorprop.qoi_apply_vaf_mask:
+         self.vaf_mask = self.field_from_data("vaf_mask", self.M2, default=1.0, method='nearest')
 
         self.H = self.H_np.copy(deepcopy=True)
         self.H.rename("thick_H", "")
