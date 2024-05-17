@@ -128,10 +128,6 @@ qoi = 'h2' #or 'vaf'
     name = "Bottom Edge"
     id = 4
 
-[mass_solve]
-
-use_cg_thickness = true
-
 [testing]
 
 expected_init_alpha = 531.6114524861194
