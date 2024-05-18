@@ -59,19 +59,13 @@ def test_run_inversion(persistent_temp_model, monkeypatch):
 
     J_inv = mdl_out.solvers[0].J_inv.value()
 
-    if pytest.parallel:
-        tol = 1e-2
-
-    else:
-        tol = 1e-5
-
     pytest.check_float_result(cntrl_norm,
                               expected_cntrl_norm,
-                              work_dir, 'expected_cntrl_norm', tol=tol)
+                              work_dir, 'expected_cntrl_norm')
 
     pytest.check_float_result(J_inv,
                               expected_J_inv,
-                              work_dir, 'expected_J_inv', tol=tol)
+                              work_dir, 'expected_J_inv')
 
 @pytest.mark.tv
 def test_tv_run_inversion(persistent_temp_model, monkeypatch):
@@ -163,19 +157,13 @@ def test_run_forward(existing_temp_model, monkeypatch, setup_deps):
     delta_qoi = slvr.Qval_ts[-1] - slvr.Qval_ts[0]
     u_norm = norm(slvr.U)
 
-    if pytest.parallel:
-        tol = 1e-3
-
-    else:
-        tol = 1e-5
-
     pytest.check_float_result(delta_qoi,
                               expected_delta_qoi,
-                              work_dir, 'expected_delta_qoi', tol=tol)
+                              work_dir, 'expected_delta_qoi', tol=1.0e-5)
 
     pytest.check_float_result(u_norm,
                               expected_u_norm,
-                              work_dir, 'expected_u_norm', tol=tol)
+                              work_dir, 'expected_u_norm', tol=1.0e-5)
 
 @pytest.mark.tv
 def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps):
@@ -266,11 +254,7 @@ def test_run_eigendec(existing_temp_model, monkeypatch, setup_deps):
     evals_sum = np.sum(slvr.eigenvals)
     evec0_norm = norm(slvr.eigenfuncs[0])
 
-    if pytest.parallel:
-        tol = 1e-2
-
-    else:
-        tol = 1e-5
+    tol = 1e-5
 
     pytest.check_float_result(evals_sum,
                               expected_evals_sum,
@@ -302,7 +286,7 @@ def test_run_errorprop(existing_temp_model, monkeypatch, setup_deps):
     Q_sigma_prior = mdl_out.Q_sigma_prior[-1]
 
     if pytest.parallel:
-        tol = 5e-3
+        tol = 5e-5
 
     else:
         tol = 1e-5
