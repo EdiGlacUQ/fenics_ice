@@ -24,7 +24,7 @@ jobs:
       # Get tlm-adjoint code
       - uses: actions/checkout@v2
         with:
-          repository: 'EdiGlacUQ/tlm_adjoint'
+          repository: 'tlm-adjoint/tlm_adjoint'
           path: 'tlm_adjoint'
 
       # Get micromamba & prerequisites
