@@ -266,7 +266,6 @@ class ErrorPropCfg(ConfigPrinter):
     """
     qoi: str = 'vaf'
     qoi_apply_vaf_mask: bool = False
-    qoi_mask: str = ''
     phase_name: str = 'error_prop'
     phase_suffix: str = ''
 
