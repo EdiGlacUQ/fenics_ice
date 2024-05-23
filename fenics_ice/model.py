@@ -161,9 +161,6 @@ class model:
          self.H_np = self.field_from_data("thick", self.M, min_val=min_thick)
 
         if self.params.melt.use_melt_parameterisation:
-       
-         #melt_depth_therm_const: float = -999.0
-         #melt_max_const: float = -999.0
 
          if (self.params.melt.melt_depth_therm_const == -999.0 or \
           self.params.melt.melt_max_const == -999.0):
