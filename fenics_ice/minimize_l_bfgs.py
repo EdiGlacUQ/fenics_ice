@@ -1126,7 +1126,7 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         return dJ
 
     X, its, conv, reason, F_calls, Fp_calls, H_approx = l_bfgs(
-        F, Fp, M0, m, s_atol, g_atol, comm=manager.comm(), **kwargs)
+        F, Fp, M0, m, s_atol, g_atol, comm=manager.comm, **kwargs)
     if is_function(X):
         X = (X,)
 
