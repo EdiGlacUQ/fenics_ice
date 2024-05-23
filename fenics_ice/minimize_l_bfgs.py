@@ -1100,7 +1100,7 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
                 function_axpy(change, -1.0, last_m)
                 change_norm = max(change_norm, function_linf_norm(change))
             if change_norm == 0.0:
-                return last_F[2].value()
+                return last_F[2].value
 
         last_F[0] = functions_copy(X)
         functions_assign(M, X)
@@ -1116,17 +1116,17 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         last_F[2] = forward(last_F[1])
         manager.stop()
 
-        return last_F[2].value()
+        return last_F[2].value
 
     def Fp(*X):
         F(*X, force=last_F[1] is None)
         dJ = manager.compute_gradient(last_F[2], last_F[1])
-        if manager._cp_schedule.is_exhausted():
+        if manager._cp_schedule.is_exhausted:
             last_F[1] = None
         return dJ
 
     X, its, conv, reason, F_calls, Fp_calls, H_approx = l_bfgs(
-        F, Fp, M0, m, s_atol, g_atol, comm=manager.comm(), **kwargs)
+        F, Fp, M0, m, s_atol, g_atol, comm=manager.comm, **kwargs)
     if is_function(X):
         X = (X,)
 
