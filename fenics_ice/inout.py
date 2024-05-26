@@ -497,7 +497,7 @@ class InputData(object):
 
         # List of fields to search for
         field_list = ["thick", "bed", "bmelt", "smb", "Bglen", "Bglenmask", "alpha", \
-                      "melt_depth_therm", "melt_max"]
+                      "melt_depth_therm", "melt_max", "vaf_mask"]
 
         # Dictionary of filenames & field names (i.e. field to get from HDF5 file)
         # Possibly equal to None for variables which have sensible defaults
