@@ -193,6 +193,8 @@ def eigendecompose(space, A_action, B_matrix=None, N_eigenvalues=None,
         raise RuntimeError("Error encountered in SLEPc.EPS.solve")
     if esolver.getConverged() < N_ev:
         raise RuntimeError("Not all requested eigenpairs converged")
+    if esolver.getConvergedReason() <= 0:
+        raise RuntimeError("Convergence failure")
 
     return esolver
 
