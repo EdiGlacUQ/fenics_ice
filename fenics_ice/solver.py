@@ -1460,7 +1460,7 @@ class ssa_solver:
         if self.params.error_prop.qoi_apply_vaf_mask:
             if self.params.error_prop.qoi_vaf_mask_usecode:
                 code = float(self.params.error_prop.qoi_vaf_mask_code)
-                msk_ex = conditional((self.vaf_mask-code)<1.e-10, 1.0, 0.0)
+                msk_ex = conditional(abs(self.vaf_mask-code)<1.e-10, 1.0, 0.0)
             else:
                 msk_ex = conditional(self.vaf_mask > 0.0, 1.0, 0.0)
             Q_vaf = msk_ex * HAF * dx
