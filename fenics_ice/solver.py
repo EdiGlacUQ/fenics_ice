@@ -1458,10 +1458,14 @@ class ssa_solver:
         HAF = ufl.Max(b_ex * (H + (rhow/rhoi)*bed) + (1-b_ex)*(H), 0.0)
    
         if self.params.error_prop.qoi_apply_vaf_mask:
-         msk_ex = conditional(self.vaf_mask > 0.0, 1.0, 0.0)
-         Q_vaf = msk_ex * HAF * dx
+            if self.params.error_prop.qoi_vaf_mask_usecode:
+                code = float(self.params.error_prop.qoi_vaf_mask_code)
+                msk_ex = conditional(abs(self.vaf_mask-code)<1.e-10, 1.0, 0.0)
+            else:
+                msk_ex = conditional(self.vaf_mask > 0.0, 1.0, 0.0)
+            Q_vaf = msk_ex * HAF * dx
         else:
-         Q_vaf = HAF * dx
+            Q_vaf = HAF * dx
 
         if verbose:
             info(f"Q_vaf: {assemble(Q_vaf)}")
