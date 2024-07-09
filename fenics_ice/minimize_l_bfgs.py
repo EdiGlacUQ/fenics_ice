@@ -3,9 +3,8 @@
 
 from tlm_adjoint import clear_caches, function_assign, function_axpy, \
     function_comm, function_copy, function_get_values, function_inner, \
-    function_is_cached, function_is_checkpointed, function_is_static, \
-    function_linf_norm, function_new, function_set_values, is_function, \
-    restore_manager, set_manager
+    function_is_cached, function_is_static, function_linf_norm, function_new, \
+    function_set_values, is_function, restore_manager, set_manager
 from tlm_adjoint import manager as _manager
 
 from collections import deque
@@ -1080,8 +1079,7 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         manager = _manager()
 
     M = [function_new(m0, static=function_is_static(m0),
-                      cache=function_is_cached(m0),
-                      checkpoint=function_is_checkpointed(m0))
+                      cache=function_is_cached(m0))
          for m0 in M0]
 
     last_F = [None, None, None]
