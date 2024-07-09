@@ -55,7 +55,7 @@ def interior(x_coords, y_space):
 
 
 def interpolation_matrix(x_coords, y_space):
-    from tlm_adjoint.fenics.interpolation import (
+    from .interpolation import (
         greedy_coloring, interpolation_matrix, point_owners)
 
     y_cells = point_owners(x_coords, y_space, tolerance=np.inf)
@@ -1294,7 +1294,7 @@ class ssa_solver:
             cache_jacobian=False, cache_rhs_assembly=False).solve()
 
         if not hasattr(self, "_cached_J_mismatch_data"):
-            from tlm_adjoint.fenics.interpolation import LocalMatrix
+            from .interpolation import LocalMatrix
             from scipy.sparse import spdiags
 
             obs_local, P = interpolation_matrix(uv_obs_pts, interp_space)
