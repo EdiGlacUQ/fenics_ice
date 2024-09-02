@@ -4,7 +4,10 @@
 from fenics import TestFunction, TrialFunction, assemble, dx, inner, split
 
 import numpy as np
-import ufl
+try:
+    import ufl_legacy as ufl
+except ModuleNotFoundError:
+    import ufl
 
 __all__ = \
     [

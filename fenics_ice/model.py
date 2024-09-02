@@ -21,7 +21,10 @@ from . import inout, prior
 from . import mesh as fice_mesh
 
 import os.path
-import ufl
+try:
+    import ufl_legacy as ufl
+except ModuleNotFoundError:
+    import ufl
 import numpy as np
 from pathlib import Path
 from numpy.random import randn

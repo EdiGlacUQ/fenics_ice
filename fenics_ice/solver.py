@@ -27,7 +27,10 @@ import mpi4py.MPI as MPI  # noqa: N817
 import numpy as np
 from pathlib import Path
 import time
-import ufl
+try:
+    import ufl_legacy as ufl
+except ModuleNotFoundError:
+    import ufl
 import weakref
 
 log = logging.getLogger("fenics_ice")

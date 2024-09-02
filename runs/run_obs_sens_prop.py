@@ -31,7 +31,10 @@ import sys
 from fenics_ice import model, solver, inout
 from fenics_ice import mesh as fice_mesh
 from fenics_ice.config import ConfigParser
-from ufl import split
+try:
+    from ufl_legacy import split
+except ModuleNotFoundError:
+    from ufl import split
 from fenics_ice.solver import Amat_obs_action
 
 import matplotlib as mpl
