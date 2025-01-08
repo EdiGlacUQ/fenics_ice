@@ -27,7 +27,10 @@ import mpi4py.MPI as MPI  # noqa: N817
 import numpy as np
 from pathlib import Path
 import time
-import ufl
+try:
+    import ufl_legacy as ufl
+except ModuleNotFoundError:
+    import ufl
 import weakref
 
 log = logging.getLogger("fenics_ice")
@@ -55,8 +58,8 @@ def interior(x_coords, y_space):
 
 
 def interpolation_matrix(x_coords, y_space):
-    from tlm_adjoint.fenics.fenics_equations import greedy_coloring, \
-        interpolation_matrix, point_owners
+    from .interpolation import (
+        greedy_coloring, interpolation_matrix, point_owners)
 
     y_cells = point_owners(x_coords, y_space, tolerance=np.inf)
     x_local = np.array(y_cells >= 0, dtype=bool)
@@ -905,7 +908,7 @@ class ssa_solver:
         ##########################################
         # dJ = compute_gradient(J, self.alpha)
         # ddJ = Hessian(forward)
-        # min_order = taylor_test(forward, self.alpha, J_val=J.value(),
+        # min_order = taylor_test(forward, self.alpha, J_val=J.value,
         #                         dJ=dJ, ddJ=ddJ, seed=1.0e-6)
 
         def l_bfgs_converged(it, old_J_val, new_J_val,
@@ -991,8 +994,7 @@ class ssa_solver:
             M
             """
 
-            from tlm_adjoint.fenics.backend_code_generator_interface import \
-                matrix_multiply
+            from tlm_adjoint.fenics.backend_interface import matrix_multiply
 
             B_0_action = []
             for i, x in enumerate(X):
@@ -1295,7 +1297,7 @@ class ssa_solver:
             cache_jacobian=False, cache_rhs_assembly=False).solve()
 
         if not hasattr(self, "_cached_J_mismatch_data"):
-            from tlm_adjoint.fenics.fenics_equations import LocalMatrix
+            from .interpolation import LocalMatrix
             from scipy.sparse import spdiags
 
             obs_local, P = interpolation_matrix(uv_obs_pts, interp_space)
@@ -1344,36 +1346,36 @@ class ssa_solver:
          u_PRP, v_PRP, l_u_obs, l_v_obs, J_u_obs, J_v_obs) = \
             self._cached_J_mismatch_data
 
-        J_ls_term_u = Functional(name="J_term_u", space=J.space())
-        J_ls_term_v = Functional(name="J_term_v", space=J.space())
+        J_ls_term_u = Functional(name="J_term_u", space=J.space)
+        J_ls_term_v = Functional(name="J_term_v", space=J.space)
 
         # .5 * u^T P^T R_u_obs^{-1} P u
-        J_term = space_new(J.space())
+        J_term = space_new(J.space)
         InnerProduct(J_term, uf, uf, M=u_PRP, alpha = fac).solve()
         J_ls_term_u.addto(J_term)
 
         # .5 * v^T P^T R_v_obs^{-1} P v
-        J_term = space_new(J.space())
+        J_term = space_new(J.space)
         InnerProduct(J_term, vf, vf, M=v_PRP, alpha = fac).solve()
         J_ls_term_v.addto(J_term)
 
         # -.5 * 2 * u_obs^T R_u_obs^{-1} P u
-        J_term = space_new(J.space())
+        J_term = space_new(J.space)
         InnerProduct(J_term, uf, l_u_obs, alpha=-2.0 * fac).solve()
         J_ls_term_u.addto(J_term)
 
         # -.5 * 2 * v_obs^T R_v_obs^{-1} P v
-        J_term = space_new(J.space())
+        J_term = space_new(J.space)
         InnerProduct(J_term, vf, l_v_obs, alpha=-2.0 * fac).solve()
         J_ls_term_v.addto(J_term)
 
         # .5 * u_obs R_u_obs^{-1} u_obs
-        J_term = space_new(J.space())
+        J_term = space_new(J.space)
         function_assign(J_term, fac * J_u_obs)
         J_ls_term_u.addto(J_term)
 
         # .5 * v_obs R_v_obs^{-1} v_obs
-        J_term = space_new(J.space())
+        J_term = space_new(J.space)
         function_assign(J_term, fac * J_v_obs)
         J_ls_term_v.addto(J_term)
 
@@ -1410,7 +1412,7 @@ class ssa_solver:
 
         if verbose:
             # Print out results
-            J1 = J.value()
+            J1 = J.value
             J2 = (function_scalar_value(J_ls_term_u)
                   + function_scalar_value(J_ls_term_v))
 

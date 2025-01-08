@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       OMP_NUM_THREADS: 1
@@ -27,7 +27,7 @@ jobs:
       - name: Checkout tlm_adjoint
         uses: actions/checkout@v4
         with:
-          repository: 'EdiGlacUQ/tlm_adjoint'
+          repository: 'tlm-adjoint/tlm_adjoint'
           path: 'tlm_adjoint'
       - name: Install dependencies
         run: |
@@ -36,12 +36,12 @@ jobs:
               python3-matplotlib python3-netcdf4 python3-numpy python3-pytest \
               python3-pytest-dependency python3-pytest-mpi \
               python3-pytest-order python3-pytest-timeout python3-scipy \
-              python3-sympy
+              python3-sympy python3-toml
       - name: Run tests
         run: |
           export PYTHONPATH=$PYTHONPATH:$GITHUB_WORKSPACE/tlm_adjoint
           cd fenics_ice
-          pytest-3 -v --order-scope=module --timeout=300 --timeout-method=thread
-          pytest-3 -v -k tv --order-scope=module --timeout=300 --timeout-method=thread
-          mpirun -n 2 pytest-3 -v --order-scope=module --timeout=300 --timeout-method=thread
-          mpirun -n 2 pytest-3 -m key --key=smith --timeout=300 --timeout-method=thread
+          pytest -v --order-scope=module --timeout=300 --timeout-method=thread
+          pytest -v -k tv --order-scope=module --timeout=300 --timeout-method=thread
+          mpirun -n 2 pytest -v --order-scope=module --timeout=300 --timeout-method=thread
+          mpirun -n 2 pytest -m key --key=smith --timeout=300 --timeout-method=thread

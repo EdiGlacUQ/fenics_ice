@@ -3,9 +3,8 @@
 
 from tlm_adjoint import clear_caches, function_assign, function_axpy, \
     function_comm, function_copy, function_get_values, function_inner, \
-    function_is_cached, function_is_checkpointed, function_is_static, \
-    function_linf_norm, function_new, function_set_values, is_function, \
-    restore_manager, set_manager
+    function_is_cached, function_is_static, function_linf_norm, function_new, \
+    function_set_values, is_function, restore_manager, set_manager
 from tlm_adjoint import manager as _manager
 
 from collections import deque
@@ -1080,8 +1079,7 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         manager = _manager()
 
     M = [function_new(m0, static=function_is_static(m0),
-                      cache=function_is_cached(m0),
-                      checkpoint=function_is_checkpointed(m0))
+                      cache=function_is_cached(m0))
          for m0 in M0]
 
     last_F = [None, None, None]
@@ -1100,7 +1098,7 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
                 function_axpy(change, -1.0, last_m)
                 change_norm = max(change_norm, function_linf_norm(change))
             if change_norm == 0.0:
-                return last_F[2].value()
+                return last_F[2].value
 
         last_F[0] = functions_copy(X)
         functions_assign(M, X)
@@ -1116,17 +1114,17 @@ def minimize_l_bfgs(forward, M0, m, s_atol, g_atol, J0=None, manager=None,
         last_F[2] = forward(last_F[1])
         manager.stop()
 
-        return last_F[2].value()
+        return last_F[2].value
 
     def Fp(*X):
         F(*X, force=last_F[1] is None)
         dJ = manager.compute_gradient(last_F[2], last_F[1])
-        if manager._cp_schedule.is_exhausted():
+        if manager._cp_schedule.is_exhausted:
             last_F[1] = None
         return dJ
 
     X, its, conv, reason, F_calls, Fp_calls, H_approx = l_bfgs(
-        F, Fp, M0, m, s_atol, g_atol, comm=manager.comm(), **kwargs)
+        F, Fp, M0, m, s_atol, g_atol, comm=manager.comm, **kwargs)
     if is_function(X):
         X = (X,)
 

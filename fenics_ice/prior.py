@@ -24,7 +24,10 @@ from fenics_ice.sqrt_matrix_action import A_root_action, LumpedPCSqrtMassAction
 
 
 from abc import ABC, abstractmethod
-import ufl
+try:
+    import ufl_legacy as ufl
+except ModuleNotFoundError:
+    import ufl
 
 class Prior(ABC):
     """Abstraction for prior used by both comp_J_inv and run_eigendec.py"""
