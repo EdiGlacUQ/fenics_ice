@@ -27,7 +27,7 @@ jobs:
       - name: Checkout tlm_adjoint
         uses: actions/checkout@v4
         with:
-          repository: 'EdiGlacUQ/tlm_adjoint'
+          repository: 'tlm-adjoint/tlm_adjoint'
           path: 'tlm_adjoint'
       - name: Install dependencies
         run: |
