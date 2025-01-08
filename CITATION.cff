@@ -1,9 +1,14 @@
-cff-version: 1.1.0
+cff-version: 2.0.0
 message: "If you use this software, please cite it as below."
 authors:
-- family-names: Recinos
-  given-names: Beatriz
-orcid: https://orcid.org/0000-0002-0647-8131
-title:
-version: v2.0
+  - family-names: "Recinos"
+    given-names: "Beatriz"
+    orcid: "https://orcid.org/0000-0002-0647-8131"
+  - family-names: "Goldberg"
+    given-names: "Daniel"
+  - family-names: "Maddison"
+    given-names: "James R."
+    orcid: "https://orcid.org/0000-0001-5742-4363"
+title: "FEniCs_ice"
+version: v2.0.0
 date-released: 2025-01-07
