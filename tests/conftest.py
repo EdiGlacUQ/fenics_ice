@@ -424,7 +424,7 @@ def pytest_sessionfinish(session, exitstatus):
 
     if MPI.COMM_WORLD.size > 1:
         gc.enable()
-        gc.collect()
+        # gc.collect()
 
     root = (MPI.COMM_WORLD.rank == 0)
 

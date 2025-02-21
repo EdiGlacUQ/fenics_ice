@@ -57,7 +57,7 @@ def test_run_inversion(persistent_temp_model, monkeypatch):
     cntrl = mdl_out.solvers[0].get_control()[0]
     cntrl_norm = norm(cntrl.vector())
 
-    J_inv = mdl_out.solvers[0].J_inv.value()
+    J_inv = mdl_out.solvers[0].J_inv.value
 
     if pytest.parallel:
         tol = 1e-2
@@ -232,7 +232,7 @@ def test_tv_run_forward(existing_temp_model, monkeypatch, setup_deps):
                                                              cntrl_curr_init,
                                                              cntrl_curr.name()),
                                 cntrl_curr,
-                                J_val=J.value(),
+                                J_val=J.value,
                                 dJ=dJ_curr,
                                 seed=seeds[cntrl_curr.name()],
                                 M0=cntrl_curr_init,
@@ -372,7 +372,7 @@ def test_run_smith_inversion(temp_model, monkeypatch):
     mdl_out = run_inv.run_inv(toml_file)
 
     # Test inversion value
-    J_inv = mdl_out.solvers[0].J_inv.value()
+    J_inv = mdl_out.solvers[0].J_inv.value
 
     pytest.check_float_result(J_inv,
                               expected_J_inv,
